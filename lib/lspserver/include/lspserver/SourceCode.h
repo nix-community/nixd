@@ -23,7 +23,7 @@ namespace lspserver {
 
 template <class Type> class Key {
 public:
-  static_assert(!std::is_reference<Type>::value,
+  static_assert(!std::is_reference_v<Type>,
                 "Reference arguments to Key<> are not allowed");
 
   constexpr Key() = default;
