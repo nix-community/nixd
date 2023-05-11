@@ -1,8 +1,16 @@
 #include "nixd/Server.h"
+#include "globals.hh"
 #include "lspserver/Path.h"
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
+
+#include <nix/canon-path.hh>
+#include <nix/eval.hh>
+#include <nix/shared.hh>
+#include <nix/store-api.hh>
+
+#include <exception>
 
 namespace nixd {
 
@@ -23,6 +31,10 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
         llvm::json::Object{{"name", "nixd"}, {"version", "0.0.0"}}},
        {"capabilities", std::move(ServerCaps)}}};
   Reply(std::move(Result));
+
+  nix::initNix();
+  nix::initPlugins();
+  nix::initGC();
 }
 
 std::string Server::encodeVersion(std::optional<int64_t> LSPVersion) {
@@ -44,6 +56,20 @@ void Server::onDocumentDidOpen(
   const std::string &Contents = Params.textDocument.text;
 
   addDocument(File, Contents, encodeVersion(Params.textDocument.version));
+  lspserver::elog("nix settings: {0}", nix::settings.storeUri.get());
+  auto NixStore = nix::openStore();
+  auto State = std::make_unique<nix::EvalState>(nix::Strings(), NixStore);
+  try {
+    State->parseExprFromFile(File.str());
+  } catch (const nix::ParseError &PE) {
+    lspserver::elog("got nix parse error! {0}", PE.msg());
+    // TODO: provide diagnostic
+  } catch (const nix::UndefinedVarError &UVE) {
+    lspserver::elog("got nix undefined variable error! {0}", UVE.msg());
+    // TODO: provide diagnostic
+  } catch (const std::exception &E) {
+    lspserver::elog("unknown error while parsing! {0}", E.what());
+  }
 }
 
 void Server::onDocumentDidChange(
