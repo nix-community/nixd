@@ -40,6 +40,8 @@ void OutboundPort::reply(llvm::json::Value ID,
 }
 
 void OutboundPort::sendMessage(llvm::json::Value Message) {
+  // Make sure our outputs are not interleaving between messages (json)
+  std::lock_guard<std::mutex> Guard(Mutex);
   OutputBuffer.clear();
   llvm::raw_svector_ostream SVecOS(OutputBuffer);
   SVecOS << llvm::formatv("{0}", Message);
