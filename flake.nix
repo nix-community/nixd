@@ -10,7 +10,7 @@
       with pkgs;
       let
         llvmPackages = llvmPackages_16;
-        devInputs = [ clang-tools ];
+        devInputs = [ clang-tools gdb ];
         nativeBuildInputs = [
           meson
           ninja
@@ -31,6 +31,10 @@
         devShells.default = mkShell {
           nativeBuildInputs = devInputs ++ nativeBuildInputs;
           inherit buildInputs;
+          shellHook = ''
+            export NIX_DEBUG_INFO_DIRS=${nix.debug}/lib/debug
+            export NIX_SRC=${nix.src}
+          '';
         };
       };
     systems = [ "x86_64-linux" ];
