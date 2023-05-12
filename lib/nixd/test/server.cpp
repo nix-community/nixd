@@ -74,3 +74,23 @@ TEST(Server, DiagnosticCorrect) {
   ASSERT_TRUE(SRO.contains(R"("diagnostics":[])"));
   ASSERT_TRUE(SRO.starts_with("Content-Length:"));
 }
+
+static const char *SemaUndefineVariableNix =
+    R"(
+# "foo" is undefined
+with whatEverUndefined; [
+
+]
+)";
+
+TEST(Server, DiagnosticSemaUndefineVariable) {
+  ServerTest S;
+  auto &Server = S.getServer();
+  Server.publishStandloneDiagnostic(getDummyUri(), SemaUndefineVariableNix, 1);
+  llvm::StringRef SRO = S.getBuffer();
+  std::cout << SRO.str() << "\n";
+  ASSERT_TRUE(SRO.contains("undefined variable"));
+  // TODO: Strip ANSI colors here, or report upstream
+  //   ASSERT_TRUE(SRO.contains(R"("whatEverUndefined)"));
+  ASSERT_TRUE(SRO.starts_with("Content-Length:"));
+}

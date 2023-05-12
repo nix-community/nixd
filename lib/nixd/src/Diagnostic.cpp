@@ -1,7 +1,7 @@
 #include "nixd/Diagnostic.h"
 #include "lspserver/Protocol.h"
 
-std::vector<lspserver::Diagnostic> mkDiagnostics(nix::ParseError PE) {
+std::vector<lspserver::Diagnostic> mkDiagnostics(nix::Error PE) {
   std::vector<lspserver::Diagnostic> Ret;
   auto ErrPos = PE.info().errPos;
   lspserver::Position ErrLoc{.line = static_cast<int>(ErrPos->line) - 1,
