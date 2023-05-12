@@ -19,10 +19,12 @@
 
           nix.dev
           boost.dev
+          gtest.dev
           llvmPackages.llvm.dev
         ];
         buildInputs = [
           nix
+          gtest
 
           llvmPackages.llvm.lib
         ];

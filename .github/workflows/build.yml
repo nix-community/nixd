@@ -18,3 +18,4 @@ jobs:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
     - run: nix develop --command meson setup build/ --buildtype=release
     - run: nix develop --command meson compile -C build
+    - run: nix develop --command meson test -C build

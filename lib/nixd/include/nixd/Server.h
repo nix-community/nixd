@@ -6,6 +6,7 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
+#include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/JSON.h>
 
 namespace nixd {
@@ -27,6 +28,9 @@ class Server : public lspserver::LSPServer {
   /// treats them as opaque and therefore uses strings instead.
   static std::string encodeVersion(std::optional<int64_t> LSPVersion);
 
+  llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
+      PublishDiagnostic;
+
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out)
@@ -39,6 +43,8 @@ public:
                              &Server::onDocumentDidOpen);
     Registry.addNotification("textDocument/didChange", this,
                              &Server::onDocumentDidChange);
+    PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
+        "textDocument/publishDiagnostics");
   }
 
   void onInitialize(const lspserver::InitializeParams &,
@@ -50,6 +56,10 @@ public:
 
   void
   onDocumentDidChange(const lspserver::DidChangeTextDocumentParams &Params);
+
+  void publishStandloneDiagnostic(lspserver::URIForFile Uri,
+                                  std::string Content,
+                                  std::optional<int64_t> LSPVersion);
 };
 
 }; // namespace nixd
