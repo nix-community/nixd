@@ -34,6 +34,8 @@
           shellHook = ''
             export NIX_DEBUG_INFO_DIRS=${nix.debug}/lib/debug
             export NIX_SRC=${nix.src}
+            export NIX_CONFIG_H=${nix.dev}/include/nix/config.h
+            export CXXFLAGS="-include $NIX_CONFIG_H"
           '';
         };
       };
