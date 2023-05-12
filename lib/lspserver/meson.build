@@ -5,6 +5,8 @@ nixd_lsp_server_lib = library('nixd-lspserver'
   , 'src/Logger.cpp'
   , 'src/Protocol.cpp'
   , 'src/URI.cpp'
+  , 'src/DraftStore.cpp'
+  , 'src/SourceCode.cpp'
   ]
 , include_directories: nixd_lsp_server_inc
 , dependencies: [ llvm ]
