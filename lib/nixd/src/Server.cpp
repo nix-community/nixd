@@ -51,8 +51,8 @@ void Server::onDocumentDidOpen(
   const std::string &Contents = Params.textDocument.text;
 
   addDocument(File, Contents, encodeVersion(Params.textDocument.version));
-  publishStandloneDiagnostic(Params.textDocument.uri, Contents,
-                             Params.textDocument.version);
+  publishStandaloneDiagnostic(Params.textDocument.uri, Contents,
+                              Params.textDocument.version);
 }
 
 void Server::onDocumentDidChange(
@@ -76,13 +76,13 @@ void Server::onDocumentDidChange(
     }
   }
   addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
-  publishStandloneDiagnostic(Params.textDocument.uri, NewCode,
-                             Params.textDocument.version);
+  publishStandaloneDiagnostic(Params.textDocument.uri, NewCode,
+                              Params.textDocument.version);
 }
 
-void Server::publishStandloneDiagnostic(lspserver::URIForFile Uri,
-                                        std::string Content,
-                                        std::optional<int64_t> LSPVersion) {
+void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
+                                         std::string Content,
+                                         std::optional<int64_t> LSPVersion) {
   auto NixStore = nix::openStore();
   auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
   try {

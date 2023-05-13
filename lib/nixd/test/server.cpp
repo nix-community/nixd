@@ -49,7 +49,7 @@ static lspserver::URIForFile getDummyUri() {
 TEST(Server, Diagnostic) {
   ServerTest S;
   auto &Server = S.getServer();
-  Server.publishStandloneDiagnostic(getDummyUri(), ParseErrorNix, 1);
+  Server.publishStandaloneDiagnostic(getDummyUri(), ParseErrorNix, 1);
   llvm::StringRef SRO = S.getBuffer();
   ASSERT_TRUE(SRO.contains(
       R"("message":"syntax error, unexpected end of file, expecting '.' or '='")"));
@@ -69,7 +69,7 @@ static const char *ParseCorretNix =
 TEST(Server, DiagnosticCorrect) {
   ServerTest S;
   auto &Server = S.getServer();
-  Server.publishStandloneDiagnostic(getDummyUri(), ParseCorretNix, 1);
+  Server.publishStandaloneDiagnostic(getDummyUri(), ParseCorretNix, 1);
   llvm::StringRef SRO = S.getBuffer();
   ASSERT_FALSE(SRO.contains("message"));
   ASSERT_TRUE(SRO.contains(R"("diagnostics":[])"));
@@ -87,7 +87,7 @@ with whatEverUndefined; [
 TEST(Server, DiagnosticSemaUndefineVariable) {
   ServerTest S;
   auto &Server = S.getServer();
-  Server.publishStandloneDiagnostic(getDummyUri(), SemaUndefineVariableNix, 1);
+  Server.publishStandaloneDiagnostic(getDummyUri(), SemaUndefineVariableNix, 1);
   llvm::StringRef SRO = S.getBuffer();
   std::cout << SRO.str() << "\n";
   ASSERT_TRUE(SRO.contains("undefined variable"));

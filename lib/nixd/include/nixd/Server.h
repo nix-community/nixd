@@ -58,9 +58,9 @@ public:
   void
   onDocumentDidChange(const lspserver::DidChangeTextDocumentParams &Params);
 
-  void publishStandloneDiagnostic(lspserver::URIForFile Uri,
-                                  std::string Content,
-                                  std::optional<int64_t> LSPVersion);
+  void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
+                                   std::string Content,
+                                   std::optional<int64_t> LSPVersion);
 };
 
 }; // namespace nixd
