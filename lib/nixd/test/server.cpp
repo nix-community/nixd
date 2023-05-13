@@ -131,3 +131,18 @@ TEST(Server, EvalCorrect) {
   ASSERT_TRUE(SRO.contains(R"("diagnostics":[])"));
   ASSERT_TRUE(SRO.starts_with("Content-Length:"));
 }
+
+static const char *EvalNoPositionNix =
+    R"(
+builtins.fromJSON ''{]''
+)";
+
+TEST(Server, EvalNoPosition) {
+  ServerTest S;
+  auto &Server = S.getServer();
+  Server.publishStandaloneDiagnostic(getDummyUri(), EvalNoPositionNix, 1);
+  llvm::StringRef SRO = S.getBuffer();
+  ASSERT_TRUE(SRO.contains(
+      R"(syntax error while parsing object key - unexpected ']')"));
+  ASSERT_TRUE(SRO.starts_with("Content-Length:"));
+}
