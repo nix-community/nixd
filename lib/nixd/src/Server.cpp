@@ -22,7 +22,6 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
            {"change", (int)lspserver::TextDocumentSyncKind::Incremental},
            {"save", true},
        }},
-      {"workspaceSymbolProvider", true},
   };
 
   llvm::json::Object Result{

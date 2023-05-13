@@ -4,7 +4,10 @@
 #include "lspserver/Function.h"
 #include "lspserver/LSPBinder.h"
 
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
+#include <llvm/Support/JSON.h>
+
 #include <memory>
 
 #include <llvm/ADT/StringRef.h>
