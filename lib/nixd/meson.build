@@ -1,15 +1,27 @@
 nixd_server_inc = include_directories('include')
 nixd_server_lib = library('nixd-lsp'
 , [ 'src/Server.cpp'
+  , 'src/Diagnostic.cpp'
   ]
 , include_directories: nixd_server_inc
 , dependencies: [ llvm
-                , nix_expr
-                , nix_cmd
-                , nix_store
                 , nixd_lsp_server
-                ]
+                ] + nix_all
 )
 nixd_server= declare_dependency( link_with: nixd_server_lib
                             , include_directories: nixd_server_inc
                             )
+
+test_server = executable('test-server'
+, [ 'test/server.cpp'
+  , 'test/diagnostic.cpp'
+  ]
+, dependencies: [ nixd_server
+                , llvm
+                , gtest_main
+                , nixd_lsp_server
+                ] + nix_all
+, build_by_default: false
+)
+
+test('server', test_server)

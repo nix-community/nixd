@@ -1,9 +1,16 @@
 #include "nixd/Server.h"
+#include "nixd/Diagnostic.h"
+
 #include "lspserver/Path.h"
+#include "lspserver/Protocol.h"
+
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
 
+#include <nix/eval.hh>
+#include <nix/store-api.hh>
 namespace nixd {
 
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
@@ -43,6 +50,8 @@ void Server::onDocumentDidOpen(
   const std::string &Contents = Params.textDocument.text;
 
   addDocument(File, Contents, encodeVersion(Params.textDocument.version));
+  publishStandaloneDiagnostic(Params.textDocument.uri, Contents,
+                              Params.textDocument.version);
 }
 
 void Server::onDocumentDidChange(
@@ -66,6 +75,26 @@ void Server::onDocumentDidChange(
     }
   }
   addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
+  publishStandaloneDiagnostic(Params.textDocument.uri, NewCode,
+                              Params.textDocument.version);
+}
+
+void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
+                                         std::string Content,
+                                         std::optional<int64_t> LSPVersion) {
+  auto NixStore = nix::openStore();
+  auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
+  try {
+    NixState->parseExprFromString(std::move(Content), Uri.file().str());
+  } catch (const nix::Error &PE) {
+    PublishDiagnostic(lspserver::PublishDiagnosticsParams{
+        .uri = Uri, .diagnostics = mkDiagnostics(PE), .version = LSPVersion});
+    return;
+  } catch (...) {
+    return;
+  }
+  PublishDiagnostic(lspserver::PublishDiagnosticsParams{
+      .uri = Uri, .diagnostics = {}, .version = LSPVersion});
 }
 
 } // namespace nixd
