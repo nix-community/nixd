@@ -1,4 +1,5 @@
 #include "nixd/Diagnostic.h"
+
 #include "lspserver/Protocol.h"
 
 std::vector<lspserver::Diagnostic> mkDiagnostics(nix::Error PE) {

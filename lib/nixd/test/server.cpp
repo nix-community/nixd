@@ -1,15 +1,16 @@
+#include "nixd/Server.h"
 #include "lspserver/Protocol.h"
+
 #include <gtest/gtest.h>
 
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
-#include <memory>
-#include <nixd/Server.h>
 
 #include <nix/eval.hh>
 #include <nix/shared.hh>
 
 #include <filesystem>
+#include <memory>
 
 class ServerTest {
   std::unique_ptr<nixd::Server> Server;

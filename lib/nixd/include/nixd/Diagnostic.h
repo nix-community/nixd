@@ -1,5 +1,6 @@
 #pragma once
 #include "lspserver/Protocol.h"
-#include "nixexpr.hh"
+
+#include <nixexpr.hh>
 
 std::vector<lspserver::Diagnostic> mkDiagnostics(nix::Error PE);

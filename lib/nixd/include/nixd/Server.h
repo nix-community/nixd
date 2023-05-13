@@ -6,6 +6,7 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
+
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/JSON.h>
 

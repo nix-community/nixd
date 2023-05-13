@@ -1,7 +1,9 @@
 #include "nixd/Server.h"
+#include "nixd/Diagnostic.h"
+
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
-#include "nixd/Diagnostic.h"
+
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>

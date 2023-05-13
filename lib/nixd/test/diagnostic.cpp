@@ -1,12 +1,13 @@
 #include "nixd/Diagnostic.h"
-#include "nixexpr.hh"
 
 #include <gtest/gtest.h>
 
-#include <iostream>
 #include <nix/eval.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
+#include <nixexpr.hh>
+
+#include <iostream>
 
 class DiagnosticTest {
 
