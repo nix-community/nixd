@@ -55,9 +55,7 @@ protected:
   template <class T>
   llvm::unique_function<void(const T &)>
   mkOutNotifiction(llvm::StringRef Method) {
-    return [Method = Method, this](const T &Params) {
-      Out->notify(Method, Params);
-    };
+    return [=](const T &Params) { Out->notify(Method, Params); };
   }
 
   template <class ParamTy, class ResponseTy>
