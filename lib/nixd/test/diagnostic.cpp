@@ -8,7 +8,7 @@
 #include <nixexpr.hh>
 
 #include <iostream>
-
+namespace nixd {
 class DiagnosticTest {
 
 public:
@@ -42,3 +42,4 @@ TEST(Diagnostic, ConstructFromParseError) {
               R"(syntax error, unexpected end of file, expecting '.' or '=')");
   }
 }
+} // namespace nixd
