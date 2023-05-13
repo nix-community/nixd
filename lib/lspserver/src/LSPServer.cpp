@@ -1,9 +1,11 @@
 #include "lspserver/LSPServer.h"
 #include "lspserver/Connection.h"
 #include "lspserver/Function.h"
+
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
+
 #include <mutex>
 
 namespace lspserver {
