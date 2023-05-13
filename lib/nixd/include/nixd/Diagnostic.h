@@ -3,4 +3,4 @@
 
 #include <nixexpr.hh>
 
-std::vector<lspserver::Diagnostic> mkDiagnostics(nix::Error PE);
+std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::Error &PE);
