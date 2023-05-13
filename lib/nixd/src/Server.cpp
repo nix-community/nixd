@@ -85,7 +85,10 @@ void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
   auto NixStore = nix::openStore();
   auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
   try {
-    NixState->parseExprFromString(std::move(Content), Uri.file().str());
+    auto *E =
+        NixState->parseExprFromString(std::move(Content), Uri.file().str());
+    nix::Value V;
+    NixState->eval(E, V);
   } catch (const nix::Error &PE) {
     PublishDiagnostic(lspserver::PublishDiagnosticsParams{
         .uri = Uri, .diagnostics = mkDiagnostics(PE), .version = LSPVersion});

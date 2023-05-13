@@ -95,3 +95,39 @@ TEST(Server, DiagnosticSemaUndefineVariable) {
   //   ASSERT_TRUE(SRO.contains(R"("whatEverUndefined)"));
   ASSERT_TRUE(SRO.starts_with("Content-Length:"));
 }
+
+static const char *EvalErrorNix =
+    R"(
+let
+  func = {a, b}: a + b;
+in
+  func { a = 1; }
+)";
+
+TEST(Server, EvalError) {
+  ServerTest S;
+  auto &Server = S.getServer();
+  Server.publishStandaloneDiagnostic(getDummyUri(), EvalErrorNix, 1);
+  llvm::StringRef SRO = S.getBuffer();
+  ASSERT_TRUE(SRO.contains("called without required argument"));
+  ASSERT_TRUE(SRO.contains(R"({"character":2,"line":4})"));
+  ASSERT_TRUE(SRO.starts_with("Content-Length:"));
+}
+
+static const char *EvalCorrectNix =
+    R"(
+let
+  func = {a, b}: a + b;
+in
+  func { a = 1; b = 2; }
+)";
+
+TEST(Server, EvalCorrect) {
+  ServerTest S;
+  auto &Server = S.getServer();
+  Server.publishStandaloneDiagnostic(getDummyUri(), EvalCorrectNix, 1);
+  llvm::StringRef SRO = S.getBuffer();
+  ASSERT_FALSE(SRO.contains("called without required argument"));
+  ASSERT_TRUE(SRO.contains(R"("diagnostics":[])"));
+  ASSERT_TRUE(SRO.starts_with("Content-Length:"));
+}
