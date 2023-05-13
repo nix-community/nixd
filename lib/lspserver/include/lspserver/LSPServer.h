@@ -52,12 +52,17 @@ private:
 
 protected:
   HandlerRegistry Registry;
+
+  /// \return a unique_function that could be invoked to notify the client (i.e.
+  /// no replies are expected).
   template <class T>
   llvm::unique_function<void(const T &)>
   mkOutNotifiction(llvm::StringRef Method) {
     return [=](const T &Params) { Out->notify(Method, Params); };
   }
 
+  /// \return a unique_function that could be invoked to "call" the client (i.e.
+  /// clients are expected to reply our requests).
   template <class ParamTy, class ResponseTy>
   llvm::unique_function<void(const ParamTy &, Callback<ResponseTy>)>
   mkOutMethod(llvm::StringRef Method) {
