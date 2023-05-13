@@ -4,6 +4,7 @@
 
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/raw_ostream.h>
+#include <mutex>
 
 namespace lspserver {
 
@@ -47,6 +48,8 @@ private:
   llvm::raw_ostream &Outs;
 
   llvm::SmallVector<char, 0> OutputBuffer;
+
+  std::mutex Mutex;
 
 public:
   OutboundPort() : Outs(llvm::outs()) {}
