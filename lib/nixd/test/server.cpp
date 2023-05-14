@@ -1,6 +1,7 @@
 #include "nixd/Server.h"
 #include "lspserver/Protocol.h"
 
+#include <cstdio>
 #include <gtest/gtest.h>
 
 #include <llvm/ADT/StringRef.h>
@@ -145,4 +146,22 @@ TEST(Server, EvalNoPosition) {
   ASSERT_TRUE(SRO.contains(
       R"(syntax error while parsing object key - unexpected ']')"));
   ASSERT_TRUE(SRO.starts_with("Content-Length:"));
+}
+
+static lspserver::URIForFile getDummyFileUri() {
+  auto CurrentAbsolute = std::string("/foo/bar.nix");
+  return lspserver::URIForFile::canonicalize(CurrentAbsolute, CurrentAbsolute);
+}
+
+static const char* IncludeNixSrc = R"(
+import ./baz.nix
+)";
+
+TEST(Server, IncludePath) {
+  ServerTest S;
+  auto &Server = S.getServer();
+  Server.publishStandaloneDiagnostic(getDummyFileUri(), IncludeNixSrc, 1);
+  llvm::StringRef SRO = S.getBuffer();
+  ASSERT_TRUE(SRO.contains(
+      R"(foo/baz.nix)"));
 }
