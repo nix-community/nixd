@@ -11,6 +11,9 @@
 
 #include <nix/eval.hh>
 #include <nix/store-api.hh>
+
+#include <filesystem>
+namespace fs = std::filesystem;
 namespace nixd {
 
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
@@ -85,8 +88,9 @@ void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
   auto NixStore = nix::openStore();
   auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
   try {
+    fs::path Path = Uri.file().str();
     auto *E =
-        NixState->parseExprFromString(std::move(Content), Uri.file().str());
+        NixState->parseExprFromString(std::move(Content), Path.remove_filename());
     nix::Value V;
     NixState->eval(E, V);
   } catch (const nix::Error &PE) {
