@@ -1480,4 +1480,17 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const ASTNode &Root) {
   return OS;
 }
 
+llvm::json::Value toJSON(const ConfigurationItem &N) {
+  llvm::json::Object R;
+  if (N.scopeUri)
+    R["scopeUri"] = N.scopeUri;
+  if (N.section)
+    R["section"] = N.section;
+  return R;
+}
+
+llvm::json::Value toJSON(const ConfigurationParams &N) {
+  return llvm::json::Object{{"items", N.items}};
+}
+
 } // namespace lspserver

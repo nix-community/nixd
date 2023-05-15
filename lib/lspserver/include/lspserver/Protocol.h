@@ -1880,6 +1880,23 @@ struct ASTNode {
 llvm::json::Value toJSON(const ASTNode &);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &, const ASTNode &);
 
+// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_configuration
+struct ConfigurationItem {
+
+  // The scope to get the configuration section for.
+  std::optional<URIForFile> scopeUri;
+
+  // The configuration section asked for.
+  std::optional<std::string> section;
+};
+llvm::json::Value toJSON(const ConfigurationItem &);
+
+struct ConfigurationParams {
+  std::vector<ConfigurationItem> items;
+};
+
+llvm::json::Value toJSON(const ConfigurationParams &);
+
 } // namespace lspserver
 namespace llvm {
 template <> struct format_provider<lspserver::Position> {
