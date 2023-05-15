@@ -19,3 +19,8 @@ jobs:
     - run: nix develop --command meson setup build/ --buildtype=release
     - run: nix develop --command meson compile -C build
     - run: nix develop --command meson test -C build
+    - uses: actions/upload-artifact@v3
+      if: failure()
+      with:
+        name: nix-build-develop-testlog
+        path: build/meson-logs/testlog.txt
