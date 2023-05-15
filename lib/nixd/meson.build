@@ -15,6 +15,7 @@ nixd_server= declare_dependency( link_with: nixd_server_lib
 test_server = executable('test-server'
 , [ 'test/server.cpp'
   , 'test/diagnostic.cpp'
+  , 'test/expr.cpp'
   ]
 , dependencies: [ nixd_server
                 , llvm
