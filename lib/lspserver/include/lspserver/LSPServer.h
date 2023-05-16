@@ -42,14 +42,15 @@ private:
   /// value.
   static constexpr int MaxPendingCalls = 100;
 
-  int TopID;
+  int TopID = 1;
 
   /// Allocate an "ID" (as returned value) for this callback.
   int bindReply(Callback<llvm::json::Value>);
 
   void callMethod(llvm::StringRef Method, llvm::json::Value Params,
                   Callback<llvm::json::Value> CB) {
-    llvm::json::Value ID{bindReply(std::move(CB))};
+    llvm::json::Value ID(bindReply(std::move(CB)));
+    log("--> call {0}({1})", Method, ID.getAsInteger());
     Out->call(Method, Params, ID);
   }
 
@@ -59,6 +60,7 @@ protected:
   llvm::unique_function<void(const T &)>
   mkOutNotifiction(llvm::StringRef Method) {
     return [Method = Method, this](const T &Params) {
+      log("--> notify {0}", Method);
       Out->notify(Method, Params);
     };
   }
@@ -66,10 +68,10 @@ protected:
   template <class ParamTy, class ResponseTy>
   llvm::unique_function<void(const ParamTy &, Callback<ResponseTy>)>
   mkOutMethod(llvm::StringRef Method) {
-    return [&](const ParamTy &Params, Callback<ResponseTy> Reply) {
+    return [=](const ParamTy &Params, Callback<ResponseTy> Reply) {
       callMethod(Method, Params,
                  [=, Reply = std::move(Reply)](
-                     llvm::Expected<llvm::json::Value> Response) {
+                     llvm::Expected<llvm::json::Value> Response) mutable {
                    if (!Response)
                      return Reply(Response.takeError());
                    Reply(parseParam<ResponseTy>(std::move(*Response), Method,

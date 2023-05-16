@@ -89,8 +89,8 @@ void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
   auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
   try {
     fs::path Path = Uri.file().str();
-    auto *E = NixState->parseExprFromString(std::move(Content),
-                                            Path.remove_filename());
+    auto *E =
+        NixState->parseExprFromString(std::move(Content), Path.remove_filename());
     nix::Value V;
     NixState->eval(E, V);
   } catch (const nix::Error &PE) {
