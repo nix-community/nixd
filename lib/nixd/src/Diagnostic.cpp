@@ -16,7 +16,7 @@ FUNC(ANSI_BLUE)    \
 FUNC(ANSI_MAGENTA) \
 FUNC(ANSI_CYAN)
 
-static std::string ansiFilter(std::string Msg){
+static std::string stripANSI(std::string Msg){
 #define REMOVE_ANSI_STR_FUNC(ANSI_STR) \
     do { \
         auto Pos = Msg.find(ANSI_STR); \
@@ -38,7 +38,7 @@ std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::Error &PE) {
       ErrPos ? translatePosition(*ErrPos) : lspserver::Position{};
   Ret.push_back(lspserver::Diagnostic{.range = {.start = ErrLoc, .end = ErrLoc},
                                       .severity = /* Error */ 1,
-                                      .message = ansiFilter(PE.info().msg.str())});
+                                      .message = stripANSI(PE.info().msg.str())});
   return Ret;
 }
 

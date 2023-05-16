@@ -1,7 +1,6 @@
 #include "nixd/Server.h"
 #include "lspserver/Protocol.h"
 
-#include <cstdio>
 #include <gtest/gtest.h>
 
 #include <llvm/ADT/StringRef.h>
