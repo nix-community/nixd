@@ -2,27 +2,30 @@
 
 #include "lspserver/Protocol.h"
 
-using std::string;
-#define __REMOVED_ANSI_STR__(_) \
-_("\e[0m") \
-_("\e[1m") \
-_("\e[2m") \
-_("\e[3m") \
-_("\e[31;1m") \
-_("\e[32;1m") \
-_("\e[35;1m") \
-_("\e[34;1m") \
-_("\e[35;1m") \
-_("\e[36;1m") \
+#include <nix/ansicolor.hh>
+
+#define FOREACH_ANSI_COLOR(FUNC) \
+FUNC(ANSI_NORMAL)  \
+FUNC(ANSI_BOLD)    \
+FUNC(ANSI_FAINT)   \
+FUNC(ANSI_ITALIC)  \
+FUNC(ANSI_RED)     \
+FUNC(ANSI_GREEN)   \
+FUNC(ANSI_WARNING) \
+FUNC(ANSI_BLUE)    \
+FUNC(ANSI_MAGENTA) \
+FUNC(ANSI_CYAN)
 
 static std::string ansiFilter(std::string Msg){
-    #define __REMOVE_ANSI_STR_CODE__(ansi_str) \
+#define REMOVE_ANSI_STR_FUNC(ANSI_STR) \
     do { \
-        auto Pos = Msg.find(ansi_str); \
-        if (Pos==string::npos) break; \
-        Msg.erase(Pos, std::strlen(ansi_str)); \
-    } while(1);
-    __REMOVED_ANSI_STR__(__REMOVE_ANSI_STR_CODE__)
+        auto Pos = Msg.find(ANSI_STR); \
+        if (Pos == std::string::npos)  \
+            break; \
+        Msg.erase(Pos, std::strlen(ANSI_STR)); \
+    } while(true);
+    FOREACH_ANSI_COLOR(REMOVE_ANSI_STR_FUNC)
+#undef REMOVE_ANSI_STR_FUNC
     return Msg;
 }
 
