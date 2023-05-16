@@ -4,27 +4,27 @@
 
 #include <nix/ansicolor.hh>
 
-#define FOREACH_ANSI_COLOR(FUNC) \
-FUNC(ANSI_NORMAL)  \
-FUNC(ANSI_BOLD)    \
-FUNC(ANSI_FAINT)   \
-FUNC(ANSI_ITALIC)  \
-FUNC(ANSI_RED)     \
-FUNC(ANSI_GREEN)   \
-FUNC(ANSI_WARNING) \
-FUNC(ANSI_BLUE)    \
-FUNC(ANSI_MAGENTA) \
-FUNC(ANSI_CYAN)
+#define FOREACH_ANSI_COLOR(FUNC)                                               \
+  FUNC(ANSI_NORMAL)                                                            \
+  FUNC(ANSI_BOLD)                                                              \
+  FUNC(ANSI_FAINT)                                                             \
+  FUNC(ANSI_ITALIC)                                                            \
+  FUNC(ANSI_RED)                                                               \
+  FUNC(ANSI_GREEN)                                                             \
+  FUNC(ANSI_WARNING)                                                           \
+  FUNC(ANSI_BLUE)                                                              \
+  FUNC(ANSI_MAGENTA)                                                           \
+  FUNC(ANSI_CYAN)
 
 static std::string stripANSI(std::string Msg){
-#define REMOVE_ANSI_STR_FUNC(ANSI_STR) \
-    do { \
-        auto Pos = Msg.find(ANSI_STR); \
-        if (Pos == std::string::npos)  \
-            break; \
-        Msg.erase(Pos, std::strlen(ANSI_STR)); \
-    } while(true);
-    FOREACH_ANSI_COLOR(REMOVE_ANSI_STR_FUNC)
+#define REMOVE_ANSI_STR_FUNC(ANSI_STR)                                         \
+  do {                                                                         \
+    auto Pos = Msg.find(ANSI_STR);                                             \
+    if (Pos == std::string::npos)                                              \
+      break;                                                                   \
+    Msg.erase(Pos, std::strlen(ANSI_STR));                                     \
+  } while (true);
+  FOREACH_ANSI_COLOR(REMOVE_ANSI_STR_FUNC)
 #undef REMOVE_ANSI_STR_FUNC
     return Msg;
 }
