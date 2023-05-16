@@ -29,7 +29,7 @@ llvm::Expected<T> parseParam(const llvm::json::Value &Raw,
                       fmt_consume(Root.getError())),
         ErrorCode::InvalidParams);
   }
-  return std::move(Result);
+  return Result;
 }
 struct HandlerRegistry {
   using JSON = llvm::json::Value;

@@ -473,7 +473,7 @@ llvm::json::Value toJSON(const WorkDoneProgressBegin &P) {
     Result["percentage"] = 0;
 
   // FIXME: workaround for older gcc/clang
-  return std::move(Result);
+  return Result;
 }
 
 llvm::json::Value toJSON(const WorkDoneProgressReport &P) {
@@ -485,7 +485,7 @@ llvm::json::Value toJSON(const WorkDoneProgressReport &P) {
   if (P.percentage)
     Result["percentage"] = *P.percentage;
   // FIXME: workaround for older gcc/clang
-  return std::move(Result);
+  return Result;
 }
 
 llvm::json::Value toJSON(const WorkDoneProgressEnd &P) {
@@ -493,7 +493,7 @@ llvm::json::Value toJSON(const WorkDoneProgressEnd &P) {
   if (P.message)
     Result["message"] = *P.message;
   // FIXME: workaround for older gcc/clang
-  return std::move(Result);
+  return Result;
 }
 
 llvm::json::Value toJSON(const MessageType &R) {
@@ -623,7 +623,7 @@ llvm::json::Value toJSON(const Diagnostic &D) {
   if (!D.tags.empty())
     Diag["tags"] = llvm::json::Array{D.tags};
   // FIXME: workaround for older gcc/clang
-  return std::move(Diag);
+  return Diag;
 }
 
 bool fromJSON(const llvm::json::Value &Params, Diagnostic &R,
@@ -647,7 +647,7 @@ llvm::json::Value toJSON(const PublishDiagnosticsParams &PDP) {
   };
   if (PDP.version)
     Result["version"] = PDP.version;
-  return std::move(Result);
+  return Result;
 }
 
 bool fromJSON(const llvm::json::Value &Params, CodeActionContext &R,
@@ -729,7 +729,7 @@ llvm::json::Value toJSON(const SymbolInformation &P) {
   };
   if (P.score)
     O["score"] = *P.score;
-  return std::move(O);
+  return O;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O,
@@ -749,7 +749,7 @@ llvm::json::Value toJSON(const Command &C) {
   auto Cmd = llvm::json::Object{{"title", C.title}, {"command", C.command}};
   if (!C.argument.getAsNull())
     Cmd["arguments"] = llvm::json::Array{C.argument};
-  return std::move(Cmd);
+  return Cmd;
 }
 
 const llvm::StringLiteral CodeAction::QUICKFIX_KIND = "quickfix";
@@ -768,7 +768,7 @@ llvm::json::Value toJSON(const CodeAction &CA) {
     CodeAction["edit"] = *CA.edit;
   if (CA.command)
     CodeAction["command"] = *CA.command;
-  return std::move(CodeAction);
+  return CodeAction;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const DocumentSymbol &S) {
@@ -788,7 +788,7 @@ llvm::json::Value toJSON(const DocumentSymbol &S) {
   if (S.deprecated)
     Result["deprecated"] = true;
   // FIXME: workaround for older gcc/clang
-  return std::move(Result);
+  return Result;
 }
 
 llvm::json::Value toJSON(const WorkspaceEdit &WE) {
@@ -908,7 +908,7 @@ llvm::json::Value toJSON(const Hover &H) {
   if (H.range)
     Result["range"] = toJSON(*H.range);
 
-  return std::move(Result);
+  return Result;
 }
 
 bool fromJSON(const llvm::json::Value &E, CompletionItemKind &Out,
@@ -982,7 +982,7 @@ llvm::json::Value toJSON(const CompletionItem &CI) {
   if (CI.deprecated)
     Result["deprecated"] = CI.deprecated;
   Result["score"] = CI.score;
-  return std::move(Result);
+  return Result;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const CompletionItem &I) {
@@ -1013,7 +1013,7 @@ llvm::json::Value toJSON(const ParameterInformation &PI) {
     Result["label"] = PI.labelString;
   if (!PI.documentation.empty())
     Result["documentation"] = PI.documentation;
-  return std::move(Result);
+  return Result;
 }
 
 llvm::json::Value toJSON(const SignatureInformation &SI) {
@@ -1024,7 +1024,7 @@ llvm::json::Value toJSON(const SignatureInformation &SI) {
   };
   if (!SI.documentation.value.empty())
     Result["documentation"] = SI.documentation;
-  return std::move(Result);
+  return Result;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O,
@@ -1078,7 +1078,7 @@ static llvm::json::Value encodeTokens(llvm::ArrayRef<SemanticToken> Toks) {
     Result.push_back(Tok.tokenModifiers);
   }
   assert(Result.size() == SemanticTokenEncodingSize * Toks.size());
-  return std::move(Result);
+  return Result;
 }
 
 bool operator==(const SemanticToken &L, const SemanticToken &R) {
@@ -1106,7 +1106,7 @@ llvm::json::Value toJSON(const SemanticTokensOrDelta &TE) {
     Result["edits"] = *TE.edits;
   if (TE.tokens)
     Result["data"] = encodeTokens(*TE.tokens);
-  return std::move(Result);
+  return Result;
 }
 
 bool fromJSON(const llvm::json::Value &Params, SemanticTokensParams &R,
@@ -1202,7 +1202,7 @@ llvm::json::Value toJSON(const TypeHierarchyItem::ResolveParams &RP) {
   llvm::json::Object Result{};
   if (RP.parents)
     Result["parents"] = RP.parents;
-  return std::move(Result);
+  return Result;
 }
 bool fromJSON(const llvm::json::Value &Params,
               TypeHierarchyItem::ResolveParams &RP, llvm::json::Path P) {
@@ -1219,7 +1219,7 @@ llvm::json::Value toJSON(const TypeHierarchyItem &I) {
 
   if (I.detail)
     Result["detail"] = I.detail;
-  return std::move(Result);
+  return Result;
 }
 
 bool fromJSON(const llvm::json::Value &Params, TypeHierarchyItem &I,
@@ -1274,7 +1274,7 @@ llvm::json::Value toJSON(const CallHierarchyItem &I) {
     Result["detail"] = I.detail;
   if (!I.data.empty())
     Result["data"] = I.data;
-  return std::move(Result);
+  return Result;
 }
 
 bool fromJSON(const llvm::json::Value &Params, CallHierarchyItem &I,
@@ -1336,7 +1336,7 @@ llvm::json::Value toJSON(const InlayHint &H) {
   auto K = toJSON(H.kind);
   if (!K.getAsNull())
     Result["kind"] = std::move(K);
-  return std::move(Result);
+  return Result;
 }
 bool operator==(const InlayHint &A, const InlayHint &B) {
   return std::tie(A.position, A.range, A.kind, A.label) ==
