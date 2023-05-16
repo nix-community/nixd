@@ -91,8 +91,7 @@ TEST(Server, DiagnosticSemaUndefineVariable) {
   llvm::StringRef SRO = S.getBuffer();
   std::cout << SRO.str() << "\n";
   ASSERT_TRUE(SRO.contains("undefined variable"));
-  // TODO: Strip ANSI colors here, or report upstream
-  //   ASSERT_TRUE(SRO.contains(R"("whatEverUndefined)"));
+  ASSERT_TRUE(SRO.contains("whatEverUndefined"));
   ASSERT_TRUE(SRO.starts_with("Content-Length:"));
 }
 
