@@ -1,5 +1,7 @@
 #include "nixd/Diagnostic.h"
 
+#include "test/nixutil.h"
+
 #include <gtest/gtest.h>
 
 #include <nix/eval.hh>
@@ -10,12 +12,9 @@
 #include <iostream>
 namespace nixd {
 class DiagnosticTest {
+  InitNix I;
 
 public:
-  DiagnosticTest() {
-    nix::initNix();
-    nix::initGC();
-  }
   std::unique_ptr<nix::EvalState> getDummyStore() {
     return std::make_unique<nix::EvalState>(nix::Strings{},
                                             nix::openStore("dummy://"));
