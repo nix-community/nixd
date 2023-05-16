@@ -51,7 +51,7 @@ public:
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
 
-  void onInitialized(const lspserver::InitializedParams &Params){};
+  void onInitialized(const lspserver::InitializedParams &){};
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 

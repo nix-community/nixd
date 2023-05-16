@@ -14,7 +14,7 @@ template <class Derived> struct RecursiveASTVisitor {
 #undef NIX_EXPR
 
 #define NIX_EXPR(EXPR)                                                         \
-  bool visit##EXPR(const nix::EXPR *E) { return true; }
+  bool visit##EXPR(const nix::EXPR *) { return true; }
 #include "NixASTNodes.inc"
 #undef NIX_EXPR
 

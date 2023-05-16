@@ -75,7 +75,7 @@ rec {
 #undef NIX_EXPR
 
 #define NIX_EXPR(EXPR)                                                         \
-  bool visit##EXPR(const nix::EXPR *E) {                                       \
+  bool visit##EXPR(const nix::EXPR *) {                                        \
     Visited##EXPR = true;                                                      \
     return true;                                                               \
   }
