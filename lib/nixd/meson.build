@@ -2,6 +2,7 @@ nixd_server_inc = include_directories('include')
 nixd_server_lib = library('nixd-lsp'
 , [ 'src/Server.cpp'
   , 'src/Diagnostic.cpp'
+  , 'src/CallbackExpr.cpp'
   ]
 , include_directories: nixd_server_inc
 , dependencies: [ llvm
