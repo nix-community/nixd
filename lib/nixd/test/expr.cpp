@@ -21,11 +21,11 @@ a
     bool VisitedWith = false;
     bool VisitedLet = false;
 
-    bool visitExprLet(const nix::ExprLet *EL) {
+    bool visitExprLet(const nix::ExprLet *) {
       VisitedLet = true;
       return true;
     }
-    bool visitExprWith(const nix::ExprWith *EW) {
+    bool visitExprWith(const nix::ExprWith *) {
       VisitedWith = true;
       return true;
     }
