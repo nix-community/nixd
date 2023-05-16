@@ -13,13 +13,13 @@ DEF_TRAVERSE_TYPE(ExprAttrs, {
 })
 
 DEF_TRAVERSE_TYPE(ExprCall, {
-  for (auto *Arg : T->args)
+  for (auto &Arg : T->args)
     TRY_TO_TRAVERSE(Arg);
   TRY_TO_TRAVERSE(T->fun);
 })
 
 DEF_TRAVERSE_TYPE(ExprConcatStrings, {
-  for (auto [_, E] : *T->es)
+  for (auto &[_, E] : *T->es)
     TRY_TO_TRAVERSE(E);
 })
 
@@ -35,7 +35,7 @@ DEF_TRAVERSE_TYPE(ExprInt, {})
 
 DEF_TRAVERSE_TYPE(ExprLambda, {
   if (T->hasFormals())
-    for (auto F : T->formals->formals)
+    for (auto &F : T->formals->formals)
       TRY_TO_TRAVERSE(F.def);
   TRY_TO_TRAVERSE(T->body);
 })
@@ -46,7 +46,7 @@ DEF_TRAVERSE_TYPE(ExprLet, {
 })
 
 DEF_TRAVERSE_TYPE(ExprList, {
-  for (auto *E : T->elems)
+  for (auto &E : T->elems)
     TRY_TO_TRAVERSE(E);
 })
 
@@ -68,7 +68,7 @@ DEF_TRAVERSE_BINARY_EXPR(ExprOpUpdate)
 
 DEF_TRAVERSE_TYPE(ExprOpHasAttr, {
   TRY_TO_TRAVERSE(T->e);
-  for (auto E : T->attrPath)
+  for (auto &E : T->attrPath)
     if (!E.symbol)
       TRY_TO_TRAVERSE(E.expr);
 })
@@ -80,7 +80,7 @@ DEF_TRAVERSE_TYPE(ExprPos, {})
 DEF_TRAVERSE_TYPE(ExprSelect, {
   TRY_TO_TRAVERSE(T->def);
   TRY_TO_TRAVERSE(T->e);
-  for (auto E : T->attrPath) {
+  for (auto &E : T->attrPath) {
     if (!E.symbol)
       TRY_TO_TRAVERSE(E.expr);
   }
