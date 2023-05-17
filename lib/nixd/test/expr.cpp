@@ -17,7 +17,7 @@ in
 with pkgs;
 a
   )";
-  InitNix N;
+  InitNix Inix;
   struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
     bool VisitedWith = false;
     bool VisitedLet = false;
@@ -32,9 +32,9 @@ a
     }
   } Visitor;
 
-  auto State = N.getDummyState();
-  auto *E = State->parseExprFromString(NixSrc, "/");
-  ASSERT_TRUE(Visitor.traverseExpr(E));
+  auto State = Inix.getDummyState();
+  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+  ASSERT_TRUE(Visitor.traverseExpr(ASTRoot));
   ASSERT_TRUE(Visitor.VisitedWith);
   ASSERT_TRUE(Visitor.VisitedLet);
 }
@@ -85,8 +85,8 @@ rec {
   } Visitor;
 
   auto State = N.getDummyState();
-  auto *E = State->parseExprFromString(NixSrc, "/");
-  ASSERT_TRUE(Visitor.traverseExpr(E));
+  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+  ASSERT_TRUE(Visitor.traverseExpr(ASTRoot));
 #define NIX_EXPR(EXPR) ASSERT_TRUE(Visitor.Visited##EXPR);
 #include "nixd/NixASTNodes.inc"
 #undef NIX_EXPR
@@ -94,7 +94,7 @@ rec {
 
 TEST(Expr, CallbackRewrite) {
   // Verify that all nodes are converted to our types
-  struct ASTDump : nixd::RecursiveASTVisitor<ASTDump>{
+  struct CallbackASTChecker : nixd::RecursiveASTVisitor<CallbackASTChecker>{
 
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) {                                       \
@@ -104,7 +104,7 @@ TEST(Expr, CallbackRewrite) {
   }
 #include "nixd/NixASTNodes.inc"
 #undef NIX_EXPR
-                   } A;
+                              } Visitor;
 
   static const char *NixSrc = R"(
 let
@@ -134,15 +134,15 @@ rec {
   exprWith = with someAttrSet; [ ];
 }
   )";
-  InitNix I;
-  auto S = I.getDummyState();
+  InitNix INix;
+  auto MyState = INix.getDummyState();
   auto Cxt = std::make_unique<ASTContext>();
-  auto *E = rewriteCallback(
+  auto *CallbackExprRoot = rewriteCallback(
       *Cxt,
       [](const nix::Expr *, const nix::EvalState &, const nix::Env &,
          const nix::Value &) {},
-      S->parseExprFromString(NixSrc, "/"));
-  A.traverseExpr(E);
+      MyState->parseExprFromString(NixSrc, "/"));
+  Visitor.traverseExpr(CallbackExprRoot);
 }
 
 } // namespace nixd
