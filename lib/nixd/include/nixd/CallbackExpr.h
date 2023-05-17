@@ -37,6 +37,8 @@ public:
 /// Evaluate the "Expr", and associate the AST with values.
 class ValueTree {};
 
+/// Rewrite the AST, rooted at \p Root, \returns the root of the result tree.
+/// Nodes are stored into \p Cxt
 nix::Expr *rewriteCallback(CallbackASTContext &Cxt, ExprCallback ECB,
                            const nix::Expr *Root);
 
