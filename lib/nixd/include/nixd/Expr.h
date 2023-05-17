@@ -5,6 +5,17 @@
 
 namespace nixd {
 
+/// Holds AST Nodes.
+class ASTContext {
+  std::vector<std::unique_ptr<nix::Expr>> Nodes;
+
+public:
+  template <class T> T *addNode(std::unique_ptr<T> Node) {
+    Nodes.push_back(std::move(Node));
+    return dynamic_cast<T *>(Nodes.back().get());
+  }
+};
+
 template <class Derived> struct RecursiveASTVisitor {
 
   bool shouldTraversePostOrder() { return false; }
