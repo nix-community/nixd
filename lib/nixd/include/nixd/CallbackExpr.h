@@ -11,7 +11,7 @@ using ExprCallback =
                        const nix::Env &, const nix::Value &)>;
 
 /// Holds AST Nodes.
-class CallbackASTContext {
+class ASTContext {
   std::vector<std::unique_ptr<nix::Expr>> Nodes;
 
 public:
@@ -27,7 +27,7 @@ public:
     ExprCallback ECB;                                                          \
     Callback##EXPR(nix::EXPR E) : nix::EXPR(E) {}                              \
     Callback##EXPR(nix::EXPR E, ExprCallback ECB) : nix::EXPR(E), ECB(ECB) {}  \
-    static Callback##EXPR *create(CallbackASTContext &Cxt, const nix::EXPR &E, \
+    static Callback##EXPR *create(ASTContext &Cxt, const nix::EXPR &E,         \
                                   ExprCallback ECB);                           \
     void eval(nix::EvalState &State, nix::Env &Env, nix::Value &V);            \
   };
@@ -39,7 +39,7 @@ class ValueTree {};
 
 /// Rewrite the AST, rooted at \p Root, \returns the root of the result tree.
 /// Nodes are stored into \p Cxt
-nix::Expr *rewriteCallback(CallbackASTContext &Cxt, ExprCallback ECB,
+nix::Expr *rewriteCallback(ASTContext &Cxt, ExprCallback ECB,
                            const nix::Expr *Root);
 
 } // namespace nixd

@@ -6,8 +6,8 @@
 namespace nixd {
 
 #define NIX_EXPR(EXPR)                                                         \
-  Callback##EXPR *Callback##EXPR::create(                                      \
-      CallbackASTContext &Cxt, const nix::EXPR &E, ExprCallback ECB) {         \
+  Callback##EXPR *Callback##EXPR::create(ASTContext &Cxt, const nix::EXPR &E,  \
+                                         ExprCallback ECB) {                   \
                                                                                \
     return Cxt.addNode<Callback##EXPR>(                                        \
         std::make_unique<Callback##EXPR>(E, ECB));                             \
@@ -15,7 +15,7 @@ namespace nixd {
 #include "nixd/NixASTNodes.inc"
 #undef NIX_EXPR
 
-nix::Expr *rewriteCallback(CallbackASTContext &Cxt, ExprCallback ECB,
+nix::Expr *rewriteCallback(ASTContext &Cxt, ExprCallback ECB,
                            const nix::Expr *Root) {
 #define TRY_TO_TRAVERSE(CHILD)                                                 \
   do {                                                                         \

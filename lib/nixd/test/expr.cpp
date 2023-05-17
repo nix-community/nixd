@@ -136,9 +136,9 @@ rec {
   )";
   InitNix I;
   auto S = I.getDummyState();
-  auto ASTContext = std::make_unique<CallbackASTContext>();
+  auto Cxt = std::make_unique<ASTContext>();
   auto *E = rewriteCallback(
-      *ASTContext,
+      *Cxt,
       [](const nix::Expr *, const nix::EvalState &, const nix::Env &,
          const nix::Value &) {},
       S->parseExprFromString(NixSrc, "/"));
