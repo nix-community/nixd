@@ -10,17 +10,6 @@ using ExprCallback =
     std::function<void(const nix::Expr *, const nix::EvalState &,
                        const nix::Env &, const nix::Value &)>;
 
-/// Holds AST Nodes.
-class ASTContext {
-  std::vector<std::unique_ptr<nix::Expr>> Nodes;
-
-public:
-  template <class T> T *addNode(std::unique_ptr<T> Node) {
-    Nodes.push_back(std::move(Node));
-    return dynamic_cast<T *>(Nodes.back().get());
-  }
-};
-
 // Nix expression subclass, that will call a readonly callback for analysis.
 #define NIX_EXPR(EXPR)                                                         \
   struct Callback##EXPR : nix::EXPR {                                          \
