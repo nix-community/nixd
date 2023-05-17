@@ -34,14 +34,15 @@ static std::string stripANSI(std::string Msg){
 
 namespace nixd {
 
-std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::Error &PE) {
+std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::Error &Err) {
   std::vector<lspserver::Diagnostic> Ret;
-  auto ErrPos = PE.info().errPos;
+  auto ErrPos = Err.info().errPos;
   lspserver::Position ErrLoc =
       ErrPos ? translatePosition(*ErrPos) : lspserver::Position{};
-  Ret.push_back(lspserver::Diagnostic{.range = {.start = ErrLoc, .end = ErrLoc},
-                                      .severity = /* Error */ 1,
-                                      .message = stripANSI(PE.info().msg.str())});
+  Ret.push_back(
+      lspserver::Diagnostic{.range = {.start = ErrLoc, .end = ErrLoc},
+                            .severity = /* Error */ 1,
+                            .message = stripANSI(Err.info().msg.str())});
   return Ret;
 }
 
