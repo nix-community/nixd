@@ -2,17 +2,13 @@
 
 #include "lspserver/Function.h"
 
-#include <cstdint>
-#include <memory>
-#include <nix/error.hh>
-#include <nix/installables.hh>
-#include <nix/nixexpr.hh>
-
 #include <llvm/ADT/FunctionExtras.h>
 
+#include <cstdint>
 #include <deque>
 #include <exception>
 #include <future>
+#include <memory>
 #include <optional>
 #include <utility>
 
@@ -34,29 +30,6 @@ public:
   virtual ~Task() = default;
 
   virtual void run() noexcept = 0;
-};
-
-class EvaluationTask : public Task {
-
-public:
-  using CallbackAction =
-      llvm::unique_function<void(std::optional<std::exception *>)>;
-
-private:
-  CallbackAction Action;
-
-  nix::InstallableValue *IValue;
-
-  std::unique_ptr<nix::EvalState> State;
-
-public:
-  EvaluationTask(std::string Name, CallbackAction Action,
-                 nix::InstallableValue *IValue,
-                 std::unique_ptr<nix::EvalState> State)
-      : Task(std::move(Name)), Action(std::move(Action)), IValue(IValue),
-        State(std::move(State)) {}
-
-  void run() noexcept override;
 };
 
 class Worker {

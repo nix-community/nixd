@@ -2,19 +2,6 @@
 
 namespace nixd {
 
-void EvaluationTask::run() noexcept {
-  try {
-    IValue->toValue(*State);
-    Action(nullptr);
-  } catch (nix::Error &Err) {
-    Action(&Err);
-  } catch (...) {
-    auto Uncaught = std::current_exception();
-    // should panic here
-    std::rethrow_exception(Uncaught);
-  }
-}
-
 void Worker::assign(std::unique_ptr<Task> TheTask) {
   State = Working;
   TaskFuture = std::async(std::launch::async,
