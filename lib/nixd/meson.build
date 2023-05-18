@@ -1,6 +1,7 @@
 nixd_server_inc = include_directories('include')
 nixd_server_lib = library('nixd-lsp'
 , [ 'src/Server.cpp'
+  , 'src/Scheduler.cpp'
   , 'src/Diagnostic.cpp'
   , 'src/CallbackExpr.cpp'
   ]
@@ -15,6 +16,7 @@ nixd_server= declare_dependency( link_with: nixd_server_lib
 
 test_server = executable('test-server'
 , [ 'test/server.cpp'
+  , 'test/scheduler.cpp'
   , 'test/diagnostic.cpp'
   , 'test/expr.cpp'
   ]
