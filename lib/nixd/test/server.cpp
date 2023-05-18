@@ -109,7 +109,7 @@ TEST(Server, EvalError) {
   Server.publishStandaloneDiagnostic(getDummyUri(), EvalErrorNix, 1);
   llvm::StringRef SRO = S.getBuffer();
   ASSERT_TRUE(SRO.contains("called without required argument"));
-  ASSERT_TRUE(SRO.contains(R"({"character":2,"line":4})"));
+  ASSERT_TRUE(SRO.contains(R"({"character":9,"line":2})"));
   ASSERT_TRUE(SRO.starts_with("Content-Length:"));
 }
 
