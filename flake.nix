@@ -21,6 +21,7 @@
           boost.dev
           gtest.dev
           llvmPackages.llvm.dev
+          llvmPackages.clang
         ];
         buildInputs = [
           nixUnstable
