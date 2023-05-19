@@ -44,8 +44,8 @@ class NixAST {
   bool Evaluated = false;
 #endif
   nix::Expr *Root;
-  std::map<const nix::Expr *, const nix::Value *> ValueMap;
-  std::map<const nix::Expr *, const nix::Env *> EnvMap;
+  std::map<const nix::Expr *, nix::Value> ValueMap;
+  std::map<const nix::Expr *, nix::Env> EnvMap;
 
 public:
   /// Inject myself into nix cache.
@@ -55,7 +55,7 @@ public:
   NixAST(ASTContext &Cxt, nix::Expr *Root);
 
   /// Get the evaluation result (fixed point) of the expression.
-  const nix::Value *getValue(nix::Expr *Expr) {
+  nix::Value getValue(nix::Expr *Expr) {
     assert(Evaluated && "must be called after evaluation!");
     return ValueMap[Expr];
   }
@@ -63,7 +63,7 @@ public:
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
   /// used for completion.
-  const nix::Env *getEnv(nix::Expr *Expr) {
+  nix::Env getEnv(nix::Expr *Expr) {
     assert(Evaluated && "must be called after evaluation!");
     return EnvMap[Expr];
   }

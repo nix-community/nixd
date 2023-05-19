@@ -5,6 +5,7 @@
 #include "nixd/AST.h"
 #include "nixd/Expr.h"
 #include "nixutil.h"
+#include "value.hh"
 
 #include <nix/command-installable-value.hh>
 
@@ -15,7 +16,7 @@ TEST(AST, withEvaluation) {
   constexpr int NumWorkers = 15;
 
   static const char *NixSrc = R"(
-        let x = 1; in x
+        let x = { a = 1; b = 2; }; in x
     )";
 
   class MyCmd : public nix::InstallableValueCommand {
@@ -31,14 +32,15 @@ TEST(AST, withEvaluation) {
 
   Cmd.parseCmdline({"--file", "/dev/null"});
 
-  auto Installable = nix::InstallableValue::require(
-      Cmd.parseInstallable(Cmd.getStore(), "/dev/null"));
+  auto Installable =
+      nix::InstallableValue::require(Cmd.parseInstallable(Cmd.getStore(), ""));
 
   AST.withEvaluation(MyScheduler, "", Installable, std::move(State),
                      [](std::exception *Except, NixAST *AST) {
-                       auto *RootValue = AST->getValue(AST->root());
-                       ASSERT_TRUE(RootValue->isTrivial());
-                       ASSERT_TRUE(RootValue->integer == 1);
+                       auto RootValue = AST->getValue(AST->root());
+                       ASSERT_TRUE(RootValue.isTrivial());
+                       ASSERT_EQ(RootValue.type(), nix::ValueType::nAttrs);
+                       ASSERT_EQ(RootValue.attrs->capacity(), 2);
                      });
 }
 

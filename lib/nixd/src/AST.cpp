@@ -1,6 +1,8 @@
 #include "nixd/AST.h"
 #include "nixd/CallbackExpr.h"
 
+#include "lspserver/Logger.h"
+
 #include <exception>
 #include <memory>
 
@@ -11,6 +13,7 @@ void EvaluationTask::run() noexcept {
     IValue->toValue(*State);
     Action(nullptr);
   } catch (std::exception &Except) {
+    lspserver::log(Except.what());
     Action(&Except);
   }
   // Otherwise, panic here.
@@ -20,8 +23,8 @@ NixAST::NixAST(ASTContext &Cxt, nix::Expr *Root) {
   auto EvalCallback = [this](const nix::Expr *Expr, const nix::EvalState &,
                              const nix::Env &ExprEnv,
                              const nix::Value &ExprValue) {
-    ValueMap[Expr] = &ExprValue;
-    EnvMap[Expr] = &ExprEnv;
+    ValueMap[Expr] = ExprValue;
+    EnvMap[Expr] = ExprEnv;
   };
   this->Root = rewriteCallback(Cxt, EvalCallback, Root);
 }
