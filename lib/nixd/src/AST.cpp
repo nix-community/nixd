@@ -48,6 +48,7 @@ void NixAST::withEvaluation(
                         Action(&Except);
                       }
                     });
+  Pool.join();
 }
 
 } // namespace nixd
