@@ -24,13 +24,13 @@ TEST(AST, withEvaluation) {
   } Cmd;
 
   auto State = Cmd.getEvalState();
-  auto *Root = State->parseExprFromString(NixSrc, "/dev");
+  auto *Root = State->parseExprFromString(NixSrc, "/");
   ASTContext Cxt;
   Scheduler MyScheduler(NumWorkers);
   NixAST AST(Cxt, Root);
-  AST.injectAST(*State, "/dev/null");
+  AST.injectAST(*State, "/");
 
-  Cmd.parseCmdline({"--file", "/dev/null"});
+  Cmd.parseCmdline({"--file", "/"});
 
   auto Installable =
       nix::InstallableValue::require(Cmd.parseInstallable(Cmd.getStore(), ""));
