@@ -51,5 +51,5 @@ jobs:
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: nix-build-develop-clang-testlog-${{ matrix.compiler }}-${{ matrix.sanitizer }}-${{ matrix.ndebug }}-${{ matrix.buildtype }}
+        name: nix-build-develop-clang-testlog-${{ matrix.sanitizer }}-${{ matrix.ndebug }}-${{ matrix.buildtype }}
         path: build/meson-logs/testlog.txt
