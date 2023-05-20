@@ -26,7 +26,7 @@ TEST(AST, withEvaluation) {
   auto State = Cmd.getEvalState();
   auto *Root = State->parseExprFromString(NixSrc, "/");
   ASTContext Cxt;
-  Scheduler MyScheduler(NumWorkers);
+  boost::asio::thread_pool Pool;
   NixAST AST(Cxt, Root);
   AST.injectAST(*State, "/");
 
@@ -35,7 +35,7 @@ TEST(AST, withEvaluation) {
   auto Installable =
       nix::InstallableValue::require(Cmd.parseInstallable(Cmd.getStore(), ""));
 
-  AST.withEvaluation(MyScheduler, "", Installable, std::move(State),
+  AST.withEvaluation(Pool, Installable, std::move(State),
                      [](std::exception *Except, NixAST *AST) {
                        auto RootValue = AST->getValue(AST->root());
                        ASSERT_TRUE(RootValue.isTrivial());

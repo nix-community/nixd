@@ -8,17 +8,6 @@
 
 namespace nixd {
 
-void EvaluationTask::run() noexcept {
-  try {
-    IValue->toValue(*State);
-    Action(nullptr);
-  } catch (std::exception &Except) {
-    lspserver::log(Except.what());
-    Action(&Except);
-  }
-  // Otherwise, panic here.
-}
-
 NixAST::NixAST(ASTContext &Cxt, nix::Expr *Root) {
   auto EvalCallback = [this](const nix::Expr *Expr, const nix::EvalState &,
                              const nix::Env &ExprEnv,
@@ -35,8 +24,8 @@ void NixAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
 }
 
 void NixAST::withEvaluation(
-    Scheduler &Scheduler, std::string Name,
-    nix::ref<nix::InstallableValue> IValue, nix::ref<nix::EvalState> State,
+    boost::asio::thread_pool &Pool, nix::ref<nix::InstallableValue> IValue,
+    nix::ref<nix::EvalState> State,
     llvm::unique_function<void(std::exception *, NixAST *)> Result) {
   auto Action = [this,
                  Result = std::move(Result)](std::exception *Except) mutable {
@@ -49,9 +38,16 @@ void NixAST::withEvaluation(
       Result(Except, nullptr);
     }
   };
-  auto TheTask = std::make_unique<EvaluationTask>(
-      std::move(Name), std::move(Action), IValue, std::move(State));
-  Scheduler.schedule(std::move(TheTask));
+  boost::asio::post(Pool,
+                    [IValue, Action = std::move(Action), State]() mutable {
+                      try {
+                        IValue->toValue(*State);
+                        Action(nullptr);
+                      } catch (std::exception &Except) {
+                        lspserver::log(Except.what());
+                        Action(&Except);
+                      }
+                    });
 }
 
 } // namespace nixd

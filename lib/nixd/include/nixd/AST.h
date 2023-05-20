@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CallbackExpr.h"
-#include "Scheduler.h"
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
@@ -14,29 +13,9 @@
 #include <nix/installables.hh>
 #include <nix/nixexpr.hh>
 
+#include <boost/asio.hpp>
+
 namespace nixd {
-
-class EvaluationTask : public Task {
-
-public:
-  using CallbackAction = llvm::unique_function<void(std::exception *)>;
-
-private:
-  CallbackAction Action;
-
-  nix::ref<nix::InstallableValue> IValue;
-
-  nix::ref<nix::EvalState> State;
-
-public:
-  EvaluationTask(std::string Name, CallbackAction Action,
-                 nix::ref<nix::InstallableValue> IValue,
-                 nix::ref<nix::EvalState> State)
-      : Task(std::move(Name)), Action(std::move(Action)), IValue(IValue),
-        State(State) {}
-
-  void run() noexcept override;
-};
 
 /// A Nix language AST wrapper that support language features for LSP.
 class NixAST {
@@ -78,8 +57,8 @@ public:
   /// pointer. Some features, like `Env`s, `Value`s, are only available after
   /// evaluation. Evaluation errors shall be passed into the first argument.
   void withEvaluation(
-      Scheduler &Scheduler, std::string Name,
-      nix::ref<nix::InstallableValue> IValue, nix::ref<nix::EvalState> State,
+      boost::asio::thread_pool &Pool, nix::ref<nix::InstallableValue> IValue,
+      nix::ref<nix::EvalState> State,
       llvm::unique_function<void(std::exception *, NixAST *)> Result);
 };
 
