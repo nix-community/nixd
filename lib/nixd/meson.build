@@ -3,6 +3,7 @@ nixd_server_lib = library('nixd-lsp'
 , [ 'src/AST.cpp'
   , 'src/CallbackExpr.cpp'
   , 'src/Diagnostic.cpp'
+  , 'src/EvalDraftStore.cpp'
   , 'src/Server.cpp'
   ]
 , include_directories: nixd_server_inc
@@ -17,6 +18,7 @@ nixd_server= declare_dependency( link_with: nixd_server_lib
 test_server = executable('test-server'
 , [ 'test/ast.cpp'
   , 'test/diagnostic.cpp'
+  , 'test/evalDraftStore.cpp'
   , 'test/expr.cpp'
   , 'test/server.cpp'
   ]
