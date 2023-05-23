@@ -35,5 +35,13 @@ public:
       std::function<
           void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
           Finish);
+  std::string addDraft(lspserver::PathRef File, llvm::StringRef Version,
+                       llvm::StringRef Contents) {
+    {
+      std::lock_guard<std::mutex> Guard(Mutex);
+      PreviousResult = nullptr;
+    }
+    return lspserver::DraftStore::addDraft(File, Version, Contents);
+  }
 };
 } // namespace nixd
