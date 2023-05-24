@@ -30,13 +30,15 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
   log("<-- {0}({1})", Method, ID);
   auto Handler = Registry.MethodHandlers.find(Method);
   if (Handler != Registry.MethodHandlers.end())
-    Handler->second(
-        std::move(Params), [&](llvm::Expected<llvm::json::Value> Response) {
-          if (Response) {
-            log("--> reply:{0}({1}), response: {2} ", Method, ID, *Response);
-            Out->reply(std::move(ID), std::move(Response));
-          }
-        });
+    Handler->second(std::move(Params),
+                    [=, Method = std::string(Method),
+                     this](llvm::Expected<llvm::json::Value> Response) mutable {
+                      if (Response) {
+                        log("--> reply:{0}({1}), response: {2} ", Method, ID,
+                            *Response);
+                        Out->reply(std::move(ID), std::move(Response));
+                      }
+                    });
   else
     return false;
   return true;
@@ -44,6 +46,7 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
 
 bool LSPServer::onReply(llvm::json::Value ID,
                         llvm::Expected<llvm::json::Value> Result) {
+  std::lock_guard<std::mutex> Guard(PendingCallsLock);
   log("<-- reply({0})", ID);
   if (auto I = ID.getAsInteger()) {
     if (PendingCalls.contains(*I)) {
