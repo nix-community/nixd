@@ -1,9 +1,11 @@
 #include "nixd/Server.h"
+#include "lspserver/Logger.h"
 #include "nixd/Diagnostic.h"
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 
+#include <exception>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
@@ -13,6 +15,9 @@
 #include <nix/store-api.hh>
 
 #include <filesystem>
+#include <sstream>
+#include <string>
+#include <variant>
 namespace fs = std::filesystem;
 namespace nixd {
 
@@ -25,6 +30,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
            {"change", (int)lspserver::TextDocumentSyncKind::Incremental},
            {"save", true},
        }},
+      {"hoverProvider", true},
   };
 
   llvm::json::Object Result{
@@ -89,8 +95,8 @@ void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
   auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
   try {
     fs::path Path = Uri.file().str();
-    auto *E =
-        NixState->parseExprFromString(std::move(Content), Path.remove_filename());
+    auto *E = NixState->parseExprFromString(std::move(Content),
+                                            Path.remove_filename());
     nix::Value V;
     NixState->eval(E, V);
   } catch (const nix::Error &PE) {
@@ -102,6 +108,40 @@ void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
   }
   PublishDiagnostic(lspserver::PublishDiagnosticsParams{
       .uri = Uri, .diagnostics = {}, .version = LSPVersion});
+}
+
+void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
+                     lspserver::Callback<llvm::json::Value> Reply) {
+  std::string HoverFile = Paras.textDocument.uri.file().str();
+  DraftMgr.withEvaluation(
+      Pool, {"--file", HoverFile}, "",
+      [=, Reply = std::move(Reply)](
+          std::variant<std::exception *,
+                       nix::ref<EvalDraftStore::EvaluationResult>>
+              EvalResult) mutable {
+        nix::ref<EvalDraftStore::EvaluationResult> Result =
+            std::get<1>(EvalResult);
+        try {
+          std::get<1>(EvalResult); // w contains int, not float: will throw
+        } catch (const std::bad_variant_access &) {
+          std::exception *Excepts = std::get<0>(EvalResult);
+          lspserver::log(Excepts->what());
+        }
+        auto Forest = Result->EvalASTForest;
+        auto AST = Forest.at(HoverFile);
+        auto *Node = AST->lookupPosition(Paras.position);
+        std::stringstream NodeOut;
+        Node->show(Result->State->symbols, NodeOut);
+        auto Value = AST->getValue(Node);
+        std::stringstream Res{};
+        Value.print(Result->State->symbols, Res);
+        Reply(lspserver::Hover{
+            .contents =
+                {
+                    .value = Res.str(),
+                },
+        });
+      });
 }
 
 } // namespace nixd
