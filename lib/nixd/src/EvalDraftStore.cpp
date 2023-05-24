@@ -12,7 +12,7 @@ namespace nixd {
 void EvalDraftStore::withEvaluation(
     boost::asio::thread_pool &Pool, const nix::Strings &CommandLine,
     const std::string &Installable,
-    std::function<
+    llvm::unique_function<
         void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
         Finish) {
   {
@@ -65,7 +65,7 @@ void EvalDraftStore::withEvaluation(
     }
   };
 
-  boost::asio::post(Pool, Job);
+  boost::asio::post(Pool, std::move(Job));
 }
 
 } // namespace nixd
