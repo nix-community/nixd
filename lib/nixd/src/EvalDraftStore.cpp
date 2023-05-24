@@ -5,6 +5,8 @@
 #include <nix/installable-value.hh>
 #include <nix/nixexpr.hh>
 
+#include <mutex>
+
 namespace nixd {
 
 void EvalDraftStore::withEvaluation(
@@ -13,10 +15,12 @@ void EvalDraftStore::withEvaluation(
     std::function<
         void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
         Finish) {
-
-  if (PreviousResult != nullptr) {
-    Finish(nix::ref(PreviousResult));
-    return;
+  {
+    std::lock_guard<std::mutex> Guard(Mutex);
+    if (PreviousResult != nullptr) {
+      Finish(nix::ref(PreviousResult));
+      return;
+    }
   }
 
   class MyCmd : public nix::InstallableValueCommand {
