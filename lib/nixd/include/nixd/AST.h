@@ -39,12 +39,12 @@ public:
   EvalAST(nix::Expr *Root);
 
   /// Get the evaluation result (fixed point) of the expression.
-  nix::Value getValue(nix::Expr *Expr) { return ValueMap[Expr]; }
+  nix::Value getValue(nix::Expr *Expr) { return ValueMap.at(Expr); }
 
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
   /// used for completion.
-  nix::Env getEnv(nix::Expr *Expr) { return EnvMap[Expr]; }
+  nix::Env getEnv(nix::Expr *Expr) { return EnvMap.at(Expr); }
 
   /// Lookup an AST node located at the position.
   /// Runs in O(n) (inefficient!)
