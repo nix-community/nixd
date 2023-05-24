@@ -31,6 +31,9 @@ class EvalAST {
   std::map<const nix::Expr *, nix::Value> ValueMap;
   std::map<const nix::Expr *, nix::Env> EnvMap;
 
+  bool HavePreparedPosMap = false;
+  std::map<lspserver::Position, size_t> PosMap;
+
 public:
   /// Inject myself into nix cache.
   void injectAST(nix::EvalState &State, lspserver::PathRef Path);
@@ -47,7 +50,6 @@ public:
   nix::Env getEnv(nix::Expr *Expr) { return EnvMap.at(Expr); }
 
   /// Lookup an AST node located at the position.
-  /// Runs in O(n) (inefficient!)
   nix::Expr *lookupPosition(const nix::EvalState &State, lspserver::Position);
 
   nix::Expr *root() { return Root; }

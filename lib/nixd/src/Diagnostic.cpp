@@ -51,4 +51,8 @@ lspserver::Position translatePosition(const nix::AbstractPos &P) {
           .character = static_cast<int>(P.column - 1)};
 }
 
+lspserver::Position translatePosition(const nix::Pos &Pos) {
+  return {static_cast<int>(Pos.line - 1), static_cast<int>(Pos.column - 1)};
+}
+
 } // namespace nixd

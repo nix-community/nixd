@@ -1,9 +1,13 @@
 #include "nixd/AST.h"
+#include "lspserver/Protocol.h"
 #include "nixd/CallbackExpr.h"
 
 #include "lspserver/Logger.h"
+#include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
+#include "nixexpr.hh"
 
+#include <cstddef>
 #include <exception>
 #include <memory>
 
@@ -22,6 +26,24 @@ EvalAST::EvalAST(nix::Expr *Root) : Cxt(ASTContext()) {
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
   nix::Value DummyValue{};
   State.cacheFile(Path.str(), Path.str(), Root, DummyValue);
+}
+nix::Expr *EvalAST::lookupPosition(const nix::EvalState &State,
+                                   lspserver::Position Pos) {
+  if (!HavePreparedPosMap) {
+    PosMap.clear();
+    for (size_t Idx = 0; Idx < Cxt.Nodes.size(); Idx++) {
+      auto PosIdx = Cxt.Nodes[Idx]->getPos();
+      if (PosIdx == nix::noPos)
+        continue;
+      nix::Pos Pos = State.positions[PosIdx];
+      PosMap[translatePosition(Pos)] = Idx;
+    }
+    HavePreparedPosMap = true;
+  }
+  auto WordHead = PosMap.upper_bound(Pos);
+  if (WordHead != PosMap.begin())
+    WordHead--;
+  return Cxt.Nodes[WordHead->second].get();
 }
 
 } // namespace nixd
