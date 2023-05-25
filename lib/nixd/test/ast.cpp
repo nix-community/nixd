@@ -18,10 +18,12 @@ TEST(AST, lookupPosition) {
   auto *RawExpr = State->parseExprFromString(NixSrc, "/");
   auto AST = EvalAST(RawExpr);
 
+  AST.preparePositionLookup(*State);
+
   auto AssertPosition = [&](lspserver::Position Pos, std::string Val) {
-    ASSERT_TRUE(AST.lookupPosition(*State, Pos) != nullptr);
+    ASSERT_TRUE(AST.lookupPosition(Pos) != nullptr);
     std::stringstream SStream;
-    AST.lookupPosition(*State, Pos)->show(State->symbols, SStream);
+    AST.lookupPosition(Pos)->show(State->symbols, SStream);
     ASSERT_EQ(SStream.str(), Val);
   };
 

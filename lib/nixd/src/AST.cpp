@@ -27,23 +27,24 @@ void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
   nix::Value DummyValue{};
   State.cacheFile(Path.str(), Path.str(), Root, DummyValue);
 }
-nix::Expr *EvalAST::lookupPosition(const nix::EvalState &State,
-                                   lspserver::Position Pos) {
-  if (!HavePreparedPosMap) {
-    PosMap.clear();
-    for (size_t Idx = 0; Idx < Cxt.Nodes.size(); Idx++) {
-      auto PosIdx = Cxt.Nodes[Idx]->getPos();
-      if (PosIdx == nix::noPos)
-        continue;
-      nix::Pos Pos = State.positions[PosIdx];
-      PosMap[translatePosition(Pos)] = Idx;
-    }
-    HavePreparedPosMap = true;
-  }
+
+nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {
   auto WordHead = PosMap.upper_bound(Pos);
   if (WordHead != PosMap.begin())
     WordHead--;
   return Cxt.Nodes[WordHead->second].get();
+}
+
+void EvalAST::preparePositionLookup(const nix::EvalState &State) {
+  assert(PosMap.empty() &&
+         "PosMap must be empty before preparing! (prepared before?)");
+  for (size_t Idx = 0; Idx < Cxt.Nodes.size(); Idx++) {
+    auto PosIdx = Cxt.Nodes[Idx]->getPos();
+    if (PosIdx == nix::noPos)
+      continue;
+    nix::Pos Pos = State.positions[PosIdx];
+    PosMap[translatePosition(Pos)] = Idx;
+  }
 }
 
 } // namespace nixd

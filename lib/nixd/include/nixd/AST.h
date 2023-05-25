@@ -31,7 +31,6 @@ class EvalAST {
   std::map<const nix::Expr *, nix::Value> ValueMap;
   std::map<const nix::Expr *, nix::Env> EnvMap;
 
-  bool HavePreparedPosMap = false;
   std::map<lspserver::Position, size_t> PosMap;
 
 public:
@@ -50,7 +49,10 @@ public:
   nix::Env getEnv(nix::Expr *Expr) { return EnvMap.at(Expr); }
 
   /// Lookup an AST node located at the position.
-  nix::Expr *lookupPosition(const nix::EvalState &State, lspserver::Position);
+  /// Call 'preparePositionLookup' first.
+  [[nodiscard]] nix::Expr *lookupPosition(lspserver::Position) const;
+
+  void preparePositionLookup(const nix::EvalState &State);
 
   nix::Expr *root() { return Root; }
 };
