@@ -5,7 +5,6 @@
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 
-#include <exception>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
@@ -124,15 +123,29 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
         try {
           std::get<1>(EvalResult); // w contains int, not float: will throw
         } catch (const std::bad_variant_access &) {
-          std::exception *Excepts = std::get<0>(EvalResult);
-          lspserver::log(Excepts->what());
+          std::exception *EvalExcept = std::get<0>(EvalResult);
+          Reply(nullptr);
+          PublishDiagnostic(lspserver::PublishDiagnosticsParams{
+              .uri = Paras.textDocument.uri,
+              .diagnostics =
+                  mkDiagnostics(*dynamic_cast<const nix::Error *>(EvalExcept)),
+              .version = 1});
+          return;
         }
         auto Forest = Result->EvalASTForest;
         auto AST = Forest.at(HoverFile);
         auto *Node = AST->lookupPosition(Paras.position);
         std::stringstream NodeOut;
         Node->show(Result->State->symbols, NodeOut);
-        auto Value = AST->getValue(Node);
+        nix::Value Value{};
+        try {
+          Value = AST->getValue(Node);
+        } catch (const std::out_of_range &ValueNotFound) {
+          Reply(lspserver::Hover{
+              .contents = {.value = "Value Not Found"},
+          });
+          return;
+        }
         std::stringstream Res{};
         Value.print(Result->State->symbols, Res);
         Reply(lspserver::Hover{
