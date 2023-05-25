@@ -5,7 +5,6 @@
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 
-#include <exception>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
@@ -13,8 +12,11 @@
 
 #include <nix/eval.hh>
 #include <nix/store-api.hh>
+#include <nix/util.hh>
 
+#include <exception>
 #include <filesystem>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <variant>
@@ -158,28 +160,28 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
           std::variant<std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
               EvalResult) mutable {
-        nix::ref<EvalDraftStore::EvaluationResult> Result =
-            std::get<1>(EvalResult);
-        try {
-          std::get<1>(EvalResult); // w contains int, not float: will throw
-        } catch (const std::bad_variant_access &) {
-          std::exception *Excepts = std::get<0>(EvalResult);
-          lspserver::log(Excepts->what());
-        }
-        auto Forest = Result->EvalASTForest;
-        auto AST = Forest.at(HoverFile);
-        auto *Node = AST->lookupPosition(Paras.position);
-        std::stringstream NodeOut;
-        Node->show(Result->State->symbols, NodeOut);
-        auto Value = AST->getValue(Node);
-        std::stringstream Res{};
-        Value.print(Result->State->symbols, Res);
-        Reply(lspserver::Hover{
-            .contents =
-                {
-                    .value = Res.str(),
-                },
-        });
+        auto ActionOnResult =
+            [&](const nix::ref<EvalDraftStore::EvaluationResult> &Result) {
+              auto Forest = Result->EvalASTForest;
+              auto AST = Forest.at(HoverFile);
+              auto *Node = AST->lookupPosition(Paras.position);
+              std::stringstream NodeOut;
+              Node->show(Result->State->symbols, NodeOut);
+              auto Value = AST->getValue(Node);
+              std::stringstream Res{};
+              Value.print(Result->State->symbols, Res);
+              Reply(lspserver::Hover{{
+                                         lspserver::MarkupKind::PlainText,
+                                         Res.str(),
+                                     },
+                                     std::nullopt});
+            };
+        auto ActionOnExcept = [&](std::exception *Except) {
+          // TODO: publish evaluation diagnostic
+          Reply(lspserver::Hover{{}, std::nullopt});
+        };
+
+        std::visit(nix::overloaded{ActionOnResult, ActionOnExcept}, EvalResult);
       });
 }
 
