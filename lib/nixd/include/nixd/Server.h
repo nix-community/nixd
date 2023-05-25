@@ -2,10 +2,12 @@
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
+#include "lspserver/Function.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
+#include "nixd/EvalDraftStore.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/JSON.h>
@@ -14,7 +16,8 @@ namespace nixd {
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
 
-  lspserver::DraftStore DraftMgr;
+  EvalDraftStore DraftMgr;
+  boost::asio::thread_pool Pool;
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
@@ -37,6 +40,7 @@ public:
          std::unique_ptr<lspserver::OutboundPort> Out)
       : LSPServer(std::move(In), std::move(Out)) {
     Registry.addMethod("initialize", this, &Server::onInitialize);
+    Registry.addMethod("textDocument/hover", this, &Server::onHover);
     Registry.addNotification("initialized", this, &Server::onInitialized);
 
     // Text Document Synchronization
@@ -61,6 +65,8 @@ public:
   void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
                                    std::string Content,
                                    std::optional<int64_t> LSPVersion);
+  void onHover(const lspserver::TextDocumentPositionParams &,
+               lspserver::Callback<llvm::json::Value>);
 };
 
 }; // namespace nixd
