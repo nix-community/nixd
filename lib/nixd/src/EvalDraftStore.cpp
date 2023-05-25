@@ -43,6 +43,7 @@ void EvalDraftStore::withEvaluation(
       // TODO: should we canoicalize 'basePath'?
       auto FileAST = State->parseExprFromString(DraftContents, ActiveFile);
       Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
+      Forest.at(ActiveFile)->preparePositionLookup(*State);
       Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
     }
 
