@@ -1,11 +1,12 @@
 #include "nixd/AST.h"
-#include "lspserver/Protocol.h"
 #include "nixd/CallbackExpr.h"
-
-#include "lspserver/Logger.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
-#include "nixexpr.hh"
+
+#include "lspserver/Logger.h"
+#include "lspserver/Protocol.h"
+
+#include <nix/nixexpr.hh>
 
 #include <cstddef>
 #include <exception>

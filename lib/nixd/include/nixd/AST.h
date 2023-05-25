@@ -2,22 +2,23 @@
 
 #include "CallbackExpr.h"
 
-#include "eval.hh"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
-#include "ref.hh"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
 
-#include <map>
-#include <memory>
 #include <nix/error.hh>
+#include <nix/eval.hh>
 #include <nix/installable-value.hh>
 #include <nix/installables.hh>
 #include <nix/nixexpr.hh>
+#include <nix/ref.hh>
 
 #include <boost/asio.hpp>
+
+#include <map>
+#include <memory>
 #include <queue>
 #include <utility>
 
