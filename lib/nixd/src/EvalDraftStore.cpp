@@ -45,13 +45,16 @@ void EvalDraftStore::withEvaluation(
         // Safely unwrap optional because they are stored active files.
         auto DraftContents = *getDraft(ActiveFile).value().Contents;
 
-        // TODO: should we canoicalize 'basePath'?
-        std::filesystem::path Path = ActiveFile;
-        auto *FileAST =
-            State->parseExprFromString(DraftContents, Path.remove_filename());
-        Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
-        Forest.at(ActiveFile)->preparePositionLookup(*State);
-        Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
+        try {
+          std::filesystem::path Path = ActiveFile;
+          auto *FileAST =
+              State->parseExprFromString(DraftContents, Path.remove_filename());
+          Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
+          Forest.at(ActiveFile)->preparePositionLookup(*State);
+          Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
+        } catch (const nix::ParseError &) {
+          // Ignore parsing errors, because workspace file might be incomplete.
+        }
       }
 
       // Evaluation goes.
