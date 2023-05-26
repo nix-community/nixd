@@ -118,12 +118,8 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
           std::variant<const std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
               EvalResult) mutable {
-        nix::ref<EvalDraftStore::EvaluationResult> Result =
-            std::get<1>(EvalResult);
-        try {
-          std::get<1>(EvalResult); // w contains int, not float: will throw
-        } catch (const std::bad_variant_access &) {
-          std::exception *EvalExcept = std::get<0>(EvalResult);
+        if (EvalResult.index() == 0) {
+          const auto *EvalExcept = std::get<0>(EvalResult);
           Reply(nullptr);
           PublishDiagnostic(lspserver::PublishDiagnosticsParams{
               .uri = Paras.textDocument.uri,
@@ -132,6 +128,8 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
               .version = 1});
           return;
         }
+        nix::ref<EvalDraftStore::EvaluationResult> Result =
+            std::get<1>(EvalResult);
         auto Forest = Result->EvalASTForest;
         auto AST = Forest.at(HoverFile);
         auto *Node = AST->lookupPosition(Paras.position);
