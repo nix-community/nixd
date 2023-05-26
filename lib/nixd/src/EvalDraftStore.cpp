@@ -1,5 +1,6 @@
 #include "nixd/EvalDraftStore.h"
 
+#include <filesystem>
 #include <nix/command-installable-value.hh>
 #include <nix/eval.hh>
 #include <nix/installable-value.hh>
@@ -41,10 +42,13 @@ void EvalDraftStore::withEvaluation(
       auto DraftContents = *getDraft(ActiveFile).value().Contents;
 
       // TODO: should we canoicalize 'basePath'?
-      auto FileAST = State->parseExprFromString(DraftContents, ActiveFile);
-      Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
-      Forest.at(ActiveFile)->preparePositionLookup(*State);
-      Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
+      std::filesystem::path Path = ActiveFile;
+      try {
+        auto *FileAST =
+            State->parseExprFromString(DraftContents, Path.remove_filename());
+        Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
+        Forest.at(ActiveFile)->preparePositionLookup(*State);
+        Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
       } catch (const std::exception &Except) {
         Finish(&Except);
         return;
