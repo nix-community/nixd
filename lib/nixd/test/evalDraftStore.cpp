@@ -22,7 +22,7 @@ TEST(EvalDraftStore, Evaluation) {
 
   EDS->withEvaluation(
       Pool, {"--file", VirtualTestPath}, "",
-      [=](std::variant<std::exception *,
+      [=](std::variant<const std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
               EvalResult) {
         nix::ref<EvalDraftStore::EvaluationResult> Result =
@@ -38,7 +38,7 @@ TEST(EvalDraftStore, Evaluation) {
   )");
   EDS->withEvaluation(
       Pool, {"--file", VirtualTestPath}, "",
-      [=](std::variant<std::exception *,
+      [=](std::variant<const std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
               EvalResult) {
         nix::ref<EvalDraftStore::EvaluationResult> Result =
@@ -64,7 +64,7 @@ TEST(EvalDraftStore, SetupLookup) {
 
   EDS->withEvaluation(
       Pool, {"--file", VirtualTestPath}, "",
-      [=](std::variant<std::exception *,
+      [=](std::variant<const std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
               EvalResult) {
         nix::ref<EvalDraftStore::EvaluationResult> Result =

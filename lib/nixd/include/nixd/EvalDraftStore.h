@@ -33,8 +33,8 @@ public:
   void withEvaluation(
       boost::asio::thread_pool &Pool, const nix::Strings &CommandLine,
       const std::string &Installable,
-      llvm::unique_function<
-          void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
+      llvm::unique_function<void(
+          std::variant<const std::exception *, nix::ref<EvaluationResult>>)>
           Finish);
   std::string addDraft(lspserver::PathRef File, llvm::StringRef Version,
                        llvm::StringRef Contents) {

@@ -115,7 +115,7 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
   DraftMgr.withEvaluation(
       Pool, {"--file", HoverFile}, "",
       [=, Reply = std::move(Reply)](
-          std::variant<std::exception *,
+          std::variant<const std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
               EvalResult) mutable {
         nix::ref<EvalDraftStore::EvaluationResult> Result =

@@ -13,7 +13,7 @@ void EvalDraftStore::withEvaluation(
     boost::asio::thread_pool &Pool, const nix::Strings &CommandLine,
     const std::string &Installable,
     llvm::unique_function<
-        void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
+        void(std::variant<const std::exception *, nix::ref<EvaluationResult>>)>
         Finish) {
   {
     std::lock_guard<std::mutex> Guard(Mutex);
@@ -45,6 +45,10 @@ void EvalDraftStore::withEvaluation(
       Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
       Forest.at(ActiveFile)->preparePositionLookup(*State);
       Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
+      } catch (const std::exception &Except) {
+        Finish(&Except);
+        return;
+      }
     }
 
     // Evaluation goes.
@@ -60,8 +64,8 @@ void EvalDraftStore::withEvaluation(
         PreviousResult = EvalResult;
       }
       return;
-    } catch (std::exception *E) {
-      Finish(E);
+    } catch (const std::exception &Except) {
+      Finish(&Except);
       return;
     }
   };
