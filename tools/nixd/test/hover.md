@@ -79,6 +79,35 @@ CHECK-NEXT:    }
 CHECK-NEXT:  }
 ```
 
+<-- textDocument/hover
+
+```json
+{
+   "jsonrpc":"2.0",
+   "id":2,
+   "method":"textDocument/hover",
+   "params":{
+      "textDocument":{
+         "uri":"file:///with.nix"
+      },
+      "position":{
+         "line":1,
+         "character":2
+      }
+   }
+}
+```
+
+```
+     CHECK:  "id": 2,
+CHECK-NEXT:  "jsonrpc": "2.0",
+CHECK-NEXT:  "result": {
+CHECK-NEXT:    "contents": {
+CHECK-NEXT:      "kind": "markdown",
+CHECK-NEXT:      "value": "`ExprAttrs`"
+CHECK-NEXT:    }
+CHECK-NEXT:  }
+```
 
 ```json
 {"jsonrpc":"2.0","method":"exit"}

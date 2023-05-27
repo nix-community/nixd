@@ -199,7 +199,6 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                 lspserver::vlog("no associated value on node {0}!",
                                 NodeOut.str());
                 HoverText = llvm::formatv("`{0}`", ExprName);
-                Reply(lspserver::Hover{{}, std::nullopt});
               }
               Reply(lspserver::Hover{{
                                          lspserver::MarkupKind::Markdown,
