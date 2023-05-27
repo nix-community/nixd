@@ -48,33 +48,33 @@ a
 }
 ```
 
+
 <-- textDocument/hover
 
 ```json
 {
    "jsonrpc":"2.0",
-   "id":1,
+   "id":2,
    "method":"textDocument/hover",
    "params":{
       "textDocument":{
          "uri":"file:///with.nix"
       },
       "position":{
-         "line":7,
-         "character":0
+         "line":1,
+         "character":2
       }
    }
 }
 ```
 
-
 ```
-     CHECK:  "id": 1,
+     CHECK:  "id": 2,
 CHECK-NEXT:  "jsonrpc": "2.0",
 CHECK-NEXT:  "result": {
 CHECK-NEXT:    "contents": {
 CHECK-NEXT:      "kind": "markdown",
-CHECK-NEXT:      "value": "## ExprVar \n Value: `1`"
+CHECK-NEXT:      "value": "`ExprAttrs`"
 CHECK-NEXT:    }
 CHECK-NEXT:  }
 ```
