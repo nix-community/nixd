@@ -16,8 +16,33 @@
 namespace fs = std::filesystem;
 namespace nixd {
 
+namespace configuration {
+
+bool fromJSON(const llvm::json::Value &Params, TopLevel &R,
+              llvm::json::Path P) {
+  const auto *PA = Params.getAsArray();
+  auto X = PA->front();
+  llvm::json::ObjectMapper O(X, P);
+  return O && O.map("installable", R.installable);
+}
+
+bool fromJSON(const llvm::json::Value &Params, nix::Strings &R,
+              llvm::json::Path P) {
+  std::vector<std::string> RVec{std::begin(R), std::end(R)};
+  return fromJSON(Params, RVec, P);
+}
+
+bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  return O && O.map("args", R.args) && O.map("installable", R.installable);
+}
+
+} // namespace configuration
+
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
                           lspserver::Callback<llvm::json::Value> Reply) {
+  ClientCaps = InitializeParams.capabilities;
   llvm::json::Object ServerCaps{
       {"textDocumentSync",
        llvm::json::Object{
@@ -32,6 +57,20 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
         llvm::json::Object{{"name", "nixd"}, {"version", "0.0.0"}}},
        {"capabilities", std::move(ServerCaps)}}};
   Reply(std::move(Result));
+}
+
+void Server::fetchConfig() {
+  if (ClientCaps.WorkspaceConfiguration) {
+    WorkspaceConfiguration(
+        lspserver::ConfigurationParams{
+            std::vector<lspserver::ConfigurationItem>{
+                lspserver::ConfigurationItem{.section = "nixd"}}},
+        [this](llvm::Expected<configuration::TopLevel> Response) {
+          if (Response) {
+            Config = std::move(Response.get());
+          }
+        });
+  }
 }
 
 std::string Server::encodeVersion(std::optional<int64_t> LSPVersion) {
