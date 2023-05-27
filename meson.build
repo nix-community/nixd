@@ -40,5 +40,5 @@ regression_env = environment()
 regression_env.append('PATH', meson.current_build_dir())
 regression_env.set('MESON_BUILD_ROOT', meson.current_build_dir())
 
-test('regression/nixd', lit, env: regression_env, args: [ '../tools/nixd/test' ] )
+test('regression/nixd', lit, env: regression_env, args: [ '../tools/nixd/test' ], depends: [ nixd ] )
 test('regression/nix-ast-dump', lit, env: regression_env, args: [ '../tools/nix-ast-dump/test' ], depends: [ nix_ast_dump ])
