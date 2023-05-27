@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nixd/EvalDraftStore.h"
+
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
 #include "lspserver/Function.h"
@@ -33,7 +35,8 @@ bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
 
-  lspserver::DraftStore DraftMgr;
+  EvalDraftStore DraftMgr;
+  boost::asio::thread_pool Pool;
 
   lspserver::ClientCapabilities ClientCaps;
 
@@ -64,6 +67,7 @@ public:
          std::unique_ptr<lspserver::OutboundPort> Out)
       : LSPServer(std::move(In), std::move(Out)) {
     Registry.addMethod("initialize", this, &Server::onInitialize);
+    Registry.addMethod("textDocument/hover", this, &Server::onHover);
     Registry.addNotification("initialized", this, &Server::onInitialized);
 
     // Text Document Synchronization
@@ -81,6 +85,8 @@ public:
         mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
             "workspace/configuration");
   }
+
+  ~Server() override { Pool.join(); }
 
   void fetchConfig();
 
@@ -104,6 +110,8 @@ public:
       const lspserver::DidChangeConfigurationParams &) {
     fetchConfig();
   }
+  void onHover(const lspserver::TextDocumentPositionParams &,
+               lspserver::Callback<llvm::json::Value>);
 };
 
 }; // namespace nixd

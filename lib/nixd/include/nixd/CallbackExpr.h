@@ -19,6 +19,7 @@ using ExprCallback =
     static Callback##EXPR *create(ASTContext &Cxt, const nix::EXPR &E,         \
                                   ExprCallback ECB);                           \
     void eval(nix::EvalState &State, nix::Env &Env, nix::Value &V) override;   \
+    std::string getName();                                                     \
   };
 #include "NixASTNodes.inc"
 #undef NIX_EXPR

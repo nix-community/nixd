@@ -57,8 +57,8 @@ void EvalDraftStore::withEvaluation(
           Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
           Forest.at(ActiveFile)->preparePositionLookup(*State);
           Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
-        } catch (const nix::ParseError &) {
-          // Ignore parsing errors, because workspace file might be incomplete.
+        } catch (const nix::Error &) {
+          // Ignore caching errors, because workspace file might be incomplete.
         }
       }
 
