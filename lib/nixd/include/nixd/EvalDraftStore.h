@@ -29,6 +29,7 @@ private:
   /// Cached evaluation result
   std::mutex Mutex;
   std::shared_ptr<EvaluationResult> PreviousResult;
+  bool IsOutdated = true;
 
 public:
   void withEvaluation(
@@ -36,12 +37,13 @@ public:
       const std::string &Installable,
       llvm::unique_function<
           void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
-          Finish);
+          Finish,
+      bool AcceptOutdated = true);
   std::string addDraft(lspserver::PathRef File, llvm::StringRef Version,
                        llvm::StringRef Contents) {
     {
       std::lock_guard<std::mutex> Guard(Mutex);
-      PreviousResult = nullptr;
+      IsOutdated = true;
     }
     return lspserver::DraftStore::addDraft(File, Version, Contents);
   }

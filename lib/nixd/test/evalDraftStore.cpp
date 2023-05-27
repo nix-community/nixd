@@ -110,4 +110,53 @@ TEST(EvalDraftStore, IgnoreParseError) {
   Pool.join();
 }
 
+TEST(EvalDraftStore, CanUsePrevious) {
+  auto EDS = std::make_unique<EvalDraftStore>();
+
+  boost::asio::thread_pool Pool;
+
+  EDS->addDraft("/bar", "0", R"(
+    { x = 1; }
+  )");
+
+  EDS->withEvaluation(
+      Pool, {"--file", "/bar"}, "",
+      [=](std::variant<std::exception *,
+                       nix::ref<EvalDraftStore::EvaluationResult>>
+              EvalResult) {
+        nix::ref<EvalDraftStore::EvaluationResult> Result =
+            std::get<1>(EvalResult);
+
+        auto Forest = Result->EvalASTForest;
+        auto FooAST = Forest.at("/bar");
+
+        /// Ensure that 'lookupPosition' can be used
+        ASSERT_EQ(FooAST->lookupPosition({0, 0}), FooAST->root());
+      });
+
+  Pool.join();
+
+  // Undefined variable, to trigger eval error.
+  EDS->addDraft("/foo", "0", R"(
+    let x = 1; in y
+  )");
+
+  EDS->withEvaluation(
+      Pool, {"--file", "/foo"}, "",
+      [=](std::variant<std::exception *,
+                       nix::ref<EvalDraftStore::EvaluationResult>>
+              EvalResult) {
+        // Check that we can use previous result, and (currently) suppress
+        // exception.
+        nix::ref<EvalDraftStore::EvaluationResult> Result =
+            std::get<1>(EvalResult);
+
+        auto Forest = Result->EvalASTForest;
+        auto FooAST = Forest.at("/bar");
+
+        /// Ensure that 'lookupPosition' can be used
+        ASSERT_EQ(FooAST->lookupPosition({0, 0}), FooAST->root());
+      });
+}
+
 } // namespace nixd

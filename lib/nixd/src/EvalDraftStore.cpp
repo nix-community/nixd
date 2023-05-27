@@ -17,14 +17,19 @@ void EvalDraftStore::withEvaluation(
     const std::string &Installable,
     llvm::unique_function<
         void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
-        Finish) {
+        Finish,
+    bool AcceptOutdated) {
   {
     std::lock_guard<std::mutex> Guard(Mutex);
-    if (PreviousResult != nullptr) {
+    // If we have evaluated before, and that version is not oudated, then return
+    // directly.
+    if (PreviousResult != nullptr && !IsOutdated) {
       Finish(nix::ref(PreviousResult));
       return;
     }
   }
+
+  // Otherwise, we must parse all files, rewrite trees, and schedule evaluation.
 
   class MyCmd : public nix::InstallableValueCommand {
     void run(nix::ref<nix::Store>, nix::ref<nix::InstallableValue>) override {}
@@ -74,6 +79,14 @@ void EvalDraftStore::withEvaluation(
     try {
       AllCatch();
     } catch (std::exception &Except) {
+      {
+        std::lock_guard<std::mutex> Guard(Mutex);
+        if (IsOutdated && AcceptOutdated && PreviousResult != nullptr) {
+          // Just use previous result, do not report diagnostic
+          // Useful for completions, because the tree might be imcomplete.
+          Finish(nix::ref(PreviousResult));
+        }
+      }
       Finish(&Except);
       return;
     } catch (...) {
