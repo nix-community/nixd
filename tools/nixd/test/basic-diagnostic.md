@@ -88,6 +88,81 @@ CHECK-NEXT:   }
 CHECK-NEXT: }
 ```
 
+Then, check that we do eval the file. Nix files are legal expressions, and should be evaluable.
+
+
+```json
+{
+   "jsonrpc":"2.0",
+   "method":"textDocument/didOpen",
+   "params":{
+      "textDocument":{
+         "uri":"file:///test-eval.nix",
+         "languageId":"nix",
+         "version":1,
+         "text":"let x = 1; in y"
+      }
+   }
+}
+```
+
+```
+     CHECK: "diagnostics": [
+CHECK-NEXT:       {
+CHECK-NEXT:         "message": "undefined variable 'y'",
+CHECK-NEXT:         "range": {
+CHECK-NEXT:           "end": {
+CHECK-NEXT:             "character": 14,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           },
+CHECK-NEXT:           "start": {
+CHECK-NEXT:             "character": 14,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           }
+CHECK-NEXT:         },
+CHECK-NEXT:         "severity": 1
+CHECK-NEXT:       }
+CHECK-NEXT:     ],
+```
+
+Check that we handle relative paths corretly. Introduce `importee.nix` and `importor.nix` in our workspace, and test whether `importor.nix` can **import** `importee.nix`.
+
+```json
+{
+   "jsonrpc":"2.0",
+   "method":"textDocument/didOpen",
+   "params":{
+      "textDocument":{
+         "uri":"file:///importee.nix",
+         "languageId":"nix",
+         "version":1,
+         "text":"{a, b}: a + b"
+      }
+   }
+}
+```
+
+```json
+{
+   "jsonrpc":"2.0",
+   "method":"textDocument/didOpen",
+   "params":{
+      "textDocument":{
+         "uri":"file:///importor.nix",
+         "languageId":"nix",
+         "version":1,
+         "text":"import ./importee.nix { a = 1; }"
+      }
+   }
+}
+```
+Currently, nix does not support in-memory filesystems, so this will fail.
+
+```
+CHECK: "message": "getting status of '/importee.nix': No such file or directory",
+```
+
+
 
 ```json
 {"jsonrpc":"2.0","method":"exit"}
