@@ -154,8 +154,25 @@ void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
 void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                      lspserver::Callback<llvm::json::Value> Reply) {
   std::string HoverFile = Paras.textDocument.uri.file().str();
+
+  // Helper lambda that retrieve installable cmdline
+  auto GetInstallableFromConfig = [&]() {
+    if (auto Installable = Config.installable) {
+      auto ConfigArgs = Installable->args;
+      lspserver::log("using client specified installable: [{0}] {1}",
+                     llvm::iterator_range(ConfigArgs.begin(), ConfigArgs.end()),
+                     Installable->installable);
+      return std::tuple{nix::Strings(ConfigArgs.begin(), ConfigArgs.end()),
+                        Installable->installable};
+    }
+    // Fallback to current file otherwise.
+    return std::tuple{nix::Strings{"--file", HoverFile}, std::string{""}};
+  };
+
+  auto [CommandLine, Installable] = GetInstallableFromConfig();
+
   DraftMgr.withEvaluation(
-      Pool, {"--file", HoverFile}, "",
+      Pool, CommandLine, Installable,
       [=, Reply = std::move(Reply)](
           std::variant<std::exception *,
                        nix::ref<EvalDraftStore::EvaluationResult>>
