@@ -407,6 +407,11 @@ bool fromJSON(const llvm::json::Value &Params, ClientCapabilities &R,
         }
       }
     }
+
+    if (auto WorkspaceConfiguration = Workspace->getBoolean("configuration")) {
+      R.WorkspaceConfiguration = *WorkspaceConfiguration;
+    }
+
     if (auto *SemanticTokens = Workspace->getObject("semanticTokens")) {
       if (auto RefreshSupport = SemanticTokens->getBoolean("refreshSupport"))
         R.SemanticTokenRefreshSupport = *RefreshSupport;

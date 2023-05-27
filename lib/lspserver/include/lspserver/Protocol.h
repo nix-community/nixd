@@ -526,6 +526,8 @@ struct ClientCapabilities {
   /// Whether the client supports the textDocument/inactiveRegions
   /// notification. This is a clangd extension.
   bool InactiveRegions = false;
+
+  bool WorkspaceConfiguration = false;
 };
 bool fromJSON(const llvm::json::Value &, ClientCapabilities &,
               llvm::json::Path);
