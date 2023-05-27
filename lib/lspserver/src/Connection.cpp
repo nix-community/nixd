@@ -41,10 +41,12 @@ void OutboundPort::reply(llvm::json::Value ID,
 
 void OutboundPort::sendMessage(llvm::json::Value Message) {
   // Make sure our outputs are not interleaving between messages (json)
+  vlog(">>> {0}", Message);
   std::lock_guard<std::mutex> Guard(Mutex);
   OutputBuffer.clear();
   llvm::raw_svector_ostream SVecOS(OutputBuffer);
-  SVecOS << llvm::formatv("{0}", Message);
+  SVecOS << (Pretty ? llvm::formatv("{0:2}", Message)
+                    : llvm::formatv("{0}", Message));
   Outs << "Content-Length: " << OutputBuffer.size() << "\r\n\r\n"
        << OutputBuffer;
   Outs.flush();
@@ -88,29 +90,30 @@ bool InboundPort::dispatch(llvm::json::Value Message, MessageHandler &Handler) {
   return Handler.onNotify(*Method, std::move(Params));
 }
 
-bool InboundPort::readMessage(std::string &JSONString) {
+bool readLine(std::FILE *In, llvm::SmallVectorImpl<char> &Line) {
+  static constexpr int BufSize = 128;
+  size_t Size = 0;
+  Line.clear();
+  for (;;) {
+    Line.resize_for_overwrite(Size + BufSize);
+    std::fgets(&Line[Size], BufSize, In);
+    clearerr(In);
+    // If the line contained null bytes, anything after it (including \n)
+    // will be ignored. Fortunately this is not a legal header or JSON.
+    size_t Read = std::strlen(&Line[Size]);
+    if (Read > 0 && Line[Size + Read - 1] == '\n') {
+      Line.resize(Size + Read);
+      return true;
+    }
+    Size += Read;
+  }
+}
+
+bool InboundPort::readStandardMessage(std::string &JSONString) {
   unsigned long long ContentLength = 0;
   llvm::SmallString<128> Line;
   while (true) {
-    auto ReadLine = [&]() -> bool {
-      static constexpr int BufSize = 128;
-      size_t Size = 0;
-      Line.clear();
-      for (;;) {
-        Line.resize_for_overwrite(Size + BufSize);
-        std::fgets(&Line[Size], BufSize, In);
-        clearerr(In);
-        // If the line contained null bytes, anything after it (including \n)
-        // will be ignored. Fortunately this is not a legal header or JSON.
-        size_t Read = std::strlen(&Line[Size]);
-        if (Read > 0 && Line[Size + Read - 1] == '\n') {
-          Line.resize(Size + Read);
-          return true;
-        }
-        Size += Read;
-      }
-    };
-    if (feof(In) || ferror(In) || !ReadLine())
+    if (feof(In) || ferror(In) || !readLine(In, Line))
       return false;
 
     llvm::StringRef LineRef = Line;
@@ -142,12 +145,55 @@ bool InboundPort::readMessage(std::string &JSONString) {
   return true;
 }
 
+bool InboundPort::readDelimitedMessage(std::string &JSONString) {
+  JSONString.clear();
+  llvm::SmallString<128> Line;
+  bool IsInputBlock = false;
+  while (readLine(In, Line)) {
+    auto LineRef = Line.str().trim();
+    if (IsInputBlock) {
+      // We are in input blocks, read lines and append JSONString.
+      if (LineRef.startswith("#")) // comment
+        continue;
+
+      // End of the block
+      if (LineRef.startswith("```")) {
+        IsInputBlock = false;
+        break;
+      }
+
+      JSONString += Line;
+    } else {
+      if (LineRef.startswith("```json"))
+        IsInputBlock = true;
+    }
+  }
+
+  if (ferror(In) != 0) {
+    elog("Input error while reading message!");
+    return false;
+  }
+  return true; // Including at EOF
+}
+
+bool InboundPort::readMessage(std::string &JSONString) {
+  switch (StreamStyle) {
+
+  case JSONStreamStyle::Standard:
+    return readStandardMessage(JSONString);
+  case JSONStreamStyle::Delimited:
+    return readDelimitedMessage(JSONString);
+    break;
+  }
+}
+
 void InboundPort::loop(MessageHandler &Handler) {
   std::string JSONString;
   llvm::SmallString<128> Line;
 
   while (!feof(stdin)) {
     if (readMessage(JSONString)) {
+      vlog("<<< {0}", JSONString);
       if (auto ExpectedParsedJSON = llvm::json::parse(JSONString)) {
         if (!dispatch(*ExpectedParsedJSON, Handler))
           return;
