@@ -59,23 +59,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
   Reply(std::move(Result));
 }
 
-void Server::onInitialized(const lspserver::InitializedParams &Params) {
-  if (ClientCaps.WorkspaceConfiguration) {
-    WorkspaceConfiguration(
-        lspserver::ConfigurationParams{
-            std::vector<lspserver::ConfigurationItem>{
-                lspserver::ConfigurationItem{.section = "nixd"}}},
-        [this](llvm::Expected<configuration::TopLevel> Response) {
-          if (Response) {
-            Config = std::move(Response.get());
-          }
-        });
-  }
-}
-
-void Server::onWorkspaceDidChangeConfiguration(
-    const lspserver::DidChangeConfigurationParams &Params) {
-  // fetch configuration again.
+void Server::fetchConfig() {
   if (ClientCaps.WorkspaceConfiguration) {
     WorkspaceConfiguration(
         lspserver::ConfigurationParams{

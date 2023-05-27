@@ -82,10 +82,14 @@ public:
             "workspace/configuration");
   }
 
+  void fetchConfig();
+
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
 
-  void onInitialized(const lspserver::InitializedParams &Params);
+  void onInitialized(const lspserver::InitializedParams &Params) {
+    fetchConfig();
+  }
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
@@ -97,7 +101,9 @@ public:
                                    std::optional<int64_t> LSPVersion);
 
   void onWorkspaceDidChangeConfiguration(
-      const lspserver::DidChangeConfigurationParams &);
+      const lspserver::DidChangeConfigurationParams &) {
+    fetchConfig();
+  }
 };
 
 }; // namespace nixd
