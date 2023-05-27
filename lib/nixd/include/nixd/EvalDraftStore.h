@@ -1,12 +1,13 @@
 #pragma once
 
 #include "nixd/AST.h"
-
-#include "lspserver/DraftStore.h"
 #include "nixd/CallbackExpr.h"
 
-#include <exception>
+#include "lspserver/DraftStore.h"
+
 #include <llvm/ADT/FunctionExtras.h>
+
+#include <exception>
 #include <map>
 #include <mutex>
 #include <variant>
