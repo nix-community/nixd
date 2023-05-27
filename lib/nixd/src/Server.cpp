@@ -18,6 +18,7 @@
 #include <filesystem>
 #include <optional>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <variant>
 namespace fs = std::filesystem;
@@ -182,19 +183,27 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
               auto Forest = Result->EvalASTForest;
               auto AST = Forest.at(HoverFile);
               auto *Node = AST->lookupPosition(Paras.position);
-              std::stringstream NodeOut;
-              Node->show(Result->State->symbols, NodeOut);
-              auto Value = AST->getValue(Node);
-              std::stringstream Res{};
-              Value.print(Result->State->symbols, Res);
-              Reply(lspserver::Hover{{
-                                         lspserver::MarkupKind::PlainText,
-                                         Res.str(),
-                                     },
-                                     std::nullopt});
+              try {
+                auto Value = AST->getValue(Node);
+                std::stringstream Res{};
+                Value.print(Result->State->symbols, Res);
+                Reply(lspserver::Hover{{
+                                           lspserver::MarkupKind::PlainText,
+                                           Res.str(),
+                                       },
+                                       std::nullopt});
+              } catch (const std::out_of_range &) {
+                // No such value, just reply dummy item
+                std::stringstream NodeOut;
+                Node->show(Result->State->symbols, NodeOut);
+                lspserver::vlog("no associated value on node {0}!",
+                                NodeOut.str());
+                Reply(lspserver::Hover{{}, std::nullopt});
+              }
             };
         auto ActionOnExcept = [&](std::exception *Except) {
           // TODO: publish evaluation diagnostic
+          lspserver::log("evaluation error: {0}", Except->what());
           Reply(lspserver::Hover{{}, std::nullopt});
         };
 
