@@ -1,6 +1,6 @@
 #include "nixd/Diagnostic.h"
 
-#include "test/nixutil.h"
+#include "nixutil.h"
 
 #include <gtest/gtest.h>
 

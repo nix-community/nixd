@@ -34,8 +34,7 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
                     [=, Method = std::string(Method),
                      this](llvm::Expected<llvm::json::Value> Response) mutable {
                       if (Response) {
-                        log("--> reply:{0}({1}), response: {2} ", Method, ID,
-                            *Response);
+                        log("--> reply:{0}({1})", Method, ID);
                         Out->reply(std::move(ID), std::move(Response));
                       }
                     });

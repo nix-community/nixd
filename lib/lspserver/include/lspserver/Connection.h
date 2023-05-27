@@ -8,6 +8,13 @@
 
 namespace lspserver {
 
+enum class JSONStreamStyle {
+  // LSP standard, for real lsp server
+  Standard,
+  // For testing.
+  Delimited
+};
+
 /// Parsed & classfied messages are dispatched to this handler class
 /// LSP Servers should inherit from this hanlder and dispatch
 /// notify/call/reply to implementations.
@@ -26,8 +33,16 @@ class InboundPort {
 private:
   std::FILE *In;
 
+  JSONStreamStyle StreamStyle = JSONStreamStyle::Standard;
+
+  bool readStandardMessage(std::string &JSONString);
+
+  bool readDelimitedMessage(std::string &JSONString);
+
 public:
-  InboundPort(std::FILE *In = stdin) : In(In){};
+  InboundPort(std::FILE *In = stdin,
+              JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
+      : In(In), StreamStyle(StreamStyle){};
 
   /// Read messages specified in LSP standard, and collect standard json string
   /// into \p JSONString.
@@ -51,9 +66,13 @@ private:
 
   std::mutex Mutex;
 
+  bool Pretty = false;
+
 public:
-  OutboundPort() : Outs(llvm::outs()) {}
-  OutboundPort(llvm::raw_ostream &Outs) : Outs(Outs), OutputBuffer() {}
+  explicit OutboundPort(bool Pretty = false)
+      : Outs(llvm::outs()), Pretty(Pretty) {}
+  OutboundPort(llvm::raw_ostream &Outs, bool Pretty = false)
+      : Outs(Outs), OutputBuffer(), Pretty(Pretty) {}
   void notify(llvm::StringRef Method, llvm::json::Value Params);
   void call(llvm::StringRef Method, llvm::json::Value Params,
             llvm::json::Value ID);
