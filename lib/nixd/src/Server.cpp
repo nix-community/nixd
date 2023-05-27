@@ -4,6 +4,7 @@
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
+#include "nixd/Expr.h"
 
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
@@ -183,23 +184,28 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
               auto Forest = Result->EvalASTForest;
               auto AST = Forest.at(HoverFile);
               auto *Node = AST->lookupPosition(Paras.position);
+              const auto *ExprName = getExprName(Node);
+              std::string HoverText;
               try {
                 auto Value = AST->getValue(Node);
                 std::stringstream Res{};
                 Value.print(Result->State->symbols, Res);
-                Reply(lspserver::Hover{{
-                                           lspserver::MarkupKind::PlainText,
-                                           Res.str(),
-                                       },
-                                       std::nullopt});
+                HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName,
+                                          Res.str());
               } catch (const std::out_of_range &) {
                 // No such value, just reply dummy item
                 std::stringstream NodeOut;
                 Node->show(Result->State->symbols, NodeOut);
                 lspserver::vlog("no associated value on node {0}!",
                                 NodeOut.str());
+                HoverText = llvm::formatv("`{0}`", ExprName);
                 Reply(lspserver::Hover{{}, std::nullopt});
               }
+              Reply(lspserver::Hover{{
+                                         lspserver::MarkupKind::Markdown,
+                                         HoverText,
+                                     },
+                                     std::nullopt});
             };
         auto ActionOnExcept = [&](std::exception *Except) {
           // TODO: publish evaluation diagnostic

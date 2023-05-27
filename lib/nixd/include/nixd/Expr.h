@@ -66,4 +66,14 @@ template <class Derived> struct RecursiveASTVisitor {
 #undef DEF_TRAVERSE_TYPE
 #undef TRY_TO_TRAVERSE
 #undef TRY_TO
+
+inline const char *getExprName(nix::Expr *E) {
+#define NIX_EXPR(EXPR)                                                         \
+  if (dynamic_cast<const nix::EXPR *>(E)) {                                    \
+    return #EXPR;                                                              \
+  }
+#include "NixASTNodes.inc"
+#undef NIX_EXPR
+}
+
 } // namespace nixd
