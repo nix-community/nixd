@@ -85,6 +85,8 @@ public:
             "workspace/configuration");
   }
 
+  ~Server() override { Pool.join(); }
+
   void fetchConfig();
 
   void onInitialize(const lspserver::InitializeParams &,
