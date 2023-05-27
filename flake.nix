@@ -17,6 +17,9 @@
           cmake
           pkg-config
 
+          # Testing only
+          lit
+
           nixUnstable.dev
           boost.dev
           gtest.dev
