@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nixd/EvalDraftStore.h"
+
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
 #include "lspserver/Function.h"
@@ -7,7 +9,6 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
-#include "nixd/EvalDraftStore.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/JSON.h>

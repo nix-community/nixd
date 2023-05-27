@@ -1,10 +1,10 @@
 #include "nixd/Server.h"
-#include "lspserver/Logger.h"
 #include "nixd/Diagnostic.h"
+#include "nixd/Expr.h"
 
+#include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
-#include "nixd/Expr.h"
 
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <string>
 #include <variant>
+
 namespace fs = std::filesystem;
 namespace nixd {
 
