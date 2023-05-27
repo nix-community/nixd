@@ -27,6 +27,7 @@ CHECK-NEXT:   "id": 0,
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": {
 CHECK-NEXT:     "capabilities": {
+CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,
