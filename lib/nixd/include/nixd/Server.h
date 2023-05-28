@@ -1,6 +1,5 @@
 #pragma once
 
-#include "eval.hh"
 #include "nixd/EvalDraftStore.h"
 
 #include "lspserver/Connection.h"
