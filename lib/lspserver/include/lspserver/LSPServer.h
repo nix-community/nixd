@@ -68,7 +68,7 @@ protected:
   template <class ParamTy, class ResponseTy>
   llvm::unique_function<void(const ParamTy &, Callback<ResponseTy>)>
   mkOutMethod(llvm::StringRef Method) {
-    return [=](const ParamTy &Params, Callback<ResponseTy> Reply) {
+    return [=, this](const ParamTy &Params, Callback<ResponseTy> Reply) {
       callMethod(Method, Params,
                  [=, Reply = std::move(Reply)](
                      llvm::Expected<llvm::json::Value> Response) mutable {
