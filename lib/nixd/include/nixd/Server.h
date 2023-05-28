@@ -1,5 +1,6 @@
 #pragma once
 
+#include "eval.hh"
 #include "nixd/EvalDraftStore.h"
 
 #include "lspserver/Connection.h"
@@ -25,12 +26,28 @@ struct InstallableConfigurationItem {
 struct TopLevel {
   /// Nix installables that will be used for root translation unit.
   std::optional<InstallableConfigurationItem> installable;
+
+  /// Get installable arguments specified in this config, fallback to file \p
+  /// Fallback if 'installable' is not set.
+  [[nodiscard]] std::tuple<nix::Strings, std::string>
+  getInstallable(std::string Fallback) const;
 };
 
 bool fromJSON(const llvm::json::Value &Params, TopLevel &R, llvm::json::Path P);
 bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
               llvm::json::Path P);
 } // namespace configuration
+
+struct CompletionHelper {
+  using Items = std::vector<lspserver::CompletionItem>;
+  static Items fromEnvRecursive(const nix::SymbolTable &STable,
+                                const nix::StaticEnv &SEnv,
+                                const nix::Env &NixEnv);
+  static Items fromEnvWith(const nix::SymbolTable &STable,
+                           const nix::Env &NixEnv);
+  static Items fromStaticEnv(const nix::SymbolTable &STable,
+                             const nix::StaticEnv &SEnv);
+};
 
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
@@ -92,6 +109,9 @@ public:
   }
   void onHover(const lspserver::TextDocumentPositionParams &,
                lspserver::Callback<llvm::json::Value>);
+
+  void onCompletion(const lspserver::CompletionParams &,
+                    lspserver::Callback<llvm::json::Value>);
 };
 
 }; // namespace nixd
