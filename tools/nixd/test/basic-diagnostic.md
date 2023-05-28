@@ -88,7 +88,41 @@ CHECK-NEXT:   }
 CHECK-NEXT: }
 ```
 
+Then, check that we performed static value lookups (i.e. not via nix::Env).
 
+
+```json
+{
+   "jsonrpc":"2.0",
+   "method":"textDocument/didOpen",
+   "params":{
+      "textDocument":{
+         "uri":"file:///test-static-lookup.nix",
+         "languageId":"nix",
+         "version":1,
+         "text":"let x = 1; in y"
+      }
+   }
+}
+```
+
+```
+     CHECK: "diagnostics": [
+CHECK-NEXT:       {
+CHECK-NEXT:         "message": "undefined variable 'y'",
+CHECK-NEXT:         "range": {
+CHECK-NEXT:           "end": {
+CHECK-NEXT:             "character": 14,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           },
+CHECK-NEXT:           "start": {
+CHECK-NEXT:             "character": 14,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           }
+CHECK-NEXT:         },
+CHECK-NEXT:         "severity": 1
+CHECK-NEXT:       }
+CHECK-NEXT:     ],
 
 ```json
 {"jsonrpc":"2.0","method":"exit"}
