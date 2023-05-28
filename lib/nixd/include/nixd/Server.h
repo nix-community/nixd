@@ -64,27 +64,7 @@ class Server : public lspserver::LSPServer {
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
-         std::unique_ptr<lspserver::OutboundPort> Out)
-      : LSPServer(std::move(In), std::move(Out)) {
-    Registry.addMethod("initialize", this, &Server::onInitialize);
-    Registry.addMethod("textDocument/hover", this, &Server::onHover);
-    Registry.addNotification("initialized", this, &Server::onInitialized);
-
-    // Text Document Synchronization
-    Registry.addNotification("textDocument/didOpen", this,
-                             &Server::onDocumentDidOpen);
-    Registry.addNotification("textDocument/didChange", this,
-                             &Server::onDocumentDidChange);
-
-    // Workspace
-    Registry.addNotification("workspace/didChangeConfiguration", this,
-                             &Server::onWorkspaceDidChangeConfiguration);
-    PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
-        "textDocument/publishDiagnostics");
-    WorkspaceConfiguration =
-        mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
-            "workspace/configuration");
-  }
+         std::unique_ptr<lspserver::OutboundPort> Out);
 
   ~Server() override { Pool.join(); }
 
