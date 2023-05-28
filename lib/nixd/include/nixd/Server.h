@@ -53,7 +53,7 @@ struct CompletionHelper {
 class Server : public lspserver::LSPServer {
 
   EvalDraftStore DraftMgr;
-  boost::asio::thread_pool Pool;
+  boost::asio::thread_pool Pool = boost::asio::thread_pool(1);
 
   lspserver::ClientCapabilities ClientCaps;
 

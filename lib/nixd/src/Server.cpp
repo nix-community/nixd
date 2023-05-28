@@ -85,9 +85,8 @@ CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
   if (NixEnv.type == nix::Env::HasWithAttrs) {
     nix::Bindings::iterator BindingIt = NixEnv.values[0]->attrs->begin();
     while (BindingIt != NixEnv.values[0]->attrs->end()) {
-      lspserver::log("Adding dynamic env");
-      Result.emplace_back(
-          lspserver::CompletionItem{.label = STable[BindingIt->name]});
+      std::string Name = STable[BindingIt->name];
+      Result.emplace_back(lspserver::CompletionItem{.label = Name});
       ++BindingIt;
     }
   }
@@ -109,7 +108,7 @@ CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
   Result.insert(Result.end(), StaticEnvItems.begin(), StaticEnvItems.end());
 
   auto EnvItems = fromEnvWith(STable, NixEnv);
-  Result.insert(Result.end(), StaticEnvItems.begin(), StaticEnvItems.end());
+  Result.insert(Result.end(), EnvItems.begin(), EnvItems.end());
 
   return Result;
 }
@@ -320,7 +319,7 @@ void Server::onCompletion(const lspserver::CompletionParams &Params,
                 auto ExprEnv = AST->getEnv(Node);
 
                 Items = CompletionHelper::fromEnvRecursive(
-                    State->symbols, *State->staticBaseEnv, ExprEnv);
+                    State->symbols, *State->staticBaseEnv, *ExprEnv);
 
               } catch (const std::out_of_range &) {
                 // Fallback to staticEnv only

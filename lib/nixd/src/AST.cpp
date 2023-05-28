@@ -19,7 +19,7 @@ EvalAST::EvalAST(nix::Expr *Root) : Cxt(ASTContext()) {
                              const nix::Env &ExprEnv,
                              const nix::Value &ExprValue) {
     ValueMap[Expr] = ExprValue;
-    EnvMap[Expr] = ExprEnv;
+    EnvMap[Expr] = &ExprEnv;
   };
   this->Root = rewriteCallback(Cxt, EvalCallback, Root);
 }
