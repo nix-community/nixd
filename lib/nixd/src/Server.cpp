@@ -89,6 +89,15 @@ void Server::withEval(std::string Fallback,
       Pool, CommandLine, Installable,
       [this,
        Then = std::move(Then)](const EvalDraftStore::CallbackArg &Arg) mutable {
+        // Workaround for display version
+        for (auto ActiveFile : DraftMgr.getActiveFiles()) {
+          URIForFile Uri = URIForFile::canonicalize(ActiveFile, ActiveFile);
+          PublishDiagnosticsParams Notification;
+          Notification.uri = Uri;
+          Notification.diagnostics = {};
+          PublishDiagnostic(Notification);
+        }
+
         // Publish all injection errors.
         for (const auto &[NixErr, ErrInfo] : Arg.InjectionErrors) {
           auto DiagVec = mkDiagnostics(*NixErr);
