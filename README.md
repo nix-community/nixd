@@ -84,3 +84,14 @@ Regression tests are written in **markdown**, and directly execute the compiled 
 Unit tests are used for testing class interfaces, mostly public methods.
 
 Nixd regression tests could be found at [here](tools/nixd/test/).
+
+
+## Tooling
+
+We provide some extra tools based on our codebase.
+
+### nix-ast-dump
+
+Used for dumping internal data structures in nix parser.
+
+Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
