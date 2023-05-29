@@ -157,7 +157,7 @@ TEST(EvalDraftStore, TransferEvalError) {
       Pool, {"--file", "/evaluable.nix"}, "bar",
       [=](const EvalDraftStore::CallbackArg &Arg) {
         const auto &IErrs = Arg.InjectionErrors;
-        // ASSERT_EQ(IErrs.size(), 2);
+        ASSERT_EQ(IErrs.size(), 2);
         for (auto &[Err, ErrInfo] : IErrs) {
           llvm::StringRef ErrWhat = Err->what();
           if (ErrInfo.ActiveFile == "/foo") {
