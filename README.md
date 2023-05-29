@@ -23,36 +23,36 @@ Some notable features provided by linking with the Nix library include:
 
 <details><summary>Handle evaluations exactly same as nix evaluator</summary>
 
-![infinte-recursion](docs/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
+![infinte-recursion](docs/images/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
 
 </details>
 
 <details><summary>Support *all* builtins</summary>
 
-![eval-builtin-json](docs/59655838-36a8-4145-9717-f2009e0efef9.png)
+![eval-builtin-json](docs/images/59655838-36a8-4145-9717-f2009e0efef9.png)
 
 And diagnostic:
 
-![eval-builtin-diagnostic](docs/f6e10994-41e4-4a03-84a2-ef275fb402fd.png)
+![eval-builtin-diagnostic](docs/images/f6e10994-41e4-4a03-84a2-ef275fb402fd.png)
 
 </details>
 
 <details><summary>Eval nixpkgs</summary>
 
-![eval-nixpkgs](docs/abe2fafc-d139-4741-89af-53339312a1af.png)
+![eval-nixpkgs](docs/images/abe2fafc-d139-4741-89af-53339312a1af.png)
 
 </details>
 
 <details><summary>Print internal AST Node type, and evalution result just as same as nix repl</summary>
 
-![eval-ast](docs/c7e8a8c7-5c0e-4736-868f-1e2c345468fd.png)
+![eval-ast](docs/images/c7e8a8c7-5c0e-4736-868f-1e2c345468fd.png)
 
 
 </details>
 
 <details><summary>Complete dynamic envs, like `with` expression</summary>
 
-![complete-with](docs/ae629b9f-95cb-48df-aa1d-4f5f94c3c06a.png)
+![complete-with](docs/images/ae629b9f-95cb-48df-aa1d-4f5f94c3c06a.png)
 
 </details>
 
