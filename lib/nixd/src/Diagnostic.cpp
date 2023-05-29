@@ -34,7 +34,7 @@ static std::string stripANSI(std::string Msg){
 
 namespace nixd {
 
-std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::Error &Err) {
+std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::BaseError &Err) {
   std::vector<lspserver::Diagnostic> Ret;
   auto ErrPos = Err.info().errPos;
   lspserver::Position ErrLoc =

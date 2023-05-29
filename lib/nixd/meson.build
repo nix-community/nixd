@@ -20,7 +20,6 @@ test_server = executable('test-server'
   , 'test/diagnostic.cpp'
   , 'test/evalDraftStore.cpp'
   , 'test/expr.cpp'
-  , 'test/server.cpp'
   ]
 , dependencies: [ nixd_server
                 , llvm

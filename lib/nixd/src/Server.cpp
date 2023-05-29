@@ -12,16 +12,19 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
 
+#include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/store-api.hh>
 #include <nix/util.hh>
 
 #include <exception>
 #include <filesystem>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <variant>
 
 namespace fs = std::filesystem;
@@ -49,7 +52,101 @@ bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
   return O && O.map("args", R.args) && O.map("installable", R.installable);
 }
 
+std::tuple<nix::Strings, std::string>
+TopLevel::getInstallable(std::string Fallback) const {
+  if (auto Installable = installable) {
+    auto ConfigArgs = Installable->args;
+    lspserver::log("using client specified installable: [{0}] {1}",
+                   llvm::iterator_range(ConfigArgs.begin(), ConfigArgs.end()),
+                   Installable->installable);
+    return std::tuple{nix::Strings(ConfigArgs.begin(), ConfigArgs.end()),
+                      Installable->installable};
+  }
+  // Fallback to current file otherwise.
+  return std::tuple{nix::Strings{"--file", std::move(Fallback)},
+                    std::string{""}};
+}
+
 } // namespace configuration
+
+void Server::withEval(std::string Fallback,
+                      llvm::unique_function<void(
+                          std::shared_ptr<EvalDraftStore::EvalResult> Result)>
+                          Then) {
+  using namespace lspserver;
+
+  {
+    std::lock_guard<std::mutex> Guard(ResultLock);
+    if (CachedResult) {
+      Then(CachedResult);
+      return;
+    }
+  }
+
+  const auto &[CommandLine, Installable] =
+      Config.getInstallable(std::move(Fallback));
+  DraftMgr.withEvaluation(
+      Pool, CommandLine, Installable,
+      [this,
+       Then = std::move(Then)](const EvalDraftStore::CallbackArg &Arg) mutable {
+        // Publish all injection errors.
+        for (const auto &[NixErr, ErrInfo] : Arg.InjectionErrors) {
+          auto DiagVec = mkDiagnostics(*NixErr);
+          URIForFile Uri =
+              URIForFile::canonicalize(ErrInfo.ActiveFile, ErrInfo.ActiveFile);
+          PublishDiagnosticsParams Notification;
+          Notification.uri = Uri;
+          Notification.diagnostics = DiagVec;
+          Notification.version = DraftStore::decodeVersion(ErrInfo.Version);
+          PublishDiagnostic(Notification);
+        }
+
+        // And evaluation error
+        try {
+          if (Arg.EvalError)
+            std::rethrow_exception(Arg.EvalError);
+        } catch (nix::BaseError &Err) {
+          // We do not know which file caused this error at all.
+          auto DiagVec = mkDiagnostics(Err);
+          PublishDiagnosticsParams Notification;
+          Notification.diagnostics = DiagVec;
+          PublishDiagnostic(Notification);
+        } catch (std::exception &Except) {
+          elog("unhandled exception: {0}", Except.what());
+        } catch (...) {
+          elog("unhandled exception (unknown)");
+        }
+
+        if (Arg.Result) {
+          std::lock_guard<std::mutex> Guard(ResultLock);
+          LastValidResult = Arg.Result;
+          CachedResult = Arg.Result;
+          Then(Arg.Result);
+        }
+      });
+}
+
+void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
+                         llvm::StringRef Version) {
+  using namespace lspserver;
+
+  // Since this file is update, we first clear its diagnostic
+  PublishDiagnosticsParams Notification;
+  Notification.uri = URIForFile::canonicalize(File, File);
+  Notification.diagnostics = {};
+  Notification.version = DraftStore::decodeVersion(Version);
+  PublishDiagnostic(Notification);
+
+  DraftMgr.addDraft(File, Version, Contents);
+
+  {
+    std::lock_guard<std::mutex> Guard(ResultLock);
+    CachedResult = nullptr;
+  }
+
+  withEval(File.str(),
+           [](std::shared_ptr<EvalDraftStore::EvalResult> Result) {});
+}
 
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
                           lspserver::Callback<llvm::json::Value> Reply) {
@@ -127,8 +224,6 @@ void Server::onDocumentDidOpen(
   const std::string &Contents = Params.textDocument.text;
 
   addDocument(File, Contents, encodeVersion(Params.textDocument.version));
-  publishStandaloneDiagnostic(Params.textDocument.uri, Contents,
-                              Params.textDocument.version);
 }
 
 void Server::onDocumentDidChange(
@@ -152,96 +247,49 @@ void Server::onDocumentDidChange(
     }
   }
   addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
-  publishStandaloneDiagnostic(Params.textDocument.uri, NewCode,
-                              Params.textDocument.version);
-}
-
-void Server::publishStandaloneDiagnostic(lspserver::URIForFile Uri,
-                                         std::string Content,
-                                         std::optional<int64_t> LSPVersion) {
-  auto NixStore = nix::openStore();
-  auto NixState = std::make_unique<nix::EvalState>(nix::Strings{}, NixStore);
-  try {
-    fs::path Path = Uri.file().str();
-    auto *E = NixState->parseExprFromString(std::move(Content),
-                                            Path.remove_filename());
-    nix::Value V;
-    NixState->eval(E, V);
-  } catch (const nix::Error &PE) {
-    PublishDiagnostic(lspserver::PublishDiagnosticsParams{
-        .uri = Uri, .diagnostics = mkDiagnostics(PE), .version = LSPVersion});
-    return;
-  } catch (...) {
-    return;
-  }
-  PublishDiagnostic(lspserver::PublishDiagnosticsParams{
-      .uri = Uri, .diagnostics = {}, .version = LSPVersion});
 }
 
 void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                      lspserver::Callback<llvm::json::Value> Reply) {
+  using namespace lspserver;
   std::string HoverFile = Paras.textDocument.uri.file().str();
-
-  // Helper lambda that retrieve installable cmdline
-  auto GetInstallableFromConfig = [&]() {
-    if (auto Installable = Config.installable) {
-      auto ConfigArgs = Installable->args;
-      lspserver::log("using client specified installable: [{0}] {1}",
-                     llvm::iterator_range(ConfigArgs.begin(), ConfigArgs.end()),
-                     Installable->installable);
-      return std::tuple{nix::Strings(ConfigArgs.begin(), ConfigArgs.end()),
-                        Installable->installable};
-    }
-    // Fallback to current file otherwise.
-    return std::tuple{nix::Strings{"--file", HoverFile}, std::string{""}};
-  };
-
-  auto [CommandLine, Installable] = GetInstallableFromConfig();
-
-  DraftMgr.withEvaluation(
-      Pool, CommandLine, Installable,
-      [=, Reply = std::move(Reply)](
-          const EvalDraftStore::CallbackArg &EvalLogicalResult) mutable {
-        auto Result = EvalLogicalResult.Result;
-        auto ActionOnResult =
-            [&](const EvalDraftStore::EvalResult &Result) {
-              auto Forest = Result.EvalASTForest;
-              try {
-                auto AST = Forest.at(HoverFile);
-                auto *Node = AST->lookupPosition(Paras.position);
-                const auto *ExprName = getExprName(Node);
-                std::string HoverText;
-                try {
-                  auto Value = AST->getValue(Node);
-                  std::stringstream Res{};
-                  Value.print(Result.State->symbols, Res);
-                  HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName,
-                                            Res.str());
-                } catch (const std::out_of_range &) {
-                  // No such value, just reply dummy item
-                  std::stringstream NodeOut;
-                  Node->show(Result.State->symbols, NodeOut);
-                  lspserver::vlog("no associated value on node {0}!",
-                                  NodeOut.str());
-                  HoverText = llvm::formatv("`{0}`", ExprName);
-                }
-                Reply(lspserver::Hover{{
-                                           lspserver::MarkupKind::Markdown,
-                                           HoverText,
-                                       },
-                                       std::nullopt});
-              } catch (const std::out_of_range &) {
-                // Probably out of range in Forest.at
-                // Ignore this expression, and reply dummy value.
-                Reply(lspserver::Hover{{}, std::nullopt});
-              }
-            };
-        if (Result != nullptr) {
-          ActionOnResult(*Result);
-        } else {
-          Reply(lspserver::Hover{{}, std::nullopt});
+  withEval(
+      HoverFile,
+      [HoverFile, Paras, Reply = std::move(Reply)](
+          std::shared_ptr<EvalDraftStore::EvalResult> Result) mutable {
+        if (Result == nullptr) {
+          Reply(Hover{{}, std::nullopt});
+          return;
+        }
+        auto Forest = Result->EvalASTForest;
+        try {
+          auto AST = Forest.at(HoverFile);
+          auto *Node = AST->lookupPosition(Paras.position);
+          const auto *ExprName = getExprName(Node);
+          std::string HoverText;
+          try {
+            auto Value = AST->getValue(Node);
+            std::stringstream Res{};
+            Value.print(Result->State->symbols, Res);
+            HoverText =
+                llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
+          } catch (const std::out_of_range &) {
+            // No such value, just reply dummy item
+            std::stringstream NodeOut;
+            Node->show(Result->State->symbols, NodeOut);
+            lspserver::vlog("no associated value on node {0}!", NodeOut.str());
+            HoverText = llvm::formatv("`{0}`", ExprName);
+          }
+          Reply(lspserver::Hover{{
+                                     lspserver::MarkupKind::Markdown,
+                                     HoverText,
+                                 },
+                                 std::nullopt});
+        } catch (const std::out_of_range &) {
+          // Probably out of range in Forest.at
+          // Ignore this expression, and reply dummy value.
+          Reply(Hover{{}, std::nullopt});
         }
       });
 }
-
 } // namespace nixd

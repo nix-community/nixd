@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-
 #include "lspserver/DraftStore.h"
 #include "lspserver/Logger.h"
 #include "llvm/ADT/StringExtras.h"
@@ -56,6 +55,15 @@ static void increment(std::string &S) {
     }
     *I = '0'; // and keep incrementing to the left.
   }
+}
+
+std::optional<int64_t> DraftStore::decodeVersion(llvm::StringRef Encoded) {
+  int64_t Result;
+  if (llvm::to_integer(Encoded, Result, 10))
+    return Result;
+  if (!Encoded.empty()) // Empty can be e.g. diagnostics on close.
+    elog("unexpected non-numeric version {0}", Encoded);
+  return std::nullopt;
 }
 
 static void updateVersion(DraftStore::Draft &D,

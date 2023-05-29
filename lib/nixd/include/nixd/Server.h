@@ -25,6 +25,11 @@ struct InstallableConfigurationItem {
 struct TopLevel {
   /// Nix installables that will be used for root translation unit.
   std::optional<InstallableConfigurationItem> installable;
+
+  /// Get installable arguments specified in this config, fallback to file \p
+  /// Fallback if 'installable' is not set.
+  [[nodiscard]] std::tuple<nix::Strings, std::string>
+  getInstallable(std::string Fallback) const;
 };
 
 bool fromJSON(const llvm::json::Value &Params, TopLevel &R, llvm::json::Path P);
@@ -36,7 +41,7 @@ bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
 class Server : public lspserver::LSPServer {
 
   EvalDraftStore DraftMgr;
-  boost::asio::thread_pool Pool;
+  boost::asio::thread_pool Pool = boost::asio::thread_pool(1);
 
   lspserver::ClientCapabilities ClientCaps;
 
@@ -44,10 +49,14 @@ class Server : public lspserver::LSPServer {
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
+  std::mutex ResultLock;
+  std::shared_ptr<EvalDraftStore::EvalResult>
+      LastValidResult; // GUARDED_BY(ResultLock)
+  std::shared_ptr<EvalDraftStore::EvalResult>
+      CachedResult; // GUARDED_BY(ResultLock)
+
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
-                   llvm::StringRef Version) {
-    DraftMgr.addDraft(File, Version, Contents);
-  }
+                   llvm::StringRef Version);
 
   void removeDocument(lspserver::PathRef File) { DraftMgr.removeDraft(File); }
 
@@ -61,6 +70,11 @@ class Server : public lspserver::LSPServer {
   llvm::unique_function<void(const lspserver::ConfigurationParams &,
                              lspserver::Callback<configuration::TopLevel>)>
       WorkspaceConfiguration;
+
+  void withEval(std::string Fallback,
+                llvm::unique_function<
+                    void(std::shared_ptr<EvalDraftStore::EvalResult> Result)>
+                    Then);
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,

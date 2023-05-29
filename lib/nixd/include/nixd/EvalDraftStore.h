@@ -35,6 +35,9 @@ public:
 
       /// Which active file caused the error?
       std::string ActiveFile;
+
+      /// Draft version of the corresponding file
+      std::string Version;
     };
 
     /// Maps exceptions -> file for parsing errors

@@ -47,6 +47,8 @@ public:
 
   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> asVFS() const;
 
+  static std::optional<int64_t> decodeVersion(llvm::StringRef Encoded);
+
 private:
   struct DraftAndTime {
     Draft D;

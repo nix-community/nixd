@@ -48,19 +48,19 @@ void EvalDraftStore::withEvaluation(
       auto ActiveFiles = getActiveFiles();
       for (const auto &ActiveFile : ActiveFiles) {
         // Safely unwrap optional because they are stored active files.
-        auto DraftContents = *getDraft(ActiveFile).value().Contents;
+        auto Draft = getDraft(ActiveFile).value();
 
         try {
           std::filesystem::path Path = ActiveFile;
-          auto *FileAST =
-              State->parseExprFromString(DraftContents, Path.remove_filename());
+          auto *FileAST = State->parseExprFromString(*Draft.Contents,
+                                                     Path.remove_filename());
           Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
           Forest.at(ActiveFile)->preparePositionLookup(*State);
           Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
         } catch (nix::BaseError &Err) {
           std::exception_ptr Ptr = std::current_exception();
           CBRAII.LogicalResult.InjectionErrors.insert(
-              {&Err, {Ptr, ActiveFile}});
+              {&Err, {Ptr, ActiveFile, Draft.Version}});
         } catch (...) {
           // Catch all exceptions while parsing & evaluation on single file.
         }
