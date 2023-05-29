@@ -122,7 +122,10 @@ void Server::withEval(std::string Fallback,
           LastValidResult = Arg.Result;
           CachedResult = Arg.Result;
           Then(Arg.Result);
+          return;
         }
+
+        Then(nullptr);
       });
 }
 
