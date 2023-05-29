@@ -25,28 +25,40 @@ public:
         : State(State), EvalASTForest(std::move(EvalASTForest)) {}
   };
 
-  using CallbackArg =
-      std::tuple<std::vector<std::exception_ptr>, std::shared_ptr<EvalResult>>;
+  /// Logical result per-evaluation
+  /// Contains nullable EvalResult, and stored exceptions/errors
+  struct EvalLogicalResult {
 
-private:
-  /// Cached evaluation result
-  std::mutex Mutex;
-  std::shared_ptr<EvalResult> PreviousResult;
-  bool IsOutdated = true;
+    struct InjectionErrorInfo {
+      /// Holds the lifetime of associated error.
+      std::exception_ptr Ptr;
+
+      /// Which active file caused the error?
+      std::string ActiveFile;
+    };
+
+    /// Maps exceptions -> file for parsing errors
+    ///
+    /// Injection errors is collected while we do AST injection. Nix is required
+    /// to perform parsing and basic evaluation on such single files.
+    ///
+    /// Injection errors are ignored because opened textDocument might be in
+    /// complete, and we don't want to fail early for evaluation. There may be
+    /// more than one exceptions on a file.
+    std::map<nix::BaseError *, InjectionErrorInfo> InjectionErrors;
+
+    /// Evaluation error, on evaluation task.
+    std::exception_ptr EvalError;
+
+    std::shared_ptr<EvalResult> Result;
+  };
+
+  using CallbackArg = EvalLogicalResult;
 
 public:
   void withEvaluation(boost::asio::thread_pool &Pool,
                       const nix::Strings &CommandLine,
                       const std::string &Installable,
-                      llvm::unique_function<void(CallbackArg)> Finish,
-                      bool AcceptOutdated = true);
-  std::string addDraft(lspserver::PathRef File, llvm::StringRef Version,
-                       llvm::StringRef Contents) {
-    {
-      std::lock_guard<std::mutex> Guard(Mutex);
-      IsOutdated = true;
-    }
-    return lspserver::DraftStore::addDraft(File, Version, Contents);
-  }
+                      llvm::unique_function<void(CallbackArg)> Finish);
 };
 } // namespace nixd

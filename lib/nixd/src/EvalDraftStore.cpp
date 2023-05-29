@@ -2,6 +2,7 @@
 
 #include "lspserver/Logger.h"
 
+#include <exception>
 #include <nix/command-installable-value.hh>
 #include <nix/eval.hh>
 #include <nix/installable-value.hh>
@@ -15,18 +16,7 @@ namespace nixd {
 void EvalDraftStore::withEvaluation(
     boost::asio::thread_pool &Pool, const nix::Strings &CommandLine,
     const std::string &Installable,
-    llvm::unique_function<void(CallbackArg)> Finish, bool AcceptOutdated) {
-  {
-    std::lock_guard<std::mutex> Guard(Mutex);
-    // If we have evaluated before, and that version is not oudated, then return
-    // directly.
-    if (PreviousResult != nullptr && !IsOutdated) {
-      Finish({std::vector<std::exception_ptr>{}, PreviousResult});
-      return;
-    }
-  }
-
-  // Otherwise, we must parse all files, rewrite trees, and schedule evaluation.
+    llvm::unique_function<void(CallbackArg)> Finish) {
 
   class MyCmd : public nix::InstallableValueCommand {
     void run(nix::ref<nix::Store>, nix::ref<nix::InstallableValue>) override {}
@@ -41,13 +31,15 @@ void EvalDraftStore::withEvaluation(
 
     // RAII helper object that ensure 'Finish' will be called only once.
     struct CallbackOnceRAII {
-      std::vector<std::exception_ptr> Exceptions;
-      std::shared_ptr<EvalResult> Result;
-      llvm::unique_function<void(CallbackArg)> Finish;
-      ~CallbackOnceRAII() { Finish({Exceptions, Result}); }
-    } CBRAII;
 
-    CBRAII.Finish = std::move(Finish);
+      EvalLogicalResult LogicalResult;
+      CallbackOnceRAII(llvm::unique_function<void(CallbackArg)> Finish)
+          : Finish(std::move(Finish)) {}
+      ~CallbackOnceRAII() { Finish(LogicalResult); }
+
+    private:
+      llvm::unique_function<void(CallbackArg)> Finish;
+    } CBRAII(std::move(Finish));
 
     auto AllCatch = [&]() {
       decltype(EvalResult::EvalASTForest) Forest;
@@ -65,9 +57,12 @@ void EvalDraftStore::withEvaluation(
           Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
           Forest.at(ActiveFile)->preparePositionLookup(*State);
           Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
+        } catch (nix::BaseError &Err) {
+          std::exception_ptr Ptr = std::current_exception();
+          CBRAII.LogicalResult.InjectionErrors.insert(
+              {&Err, {Ptr, ActiveFile}});
         } catch (...) {
           // Catch all exceptions while parsing & evaluation on single file.
-          CBRAII.Exceptions.emplace_back(std::current_exception());
         }
       }
 
@@ -77,22 +72,13 @@ void EvalDraftStore::withEvaluation(
 
       // Evaluation goes.
       IValue->toValue(*State);
-      CBRAII.Result = std::make_shared<EvalResult>(State, Forest);
-      {
-        std::lock_guard<std::mutex> Guard(Mutex);
-        PreviousResult = CBRAII.Result;
-      }
+      CBRAII.LogicalResult.Result = std::make_shared<EvalResult>(State, Forest);
     };
 
     try {
       AllCatch();
     } catch (...) {
-      CBRAII.Exceptions.emplace_back(std::current_exception());
-      {
-        std::lock_guard<std::mutex> Guard(Mutex);
-        if (IsOutdated && AcceptOutdated && PreviousResult != nullptr)
-          CBRAII.Result = PreviousResult;
-      }
+      CBRAII.LogicalResult.EvalError = std::current_exception();
     }
   };
 

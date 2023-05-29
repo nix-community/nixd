@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "nixd/EvalDraftStore.h"
+#include "llvm/ADT/StringRef.h"
 
 #include <nix/command-installable-value.hh>
 #include <nix/installable-value.hh>
@@ -23,7 +24,7 @@ TEST(EvalDraftStore, Evaluation) {
 
   EDS->withEvaluation(Pool, {"--file", VirtualTestPath}, "",
                       [=](const EvalDraftStore::CallbackArg &Arg) {
-                        const auto &[Excepts, Result] = Arg;
+                        const auto Result = Arg.Result;
                         auto Forest = Result->EvalASTForest;
                         auto FooAST = Forest.at(VirtualTestPath);
                         ASSERT_TRUE(
@@ -34,7 +35,7 @@ TEST(EvalDraftStore, Evaluation) {
   )");
   EDS->withEvaluation(Pool, {"--file", VirtualTestPath}, "",
                       [=](const EvalDraftStore::CallbackArg &Arg) {
-                        const auto &[Excepts, Result] = Arg;
+                        const auto Result = Arg.Result;
                         auto Forest = Result->EvalASTForest;
                         auto FooAST = Forest.at(VirtualTestPath);
                         ASSERT_EQ(FooAST->getValue(FooAST->root()).integer, 2);
@@ -56,7 +57,7 @@ TEST(EvalDraftStore, SetupLookup) {
   EDS->withEvaluation(
       Pool, {"--file", VirtualTestPath}, "",
       [=](const EvalDraftStore::CallbackArg &Arg) {
-        const auto &[Excepts, Result] = Arg;
+        const auto Result = Arg.Result;
         auto Forest = Result->EvalASTForest;
         auto FooAST = Forest.at(VirtualTestPath);
 
@@ -83,7 +84,7 @@ TEST(EvalDraftStore, IgnoreParseError) {
   EDS->withEvaluation(
       Pool, {"--file", "/bar"}, "",
       [=](const EvalDraftStore::CallbackArg &Arg) {
-        const auto &[Excepts, Result] = Arg;
+        const auto Result = Arg.Result;
         auto Forest = Result->EvalASTForest;
         auto FooAST = Forest.at("/bar");
 
@@ -93,59 +94,89 @@ TEST(EvalDraftStore, IgnoreParseError) {
   Pool.join();
 }
 
-TEST(EvalDraftStore, CanUsePrevious) {
+TEST(EvalDraftStore, TransferInjectionError) {
   auto EDS = std::make_unique<EvalDraftStore>();
 
-  boost::asio::thread_pool Pool(1);
+  boost::asio::thread_pool Pool;
 
-  EDS->addDraft("/bar", "0", R"(
-    { x = 1; }
+  // ParseError!
+  EDS->addDraft("/foo", "0", R"(
+    { x = 1;
   )");
 
-  EDS->withEvaluation(
-      Pool, {"--file", "/bar"}, "",
-      [=](const EvalDraftStore::CallbackArg &Arg) {
-        const auto &[Excepts, Result] = Arg;
-
-        auto Forest = Result->EvalASTForest;
-        auto FooAST = Forest.at("/bar");
-
-        /// Ensure that 'lookupPosition' can be used
-        ASSERT_EQ(FooAST->lookupPosition({0, 0}), FooAST->root());
-      });
-
-  // Undefined variable, to trigger eval error.
-  EDS->addDraft("/foo", "0", R"(
+  /// Error in bindVars
+  EDS->addDraft("/barr", "0", R"(
     let x = 1; in y
   )");
 
-  bool CalledEvaluation = false;
+  EDS->addDraft("/evaluable.nix", "0", R"(
+    let x = 1; in x
+  )");
+
+  EDS->withEvaluation(Pool, {"--file", "/evaluable.nix"}, "",
+                      [=](const EvalDraftStore::CallbackArg &Arg) {
+                        const auto &IErrs = Arg.InjectionErrors;
+                        ASSERT_EQ(IErrs.size(), 2);
+                        for (auto &[Err, ErrInfo] : IErrs) {
+                          llvm::StringRef ErrWhat = Err->what();
+                          if (ErrInfo.ActiveFile == "/foo") {
+                            ASSERT_TRUE(ErrWhat.contains("syntax error"));
+                          } else if (ErrInfo.ActiveFile == "/barr") {
+                            ASSERT_TRUE(ErrWhat.contains("undefined variable"));
+                          }
+                        }
+                      });
+  Pool.join();
+}
+
+TEST(EvalDraftStore, TransferEvalError) {
+  auto EDS = std::make_unique<EvalDraftStore>();
+
+  boost::asio::thread_pool Pool;
+
+  // ParseError!
+  EDS->addDraft("/foo", "0", R"(
+    { x = 1;
+  )");
+
+  /// Error in bindVars
+  EDS->addDraft("/barr", "0", R"(
+    let x = 1; in y
+  )");
+
+  /// EvalError, missing lambda formal
+  EDS->addDraft("/lambda.nix", "0", R"(
+    { a, b }: a + b
+  )");
+
+  EDS->addDraft("/evaluable.nix", "0", R"(
+    { foo = 1; bar = import ./lambda.nix { a = 1; }; }
+  )");
 
   EDS->withEvaluation(
-      Pool, {"--file", "/foo"}, "",
-      [=, &CalledEvaluation](const EvalDraftStore::CallbackArg &Arg) {
-        const auto &[Excepts, Result] = Arg;
-        auto Forest = Result->EvalASTForest;
-        auto FooAST = Forest.at("/bar");
-
-        /// Ensure that 'lookupPosition' can be used
-        ASSERT_EQ(FooAST->lookupPosition({0, 0}), FooAST->root());
-
-        for (auto Except : Excepts) {
-          try {
-            if (Except != nullptr) {
-              std::rethrow_exception(Except);
-            }
-          } catch (std::exception &E) {
-            E.what();
+      Pool, {"--file", "/evaluable.nix"}, "bar",
+      [=](const EvalDraftStore::CallbackArg &Arg) {
+        const auto &IErrs = Arg.InjectionErrors;
+        // ASSERT_EQ(IErrs.size(), 2);
+        for (auto &[Err, ErrInfo] : IErrs) {
+          llvm::StringRef ErrWhat = Err->what();
+          if (ErrInfo.ActiveFile == "/foo") {
+            ASSERT_TRUE(ErrWhat.contains("syntax error"));
+          } else if (ErrInfo.ActiveFile == "/barr") {
+            ASSERT_TRUE(ErrWhat.contains("undefined variable"));
           }
         }
-
-        CalledEvaluation = true;
+        ASSERT_TRUE(Arg.EvalError);
+        llvm::StringRef ErrWhat = "";
+        try {
+          std::rethrow_exception(Arg.EvalError);
+        } catch (std::exception &Err) {
+          ErrWhat = Err.what();
+          std::cout << Err.what() << "\n";
+        }
+        ASSERT_TRUE(ErrWhat.contains("called without required argument"));
       });
-
   Pool.join();
-  ASSERT_TRUE(CalledEvaluation);
 }
 
 } // namespace nixd

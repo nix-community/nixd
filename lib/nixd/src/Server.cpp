@@ -201,9 +201,8 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
   DraftMgr.withEvaluation(
       Pool, CommandLine, Installable,
       [=, Reply = std::move(Reply)](
-          const EvalDraftStore::CallbackArg &EvalResultAndExcept) mutable {
-        auto [Exceptions, Result] = EvalResultAndExcept;
-
+          const EvalDraftStore::CallbackArg &EvalLogicalResult) mutable {
+        auto Result = EvalLogicalResult.Result;
         auto ActionOnResult =
             [&](const EvalDraftStore::EvalResult &Result) {
               auto Forest = Result.EvalASTForest;
@@ -237,16 +236,11 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                 Reply(lspserver::Hover{{}, std::nullopt});
               }
             };
-        auto ActionOnExcept = [&](std::vector<std::exception_ptr> Exceptions) {
-          // TODO: publish evaluation diagnostic
-          Reply(lspserver::Hover{{}, std::nullopt});
-        };
-
         if (Result != nullptr) {
           ActionOnResult(*Result);
+        } else {
+          Reply(lspserver::Hover{{}, std::nullopt});
         }
-
-        ActionOnExcept(Exceptions);
       });
 }
 
