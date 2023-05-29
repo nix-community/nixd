@@ -17,28 +17,29 @@ namespace nixd {
 class EvalDraftStore : public lspserver::DraftStore {
 
 public:
-  struct EvaluationResult {
+  struct EvalResult {
     nix::ref<nix::EvalState> State;
     std::map<std::string, nix::ref<EvalAST>> EvalASTForest;
-    EvaluationResult(nix::ref<nix::EvalState> State,
-                     std::map<std::string, nix::ref<EvalAST>> EvalASTForest)
+    EvalResult(nix::ref<nix::EvalState> State,
+               std::map<std::string, nix::ref<EvalAST>> EvalASTForest)
         : State(State), EvalASTForest(std::move(EvalASTForest)) {}
   };
+
+  using CallbackArg =
+      std::tuple<std::vector<std::exception_ptr>, std::shared_ptr<EvalResult>>;
 
 private:
   /// Cached evaluation result
   std::mutex Mutex;
-  std::shared_ptr<EvaluationResult> PreviousResult;
+  std::shared_ptr<EvalResult> PreviousResult;
   bool IsOutdated = true;
 
 public:
-  void withEvaluation(
-      boost::asio::thread_pool &Pool, const nix::Strings &CommandLine,
-      const std::string &Installable,
-      llvm::unique_function<
-          void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
-          Finish,
-      bool AcceptOutdated = true);
+  void withEvaluation(boost::asio::thread_pool &Pool,
+                      const nix::Strings &CommandLine,
+                      const std::string &Installable,
+                      llvm::unique_function<void(CallbackArg)> Finish,
+                      bool AcceptOutdated = true);
   std::string addDraft(lspserver::PathRef File, llvm::StringRef Version,
                        llvm::StringRef Contents) {
     {

@@ -2,6 +2,7 @@
 
 #include "lspserver/Logger.h"
 
+#include <exception>
 #include <nix/command-installable-value.hh>
 #include <nix/eval.hh>
 #include <nix/installable-value.hh>
@@ -15,16 +16,13 @@ namespace nixd {
 void EvalDraftStore::withEvaluation(
     boost::asio::thread_pool &Pool, const nix::Strings &CommandLine,
     const std::string &Installable,
-    llvm::unique_function<
-        void(std::variant<std::exception *, nix::ref<EvaluationResult>>)>
-        Finish,
-    bool AcceptOutdated) {
+    llvm::unique_function<void(CallbackArg)> Finish, bool AcceptOutdated) {
   {
     std::lock_guard<std::mutex> Guard(Mutex);
     // If we have evaluated before, and that version is not oudated, then return
     // directly.
     if (PreviousResult != nullptr && !IsOutdated) {
-      Finish(nix::ref(PreviousResult));
+      Finish({std::vector<std::exception_ptr>{}, PreviousResult});
       return;
     }
   }
@@ -41,8 +39,19 @@ void EvalDraftStore::withEvaluation(
 
   auto Job = [=, Finish = std::move(Finish), this]() mutable noexcept {
     // Catch ALL exceptions in this block
+
+    // RAII helper object that ensure 'Finish' will be called only once.
+    struct CallbackOnceRAII {
+      std::vector<std::exception_ptr> Exceptions;
+      std::shared_ptr<EvalResult> Result;
+      llvm::unique_function<void(CallbackArg)> Finish;
+      ~CallbackOnceRAII() { Finish({Exceptions, Result}); }
+    } CBRAII;
+
+    CBRAII.Finish = std::move(Finish);
+
     auto AllCatch = [&]() {
-      decltype(EvaluationResult::EvalASTForest) Forest;
+      decltype(EvalResult::EvalASTForest) Forest;
 
       // First, parsing all active files and rewrite their AST
       auto ActiveFiles = getActiveFiles();
@@ -57,41 +66,34 @@ void EvalDraftStore::withEvaluation(
           Forest.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
           Forest.at(ActiveFile)->preparePositionLookup(*State);
           Forest.at(ActiveFile)->injectAST(*State, ActiveFile);
-        } catch (const nix::Error &) {
-          // Ignore caching errors, because workspace file might be incomplete.
+        } catch (...) {
+          // Catch all exceptions while parsing & evaluation on single file.
+          CBRAII.Exceptions.emplace_back(std::current_exception());
         }
       }
 
-      // Evaluation goes.
-      // Installable parsing must do AFTER ast injection.
+      // Installable parsing must do AFTER AST injection.
       auto IValue = nix::InstallableValue::require(
           Cmd.parseInstallable(Cmd.getStore(), Installable));
+
+      // Evaluation goes.
       IValue->toValue(*State);
-      auto EvalResult = nix::make_ref<EvaluationResult>(State, Forest);
-      Finish(EvalResult);
+      CBRAII.Result = std::make_shared<EvalResult>(State, Forest);
       {
         std::lock_guard<std::mutex> Guard(Mutex);
-        PreviousResult = EvalResult;
+        PreviousResult = CBRAII.Result;
       }
-      return;
     };
 
     try {
       AllCatch();
-    } catch (std::exception &Except) {
+    } catch (...) {
+      CBRAII.Exceptions.emplace_back(std::current_exception());
       {
         std::lock_guard<std::mutex> Guard(Mutex);
-        if (IsOutdated && AcceptOutdated && PreviousResult != nullptr) {
-          // Just use previous result, do not report diagnostic
-          // Useful for completions, because the tree might be imcomplete.
-          Finish(nix::ref(PreviousResult));
-        }
+        if (IsOutdated && AcceptOutdated && PreviousResult != nullptr)
+          CBRAII.Result = PreviousResult;
       }
-      Finish(&Except);
-      return;
-    } catch (...) {
-      lspserver::log("Evaluation task encountered an unknown exception!");
-      return;
     }
   };
 

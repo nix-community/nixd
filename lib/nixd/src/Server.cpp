@@ -1,5 +1,6 @@
 #include "nixd/Server.h"
 #include "nixd/Diagnostic.h"
+#include "nixd/EvalDraftStore.h"
 #include "nixd/Expr.h"
 
 #include "lspserver/Logger.h"
@@ -200,12 +201,12 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
   DraftMgr.withEvaluation(
       Pool, CommandLine, Installable,
       [=, Reply = std::move(Reply)](
-          std::variant<std::exception *,
-                       nix::ref<EvalDraftStore::EvaluationResult>>
-              EvalResult) mutable {
+          const EvalDraftStore::CallbackArg &EvalResultAndExcept) mutable {
+        auto [Exceptions, Result] = EvalResultAndExcept;
+
         auto ActionOnResult =
-            [&](const nix::ref<EvalDraftStore::EvaluationResult> &Result) {
-              auto Forest = Result->EvalASTForest;
+            [&](const EvalDraftStore::EvalResult &Result) {
+              auto Forest = Result.EvalASTForest;
               try {
                 auto AST = Forest.at(HoverFile);
                 auto *Node = AST->lookupPosition(Paras.position);
@@ -214,13 +215,13 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                 try {
                   auto Value = AST->getValue(Node);
                   std::stringstream Res{};
-                  Value.print(Result->State->symbols, Res);
+                  Value.print(Result.State->symbols, Res);
                   HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName,
                                             Res.str());
                 } catch (const std::out_of_range &) {
                   // No such value, just reply dummy item
                   std::stringstream NodeOut;
-                  Node->show(Result->State->symbols, NodeOut);
+                  Node->show(Result.State->symbols, NodeOut);
                   lspserver::vlog("no associated value on node {0}!",
                                   NodeOut.str());
                   HoverText = llvm::formatv("`{0}`", ExprName);
@@ -236,13 +237,16 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                 Reply(lspserver::Hover{{}, std::nullopt});
               }
             };
-        auto ActionOnExcept = [&](std::exception *Except) {
+        auto ActionOnExcept = [&](std::vector<std::exception_ptr> Exceptions) {
           // TODO: publish evaluation diagnostic
-          lspserver::log("evaluation error: {0}", Except->what());
           Reply(lspserver::Hover{{}, std::nullopt});
         };
 
-        std::visit(nix::overloaded{ActionOnResult, ActionOnExcept}, EvalResult);
+        if (Result != nullptr) {
+          ActionOnResult(*Result);
+        }
+
+        ActionOnExcept(Exceptions);
       });
 }
 
