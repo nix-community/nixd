@@ -55,7 +55,6 @@ public:
 
   using CallbackArg = EvalLogicalResult;
 
-public:
   void withEvaluation(boost::asio::thread_pool &Pool,
                       const nix::Strings &CommandLine,
                       const std::string &Installable,
