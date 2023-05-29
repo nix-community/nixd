@@ -21,12 +21,13 @@ Some notable features provided by linking with the Nix library include:
 
 ## Features Preview
 
-Handle evaluations exactly same as nix evaluator:
-
+<details><summary>Handle evaluations exactly same as nix evaluator</summary>
 
 ![infinte-recursion](docs/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
 
-Support *all* builtins:
+</details>
+
+<details><summary>Support *all* builtins</summary>
 
 ![eval-builtin-json](docs/59655838-36a8-4145-9717-f2009e0efef9.png)
 
@@ -34,18 +35,26 @@ And diagnostic:
 
 ![eval-builtin-diagnostic](docs/f6e10994-41e4-4a03-84a2-ef275fb402fd.png)
 
-Evaluation `nixpkgs`
+</details>
+
+<details><summary>Eval nixpkgs</summary>
 
 ![eval-nixpkgs](docs/abe2fafc-d139-4741-89af-53339312a1af.png)
 
-Print internal AST Node type, and evalution result just as same as `nix repl`:
+</details>
+
+<details><summary>Print internal AST Node type, and evalution result just as same as nix repl</summary>
 
 ![eval-ast](docs/c7e8a8c7-5c0e-4736-868f-1e2c345468fd.png)
 
-Complete dynamic envs, like `with` expression:
+
+</details>
+
+<details><summary>Complete dynamic envs, like `with` expression</summary>
 
 ![complete-with](docs/ae629b9f-95cb-48df-aa1d-4f5f94c3c06a.png)
 
+</details>
 
 ## Installation
 
