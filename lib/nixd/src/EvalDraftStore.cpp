@@ -2,7 +2,6 @@
 
 #include "lspserver/Logger.h"
 
-#include <exception>
 #include <nix/command-installable-value.hh>
 #include <nix/eval.hh>
 #include <nix/installable-value.hh>
