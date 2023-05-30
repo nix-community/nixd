@@ -66,6 +66,9 @@ void EvalDraftStore::withEvaluation(
         }
       }
 
+      if (Forest.empty())
+        return;
+
       // Installable parsing must do AFTER AST injection.
       auto IValue = nix::InstallableValue::require(
           Cmd.parseInstallable(Cmd.getStore(), Installable));
