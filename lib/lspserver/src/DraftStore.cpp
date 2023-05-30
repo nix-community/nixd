@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+
 #include "lspserver/DraftStore.h"
 #include "lspserver/Logger.h"
 #include "llvm/ADT/StringExtras.h"

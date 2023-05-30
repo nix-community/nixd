@@ -29,7 +29,7 @@ void EvalDraftStore::withEvaluation(
   auto Job = [=, Finish = std::move(Finish), this]() mutable noexcept {
     // Catch ALL exceptions in this block
 
-    // RAII helper object that ensure 'Finish' will be called only once.
+    // RAII helper object that ensures 'Finish' will be called only once.
     struct CallbackOnceRAII {
 
       EvalLogicalResult LogicalResult;

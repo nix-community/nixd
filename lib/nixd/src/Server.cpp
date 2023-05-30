@@ -292,11 +292,11 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
             lspserver::vlog("no associated value on node {0}!", NodeOut.str());
             HoverText = llvm::formatv("`{0}`", ExprName);
           }
-          Reply(lspserver::Hover{{
-                                     lspserver::MarkupKind::Markdown,
-                                     HoverText,
-                                 },
-                                 std::nullopt});
+          Reply(Hover{{
+                          MarkupKind::Markdown,
+                          HoverText,
+                      },
+                      std::nullopt});
         } catch (const std::out_of_range &) {
           // Probably out of range in Forest.at
           // Ignore this expression, and reply dummy value.

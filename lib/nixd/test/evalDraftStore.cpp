@@ -1,12 +1,13 @@
-#include <exception>
 #include <gtest/gtest.h>
 
 #include "nixd/EvalDraftStore.h"
-#include "llvm/ADT/StringRef.h"
 
 #include <nix/command-installable-value.hh>
 #include <nix/installable-value.hh>
 
+#include <llvm/ADT/StringRef.h>
+
+#include <exception>
 #include <memory>
 
 namespace nixd {
