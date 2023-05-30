@@ -5,16 +5,15 @@
 
 #### How does language information being collected?
 
-Nix expressions are evaluated via their virtual method `nix::Expr::eval`.
-Dynamic name bindings & lookups are performed in `Env`s, and the evaluation result will be stored in `Value`s.
+Nix expressions are evaluated using the `nix::Expr::eval` virtual method, with dynamic name bindings and lookups performed in `Env`s.
+The resulting evaluation is stored in `Value`s.
 
 Link: https://github.com/NixOS/nix/blob/61ddfa154bcfa522819781d23e40e984f38dfdeb/src/libexpr/nixexpr.hh#L161
 
-So, the most important thing is to collect these information on ASTs, instead of thrown them away.
+It is mandatory to preserve the information for language services, rather than discarding it away (what nix itself do).
+The codebase achieves this by inheriting all Nix AST node classes and overriding the virtual `eval` method to call the super-class `eval` and then invoke a custom callback.
 
-The code base achived this by inherit all Nix AST node classes, and override the virtual method `eval`, which will call super-class `eval` and then invokes a callback.
-
-##### Why nix evaluator see your data structure, instead of parsing file by itself?
+##### Why does nix evaluator see your data structure, instead of parsing file by itself?
 
 Nix parsing and evaluation are cached, and the caching interface is public.
 When you open a file in your workspace, we first parse it to obtain normal Nix abstract syntax trees (ASTs).
