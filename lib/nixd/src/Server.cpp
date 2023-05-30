@@ -142,7 +142,7 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                          llvm::StringRef Version) {
   using namespace lspserver;
 
-  // Since this file is update, we first clear its diagnostic
+  // Since this file is updated, we first clear its diagnostic
   PublishDiagnosticsParams Notification;
   Notification.uri = URIForFile::canonicalize(File, File);
   Notification.diagnostics = {};
