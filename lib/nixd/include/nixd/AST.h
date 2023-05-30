@@ -42,12 +42,12 @@ public:
   EvalAST(nix::Expr *Root);
 
   /// Get the evaluation result (fixed point) of the expression.
-  nix::Value getValue(nix::Expr *Expr) { return ValueMap.at(Expr); }
+  nix::Value getValue(nix::Expr *Expr) const { return ValueMap.at(Expr); }
 
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
   /// used for completion.
-  const nix::Env *getEnv(nix::Expr *Expr) { return EnvMap.at(Expr); }
+  const nix::Env *getEnv(nix::Expr *Expr) const { return EnvMap.at(Expr); }
 
   /// Lookup an AST node located at the position.
   /// Call 'preparePositionLookup' first.
