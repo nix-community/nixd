@@ -95,3 +95,8 @@ We provide some extra tools based on our codebase.
 Used for dumping internal data structures in nix parser.
 
 Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
+
+
+## Community support
+
+Project matrix room: https://matrix.to/#/#nixd:matrix.org
