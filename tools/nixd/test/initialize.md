@@ -2,7 +2,7 @@
 
 Check basic handshake with the server, i.e. "initialize"
 
---> initialize(0)
+<-- initialize(0)
 
 ```json
 {
