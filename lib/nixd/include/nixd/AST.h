@@ -30,7 +30,7 @@ class EvalAST {
   ASTContext Cxt;
   nix::Expr *Root;
   std::map<const nix::Expr *, nix::Value> ValueMap;
-  std::map<const nix::Expr *, nix::Env> EnvMap;
+  std::map<const nix::Expr *, const nix::Env *> EnvMap;
 
   std::multimap<lspserver::Position, size_t> PosMap;
 
@@ -47,7 +47,7 @@ public:
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
   /// used for completion.
-  nix::Env getEnv(nix::Expr *Expr) { return EnvMap.at(Expr); }
+  const nix::Env *getEnv(nix::Expr *Expr) { return EnvMap.at(Expr); }
 
   /// Lookup an AST node located at the position.
   /// Call 'preparePositionLookup' first.
