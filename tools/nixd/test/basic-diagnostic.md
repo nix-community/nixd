@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
---> initialize(0)
+<-- initialize(0)
 
 ```json
 {
