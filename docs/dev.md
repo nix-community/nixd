@@ -1,4 +1,4 @@
-## Developer Guide
+## Developer Manual
 
 
 ### Design
