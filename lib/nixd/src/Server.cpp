@@ -191,11 +191,9 @@ CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
                               const nix::Env &NixEnv) {
   Items Result;
   if (NixEnv.type == nix::Env::HasWithAttrs) {
-    nix::Bindings::iterator BindingIt = NixEnv.values[0]->attrs->begin();
-    while (BindingIt != NixEnv.values[0]->attrs->end()) {
-      std::string Name = STable[BindingIt->name];
+    for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
+      std::string Name = STable[SomeAttr.name];
       Result.emplace_back(lspserver::CompletionItem{.label = Name});
-      ++BindingIt;
     }
   }
   return Result;
