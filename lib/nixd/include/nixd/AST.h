@@ -32,7 +32,7 @@ class EvalAST {
   std::map<const nix::Expr *, nix::Value> ValueMap;
   std::map<const nix::Expr *, nix::Env> EnvMap;
 
-  std::map<lspserver::Position, size_t> PosMap;
+  std::multimap<lspserver::Position, size_t> PosMap;
 
 public:
   /// Inject myself into nix cache.

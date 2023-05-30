@@ -39,12 +39,17 @@ nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {
 void EvalAST::preparePositionLookup(const nix::EvalState &State) {
   assert(PosMap.empty() &&
          "PosMap must be empty before preparing! (prepared before?)");
-  for (size_t Idx = 0; Idx < Cxt.Nodes.size(); Idx++) {
+  // Reversely traversing AST nodes, to make sure we found "larger" AST nodes
+  // before smaller
+  // e.g. ExprSelect = (some).foo.bar
+  //       ExprVar   = some
+  // "lookupPosition" should return ExprSelect, instead of ExprVar.
+  for (size_t Idx = Cxt.Nodes.size(); Idx-- > 0;) {
     auto PosIdx = Cxt.Nodes[Idx]->getPos();
     if (PosIdx == nix::noPos)
       continue;
     nix::Pos Pos = State.positions[PosIdx];
-    PosMap[translatePosition(Pos)] = Idx;
+    PosMap.insert({translatePosition(Pos), Idx});
   }
 }
 
