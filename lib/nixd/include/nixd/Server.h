@@ -51,10 +51,8 @@ class Server : public lspserver::LSPServer {
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
   std::mutex ResultLock;
-  std::shared_ptr<EvalDraftStore::EvalResult>
-      LastValidResult; // GUARDED_BY(ResultLock)
-  std::shared_ptr<EvalDraftStore::EvalResult>
-      CachedResult; // GUARDED_BY(ResultLock)
+  std::shared_ptr<EvalResult> LastValidResult; // GUARDED_BY(ResultLock)
+  std::shared_ptr<EvalResult> CachedResult;    // GUARDED_BY(ResultLock)
 
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                    llvm::StringRef Version);
@@ -72,10 +70,9 @@ class Server : public lspserver::LSPServer {
                              lspserver::Callback<configuration::TopLevel>)>
       WorkspaceConfiguration;
 
-  void withEval(std::string Fallback,
-                llvm::unique_function<
-                    void(std::shared_ptr<EvalDraftStore::EvalResult> Result)>
-                    Then);
+  void withEval(
+      std::string Fallback,
+      llvm::unique_function<void(std::shared_ptr<EvalResult> Result)> Then);
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,

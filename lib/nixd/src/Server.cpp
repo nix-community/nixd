@@ -101,10 +101,9 @@ void Server::invalidateEvalCache() {
   }
 }
 
-void Server::withEval(std::string Fallback,
-                      llvm::unique_function<void(
-                          std::shared_ptr<EvalDraftStore::EvalResult> Result)>
-                          Then) {
+void Server::withEval(
+    std::string Fallback,
+    llvm::unique_function<void(std::shared_ptr<EvalResult> Result)> Then) {
   using namespace lspserver;
 
   {
@@ -171,8 +170,7 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   invalidateEvalCache();
 
-  withEval(File.str(),
-           [](std::shared_ptr<EvalDraftStore::EvalResult> Result) {});
+  withEval(File.str(), [](std::shared_ptr<EvalResult> Result) {});
 }
 
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
@@ -282,9 +280,8 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
   using namespace lspserver;
   std::string HoverFile = Paras.textDocument.uri.file().str();
   withEval(
-      HoverFile,
-      [HoverFile, Paras, Reply = std::move(Reply)](
-          std::shared_ptr<EvalDraftStore::EvalResult> Result) mutable {
+      HoverFile, [HoverFile, Paras, Reply = std::move(Reply)](
+                     std::shared_ptr<EvalResult> Result) mutable {
         if (Result == nullptr) {
           Reply(Hover{{}, std::nullopt});
           return;
