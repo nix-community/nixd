@@ -88,5 +88,5 @@ Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
 
 ## Resources
 
-- Developer Manual (internal design, contributing): [Developer Manual](docs/dev.md)
+- Developers' Manual (internal design, contributing): [Developers' Manual](docs/dev.md)
 - Project matrix room: https://matrix.to/#/#nixd:matrix.org
