@@ -36,6 +36,10 @@ Nixd regression tests could be found at [here](tools/nixd/test/).
 Our git history is semi-linear.
 That is, firstly we rebase a branch on the top of the mainline, then merge it with `--no-ff`.
 
+Our continuous integration systems will enable several **sanitizer** options to detect data race and undefined behavior in our codebase.
+
+Please add or modify tests for your changed files (with all branches coveraged) and ensure that all tests can pass with sanitizers enabled.
+
 #### Commit message
 
 Commit messages are formatted with:
