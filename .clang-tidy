@@ -1,7 +1,6 @@
 Checks: >
   clang-diagnostic-*,
   clang-analyze-*,
-  cppcoreguidelines-*,
   llvm-*,
   bugprone-*,
   misc-*,
@@ -15,7 +14,12 @@ Checks: >
   -misc-no-recursion,
   -modernize-use-trailing-return-type,
   -readability-braces-around-statements,
-
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-function-cognitive-complexity,
+  -bugprone-easily-swappable-parameters,
 
 CheckOptions:
   - key:             readability-identifier-naming.ClassCase
