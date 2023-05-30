@@ -64,11 +64,7 @@ CHECK-NEXT: }
 ```
 
 ```
-     CHECK: "method": "textDocument/publishDiagnostics",
-CHECK-NEXT:   "params": {
-CHECK-NEXT:     "diagnostics": [
-CHECK-NEXT:       {
-CHECK-NEXT:         "message": "syntax error, unexpected ID, expecting end of file",
+     CHECK:         "message": "syntax error, unexpected ID, expecting end of file",
 CHECK-NEXT:         "range": {
 CHECK-NEXT:           "end": {
 CHECK-NEXT:             "character": 9,
@@ -107,9 +103,7 @@ Then, check that we do eval the file. Nix files are legal expressions, and shoul
 ```
 
 ```
-     CHECK: "diagnostics": [
-CHECK-NEXT:       {
-CHECK-NEXT:         "message": "undefined variable 'y'",
+     CHECK:         "message": "undefined variable 'y'",
 CHECK-NEXT:         "range": {
 CHECK-NEXT:           "end": {
 CHECK-NEXT:             "character": 14,
@@ -156,10 +150,10 @@ Check that we handle relative paths corretly. Introduce `importee.nix` and `impo
    }
 }
 ```
-Currently, nix does not support in-memory filesystems, so this will fail.
+
 
 ```
-CHECK: "message": "getting status of '/importee.nix': No such file or directory",
+CHECK: "message": "function 'anonymous lambda' called without required argument 'b'",
 ```
 
 

@@ -5,7 +5,7 @@
 
 namespace nixd {
 
-std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::Error &);
+std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::BaseError &);
 
 lspserver::Position translatePosition(const nix::AbstractPos &P);
 

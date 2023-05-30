@@ -7,6 +7,7 @@
 #include "lspserver/Function.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
+#include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
@@ -25,6 +26,11 @@ struct InstallableConfigurationItem {
 struct TopLevel {
   /// Nix installables that will be used for root translation unit.
   std::optional<InstallableConfigurationItem> installable;
+
+  /// Get installable arguments specified in this config, fallback to file \p
+  /// Fallback if 'installable' is not set.
+  [[nodiscard]] std::tuple<nix::Strings, std::string>
+  getInstallable(std::string Fallback) const;
 };
 
 bool fromJSON(const llvm::json::Value &Params, TopLevel &R, llvm::json::Path P);
@@ -36,7 +42,7 @@ bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
 class Server : public lspserver::LSPServer {
 
   EvalDraftStore DraftMgr;
-  boost::asio::thread_pool Pool;
+  boost::asio::thread_pool Pool = boost::asio::thread_pool(1);
 
   lspserver::ClientCapabilities ClientCaps;
 
@@ -44,10 +50,12 @@ class Server : public lspserver::LSPServer {
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
+  std::mutex ResultLock;
+  std::shared_ptr<EvalResult> LastValidResult; // GUARDED_BY(ResultLock)
+  std::shared_ptr<EvalResult> CachedResult;    // GUARDED_BY(ResultLock)
+
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
-                   llvm::StringRef Version) {
-    DraftMgr.addDraft(File, Version, Contents);
-  }
+                   llvm::StringRef Version);
 
   void removeDocument(lspserver::PathRef File) { DraftMgr.removeDraft(File); }
 
@@ -62,6 +70,10 @@ class Server : public lspserver::LSPServer {
                              lspserver::Callback<configuration::TopLevel>)>
       WorkspaceConfiguration;
 
+  void withEval(
+      std::string Fallback,
+      llvm::unique_function<void(std::shared_ptr<EvalResult> Result)> Then);
+
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out);
@@ -69,6 +81,15 @@ public:
   ~Server() override { Pool.join(); }
 
   void fetchConfig();
+
+  void clearDiagnostic(lspserver::PathRef Path);
+
+  void clearDiagnostic(const lspserver::URIForFile &FileUri);
+
+  void diagNixError(lspserver::PathRef Path, const nix::BaseError &Err,
+                    std::optional<int64_t> Version);
+
+  void invalidateEvalCache();
 
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);

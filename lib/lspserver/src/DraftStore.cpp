@@ -58,6 +58,15 @@ static void increment(std::string &S) {
   }
 }
 
+std::optional<int64_t> DraftStore::decodeVersion(llvm::StringRef Encoded) {
+  int64_t Result;
+  if (llvm::to_integer(Encoded, Result, 10))
+    return Result;
+  if (!Encoded.empty()) // Empty can be e.g. diagnostics on close.
+    elog("unexpected non-numeric version {0}", Encoded);
+  return std::nullopt;
+}
+
 static void updateVersion(DraftStore::Draft &D,
                           llvm::StringRef SpecifiedVersion) {
   if (!SpecifiedVersion.empty()) {
