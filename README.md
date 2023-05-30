@@ -86,7 +86,7 @@ Used for dumping internal data structures in nix parser.
 
 Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
 
+## Resources
 
-## Community support
-
-Project matrix room: https://matrix.to/#/#nixd:matrix.org
+- Developer Manual (internal design, contributing): [Developer Manual](docs/dev.md)
+- Project matrix room: https://matrix.to/#/#nixd:matrix.org
