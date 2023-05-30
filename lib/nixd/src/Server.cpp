@@ -232,7 +232,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
            {"save", true},
        }},
       {"hoverProvider", true},
-      {"completionProvider", {}}};
+      {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
 
   llvm::json::Object Result{
       {{"serverInfo",
@@ -374,33 +374,57 @@ void Server::onCompletion(const lspserver::CompletionParams &Params,
 
   withEval(CompletionFile,
            [=, Reply = std::move(Reply),
-            this](std::shared_ptr<EvalDraftStore::EvalResult> Result) mutable {
+            this](std::shared_ptr<EvalResult> Result) mutable {
+             struct ReplyRAII {
+               CompletionList List;
+               decltype(Reply) R;
+               ReplyRAII(decltype(Reply) R) : R(std::move(R)) {}
+               ~ReplyRAII() { R(List); }
+             } ReplyRAII(std::move(Reply));
+
              if (Result == nullptr && LastValidResult == nullptr) {
-               Reply(CompletionList{});
                return;
              }
              if (Result == nullptr)
                Result = LastValidResult;
+
              auto State = Result->State;
-             lspserver::CompletionList List;
              // Lookup an AST node, and get it's 'Env' after evaluation
              CompletionHelper::Items Items;
-             try {
-               auto AST = Result->EvalASTForest.at(CompletionFile);
-               auto *Node = AST->lookupPosition(Params.position);
+             lspserver::vlog("current trigger character is {0}",
+                             Params.context.triggerCharacter);
 
-               auto ExprEnv = AST->getEnv(Node);
+             if (Params.context.triggerCharacter == ".") {
+               try {
+                 auto AST = Result->EvalASTForest.at(CompletionFile);
+                 auto *Node = AST->lookupPosition(Params.position);
+                 auto Value = AST->getValue(Node);
+                 if (Value.type() == nix::ValueType::nAttrs) {
+                   // Traverse attribute bindings
+                   for (auto Binding : *Value.attrs) {
+                     Items.emplace_back(
+                         CompletionItem{.label = State->symbols[Binding.name]});
+                   }
+                 }
+               } catch (...) {
+               }
+             } else {
+               try {
+                 auto AST = Result->EvalASTForest.at(CompletionFile);
+                 auto *Node = AST->lookupPosition(Params.position);
+                 const auto *ExprEnv = AST->getEnv(Node);
 
-               Items = CompletionHelper::fromEnvRecursive(
-                   State->symbols, *State->staticBaseEnv, *ExprEnv);
-
-             } catch (const std::out_of_range &) {
-               // Fallback to staticEnv only
-               Items = CompletionHelper::fromStaticEnv(State->symbols,
-                                                       *State->staticBaseEnv);
+                 Items = CompletionHelper::fromEnvRecursive(
+                     State->symbols, *State->staticBaseEnv, *ExprEnv);
+               } catch (const std::out_of_range &) {
+                 // Fallback to staticEnv only
+                 Items = CompletionHelper::fromStaticEnv(State->symbols,
+                                                         *State->staticBaseEnv);
+               }
              }
-             List.items.insert(List.items.end(), Items.begin(), Items.end());
-             Reply(List);
+
+             ReplyRAII.List.items.insert(ReplyRAII.List.items.end(),
+                                         Items.begin(), Items.end());
            });
 }
 
