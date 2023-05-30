@@ -1,4 +1,5 @@
 #include "nixd/Server.h"
+#include "lspserver/URI.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/Expr.h"
@@ -69,6 +70,37 @@ TopLevel::getInstallable(std::string Fallback) const {
 
 } // namespace configuration
 
+void Server::clearDiagnostic(lspserver::PathRef Path) {
+  lspserver::URIForFile Uri = lspserver::URIForFile::canonicalize(Path, Path);
+  clearDiagnostic(Uri);
+}
+
+void Server::clearDiagnostic(const lspserver::URIForFile &FileUri) {
+  lspserver::PublishDiagnosticsParams Notification;
+  Notification.uri = FileUri;
+  Notification.diagnostics = {};
+  PublishDiagnostic(Notification);
+}
+
+void Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
+                          std::optional<int64_t> Version) {
+  using namespace lspserver;
+  auto DiagVec = mkDiagnostics(NixErr);
+  URIForFile Uri = URIForFile::canonicalize(Path, Path);
+  PublishDiagnosticsParams Notification;
+  Notification.uri = Uri;
+  Notification.diagnostics = DiagVec;
+  Notification.version = Version;
+  PublishDiagnostic(Notification);
+}
+
+void Server::invalidateEvalCache() {
+  {
+    std::lock_guard<std::mutex> Guard(ResultLock);
+    CachedResult = nullptr;
+  }
+}
+
 void Server::withEval(std::string Fallback,
                       llvm::unique_function<void(
                           std::shared_ptr<EvalDraftStore::EvalResult> Result)>
@@ -90,36 +122,22 @@ void Server::withEval(std::string Fallback,
       [this,
        Then = std::move(Then)](const EvalDraftStore::CallbackArg &Arg) mutable {
         // Workaround for display version
-        for (auto ActiveFile : DraftMgr.getActiveFiles()) {
-          URIForFile Uri = URIForFile::canonicalize(ActiveFile, ActiveFile);
-          PublishDiagnosticsParams Notification;
-          Notification.uri = Uri;
-          Notification.diagnostics = {};
-          PublishDiagnostic(Notification);
-        }
+        for (auto ActiveFile : DraftMgr.getActiveFiles())
+          clearDiagnostic(ActiveFile);
 
         // Publish all injection errors.
-        for (const auto &[NixErr, ErrInfo] : Arg.InjectionErrors) {
-          auto DiagVec = mkDiagnostics(*NixErr);
-          URIForFile Uri =
-              URIForFile::canonicalize(ErrInfo.ActiveFile, ErrInfo.ActiveFile);
-          PublishDiagnosticsParams Notification;
-          Notification.uri = Uri;
-          Notification.diagnostics = DiagVec;
-          Notification.version = DraftStore::decodeVersion(ErrInfo.Version);
-          PublishDiagnostic(Notification);
-        }
+        for (const auto &[NixErr, ErrInfo] : Arg.InjectionErrors)
+          diagNixError(ErrInfo.ActiveFile, *NixErr,
+                       EvalDraftStore::decodeVersion(ErrInfo.Version));
 
+        // TODO: extract real eval error source file
+        clearDiagnostic("/");
         // And evaluation error
         try {
           if (Arg.EvalError)
             std::rethrow_exception(Arg.EvalError);
         } catch (nix::BaseError &Err) {
-          // We do not know which file caused this error at all.
-          auto DiagVec = mkDiagnostics(Err);
-          PublishDiagnosticsParams Notification;
-          Notification.diagnostics = DiagVec;
-          PublishDiagnostic(Notification);
+          diagNixError("/", Err, 0);
         } catch (std::exception &Except) {
           elog("unhandled exception: {0}", Except.what());
         } catch (...) {
@@ -151,10 +169,7 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   DraftMgr.addDraft(File, Version, Contents);
 
-  {
-    std::lock_guard<std::mutex> Guard(ResultLock);
-    CachedResult = nullptr;
-  }
+  invalidateEvalCache();
 
   withEval(File.str(),
            [](std::shared_ptr<EvalDraftStore::EvalResult> Result) {});
@@ -189,6 +204,7 @@ void Server::fetchConfig() {
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
             Config = std::move(Response.get());
+            invalidateEvalCache();
           }
         });
   }

@@ -82,7 +82,6 @@ void EvalDraftStore::withEvaluation(
       AllCatch();
     } catch (...) {
       CBRAII.LogicalResult.EvalError = std::current_exception();
-      CBRAII.LogicalResult.Result = nullptr;
     }
   };
 

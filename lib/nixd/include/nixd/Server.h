@@ -7,6 +7,7 @@
 #include "lspserver/Function.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
+#include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
@@ -83,6 +84,15 @@ public:
   ~Server() override { Pool.join(); }
 
   void fetchConfig();
+
+  void clearDiagnostic(lspserver::PathRef Path);
+
+  void clearDiagnostic(const lspserver::URIForFile &FileUri);
+
+  void diagNixError(lspserver::PathRef Path, const nix::BaseError &Err,
+                    std::optional<int64_t> Version);
+
+  void invalidateEvalCache();
 
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
