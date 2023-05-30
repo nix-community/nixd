@@ -76,16 +76,6 @@ meson test -C build
 We do not provide a custom editor extension or plugins now, configuring nixd like other nix lsp should work out of box.
 
 
-## Testing Guide
-
-This project is tested by "unit tests" and "regression tests".
-
-Regression tests are written in **markdown**, and directly execute the compiled binary.
-Unit tests are used for testing class interfaces, mostly public methods.
-
-Nixd regression tests could be found at [here](tools/nixd/test/).
-
-
 ## Tooling
 
 We provide some extra tools based on our codebase.
