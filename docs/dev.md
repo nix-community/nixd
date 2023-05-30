@@ -21,6 +21,25 @@ We then recursively rewrite all AST nodes with our own data structure, creating 
 Finally, we call `cacheFile` in Nix to inject our own data structure into the evaluator.
 
 
+#### How does cross-file analysis work?
+
+For example, you write a NixOS module:
+
+```nix
+{ config, lib, pkgs, ... }:
+
+{
+    # Some stuff
+}
+```
+
+The file itself is a valid Nix expression, specifically an `ExprLambda`. However, it is important to know the arguments that are passed when invoking lambdas. This is necessary when writing NixOS configurations, as it helps to determine what can be used in `pkgs` and the library functions in `lib`.
+
+Here's how it works:
+
+When you open the file, `nixd` will parse it for you, and rewrite and inject it into the Nix evaluator (as mentioned earlier). Then, the top-level evaluation process begins, and the lambdas are evaluated. Our callback function is invoked, and the necessary information is collected in the callbacks.
+
+
 ### Testing
 
 This project is tested by "unit tests" and "regression tests".
