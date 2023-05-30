@@ -76,16 +76,6 @@ meson test -C build
 We do not provide a custom editor extension or plugins now, configuring nixd like other nix lsp should work out of box.
 
 
-## Testing Guide
-
-This project is tested by "unit tests" and "regression tests".
-
-Regression tests are written in **markdown**, and directly execute the compiled binary.
-Unit tests are used for testing class interfaces, mostly public methods.
-
-Nixd regression tests could be found at [here](tools/nixd/test/).
-
-
 ## Tooling
 
 We provide some extra tools based on our codebase.
@@ -96,7 +86,7 @@ Used for dumping internal data structures in nix parser.
 
 Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
 
+## Resources
 
-## Community support
-
-Project matrix room: https://matrix.to/#/#nixd:matrix.org
+- Developers' Manual (internal design, contributing): [Developers' Manual](docs/dev.md)
+- Project matrix room: https://matrix.to/#/#nixd:matrix.org
