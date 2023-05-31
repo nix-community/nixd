@@ -5,7 +5,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
-  outputs = { flake-parts, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = { nixpkgs, flake-parts, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
     perSystem = { config, self', inputs', pkgs, system, ... }:
       let
         nixd = pkgs.callPackage ./default.nix { };
@@ -24,6 +24,6 @@
           '';
         });
       };
-    systems = [ "x86_64-linux" "x86_64-darwin" ];
+    systems = nixpkgs.lib.systems.flakeExposed;
   };
 }
