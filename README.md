@@ -60,13 +60,22 @@ And diagnostic:
 
 ### Build the project
 
-This project is working in progress, and does not vendored dedicated derivation yet.
-However, if you'd like to help us improve this work, please enter the devShell, and build this project via meson.
+#### nix-build
+``` sh
+nix-build --expr 'with import <nixpkgs> { }; callPackage ./. { }'
+```
 
-Here are a short snippet used in our CI, should works fine and reproducible in your environment.
+#### Nix Flakes
+``` sh
+nix build -L #.
+```
+
+#### Development
+
+Here are a short snippet used in our CI, should works fine and reproducible in your development environment.
 
 ```
-meson setup build/ --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
+meson setup build/
 meson compile -C build
 meson test -C build
 ```

@@ -24,6 +24,7 @@ nixd = executable('nixd', ['tools/nixd/nixd.cpp']
                 , nixd_lsp_server
                 , nixd_server
                 ] + nix_all
+, install: true
 )
 
 nix_ast_dump = executable('nix-ast-dump', ['tools/nix-ast-dump/nix-ast-dump.cpp']
