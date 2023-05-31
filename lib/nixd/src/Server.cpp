@@ -173,6 +173,56 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
   withEval(File.str(), [](std::shared_ptr<EvalResult> Result) {});
 }
 
+CompletionHelper::Items
+CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
+                                const nix::StaticEnv &SEnv) {
+  Items Result;
+  for (auto [Symbol, Displ] : SEnv.vars) {
+    std::string Name = STable[Symbol];
+    if (Name.starts_with("__"))
+      continue;
+
+    // Variables in static envs, let's mark it as "Constant".
+    Result.emplace_back(lspserver::CompletionItem{
+        .label = Name, .kind = lspserver::CompletionItemKind::Constant});
+  }
+  return Result;
+}
+
+CompletionHelper::Items
+CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
+                              const nix::Env &NixEnv) {
+  Items Result;
+  if (NixEnv.type == nix::Env::HasWithAttrs) {
+    for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
+      std::string Name = STable[SomeAttr.name];
+      Result.emplace_back(lspserver::CompletionItem{
+          .label = Name, .kind = lspserver::CompletionItemKind::Variable});
+    }
+  }
+  return Result;
+}
+
+CompletionHelper::Items
+CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
+                                   const nix::StaticEnv &SEnv,
+                                   const nix::Env &NixEnv) {
+
+  Items Result;
+  if ((SEnv.up != nullptr) && (NixEnv.up != nullptr)) {
+    Items Inherited = fromEnvRecursive(STable, *SEnv.up, *NixEnv.up);
+    Result.insert(Result.end(), Inherited.begin(), Inherited.end());
+  }
+
+  auto StaticEnvItems = fromStaticEnv(STable, SEnv);
+  Result.insert(Result.end(), StaticEnvItems.begin(), StaticEnvItems.end());
+
+  auto EnvItems = fromEnvWith(STable, NixEnv);
+  Result.insert(Result.end(), EnvItems.begin(), EnvItems.end());
+
+  return Result;
+}
+
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
                           lspserver::Callback<llvm::json::Value> Reply) {
   ClientCaps = InitializeParams.capabilities;
@@ -184,7 +234,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
            {"save", true},
        }},
       {"hoverProvider", true},
-  };
+      {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
 
   llvm::json::Object Result{
       {{"serverInfo",
@@ -225,6 +275,7 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
       : LSPServer(std::move(In), std::move(Out)) {
     Registry.addMethod("initialize", this, &Server::onInitialize);
     Registry.addMethod("textDocument/hover", this, &Server::onHover);
+    Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
     Registry.addNotification("initialized", this, &Server::onInitialized);
 
     // Text Document Synchronization
@@ -317,4 +368,67 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
         }
       });
 }
+
+void Server::onCompletion(const lspserver::CompletionParams &Params,
+                          lspserver::Callback<llvm::json::Value> Reply) {
+  using namespace lspserver;
+  std::string CompletionFile = Params.textDocument.uri.file().str();
+
+  withEval(CompletionFile,
+           [=, Reply = std::move(Reply),
+            this](std::shared_ptr<EvalResult> Result) mutable {
+             struct ReplyRAII {
+               CompletionList List;
+               decltype(Reply) R;
+               ReplyRAII(decltype(Reply) R) : R(std::move(R)) {}
+               ~ReplyRAII() { R(List); }
+             } ReplyRAII(std::move(Reply));
+
+             if (Result == nullptr && LastValidResult == nullptr) {
+               return;
+             }
+             if (Result == nullptr)
+               Result = LastValidResult;
+
+             auto State = Result->State;
+             // Lookup an AST node, and get it's 'Env' after evaluation
+             CompletionHelper::Items Items;
+             lspserver::vlog("current trigger character is {0}",
+                             Params.context.triggerCharacter);
+
+             if (Params.context.triggerCharacter == ".") {
+               try {
+                 auto AST = Result->EvalASTForest.at(CompletionFile);
+                 auto *Node = AST->lookupPosition(Params.position);
+                 auto Value = AST->getValue(Node);
+                 if (Value.type() == nix::ValueType::nAttrs) {
+                   // Traverse attribute bindings
+                   for (auto Binding : *Value.attrs) {
+                     Items.emplace_back(
+                         CompletionItem{.label = State->symbols[Binding.name],
+                                        .kind = CompletionItemKind::Field});
+                   }
+                 }
+               } catch (...) {
+               }
+             } else {
+               try {
+                 auto AST = Result->EvalASTForest.at(CompletionFile);
+                 auto *Node = AST->lookupPosition(Params.position);
+                 const auto *ExprEnv = AST->getEnv(Node);
+
+                 Items = CompletionHelper::fromEnvRecursive(
+                     State->symbols, *State->staticBaseEnv, *ExprEnv);
+               } catch (const std::out_of_range &) {
+                 // Fallback to staticEnv only
+                 Items = CompletionHelper::fromStaticEnv(State->symbols,
+                                                         *State->staticBaseEnv);
+               }
+             }
+
+             ReplyRAII.List.items.insert(ReplyRAII.List.items.end(),
+                                         Items.begin(), Items.end());
+           });
+}
+
 } // namespace nixd
