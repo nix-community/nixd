@@ -19,6 +19,7 @@
         devShells.default = nixd.overrideAttrs (old: {
           nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang-tools pkgs.gdb ];
           shellHook = ''
+            export PATH="${pkgs.clang-tools}/bin:$PATH"
             export NIX_SRC=${pkgs.nixUnstable.src}
             export NIX_DEBUG_INFO_DIRS=${pkgs.nixUnstable.debug}/lib/debug
           '';
