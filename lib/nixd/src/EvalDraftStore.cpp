@@ -66,6 +66,10 @@ void EvalDraftStore::withEvaluation(
         }
       }
 
+      if (CPolicy == CancellationPolicy::AnyInjectionFail &&
+          Forest.size() != ActiveFiles.size())
+        return;
+
       if (Forest.empty())
         return;
 

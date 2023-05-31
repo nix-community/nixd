@@ -62,5 +62,12 @@ public:
                       const nix::Strings &CommandLine,
                       const std::string &Installable,
                       llvm::unique_function<void(CallbackArg)> Finish);
+
+  enum class CancellationPolicy {
+    Non,
+    AnyInjectionFail,
+    Always,
+    Custom
+  } CPolicy = CancellationPolicy::AnyInjectionFail;
 };
 } // namespace nixd
