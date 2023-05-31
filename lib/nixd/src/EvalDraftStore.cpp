@@ -85,7 +85,7 @@ void EvalDraftStore::withEvaluation(
     }
   };
 
-  boost::asio::post(Pool, std::move(Job));
+  Job();
 }
 
 } // namespace nixd
