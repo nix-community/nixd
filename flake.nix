@@ -5,46 +5,25 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
-  outputs = { flake-parts, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = { nixpkgs, flake-parts, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
     perSystem = { config, self', inputs', pkgs, system, ... }:
-      with pkgs;
       let
-        llvmPackages = llvmPackages_16;
-        devInputs = [ clang-tools gdb ];
-        nativeBuildInputs = [
-          meson
-          ninja
-          cmake
-          pkg-config
-
-          # Testing only
-          lit
-
-          nixUnstable.dev
-          boost.dev
-          gtest.dev
-          llvmPackages.llvm.dev
-          llvmPackages.clang
-        ];
-        buildInputs = [
-          nixUnstable
-          gtest
-
-          llvmPackages.llvm.lib
-        ];
+        nixd = pkgs.callPackage ./default.nix { };
       in
       {
-        devShells.default = mkShell {
-          nativeBuildInputs = devInputs ++ nativeBuildInputs;
-          inherit buildInputs;
-          shellHook = ''
-            export NIX_DEBUG_INFO_DIRS=${nixUnstable.debug}/lib/debug
-            export NIX_SRC=${nixUnstable.src}
-            export NIX_CONFIG_H=${nixUnstable.dev}/include/nix/config.h
-            export CXXFLAGS="-include $NIX_CONFIG_H"
-          '';
+        packages = {
+          inherit nixd;
+          default = nixd;
         };
+
+        devShells.default = nixd.overrideAttrs (old: {
+          nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang-tools pkgs.gdb ];
+          shellHook = ''
+            export NIX_SRC=${pkgs.nixUnstable.src}
+            export NIX_DEBUG_INFO_DIRS=${pkgs.nixUnstable.debug}/lib/debug
+          '';
+        });
       };
-    systems = [ "x86_64-linux" ];
+    systems = nixpkgs.lib.systems.flakeExposed;
   };
 }

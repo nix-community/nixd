@@ -10,6 +10,7 @@ nixd_server_lib = library('nixd-lsp'
 , dependencies: [ llvm
                 , nixd_lsp_server
                 ] + nix_all
+, install: true
 )
 nixd_server= declare_dependency( link_with: nixd_server_lib
                             , include_directories: nixd_server_inc
