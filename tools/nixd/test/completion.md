@@ -72,6 +72,7 @@ a
      CHECK:    "isIncomplete": false,
 CHECK-NEXT:    "items": [
 CHECK-NEXT:      {
+CHECK-NEXT:        "kind": 21,
 CHECK-NEXT:        "label": "builtins",
 CHECK-NEXT:        "score": 0
 CHECK-NEXT:      },

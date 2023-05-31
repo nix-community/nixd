@@ -181,7 +181,10 @@ CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
     std::string Name = STable[Symbol];
     if (Name.starts_with("__"))
       continue;
-    Result.emplace_back(lspserver::CompletionItem{.label = Name});
+
+    // Variables in static envs, let's mark it as "Constant".
+    Result.emplace_back(lspserver::CompletionItem{
+        .label = Name, .kind = lspserver::CompletionItemKind::Constant});
   }
   return Result;
 }
@@ -193,7 +196,8 @@ CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
   if (NixEnv.type == nix::Env::HasWithAttrs) {
     for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
       std::string Name = STable[SomeAttr.name];
-      Result.emplace_back(lspserver::CompletionItem{.label = Name});
+      Result.emplace_back(lspserver::CompletionItem{
+          .label = Name, .kind = lspserver::CompletionItemKind::Variable});
     }
   }
   return Result;
@@ -401,7 +405,8 @@ void Server::onCompletion(const lspserver::CompletionParams &Params,
                    // Traverse attribute bindings
                    for (auto Binding : *Value.attrs) {
                      Items.emplace_back(
-                         CompletionItem{.label = State->symbols[Binding.name]});
+                         CompletionItem{.label = State->symbols[Binding.name],
+                                        .kind = CompletionItemKind::Field});
                    }
                  }
                } catch (...) {
