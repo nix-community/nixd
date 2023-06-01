@@ -13,6 +13,7 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
 
+#include <memory>
 #include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/store-api.hh>
@@ -94,65 +95,37 @@ void Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
   PublishDiagnostic(Notification);
 }
 
-void Server::invalidateEvalCache() {
-  {
-    std::lock_guard<std::mutex> Guard(ResultLock);
-    CachedResult = nullptr;
-  }
-}
+void Server::eval(const std::string &Fallback) {
+  auto Session = std::make_unique<IValueEvalSession>();
 
-void Server::withEval(
-    std::string Fallback,
-    llvm::unique_function<void(std::shared_ptr<EvalResult> Result)> Then) {
-  using namespace lspserver;
+  auto [Args, Installable] = Config.getInstallable(Fallback);
 
-  {
-    std::lock_guard<std::mutex> Guard(ResultLock);
-    if (CachedResult) {
-      Then(CachedResult);
-      return;
+  Session->parseArgs(Args);
+
+  auto ILR = DraftMgr.injectFiles(Session->getState());
+
+  for (const auto &ActiveFile : DraftMgr.getActiveFiles())
+    clearDiagnostic(ActiveFile);
+
+  // Publish all injection errors.
+  for (const auto &[NixErr, ErrInfo] : ILR.InjectionErrors)
+    diagNixError(ErrInfo.ActiveFile, *NixErr,
+                 EvalDraftStore::decodeVersion(ErrInfo.Version));
+
+  if (!ILR.InjectionErrors.empty()) {
+    if (!ILR.Forest.empty())
+      FCache.NonEmptyResult = {std::move(ILR.Forest), std::move(Session)};
+  } else {
+    const std::string EvalationErrorFile = "/evaluation-error-file.nix";
+    clearDiagnostic(EvalationErrorFile);
+    try {
+      Session->eval(Installable);
+      FCache.EvaluatedResult = {std::move(ILR.Forest), std::move(Session)};
+    } catch (nix::BaseError &BE) {
+      diagNixError(EvalationErrorFile, BE, std::nullopt);
+    } catch (...) {
     }
   }
-
-  const auto &[CommandLine, Installable] =
-      Config.getInstallable(std::move(Fallback));
-  DraftMgr.withEvaluation(
-      Pool, CommandLine, Installable,
-      [this,
-       Then = std::move(Then)](const EvalDraftStore::CallbackArg &Arg) mutable {
-        // Workaround for display version
-        for (auto ActiveFile : DraftMgr.getActiveFiles())
-          clearDiagnostic(ActiveFile);
-
-        // Publish all injection errors.
-        for (const auto &[NixErr, ErrInfo] : Arg.InjectionErrors)
-          diagNixError(ErrInfo.ActiveFile, *NixErr,
-                       EvalDraftStore::decodeVersion(ErrInfo.Version));
-
-        // TODO: extract real eval error source file
-        clearDiagnostic("/");
-        // And evaluation error
-        try {
-          if (Arg.EvalError)
-            std::rethrow_exception(Arg.EvalError);
-        } catch (nix::BaseError &Err) {
-          diagNixError("/", Err, 0);
-        } catch (std::exception &Except) {
-          elog("unhandled exception: {0}", Except.what());
-        } catch (...) {
-          elog("unhandled exception (unknown)");
-        }
-
-        if (Arg.Result) {
-          std::lock_guard<std::mutex> Guard(ResultLock);
-          LastValidResult = Arg.Result;
-          CachedResult = Arg.Result;
-          Then(Arg.Result);
-          return;
-        }
-
-        Then(nullptr);
-      });
 }
 
 void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
@@ -168,9 +141,11 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   DraftMgr.addDraft(File, Version, Contents);
 
-  invalidateEvalCache();
+  // invalidateEvalCache();
 
-  withEval(File.str(), [](std::shared_ptr<EvalResult> Result) {});
+  eval(File.str());
+
+  // withEval(File.str(), [](std::shared_ptr<EvalResult> Result) {});
 }
 
 CompletionHelper::Items
@@ -252,7 +227,7 @@ void Server::fetchConfig() {
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
             Config = std::move(Response.get());
-            invalidateEvalCache();
+            // invalidateEvalCache();
           }
         });
   }
@@ -330,43 +305,38 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
                      lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   std::string HoverFile = Paras.textDocument.uri.file().str();
-  withEval(
-      HoverFile, [HoverFile, Paras, Reply = std::move(Reply)](
-                     std::shared_ptr<EvalResult> Result) mutable {
-        if (Result == nullptr) {
-          Reply(Hover{{}, std::nullopt});
-          return;
-        }
-        auto Forest = Result->EvalASTForest;
-        try {
-          auto AST = Forest.at(HoverFile);
-          auto *Node = AST->lookupPosition(Paras.position);
-          const auto *ExprName = getExprName(Node);
-          std::string HoverText;
-          try {
-            auto Value = AST->getValue(Node);
-            std::stringstream Res{};
-            Value.print(Result->State->symbols, Res);
-            HoverText =
-                llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
-          } catch (const std::out_of_range &) {
-            // No such value, just reply dummy item
-            std::stringstream NodeOut;
-            Node->show(Result->State->symbols, NodeOut);
-            lspserver::vlog("no associated value on node {0}!", NodeOut.str());
-            HoverText = llvm::formatv("`{0}`", ExprName);
-          }
-          Reply(Hover{{
-                          MarkupKind::Markdown,
-                          HoverText,
-                      },
-                      std::nullopt});
-        } catch (const std::out_of_range &) {
-          // Probably out of range in Forest.at
-          // Ignore this expression, and reply dummy value.
-          Reply(Hover{{}, std::nullopt});
-        }
-      });
+  const auto *IER =
+      FCache.searchAST(HoverFile, ForestCache::ASTPreference::NonEmpty);
+
+  if (!IER)
+    return;
+
+  auto AST = IER->Forest.at(HoverFile);
+
+  struct ReplyRAII {
+    decltype(Reply) R;
+    Hover Response;
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(Response); };
+  } RR(std::move(Reply));
+
+  auto *Node = AST->lookupPosition(Paras.position);
+  const auto *ExprName = getExprName(Node);
+  std::string HoverText;
+  RR.Response.contents.kind = MarkupKind::Markdown;
+  try {
+    auto Value = AST->getValue(Node);
+    std::stringstream Res{};
+    Value.print(IER->Session->getState()->symbols, Res);
+    HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
+  } catch (const std::out_of_range &) {
+    // No such value, just reply dummy item
+    std::stringstream NodeOut;
+    Node->show(IER->Session->getState()->symbols, NodeOut);
+    lspserver::vlog("no associated value on node {0}!", NodeOut.str());
+    HoverText = llvm::formatv("`{0}`", ExprName);
+  }
+  RR.Response.contents.value = HoverText;
 }
 
 void Server::onCompletion(const lspserver::CompletionParams &Params,
@@ -374,61 +344,56 @@ void Server::onCompletion(const lspserver::CompletionParams &Params,
   using namespace lspserver;
   std::string CompletionFile = Params.textDocument.uri.file().str();
 
-  withEval(CompletionFile,
-           [=, Reply = std::move(Reply),
-            this](std::shared_ptr<EvalResult> Result) mutable {
-             struct ReplyRAII {
-               CompletionList List;
-               decltype(Reply) R;
-               ReplyRAII(decltype(Reply) R) : R(std::move(R)) {}
-               ~ReplyRAII() { R(List); }
-             } ReplyRAII(std::move(Reply));
+  struct ReplyRAII {
+    decltype(Reply) R;
+    CompletionList Response;
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(Response); };
+  } RR(std::move(Reply));
 
-             if (Result == nullptr && LastValidResult == nullptr) {
-               return;
-             }
-             if (Result == nullptr)
-               Result = LastValidResult;
+  const auto *IER =
+      FCache.searchAST(CompletionFile, ForestCache::ASTPreference::Evaluated);
 
-             auto State = Result->State;
-             // Lookup an AST node, and get it's 'Env' after evaluation
-             CompletionHelper::Items Items;
-             lspserver::vlog("current trigger character is {0}",
-                             Params.context.triggerCharacter);
+  if (!IER)
+    return;
 
-             if (Params.context.triggerCharacter == ".") {
-               try {
-                 auto AST = Result->EvalASTForest.at(CompletionFile);
-                 auto *Node = AST->lookupPosition(Params.position);
-                 auto Value = AST->getValue(Node);
-                 if (Value.type() == nix::ValueType::nAttrs) {
-                   // Traverse attribute bindings
-                   for (auto Binding : *Value.attrs) {
-                     Items.emplace_back(
-                         CompletionItem{.label = State->symbols[Binding.name],
-                                        .kind = CompletionItemKind::Field});
-                   }
-                 }
-               } catch (...) {
-               }
-             } else {
-               try {
-                 auto AST = Result->EvalASTForest.at(CompletionFile);
-                 auto *Node = AST->lookupPosition(Params.position);
-                 const auto *ExprEnv = AST->getEnv(Node);
+  auto AST = IER->Forest.at(CompletionFile);
 
-                 Items = CompletionHelper::fromEnvRecursive(
-                     State->symbols, *State->staticBaseEnv, *ExprEnv);
-               } catch (const std::out_of_range &) {
-                 // Fallback to staticEnv only
-                 Items = CompletionHelper::fromStaticEnv(State->symbols,
-                                                         *State->staticBaseEnv);
-               }
-             }
+  auto State = IER->Session->getState();
+  // Lookup an AST node, and get it's 'Env' after evaluation
+  CompletionHelper::Items Items;
+  lspserver::vlog("current trigger character is {0}",
+                  Params.context.triggerCharacter);
 
-             ReplyRAII.List.items.insert(ReplyRAII.List.items.end(),
-                                         Items.begin(), Items.end());
-           });
+  if (Params.context.triggerCharacter == ".") {
+    try {
+      auto *Node = AST->lookupPosition(Params.position);
+      auto Value = AST->getValue(Node);
+      if (Value.type() == nix::ValueType::nAttrs) {
+        // Traverse attribute bindings
+        for (auto Binding : *Value.attrs) {
+          Items.emplace_back(
+              CompletionItem{.label = State->symbols[Binding.name],
+                             .kind = CompletionItemKind::Field});
+        }
+      }
+    } catch (...) {
+    }
+  } else {
+    try {
+      auto *Node = AST->lookupPosition(Params.position);
+      const auto *ExprEnv = AST->getEnv(Node);
+
+      Items = CompletionHelper::fromEnvRecursive(
+          State->symbols, *State->staticBaseEnv, *ExprEnv);
+    } catch (const std::out_of_range &) {
+      // Fallback to staticEnv only
+      Items = CompletionHelper::fromStaticEnv(State->symbols,
+                                              *State->staticBaseEnv);
+    }
+  }
+  RR.Response.isIncomplete = false;
+  RR.Response.items = Items;
 }
 
 } // namespace nixd
