@@ -13,7 +13,6 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
 
-#include <memory>
 #include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/store-api.hh>
@@ -21,6 +20,7 @@
 
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <sstream>
