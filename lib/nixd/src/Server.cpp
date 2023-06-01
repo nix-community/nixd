@@ -29,7 +29,6 @@
 #include <utility>
 #include <variant>
 
-namespace fs = std::filesystem;
 namespace nixd {
 
 namespace configuration {
