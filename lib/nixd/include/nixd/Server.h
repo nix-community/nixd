@@ -61,10 +61,6 @@ class Server : public lspserver::LSPServer {
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
-  std::mutex ResultLock;
-  std::shared_ptr<EvalResult> LastValidResult; // GUARDED_BY(ResultLock)
-  std::shared_ptr<EvalResult> CachedResult;    // GUARDED_BY(ResultLock)
-
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                    llvm::StringRef Version);
 
@@ -81,15 +77,15 @@ class Server : public lspserver::LSPServer {
                              lspserver::Callback<configuration::TopLevel>)>
       WorkspaceConfiguration;
 
-  void withEval(
-      std::string Fallback,
-      llvm::unique_function<void(std::shared_ptr<EvalResult> Result)> Then);
+  ForestCache FCache;
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out);
 
   ~Server() override { Pool.join(); }
+
+  void eval(const std::string &Fallback);
 
   void fetchConfig();
 
@@ -99,8 +95,6 @@ public:
 
   void diagNixError(lspserver::PathRef Path, const nix::BaseError &Err,
                     std::optional<int64_t> Version);
-
-  void invalidateEvalCache();
 
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
