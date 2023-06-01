@@ -14,6 +14,8 @@
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/JSON.h>
 
+#include <cstdint>
+
 namespace nixd {
 
 namespace configuration {
@@ -52,8 +54,40 @@ struct CompletionHelper {
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
 
+  enum class ServerRole {
+    /// Parent process of the server
+    Controller,
+    /// Child process
+    Evaluator
+  } Role = ServerRole::Controller;
+
+  using WorkspaceVersionTy = uint64_t;
+
+  WorkspaceVersionTy WorkspaceVersion;
+
+  struct Proc {
+    std::unique_ptr<nix::Pipe> ToPipe;
+    std::unique_ptr<nix::Pipe> FromPipe;
+    nix::Pid Pid;
+    WorkspaceVersionTy WorkspaceVersion;
+
+    Proc(decltype(ToPipe) ToPipe, decltype(FromPipe) FromPipe, pid_t Pid,
+         decltype(WorkspaceVersion) WorkspaceVersion)
+        : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)), Pid(Pid),
+          WorkspaceVersion(std::move(WorkspaceVersion)) {}
+    ~Proc() = default;
+
+    [[nodiscard]] nix::AutoCloseFD to() const {
+      return ToPipe->writeSide.get();
+    };
+    [[nodiscard]] nix::AutoCloseFD from() const {
+      return FromPipe->readSide.get();
+    };
+  };
+
+  std::deque<std::unique_ptr<Proc>> Workers;
+
   EvalDraftStore DraftMgr;
-  boost::asio::thread_pool Pool = boost::asio::thread_pool(1);
 
   lspserver::ClientCapabilities ClientCaps;
 
@@ -64,7 +98,10 @@ class Server : public lspserver::LSPServer {
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                    llvm::StringRef Version);
 
-  void removeDocument(lspserver::PathRef File) { DraftMgr.removeDraft(File); }
+  void removeDocument(lspserver::PathRef File) {
+    DraftMgr.removeDraft(File);
+    updateWorkspaceVersion();
+  }
 
   /// LSP defines file versions as numbers that increase.
   /// treats them as opaque and therefore uses strings instead.
@@ -83,9 +120,9 @@ public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out);
 
-  ~Server() override { Pool.join(); }
-
   void eval(const std::string &Fallback);
+
+  void updateWorkspaceVersion();
 
   void fetchConfig();
 

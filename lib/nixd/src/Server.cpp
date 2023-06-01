@@ -1,20 +1,24 @@
 #include "nixd/Server.h"
-#include "lspserver/URI.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/Expr.h"
 
+#include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
+#include "lspserver/URI.h"
 
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include <nix/error.hh>
 #include <nix/eval.hh>
+#include <nix/globals.hh>
+#include <nix/shared.hh>
 #include <nix/store-api.hh>
 #include <nix/util.hh>
 
@@ -26,6 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unistd.h>
 #include <utility>
 #include <variant>
 
@@ -94,7 +99,49 @@ void Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
   PublishDiagnostic(Notification);
 }
 
+void Server::updateWorkspaceVersion() {
+  WorkspaceVersion++;
+  auto To = std::make_unique<nix::Pipe>();
+  auto From = std::make_unique<nix::Pipe>();
+
+  To->create();
+  From->create();
+
+  auto ForkPID = fork();
+  if (ForkPID == -1) {
+    lspserver::elog("Cannot create child worker process");
+    // TODO reason?
+  } else if (ForkPID == 0) {
+    // child, it should be a COW fork of the parent process info, as a snapshot
+    // we will leave the evaluation task (or any language feature) to the child
+    // process, and forward language feature requests to this childs, and choose
+    // the best response.
+    auto ChildPID = getpid();
+    lspserver::elog("created child worker process {0}", ChildPID);
+    Role = ServerRole::Evaluator;
+
+    // Disconnect stdin & stdout
+    dup2(To->readSide.get(), 0);
+    dup2(From->writeSide.get(), 1);
+
+    nix::initNix();
+    nix::initLibStore();
+    nix::initPlugins();
+    nix::initGC();
+
+    eval("");
+  } else {
+    Workers.emplace_back(std::make_unique<Proc>(std::move(To), std::move(From),
+                                                ForkPID, WorkspaceVersion));
+    if (Workers.size() > 5) {
+      Workers.pop_front();
+    }
+  }
+}
+
 void Server::eval(const std::string &Fallback) {
+  assert(Role != ServerRole::Controller &&
+         "eval must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
 
   auto [Args, Installable] = Config.getInstallable(Fallback);
@@ -139,8 +186,7 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
   PublishDiagnostic(Notification);
 
   DraftMgr.addDraft(File, Version, Contents);
-
-  eval(File.str());
+  updateWorkspaceVersion();
 }
 
 CompletionHelper::Items
@@ -222,7 +268,6 @@ void Server::fetchConfig() {
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
             Config = std::move(Response.get());
-            eval("");
           }
         });
   }
@@ -275,6 +320,10 @@ void Server::onDocumentDidOpen(
 
 void Server::onDocumentDidChange(
     const lspserver::DidChangeTextDocumentParams &Params) {
+  if (Role == ServerRole::Evaluator) {
+    // For evaluator, just return.
+    return;
+  }
   lspserver::PathRef File = Params.textDocument.uri.file();
   auto Code = getDraft(File);
   if (!Code) {

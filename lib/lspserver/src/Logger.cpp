@@ -51,8 +51,8 @@ void StreamLogger::log(Logger::Level Level, const char *Fmt,
     return;
   llvm::sys::TimePoint<> Timestamp = std::chrono::system_clock::now();
   std::lock_guard<std::mutex> Guard(StreamMutex);
-  Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}\n", indicator(Level),
-                        Timestamp, Message);
+  Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}: {3}\n", indicator(Level),
+                        Timestamp, getpid(), Message);
   Logs.flush();
 }
 

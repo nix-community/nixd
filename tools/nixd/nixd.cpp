@@ -59,9 +59,6 @@ int main(int argc, char *argv[]) {
     PrettyPrint = true;
   }
 
-  nix::initNix();
-  nix::initGC();
-
   StreamLogger Logger(llvm::errs(), LogLevel);
   lspserver::LoggingSession Session(Logger);
 
