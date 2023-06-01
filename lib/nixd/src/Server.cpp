@@ -223,6 +223,7 @@ void Server::fetchConfig() {
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
             Config = std::move(Response.get());
+            eval("");
           }
         });
   }
