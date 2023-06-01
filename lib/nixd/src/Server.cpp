@@ -141,11 +141,7 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   DraftMgr.addDraft(File, Version, Contents);
 
-  // invalidateEvalCache();
-
   eval(File.str());
-
-  // withEval(File.str(), [](std::shared_ptr<EvalResult> Result) {});
 }
 
 CompletionHelper::Items
@@ -227,7 +223,6 @@ void Server::fetchConfig() {
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
             Config = std::move(Response.get());
-            // invalidateEvalCache();
           }
         });
   }
