@@ -49,13 +49,13 @@ Value toJSON(const Diagnostics &R) {
   Base.getAsObject()->insert({"Params", R.Params});
   return Base;
 }
-
 } // namespace ipc
 
 } // namespace nixd
 
 namespace lspserver {
 
+using llvm::json::Object;
 using llvm::json::ObjectMapper;
 using llvm::json::Value;
 
@@ -71,6 +71,32 @@ bool fromJSON(const Value &Params, PublishDiagnosticsParams &R,
   ObjectMapper O(Params, P);
   return O && O.map("uri", R.uri) && O.mapOptional("version", R.version) &&
          O.map("diagnostics", R.diagnostics);
+}
+
+Value toJSON(const CompletionContext &R) {
+  return Object{{"triggerCharacter", R.triggerCharacter},
+                {"triggerKind", static_cast<int>(R.triggerKind)}};
+}
+
+Value toJSON(const TextDocumentPositionParams &R) {
+  return Object{{"textDocument", R.textDocument}, {"position", R.position}};
+}
+
+Value toJSON(const CompletionParams &R) {
+  Value Base = toJSON(static_cast<const TextDocumentPositionParams &>(R));
+  Base.getAsObject()->insert({"context", R.context});
+  Base.getAsObject()->insert({"limit", R.limit});
+  return Base;
+}
+
+bool fromJSON(const Value &Params, CompletionItem &R, llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("label", R.label) && O.map("kind", R.kind);
+}
+
+bool fromJSON(const Value &Params, CompletionList &R, llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("isIncomplete", R.isIncomplete) && O.map("items", R.items);
 }
 
 } // namespace lspserver

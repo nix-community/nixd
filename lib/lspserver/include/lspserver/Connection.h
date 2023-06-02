@@ -31,7 +31,7 @@ public:
 };
 
 class InboundPort {
-private:
+public:
   int In;
 
   JSONStreamStyle StreamStyle = JSONStreamStyle::Standard;
@@ -40,7 +40,6 @@ private:
 
   bool readDelimitedMessage(std::string &JSONString);
 
-public:
   InboundPort(int In = STDIN_FILENO,
               JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
       : In(In), StreamStyle(StreamStyle){};

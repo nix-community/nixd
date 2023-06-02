@@ -84,9 +84,17 @@ void Server::updateWorkspaceVersion() {
           IPort->loop(*this);
         });
     WorkerInputDispatcher.detach();
-    auto WorkerProc = std::make_unique<Proc>(std::move(To), std::move(From),
-                                             ForkPID, WorkspaceVersion,
-                                             std::move(WorkerInputDispatcher));
+
+    auto ProcFdStream =
+        std::make_unique<llvm::raw_fd_ostream>(To->writeSide.get(), false);
+
+    auto OutPort =
+        std::make_unique<lspserver::OutboundPort>(*ProcFdStream, false);
+
+    auto WorkerProc = std::make_unique<Proc>(
+        std::move(To), std::move(From), std::move(OutPort),
+        std::move(ProcFdStream), ForkPID, WorkspaceVersion,
+        std::move(WorkerInputDispatcher));
 
     Workers.emplace_back(std::move(WorkerProc));
     if (Workers.size() > 5) {
@@ -183,6 +191,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   /// IPC
   Registry.addNotification("nixd/worker/diagnostic", this,
                            &Server::onWorkerDiagnostic);
+
+  Registry.addMethod("nixd/worker/textDocument/completion", this,
+                     &Server::onWorkerCompletion);
 }
 
 void Server::onDocumentDidOpen(
@@ -255,5 +266,72 @@ void Server::onWorkerDiagnostic(const ipc::Diagnostics &Diag) {
     }
   }
 }
+
+//-----------------------------------------------------------------------------/
+// Completion
+
+void Server::onCompletion(
+    const lspserver::CompletionParams &Params,
+    lspserver::Callback<lspserver::CompletionList> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    // For all active workers, send the completion request
+
+    std::vector<lspserver::CompletionList> ListStore(Workers.size());
+
+    auto *StorePtr = &ListStore;
+
+    size_t I = 0;
+    for (const auto &Worker : Workers) {
+      auto ComplectionRequest =
+          mkOutMethod<lspserver::CompletionParams, lspserver::CompletionList>(
+              "nixd/worker/textDocument/completion", Worker->OutPort.get());
+
+      ComplectionRequest(
+          Params,
+          [I, &StorePtr](llvm::Expected<lspserver::CompletionList> Result) {
+            // The worker answered our request, fill the completion
+            // lists then.
+            if (Result) {
+              lspserver::log(
+                  "received result from our client, which has {0} item(s)",
+                  Result.get().items.size());
+              if (StorePtr) {
+                (*StorePtr)[I] = Result.get();
+              } else if (!Result.get().items.empty()) {
+                lspserver::elog(
+                    "ignored non-empty response, because it's to late.");
+              }
+            }
+          });
+      I++;
+    }
+    // Wait for our client, this is currently hardcoded
+    usleep(5e5);
+
+    // Reset the store ptr in event handling module, so that client reply after
+    // 'usleep' will not write the store (to avoid data race)
+    StorePtr = nullptr;
+
+    // brute-force iterating over the result, and choose the biggest item
+    size_t BestIdx = 0;
+    size_t BestSize = 0;
+    for (size_t I = 0; I < ListStore.size(); I++) {
+      auto LSize = ListStore[I].items.size();
+      if (LSize >= BestSize) {
+        BestIdx = I;
+        BestSize = LSize;
+      }
+    }
+    // And finally, reply our client
+    lspserver::log("chosed {0} completion lists.", BestSize);
+    Reply(ListStore.at(BestIdx));
+    ListStore.resize(0);
+  });
+
+  Thread.detach();
+}
+
+void Server::onHover(const lspserver::TextDocumentPositionParams &,
+                     lspserver::Callback<llvm::json::Value>) {}
 
 } // namespace nixd

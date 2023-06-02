@@ -63,7 +63,8 @@ int main(int argc, char *argv[]) {
     InputStyle = JSONStreamStyle::Delimited;
     LogLevel = Logger::Level::Verbose;
     PrettyPrint = true;
-    WaitWorker = 2e5; // 0.2s
+    if (!WaitWorker)
+      WaitWorker = 2e5; // 0.2s
   }
 
   StreamLogger Logger(llvm::errs(), LogLevel);

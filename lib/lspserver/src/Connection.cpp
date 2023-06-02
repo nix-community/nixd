@@ -140,14 +140,13 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
   JSONString.resize(ContentLength);
   for (size_t Pos = 0, Read; Pos < ContentLength; Pos += Read) {
 
-    Read = read(In, &JSONString[Pos], ContentLength - Pos);
+    Read = read(In, JSONString.data() + Pos, ContentLength - Pos);
 
     if (Read == 0) {
       elog("Input was aborted. Read only {0} bytes of expected {1}.", Pos,
            ContentLength);
       return false;
     }
-    Pos += Read;
   }
   return true;
 }
@@ -200,6 +199,8 @@ void InboundPort::loop(MessageHandler &Handler) {
         if (!dispatch(*ExpectedParsedJSON, Handler))
           return;
       } else {
+        auto Err = ExpectedParsedJSON.takeError();
+        elog("The received json cannot be parsed, reason: {0}", Err);
         return;
       }
     } else {

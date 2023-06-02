@@ -13,10 +13,29 @@
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/JSON.h>
+#include <llvm/Support/raw_ostream.h>
 
 #include <cstdint>
+#include <memory>
 
-namespace nixd {
+// Extension to `lspserver`
+namespace lspserver {
+
+llvm::json::Value toJSON(const CompletionContext &R);
+
+llvm::json::Value toJSON(const TextDocumentPositionParams &R);
+
+llvm::json::Value toJSON(const CompletionParams &R);
+
+bool fromJSON(const llvm::json::Value &Params, CompletionItem &R,
+              llvm::json::Path P);
+
+bool fromJSON(const llvm::json::Value &Params, CompletionList &R,
+              llvm::json::Path P);
+
+} // namespace lspserver
+
+namespace nixd { // namespace nixd
 
 namespace configuration {
 
@@ -75,6 +94,10 @@ bool fromJSON(const llvm::json::Value &, lspserver::PublishDiagnosticsParams &,
 bool fromJSON(const llvm::json::Value &, Diagnostics &, llvm::json::Path);
 llvm::json::Value toJSON(const Diagnostics &);
 
+struct Completion : WorkerMessage {
+  lspserver::CompletionList List;
+};
+
 } // namespace ipc
 
 /// The server instance, nix-related language features goes here
@@ -94,15 +117,20 @@ class Server : public lspserver::LSPServer {
   struct Proc {
     std::unique_ptr<nix::Pipe> ToPipe;
     std::unique_ptr<nix::Pipe> FromPipe;
+    std::unique_ptr<lspserver::OutboundPort> OutPort;
+    std::unique_ptr<llvm::raw_ostream> OwnedStream;
+
     nix::Pid Pid;
     WorkspaceVersionTy WorkspaceVersion;
     std::thread InputDispatcher;
 
-    Proc(decltype(ToPipe) ToPipe, decltype(FromPipe) FromPipe, pid_t Pid,
-         decltype(WorkspaceVersion) WorkspaceVersion,
+    Proc(decltype(ToPipe) ToPipe, decltype(FromPipe) FromPipe,
+         decltype(OutPort) OutPort, decltype(OwnedStream) OwnedStream,
+         pid_t Pid, decltype(WorkspaceVersion) WorkspaceVersion,
          decltype(InputDispatcher) InputDispatcher)
-        : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)), Pid(Pid),
-          WorkspaceVersion(WorkspaceVersion),
+        : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)),
+          OutPort(std::move(OutPort)), OwnedStream(std::move(OwnedStream)),
+          Pid(Pid), WorkspaceVersion(WorkspaceVersion),
           InputDispatcher(std::move(InputDispatcher)) {}
 
     [[nodiscard]] nix::AutoCloseFD to() const {
@@ -155,7 +183,8 @@ class Server : public lspserver::LSPServer {
   //---------------------------------------------------------------------------/
   // Worker members
   llvm::unique_function<void(const ipc::Diagnostics &)> WorkerDiagnostic;
-  ForestCache FCache;
+
+  std::unique_ptr<IValueEvalResult> IER;
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
@@ -199,11 +228,17 @@ public:
       const lspserver::DidChangeConfigurationParams &) {
     fetchConfig();
   }
+
   void onHover(const lspserver::TextDocumentPositionParams &,
                lspserver::Callback<llvm::json::Value>);
+  void onWorkerHover(const lspserver::TextDocumentPositionParams &,
+                     lspserver::Callback<llvm::json::Value>);
 
   void onCompletion(const lspserver::CompletionParams &,
-                    lspserver::Callback<llvm::json::Value>);
+                    lspserver::Callback<lspserver::CompletionList>);
+
+  void onWorkerCompletion(const lspserver::CompletionParams &,
+                          lspserver::Callback<llvm::json::Value>);
 };
 
 }; // namespace nixd

@@ -48,35 +48,41 @@ private:
   int bindReply(Callback<llvm::json::Value>);
 
   void callMethod(llvm::StringRef Method, llvm::json::Value Params,
-                  Callback<llvm::json::Value> CB) {
+                  Callback<llvm::json::Value> CB, OutboundPort *O) {
     llvm::json::Value ID(bindReply(std::move(CB)));
     log("--> call {0}({1})", Method, ID.getAsInteger());
-    Out->call(Method, Params, ID);
+    O->call(Method, Params, ID);
   }
 
 protected:
   HandlerRegistry Registry;
   template <class T>
   llvm::unique_function<void(const T &)>
-  mkOutNotifiction(llvm::StringRef Method) {
-    return [Method = Method, this](const T &Params) {
+  mkOutNotifiction(llvm::StringRef Method, OutboundPort *O = nullptr) {
+    if (!O)
+      O = Out.get();
+    return [=, this](const T &Params) {
       log("--> notify {0}", Method);
-      Out->notify(Method, Params);
+      O->notify(Method, Params);
     };
   }
 
   template <class ParamTy, class ResponseTy>
   llvm::unique_function<void(const ParamTy &, Callback<ResponseTy>)>
-  mkOutMethod(llvm::StringRef Method) {
+  mkOutMethod(llvm::StringRef Method, OutboundPort *O = nullptr) {
+    if (!O)
+      O = Out.get();
     return [=, this](const ParamTy &Params, Callback<ResponseTy> Reply) {
-      callMethod(Method, Params,
-                 [=, Reply = std::move(Reply)](
-                     llvm::Expected<llvm::json::Value> Response) mutable {
-                   if (!Response)
-                     return Reply(Response.takeError());
-                   Reply(parseParam<ResponseTy>(std::move(*Response), Method,
-                                                "reply"));
-                 });
+      callMethod(
+          Method, Params,
+          [=, Reply = std::move(Reply)](
+              llvm::Expected<llvm::json::Value> Response) mutable {
+            if (!Response)
+              return Reply(Response.takeError());
+            Reply(
+                parseParam<ResponseTy>(std::move(*Response), Method, "reply"));
+          },
+          O);
     };
   }
 
@@ -84,6 +90,8 @@ public:
   LSPServer(std::unique_ptr<InboundPort> In, std::unique_ptr<OutboundPort> Out)
       : In(std::move(In)), Out(std::move(Out)){};
   void run();
+
+  void switchStreamStyle(JSONStreamStyle Style) { In->StreamStyle = Style; }
 };
 
 } // namespace lspserver

@@ -1,3 +1,4 @@
+#include "lspserver/Connection.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Server.h"
 
@@ -70,6 +71,14 @@ void Server::switchToEvaluator() {
   nix::initPlugins();
   nix::initGC();
 
+  /// Basically communicate with the controller in standard mode. because we do
+  /// not support "lit-test" outbound port.
+  switchStreamStyle(lspserver::JSONStreamStyle::Standard);
+
+  // unregister "Procs" in worker process, they are managed by controller
+  for (auto &Worker : Workers)
+    Worker->Pid.release();
+
   WorkerDiagnostic =
       mkOutNotifiction<ipc::Diagnostics>("nixd/worker/diagnostic");
 
@@ -110,22 +119,21 @@ void Server::eval(const std::string &Fallback) {
 
   WorkerDiagnostic(Diagnostics);
 
-  if (!ILR.InjectionErrors.empty()) {
-    if (!ILR.Forest.empty())
-      FCache.NonEmptyResult = {std::move(ILR.Forest), std::move(Session)};
-  } else {
-    const std::string EvalationErrorFile = "/evaluation-error-file.nix";
-    try {
-      Session->eval(Installable);
-      FCache.EvaluatedResult = {std::move(ILR.Forest), std::move(Session)};
-    } catch (nix::BaseError &BE) {
-    } catch (...) {
-    }
+  try {
+    Session->eval(Installable);
+    lspserver::log("evaluation done on worspace version: {0}",
+                   WorkspaceVersion);
+  } catch (nix::BaseError &BE) {
+    lspserver::elog("evaluation error on workspace version: {0}, reason: {1}",
+                    WorkspaceVersion, stripANSI(BE.what()));
+  } catch (...) {
   }
+  IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
+                                           std::move(Session));
 }
 
-void Server::onCompletion(const lspserver::CompletionParams &Params,
-                          lspserver::Callback<llvm::json::Value> Reply) {
+void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
+                                lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   std::string CompletionFile = Params.textDocument.uri.file().str();
 
@@ -136,60 +144,52 @@ void Server::onCompletion(const lspserver::CompletionParams &Params,
     ~ReplyRAII() { R(Response); };
   } RR(std::move(Reply));
 
-  const auto *IER =
-      FCache.searchAST(CompletionFile, ForestCache::ASTPreference::Evaluated);
+  auto GetStaticEnvItems = [this]() {
+    return CompletionHelper::fromStaticEnv(
+        IER->Session->getState()->symbols,
+        *IER->Session->getState()->staticBaseEnv);
+  };
 
-  if (!IER)
-    return;
+  RR.Response.isIncomplete = false;
 
-  auto AST = IER->Forest.at(CompletionFile);
+  try {
+    auto AST = IER->Forest.at(CompletionFile);
+    auto State = IER->Session->getState();
+    // Lookup an AST node, and get it's 'Env' after evaluation
+    CompletionHelper::Items Items;
+    lspserver::log("current trigger character is {0}",
+                   Params.context.triggerCharacter);
 
-  auto State = IER->Session->getState();
-  // Lookup an AST node, and get it's 'Env' after evaluation
-  CompletionHelper::Items Items;
-  lspserver::vlog("current trigger character is {0}",
-                  Params.context.triggerCharacter);
-
-  if (Params.context.triggerCharacter == ".") {
-    try {
-      auto *Node = AST->lookupPosition(Params.position);
-      auto Value = AST->getValue(Node);
-      if (Value.type() == nix::ValueType::nAttrs) {
-        // Traverse attribute bindings
-        for (auto Binding : *Value.attrs) {
-          Items.emplace_back(
-              CompletionItem{.label = State->symbols[Binding.name],
-                             .kind = CompletionItemKind::Field});
+    if (Params.context.triggerCharacter == ".") {
+      try {
+        auto *Node = AST->lookupPosition(Params.position);
+        auto Value = AST->getValue(Node);
+        if (Value.type() == nix::ValueType::nAttrs) {
+          // Traverse attribute bindings
+          for (auto Binding : *Value.attrs) {
+            Items.emplace_back(
+                CompletionItem{.label = State->symbols[Binding.name],
+                               .kind = CompletionItemKind::Field});
+          }
         }
+      } catch (...) {
       }
-    } catch (...) {
-    }
-  } else {
-    try {
+    } else {
       auto *Node = AST->lookupPosition(Params.position);
       const auto *ExprEnv = AST->getEnv(Node);
 
       Items = CompletionHelper::fromEnvRecursive(
           State->symbols, *State->staticBaseEnv, *ExprEnv);
-    } catch (const std::out_of_range &) {
-      // Fallback to staticEnv only
-      Items = CompletionHelper::fromStaticEnv(State->symbols,
-                                              *State->staticBaseEnv);
     }
+    RR.Response.items = Items;
+  } catch (std::out_of_range &) {
   }
-  RR.Response.isIncomplete = false;
-  RR.Response.items = Items;
 }
 
-void Server::onHover(const lspserver::TextDocumentPositionParams &Paras,
-                     lspserver::Callback<llvm::json::Value> Reply) {
+void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
+                           lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   std::string HoverFile = Paras.textDocument.uri.file().str();
-  const auto *IER =
-      FCache.searchAST(HoverFile, ForestCache::ASTPreference::NonEmpty);
-
-  if (!IER)
-    return;
 
   auto AST = IER->Forest.at(HoverFile);
 

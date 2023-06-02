@@ -15,8 +15,9 @@
   FUNC(ANSI_BLUE)                                                              \
   FUNC(ANSI_MAGENTA)                                                           \
   FUNC(ANSI_CYAN)
+namespace nixd {
 
-static std::string stripANSI(std::string Msg){
+std::string stripANSI(std::string Msg) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #define REMOVE_ANSI_STR_FUNC(ANSI_STR)                                         \
@@ -31,8 +32,6 @@ static std::string stripANSI(std::string Msg){
 #pragma GCC diagnostic pop
   return Msg;
 }
-
-namespace nixd {
 
 std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::BaseError &Err) {
   std::vector<lspserver::Diagnostic> Ret;
