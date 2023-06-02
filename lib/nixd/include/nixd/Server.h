@@ -104,7 +104,6 @@ class Server : public lspserver::LSPServer {
         : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)), Pid(Pid),
           WorkspaceVersion(WorkspaceVersion),
           InputDispatcher(std::move(InputDispatcher)) {}
-    ~Proc() = default;
 
     [[nodiscard]] nix::AutoCloseFD to() const {
       return ToPipe->writeSide.get();
