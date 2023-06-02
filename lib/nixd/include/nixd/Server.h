@@ -74,7 +74,7 @@ class Server : public lspserver::LSPServer {
     Proc(decltype(ToPipe) ToPipe, decltype(FromPipe) FromPipe, pid_t Pid,
          decltype(WorkspaceVersion) WorkspaceVersion)
         : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)), Pid(Pid),
-          WorkspaceVersion(std::move(WorkspaceVersion)) {}
+          WorkspaceVersion(WorkspaceVersion) {}
     ~Proc() = default;
 
     [[nodiscard]] nix::AutoCloseFD to() const {

@@ -100,6 +100,8 @@ void Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
 }
 
 void Server::updateWorkspaceVersion() {
+  assert(Role == ServerRole::Controller &&
+         "Workspace updates must happen in the Controller.");
   WorkspaceVersion++;
   auto To = std::make_unique<nix::Pipe>();
   auto From = std::make_unique<nix::Pipe>();
@@ -120,7 +122,7 @@ void Server::updateWorkspaceVersion() {
     lspserver::elog("created child worker process {0}", ChildPID);
     Role = ServerRole::Evaluator;
 
-    // Disconnect stdin & stdout
+    // Redirect stdin & stdout to our pipes, instead of LSP clients
     dup2(To->readSide.get(), 0);
     dup2(From->writeSide.get(), 1);
 
@@ -320,10 +322,6 @@ void Server::onDocumentDidOpen(
 
 void Server::onDocumentDidChange(
     const lspserver::DidChangeTextDocumentParams &Params) {
-  if (Role == ServerRole::Evaluator) {
-    // For evaluator, just return.
-    return;
-  }
   lspserver::PathRef File = Params.textDocument.uri.file();
   auto Code = getDraft(File);
   if (!Code) {
