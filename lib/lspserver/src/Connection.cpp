@@ -1,8 +1,12 @@
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
+
+#include <llvm/ADT/SmallString.h>
+
+#include <sys/stat.h>
+
 #include <cstdint>
 #include <cstdio>
-#include <llvm/ADT/SmallString.h>
 #include <memory>
 #include <optional>
 #include <system_error>
