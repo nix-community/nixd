@@ -9,6 +9,8 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/Support/CommandLine.h>
 
+#include <unistd.h>
+
 using lspserver::JSONStreamStyle;
 using lspserver::Logger;
 
@@ -64,7 +66,7 @@ int main(int argc, char *argv[]) {
 
   lspserver::log("Server started.");
   nixd::Server Server{
-      std::make_unique<lspserver::InboundPort>(stdin, InputStyle),
+      std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
       std::make_unique<lspserver::OutboundPort>(PrettyPrint)};
   Server.run();
   return 0;
