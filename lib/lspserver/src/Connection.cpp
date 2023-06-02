@@ -189,7 +189,7 @@ void InboundPort::loop(MessageHandler &Handler) {
   std::string JSONString;
   llvm::SmallString<128> Line;
 
-  while (!feof(stdin)) {
+  for (;;) {
     if (readMessage(JSONString)) {
       vlog("<<< {0}", JSONString);
       if (auto ExpectedParsedJSON = llvm::json::parse(JSONString)) {

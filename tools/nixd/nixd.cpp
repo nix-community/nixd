@@ -48,6 +48,10 @@ opt<Logger::Level> LogLevel{
 opt<bool> PrettyPrint{"pretty", desc("Pretty-print JSON output"), init(false),
                       cat(Misc)};
 
+opt<int> WaitWorker{"wait-worker",
+                    desc("Microseconds to wait before exit (for testing)"),
+                    init(0), cat(Misc), Hidden};
+
 int main(int argc, char *argv[]) {
   using namespace lspserver;
   const char *FlagsEnvVar = "NIXD_FLAGS";
@@ -59,6 +63,7 @@ int main(int argc, char *argv[]) {
     InputStyle = JSONStreamStyle::Delimited;
     LogLevel = Logger::Level::Verbose;
     PrettyPrint = true;
+    WaitWorker = 2e5; // 0.2s
   }
 
   StreamLogger Logger(llvm::errs(), LogLevel);
@@ -67,7 +72,7 @@ int main(int argc, char *argv[]) {
   lspserver::log("Server started.");
   nixd::Server Server{
       std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
-      std::make_unique<lspserver::OutboundPort>(PrettyPrint)};
+      std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
   Server.run();
   return 0;
 }

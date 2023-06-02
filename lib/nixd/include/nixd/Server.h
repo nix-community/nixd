@@ -51,8 +51,36 @@ struct CompletionHelper {
                              const nix::StaticEnv &SEnv);
 };
 
+using WorkspaceVersionTy = uint64_t;
+
+namespace ipc {
+
+/// Messages sent by workers must tell it's version
+struct WorkerMessage {
+  WorkspaceVersionTy WorkspaceVersion;
+};
+
+bool fromJSON(const llvm::json::Value &, WorkerMessage &, llvm::json::Path);
+llvm::json::Value toJSON(const WorkerMessage &);
+
+/// Sent by the worker process, tell us it has prepared diagnostics
+/// <----
+struct Diagnostics : WorkerMessage {
+  std::vector<lspserver::PublishDiagnosticsParams> Params;
+};
+
+bool fromJSON(const llvm::json::Value &, lspserver::PublishDiagnosticsParams &,
+              llvm::json::Path);
+
+bool fromJSON(const llvm::json::Value &, Diagnostics &, llvm::json::Path);
+llvm::json::Value toJSON(const Diagnostics &);
+
+} // namespace ipc
+
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
+
+  int WaitWorker = 0;
 
   enum class ServerRole {
     /// Parent process of the server
@@ -61,20 +89,21 @@ class Server : public lspserver::LSPServer {
     Evaluator
   } Role = ServerRole::Controller;
 
-  using WorkspaceVersionTy = uint64_t;
-
-  WorkspaceVersionTy WorkspaceVersion;
+  WorkspaceVersionTy WorkspaceVersion = 1;
 
   struct Proc {
     std::unique_ptr<nix::Pipe> ToPipe;
     std::unique_ptr<nix::Pipe> FromPipe;
     nix::Pid Pid;
     WorkspaceVersionTy WorkspaceVersion;
+    std::thread InputDispatcher;
 
     Proc(decltype(ToPipe) ToPipe, decltype(FromPipe) FromPipe, pid_t Pid,
-         decltype(WorkspaceVersion) WorkspaceVersion)
+         decltype(WorkspaceVersion) WorkspaceVersion,
+         decltype(InputDispatcher) InputDispatcher)
         : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)), Pid(Pid),
-          WorkspaceVersion(WorkspaceVersion) {}
+          WorkspaceVersion(WorkspaceVersion),
+          InputDispatcher(std::move(InputDispatcher)) {}
     ~Proc() = default;
 
     [[nodiscard]] nix::AutoCloseFD to() const {
@@ -114,15 +143,32 @@ class Server : public lspserver::LSPServer {
                              lspserver::Callback<configuration::TopLevel>)>
       WorkspaceConfiguration;
 
+  std::mutex DiagStatusLock;
+  struct DiagnosticStatus {
+    std::vector<lspserver::PublishDiagnosticsParams> ClientDiags;
+    WorkspaceVersionTy WorkspaceVersion = 0;
+  } DiagStatus; // GUARDED_BY(DiagStatusLock)
+
+  //---------------------------------------------------------------------------/
+  // Controller
+  void onWorkerDiagnostic(const ipc::Diagnostics &);
+
+  //---------------------------------------------------------------------------/
+  // Worker members
+  llvm::unique_function<void(const ipc::Diagnostics &)> WorkerDiagnostic;
   ForestCache FCache;
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
-         std::unique_ptr<lspserver::OutboundPort> Out);
+         std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
+
+  ~Server() override { usleep(WaitWorker); }
 
   void eval(const std::string &Fallback);
 
   void updateWorkspaceVersion();
+
+  void switchToEvaluator();
 
   void fetchConfig();
 
@@ -130,8 +176,9 @@ public:
 
   void clearDiagnostic(const lspserver::URIForFile &FileUri);
 
-  void diagNixError(lspserver::PathRef Path, const nix::BaseError &Err,
-                    std::optional<int64_t> Version);
+  static lspserver::PublishDiagnosticsParams
+  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
+               std::optional<int64_t> Version);
 
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
