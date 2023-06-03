@@ -1,6 +1,7 @@
-#include "lspserver/Connection.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Server.h"
+
+#include "lspserver/Connection.h"
 
 #include <nix/error.hh>
 #include <nix/eval.hh>

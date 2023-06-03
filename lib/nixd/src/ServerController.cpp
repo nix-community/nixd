@@ -9,7 +9,6 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/URI.h"
 
-#include <initializer_list>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>

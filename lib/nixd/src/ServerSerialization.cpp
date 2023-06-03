@@ -1,5 +1,6 @@
-#include "lspserver/Protocol.h"
 #include "nixd/Server.h"
+
+#include "lspserver/Protocol.h"
 
 #include <llvm/Support/JSON.h>
 
