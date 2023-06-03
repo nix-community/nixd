@@ -160,21 +160,21 @@ pkgs
   auto PMap = getParentMap(ASTRoot);
 
   struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
-    decltype(PMap) *PMap;
-    decltype(State) *State;
+    decltype(PMap) *CapturedPMap;
+    decltype(State) *CapturedState;
 
     nix::PosIdx P;
 
     bool visitExprVar(const nix::ExprVar *E) {
       // E->show((*State)->symbols, std::cout);
       // std::cout << "\n";
-      P = searchDefinition(E, *PMap);
+      P = searchDefinition(E, *CapturedPMap);
       return true;
     }
   } Visitor;
 
-  Visitor.PMap = &PMap;
-  Visitor.State = &State;
+  Visitor.CapturedPMap = &PMap;
+  Visitor.CapturedState = &State;
 
   Visitor.traverseExpr(ASTRoot);
 
@@ -198,21 +198,21 @@ rec {
   auto PMap = getParentMap(ASTRoot);
 
   struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
-    decltype(PMap) *PMap;
-    decltype(State) *State;
+    decltype(PMap) *CapturedPMap;
+    decltype(State) *CapturedState;
 
     nix::PosIdx P;
 
     bool visitExprVar(const nix::ExprVar *E) {
       // E->show((*State)->symbols, std::cout);
       // std::cout << "\n";
-      P = searchDefinition(E, *PMap);
+      P = searchDefinition(E, *CapturedPMap);
       return true;
     }
   } Visitor;
 
-  Visitor.PMap = &PMap;
-  Visitor.State = &State;
+  Visitor.CapturedPMap = &PMap;
+  Visitor.CapturedState = &State;
 
   Visitor.traverseExpr(ASTRoot);
 
@@ -240,21 +240,21 @@ in
   auto PMap = getParentMap(ASTRoot);
 
   struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
-    decltype(PMap) *PMap;
-    decltype(State) *State;
+    decltype(PMap) *CapturedPMap;
+    decltype(State) *CapturedState;
 
     nix::PosIdx P;
 
     bool visitExprVar(const nix::ExprVar *E) {
       // E->show((*State)->symbols, std::cout);
       // std::cout << "\n";
-      P = searchDefinition(E, *PMap);
+      P = searchDefinition(E, *CapturedPMap);
       return true;
     }
   } Visitor;
 
-  Visitor.PMap = &PMap;
-  Visitor.State = &State;
+  Visitor.CapturedPMap = &PMap;
+  Visitor.CapturedState = &State;
 
   Visitor.traverseExpr(ASTRoot);
 

@@ -9,10 +9,10 @@ getParentMap(const nix::Expr *Root) {
   struct VisitorClass : RecursiveASTVisitor<VisitorClass> {
     /// The parent before traverseExpr
     const nix::Expr *ParentExpr;
-    decltype(Ret) *Ret;
+    decltype(Ret) *CapturedRet;
 
     bool traverseExpr(const nix::Expr *E) {
-      Ret->insert({E, ParentExpr});
+      CapturedRet->insert({E, ParentExpr});
       auto OldParent = ParentExpr;
       ParentExpr = E; // Set the parent into the visitor, it should be the
                       // parent when we are traversing child nodes.
@@ -28,7 +28,7 @@ getParentMap(const nix::Expr *Root) {
   } Visitor;
 
   Visitor.ParentExpr = Root;
-  Visitor.Ret = &Ret;
+  Visitor.CapturedRet = &Ret;
 
   Visitor.traverseExpr(Root);
 
