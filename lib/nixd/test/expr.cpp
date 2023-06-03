@@ -145,4 +145,122 @@ rec {
   Visitor.traverseExpr(CallbackExprRoot);
 }
 
+TEST(Expr, ParentMapLetSearch) {
+  static const char *NixSrc = R"(
+let
+    pkgs = { a = 1; };
+in
+pkgs
+  )";
+  InitNix Inix;
+
+  auto State = Inix.getDummyState();
+  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+
+  auto PMap = getParentMap(ASTRoot);
+
+  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+    decltype(PMap) *PMap;
+    decltype(State) *State;
+
+    nix::PosIdx P;
+
+    bool visitExprVar(const nix::ExprVar *E) {
+      // E->show((*State)->symbols, std::cout);
+      // std::cout << "\n";
+      P = searchDefinition(E, *PMap);
+      return true;
+    }
+  } Visitor;
+
+  Visitor.PMap = &PMap;
+  Visitor.State = &State;
+
+  Visitor.traverseExpr(ASTRoot);
+
+  auto Pos = State->positions[Visitor.P];
+  ASSERT_EQ(Pos.line, 3);
+  ASSERT_EQ(Pos.column, 5);
+}
+
+TEST(Expr, ParentMapRecSearch) {
+  static const char *NixSrc = R"(
+rec {
+  a = 1;
+  b = a;
+}
+  )";
+  InitNix Inix;
+
+  auto State = Inix.getDummyState();
+  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+
+  auto PMap = getParentMap(ASTRoot);
+
+  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+    decltype(PMap) *PMap;
+    decltype(State) *State;
+
+    nix::PosIdx P;
+
+    bool visitExprVar(const nix::ExprVar *E) {
+      // E->show((*State)->symbols, std::cout);
+      // std::cout << "\n";
+      P = searchDefinition(E, *PMap);
+      return true;
+    }
+  } Visitor;
+
+  Visitor.PMap = &PMap;
+  Visitor.State = &State;
+
+  Visitor.traverseExpr(ASTRoot);
+
+  auto Pos = State->positions[Visitor.P];
+  ASSERT_EQ(Pos.line, 3);
+  ASSERT_EQ(Pos.column, 3);
+}
+
+TEST(Expr, ParentMapLetNested) {
+  static const char *NixSrc = R"(
+let
+  var = 1;
+in
+{
+  x = rec {
+    y = var;
+  };
+}
+  )";
+  InitNix Inix;
+
+  auto State = Inix.getDummyState();
+  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+
+  auto PMap = getParentMap(ASTRoot);
+
+  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+    decltype(PMap) *PMap;
+    decltype(State) *State;
+
+    nix::PosIdx P;
+
+    bool visitExprVar(const nix::ExprVar *E) {
+      // E->show((*State)->symbols, std::cout);
+      // std::cout << "\n";
+      P = searchDefinition(E, *PMap);
+      return true;
+    }
+  } Visitor;
+
+  Visitor.PMap = &PMap;
+  Visitor.State = &State;
+
+  Visitor.traverseExpr(ASTRoot);
+
+  auto Pos = State->positions[Visitor.P];
+  ASSERT_EQ(Pos.line, 3);
+  ASSERT_EQ(Pos.column, 3);
+}
+
 } // namespace nixd
