@@ -175,11 +175,12 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
     : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker) {
 
   Registry.addMethod("initialize", this, &Server::onInitialize);
+  Registry.addNotification("initialized", this, &Server::onInitialized);
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
   Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
-
-  Registry.addNotification("initialized", this, &Server::onInitialized);
+  Registry.addMethod("textDocument/semanticTokens/full", this,
+                     &Server::onSemanticTokens);
 
   // Text Document Synchronization
   Registry.addNotification("textDocument/didOpen", this,
@@ -205,9 +206,10 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/hover", this,
                      &Server::onWorkerHover);
-
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onWorkerDefinition);
+  Registry.addMethod("nixd/ipc/textDocument/semanticTokens/full", this,
+                     &Server::onWorkerSemanticTokens);
 }
 
 void Server::onDocumentDidOpen(
@@ -442,4 +444,59 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   Thread.detach();
 }
 
+//-----------------------------------------------------------------------------/
+// Semantic tokens
+
+void Server::onSemanticTokens(
+    const lspserver::SemanticTokensParams &Params,
+    lspserver::Callback<lspserver::SemanticTokens> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    auto ListStore = std::make_shared<std::vector<lspserver::SemanticTokens>>(
+        Workers.size());
+    auto ListStoreLock = std::make_shared<std::mutex>();
+
+    size_t I = 0;
+    for (const auto &Worker : Workers) {
+      auto SemanticTokensRequest = mkOutMethod<lspserver::SemanticTokensParams,
+                                               lspserver::SemanticTokens>(
+          "nixd/ipc/textDocument/semanticTokens/full", Worker->OutPort.get());
+
+      SemanticTokensRequest(
+          Params, [I, ListStore, ListStoreLock](
+                      llvm::Expected<lspserver::SemanticTokens> Result) {
+            // The worker answered our request, fill the semantic tokens then.
+            if (Result) {
+              lspserver::log(
+                  "received result from our client, which has {0} semantic token(s)",
+                  Result.get().tokens.size());
+              std::lock_guard Guard(*ListStoreLock);
+              (*ListStore)[I] = Result.get();
+            }
+          });
+      I++;
+    }
+    // Wait for our client, this is currently hardcoded
+    usleep(5e5);
+
+    // Reset the store ptr in event handling module, so that client reply after
+    // 'usleep' will not write the store (to avoid data race)
+    std::lock_guard Guard(*ListStoreLock);
+
+    // brute-force iterating over the result, and choose the biggest item
+    size_t BestIdx = 0;
+    size_t BestSize = 0;
+    for (size_t I = 0; I < ListStore->size(); I++) {
+      auto LSize = ListStore->at(I).tokens.size();
+      if (LSize >= BestSize) {
+        BestIdx = I;
+        BestSize = LSize;
+      }
+    }
+    // And finally, reply our client
+    lspserver::log("chosed {0} semantic tokens.", BestSize);
+    Reply(ListStore->at(BestIdx));
+  });
+
+  Thread.detach();
+}
 } // namespace nixd

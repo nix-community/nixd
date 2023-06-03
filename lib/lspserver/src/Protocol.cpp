@@ -1093,9 +1093,24 @@ bool operator==(const SemanticToken &L, const SemanticToken &R) {
                                                 R.tokenModifiers);
 }
 
+bool fromJSON(const llvm::json::Value &Params, SemanticToken &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  return O && O.map("deltaLine", R.deltaLine) &&
+         O.map("deltaStart", R.deltaStart) && O.map("length", R.length) &&
+         O.map("tokenModifiers", R.tokenModifiers) &&
+         O.map("tokenType", R.tokenType);
+}
+
 llvm::json::Value toJSON(const SemanticTokens &Tokens) {
   return llvm::json::Object{{"resultId", Tokens.resultId},
                             {"data", encodeTokens(Tokens.tokens)}};
+}
+
+bool fromJSON(const llvm::json::Value &Params, SemanticTokens &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  return O && O.map("resultId", R.resultId) && O.map("tokens", R.tokens);
 }
 
 llvm::json::Value toJSON(const SemanticTokensEdit &Edit) {
@@ -1112,6 +1127,12 @@ llvm::json::Value toJSON(const SemanticTokensOrDelta &TE) {
   if (TE.tokens)
     Result["data"] = encodeTokens(*TE.tokens);
   return Result;
+}
+
+llvm::json::Value toJSON(const SemanticTokensParams &TE) {
+  return llvm::json::Object{
+      {"textDocument", TE.textDocument},
+  };
 }
 
 bool fromJSON(const llvm::json::Value &Params, SemanticTokensParams &R,

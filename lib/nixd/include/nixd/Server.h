@@ -168,6 +168,12 @@ public:
 
   void onWorkerCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
+
+  void onSemanticTokens(const lspserver::SemanticTokensParams &,
+                    lspserver::Callback<lspserver::SemanticTokens>);
+
+  void onWorkerSemanticTokens(const lspserver::SemanticTokensParams &,
+                    lspserver::Callback<lspserver::SemanticTokens>);
 };
 
 }; // namespace nixd

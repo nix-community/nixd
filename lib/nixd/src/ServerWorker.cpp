@@ -263,4 +263,24 @@ void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
   }
 }
 
+void Server::onWorkerSemanticTokens(
+    const lspserver::SemanticTokensParams &Params,
+    lspserver::Callback<lspserver::SemanticTokens> Reply) {
+  using namespace lspserver;
+  std::string File = Params.textDocument.uri.file().str();
+
+  struct ReplyRAII {
+    decltype(Reply) R;
+    SemanticTokens Response;
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(Response); };
+  } RR(std::move(Reply));
+
+  try {
+    auto AST = IER->Forest.at(File);
+  } catch (...) {
+
+  }
+}
+
 } // namespace nixd

@@ -1661,23 +1661,65 @@ struct FileStatus {
 };
 llvm::json::Value toJSON(const FileStatus &);
 
+/// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#semanticTokenTypes
+enum class SemanticTokenType {
+  Type = 0,
+	Class,
+	Enum,
+	Interface,
+	Struct,
+	TypeParameter,
+	Parameter,
+	Variable,
+	Property,
+	EnumMember,
+	Event,
+	Function,
+	Method,
+	Macro,
+	Keyword,
+	Modifier,
+	Comment,
+	String,
+	Number,
+	Regexp,
+	Operator,
+};
+
+/// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#semanticTokenModifiers
+enum class SemanticTokenModifiers {
+	Declaration = 0,
+	Definition,
+	Readonly,
+	Static,
+	Deprecated,
+	Abstract,
+	Async,
+	Modification,
+	Documentation,
+	DefaultLibrary,
+};
+
 /// Specifies a single semantic token in the document.
 /// This struct is not part of LSP, which just encodes lists of tokens as
 /// arrays of numbers directly.
 struct SemanticToken {
   /// token line number, relative to the previous token
-  unsigned deltaLine = 0;
+  int deltaLine = 0;
   /// token start character, relative to the previous token
   /// (relative to 0 or the previous token's start if they are on the same line)
-  unsigned deltaStart = 0;
+  int deltaStart = 0;
   /// the length of the token. A token cannot be multiline
-  unsigned length = 0;
+  int length = 0;
   /// will be looked up in `SemanticTokensLegend.tokenTypes`
-  unsigned tokenType = 0;
+  int tokenType = 0;
   /// each set bit will be looked up in `SemanticTokensLegend.tokenModifiers`
-  unsigned tokenModifiers = 0;
+  int tokenModifiers = 0;
 };
 bool operator==(const SemanticToken &, const SemanticToken &);
+
+bool fromJSON(const llvm::json::Value &, SemanticToken &,
+              llvm::json::Path);
 
 /// A versioned set of tokens.
 struct SemanticTokens {
@@ -1691,6 +1733,9 @@ struct SemanticTokens {
   std::vector<SemanticToken> tokens; // encoded as a flat integer array.
 };
 llvm::json::Value toJSON(const SemanticTokens &);
+
+bool fromJSON(const llvm::json::Value &, SemanticTokens &,
+              llvm::json::Path);
 
 /// Body of textDocument/semanticTokens/full request.
 struct SemanticTokensParams {
@@ -1708,6 +1753,9 @@ struct SemanticTokensDeltaParams {
   /// The previous result id.
   std::string previousResultId;
 };
+
+llvm::json::Value toJSON(const SemanticTokensParams &);
+
 bool fromJSON(const llvm::json::Value &Params, SemanticTokensDeltaParams &R,
               llvm::json::Path);
 
