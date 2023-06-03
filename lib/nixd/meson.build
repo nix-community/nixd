@@ -4,8 +4,8 @@ nixd_server_lib = library('nixd-lsp'
   , 'src/CallbackExpr.cpp'
   , 'src/Diagnostic.cpp'
   , 'src/EvalDraftStore.cpp'
+  , 'src/JSONSerialization.cpp'
   , 'src/ServerController.cpp'
-  , 'src/ServerSerialization.cpp'
   , 'src/ServerWorker.cpp'
   ]
 , include_directories: nixd_server_inc

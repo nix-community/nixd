@@ -1,8 +1,4 @@
-#include "nixd/Server.h"
-
-#include "lspserver/Protocol.h"
-
-#include <llvm/Support/JSON.h>
+#include "nixd/JSONSerialization.h"
 
 namespace nixd {
 
@@ -17,7 +13,7 @@ bool fromJSON(const Value &Params, TopLevel &R, Path P) {
   return O && O.map("installable", R.installable);
 }
 
-bool fromJSON(const Value &Params, nix::Strings &R, Path P) {
+bool fromJSON(const Value &Params, std::list<std::string> &R, Path P) {
   std::vector<std::string> RVec{std::begin(R), std::end(R)};
   return fromJSON(Params, RVec, P);
 }
