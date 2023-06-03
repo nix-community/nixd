@@ -294,10 +294,8 @@ void Server::onCompletion(
               lspserver::log(
                   "received result from our client, which has {0} item(s)",
                   Result.get().items.size());
-              {
-                std::lock_guard Guard(*ListStoreLock);
-                (*ListStore)[I] = Result.get();
-              }
+              std::lock_guard Guard(*ListStoreLock);
+              (*ListStore)[I] = Result.get();
             }
           });
       I++;

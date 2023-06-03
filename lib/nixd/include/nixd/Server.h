@@ -35,7 +35,7 @@ bool fromJSON(const llvm::json::Value &Params, CompletionList &R,
 
 } // namespace lspserver
 
-namespace nixd { // namespace nixd
+namespace nixd {
 
 namespace configuration {
 

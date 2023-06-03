@@ -7,10 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "lspserver/Logger.h"
+
 #include <llvm/Support/Chrono.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <unistd.h>
+
 #include <mutex>
 
 namespace lspserver {
