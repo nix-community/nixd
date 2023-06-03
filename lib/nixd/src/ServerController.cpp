@@ -9,6 +9,7 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/URI.h"
 
+#include <initializer_list>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
@@ -91,10 +92,14 @@ void Server::updateWorkspaceVersion() {
     auto OutPort =
         std::make_unique<lspserver::OutboundPort>(*ProcFdStream, false);
 
-    auto WorkerProc = std::make_unique<Proc>(
-        std::move(To), std::move(From), std::move(OutPort),
-        std::move(ProcFdStream), ForkPID, WorkspaceVersion,
-        std::move(WorkerInputDispatcher));
+    auto WorkerProc = std::unique_ptr<Proc>(
+        new Proc{.ToPipe = std::move(To),
+                 .FromPipe = std::move(From),
+                 .OutPort = std::move(OutPort),
+                 .OwnedStream = std::move(ProcFdStream),
+                 .Pid = ForkPID,
+                 .WorkspaceVersion = WorkspaceVersion,
+                 .InputDispatcher = std::move(WorkerInputDispatcher)});
 
     Workers.emplace_back(std::move(WorkerProc));
     if (Workers.size() > 5) {

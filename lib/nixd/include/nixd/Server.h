@@ -129,15 +129,6 @@ class Server : public lspserver::LSPServer {
     WorkspaceVersionTy WorkspaceVersion;
     std::thread InputDispatcher;
 
-    Proc(decltype(ToPipe) ToPipe, decltype(FromPipe) FromPipe,
-         decltype(OutPort) OutPort, decltype(OwnedStream) OwnedStream,
-         pid_t Pid, decltype(WorkspaceVersion) WorkspaceVersion,
-         decltype(InputDispatcher) InputDispatcher)
-        : ToPipe(std::move(ToPipe)), FromPipe(std::move(FromPipe)),
-          OutPort(std::move(OutPort)), OwnedStream(std::move(OwnedStream)),
-          Pid(Pid), WorkspaceVersion(WorkspaceVersion),
-          InputDispatcher(std::move(InputDispatcher)) {}
-
     [[nodiscard]] nix::AutoCloseFD to() const {
       return ToPipe->writeSide.get();
     };
