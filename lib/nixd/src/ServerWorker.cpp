@@ -79,8 +79,7 @@ void Server::switchToEvaluator() {
   for (auto &Worker : Workers)
     Worker->Pid.release();
 
-  WorkerDiagnostic =
-      mkOutNotifiction<ipc::Diagnostics>("nixd/worker/diagnostic");
+  WorkerDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
 
   eval("");
 }

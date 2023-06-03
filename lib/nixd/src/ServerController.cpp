@@ -189,10 +189,10 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
           "workspace/configuration");
 
   /// IPC
-  Registry.addNotification("nixd/worker/diagnostic", this,
+  Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Server::onWorkerDiagnostic);
 
-  Registry.addMethod("nixd/worker/textDocument/completion", this,
+  Registry.addMethod("nixd/ipc/textDocument/completion", this,
                      &Server::onWorkerCompletion);
 }
 
@@ -283,7 +283,7 @@ void Server::onCompletion(
     for (const auto &Worker : Workers) {
       auto ComplectionRequest =
           mkOutMethod<lspserver::CompletionParams, lspserver::CompletionList>(
-              "nixd/worker/textDocument/completion", Worker->OutPort.get());
+              "nixd/ipc/textDocument/completion", Worker->OutPort.get());
 
       ComplectionRequest(
           Params, [I, ListStore, ListStoreLock](
