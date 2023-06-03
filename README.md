@@ -82,8 +82,7 @@ meson test -C build
 
 ### Editors
 
-We do not provide a custom editor extension or plugins now, configuring nixd like other nix lsp should work out of box.
-
+- Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig). We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.txt#nixd)
 
 ## Tooling
 
