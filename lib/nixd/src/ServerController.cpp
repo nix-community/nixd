@@ -194,6 +194,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
                      &Server::onWorkerCompletion);
+
+  Registry.addMethod("nixd/ipc/textDocument/hover", this,
+                     &Server::onWorkerHover);
 }
 
 void Server::onDocumentDidOpen(
@@ -325,7 +328,52 @@ void Server::onCompletion(
   Thread.detach();
 }
 
-void Server::onHover(const lspserver::TextDocumentPositionParams &,
-                     lspserver::Callback<llvm::json::Value>) {}
+void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
+                     lspserver::Callback<lspserver::Hover> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    // For all active workers, send the completion request
+    auto ListStore =
+        std::make_shared<std::vector<lspserver::Hover>>(Workers.size());
+    auto ListStoreLock = std::make_shared<std::mutex>();
+
+    size_t I = 0;
+    for (const auto &Worker : Workers) {
+      auto HoverRequest =
+          mkOutMethod<lspserver::TextDocumentPositionParams, lspserver::Hover>(
+              "nixd/ipc/textDocument/hover", Worker->OutPort.get());
+
+      HoverRequest(Params, [I, ListStore, ListStoreLock](
+                               llvm::Expected<lspserver::Hover> Result) {
+        // The worker answered our request, fill the completion
+        // lists then.
+        if (Result) {
+          std::lock_guard Guard(*ListStoreLock);
+          (*ListStore)[I] = Result.get();
+        }
+      });
+      I++;
+    }
+    // Wait for our client, this is currently hardcoded
+    usleep(2e4);
+
+    // Reset the store ptr in event handling module, so that client reply after
+    // 'usleep' will not write the store (to avoid data race)
+    std::lock_guard Guard(*ListStoreLock);
+
+    size_t BestIdx = 0;
+    size_t BestSize = 0;
+    for (size_t I = 0; I < ListStore->size(); I++) {
+      auto LSize = ListStore->at(I).contents.value.length();
+      if (LSize >= BestSize) {
+        BestIdx = I;
+        BestSize = LSize;
+      }
+    }
+    // And finally, reply our client
+    Reply(ListStore->at(BestIdx));
+  });
+
+  Thread.detach();
+}
 
 } // namespace nixd

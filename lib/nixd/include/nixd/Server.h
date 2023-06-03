@@ -33,6 +33,11 @@ bool fromJSON(const llvm::json::Value &Params, CompletionItem &R,
 bool fromJSON(const llvm::json::Value &Params, CompletionList &R,
               llvm::json::Path P);
 
+bool fromJSON(const llvm::json::Value &Params, Hover &R, llvm::json::Path P);
+
+bool fromJSON(const llvm::json::Value &Params, MarkupContent &R,
+              llvm::json::Path P);
+
 } // namespace lspserver
 
 namespace nixd {
@@ -230,7 +235,7 @@ public:
   }
 
   void onHover(const lspserver::TextDocumentPositionParams &,
-               lspserver::Callback<llvm::json::Value>);
+               lspserver::Callback<lspserver::Hover>);
   void onWorkerHover(const lspserver::TextDocumentPositionParams &,
                      lspserver::Callback<llvm::json::Value>);
 

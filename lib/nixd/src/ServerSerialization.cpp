@@ -99,4 +99,14 @@ bool fromJSON(const Value &Params, CompletionList &R, llvm::json::Path P) {
   return O && O.map("isIncomplete", R.isIncomplete) && O.map("items", R.items);
 }
 
+bool fromJSON(const Value &Params, MarkupContent &R, llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("value", R.value) && O.map("kind", R.kind);
+}
+
+bool fromJSON(const Value &Params, Hover &R, llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("contents", R.contents) && O.map("range", R.range);
+}
+
 } // namespace lspserver
