@@ -168,11 +168,18 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
       } catch (...) {
       }
     } else {
-      auto *Node = AST->lookupPosition(Params.position);
-      const auto *ExprEnv = AST->getEnv(Node);
+      try {
+        auto *Node = AST->lookupPosition(Params.position);
+        const auto *ExprEnv = AST->getEnv(Node);
 
-      Items = CompletionHelper::fromEnvRecursive(
-          State->symbols, *State->staticBaseEnv, *ExprEnv);
+        Items = CompletionHelper::fromEnvRecursive(
+            State->symbols, *State->staticBaseEnv, *ExprEnv);
+      } catch (std::out_of_range &) {
+        // If there is no such AST, or no associated 'Env', i.e. not evaluated
+        // Then just answer static env bindings (they are builtins).
+        Items = CompletionHelper::fromStaticEnv(State->symbols,
+                                                *State->staticBaseEnv);
+      }
     }
     RR.Response.items = Items;
   } catch (std::out_of_range &) {
