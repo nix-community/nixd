@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nixd/EvalDraftStore.h"
+#include "nixd/JSONSerialization.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
@@ -8,35 +9,15 @@
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
-#include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
 #include <llvm/ADT/FunctionExtras.h>
-#include <llvm/Support/JSON.h>
+#include <llvm/Support/raw_ostream.h>
+
+#include <cstdint>
+#include <memory>
 
 namespace nixd {
-
-namespace configuration {
-
-struct InstallableConfigurationItem {
-  std::vector<std::string> args;
-  std::string installable;
-};
-
-struct TopLevel {
-  /// Nix installables that will be used for root translation unit.
-  std::optional<InstallableConfigurationItem> installable;
-
-  /// Get installable arguments specified in this config, fallback to file \p
-  /// Fallback if 'installable' is not set.
-  [[nodiscard]] std::tuple<nix::Strings, std::string>
-  getInstallable(std::string Fallback) const;
-};
-
-bool fromJSON(const llvm::json::Value &Params, TopLevel &R, llvm::json::Path P);
-bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
-              llvm::json::Path P);
-} // namespace configuration
 
 struct CompletionHelper {
   using Items = std::vector<lspserver::CompletionItem>;
@@ -52,8 +33,40 @@ struct CompletionHelper {
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
 
+  using WorkspaceVersionTy = ipc::WorkspaceVersionTy;
+
+  int WaitWorker = 0;
+
+  enum class ServerRole {
+    /// Parent process of the server
+    Controller,
+    /// Child process
+    Evaluator
+  } Role = ServerRole::Controller;
+
+  WorkspaceVersionTy WorkspaceVersion = 1;
+
+  struct Proc {
+    std::unique_ptr<nix::Pipe> ToPipe;
+    std::unique_ptr<nix::Pipe> FromPipe;
+    std::unique_ptr<lspserver::OutboundPort> OutPort;
+    std::unique_ptr<llvm::raw_ostream> OwnedStream;
+
+    nix::Pid Pid;
+    WorkspaceVersionTy WorkspaceVersion;
+    std::thread InputDispatcher;
+
+    [[nodiscard]] nix::AutoCloseFD to() const {
+      return ToPipe->writeSide.get();
+    };
+    [[nodiscard]] nix::AutoCloseFD from() const {
+      return FromPipe->readSide.get();
+    };
+  };
+
+  std::deque<std::unique_ptr<Proc>> Workers;
+
   EvalDraftStore DraftMgr;
-  boost::asio::thread_pool Pool = boost::asio::thread_pool(1);
 
   lspserver::ClientCapabilities ClientCaps;
 
@@ -64,7 +77,10 @@ class Server : public lspserver::LSPServer {
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                    llvm::StringRef Version);
 
-  void removeDocument(lspserver::PathRef File) { DraftMgr.removeDraft(File); }
+  void removeDocument(lspserver::PathRef File) {
+    DraftMgr.removeDraft(File);
+    updateWorkspaceVersion();
+  }
 
   /// LSP defines file versions as numbers that increase.
   /// treats them as opaque and therefore uses strings instead.
@@ -77,15 +93,33 @@ class Server : public lspserver::LSPServer {
                              lspserver::Callback<configuration::TopLevel>)>
       WorkspaceConfiguration;
 
-  ForestCache FCache;
+  std::mutex DiagStatusLock;
+  struct DiagnosticStatus {
+    std::vector<lspserver::PublishDiagnosticsParams> ClientDiags;
+    WorkspaceVersionTy WorkspaceVersion = 0;
+  } DiagStatus; // GUARDED_BY(DiagStatusLock)
+
+  //---------------------------------------------------------------------------/
+  // Controller
+  void onWorkerDiagnostic(const ipc::Diagnostics &);
+
+  //---------------------------------------------------------------------------/
+  // Worker members
+  llvm::unique_function<void(const ipc::Diagnostics &)> WorkerDiagnostic;
+
+  std::unique_ptr<IValueEvalResult> IER;
 
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
-         std::unique_ptr<lspserver::OutboundPort> Out);
+         std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
-  ~Server() override { Pool.join(); }
+  ~Server() override { usleep(WaitWorker); }
 
   void eval(const std::string &Fallback);
+
+  void updateWorkspaceVersion();
+
+  void switchToEvaluator();
 
   void fetchConfig();
 
@@ -93,8 +127,9 @@ public:
 
   void clearDiagnostic(const lspserver::URIForFile &FileUri);
 
-  void diagNixError(lspserver::PathRef Path, const nix::BaseError &Err,
-                    std::optional<int64_t> Version);
+  static lspserver::PublishDiagnosticsParams
+  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
+               std::optional<int64_t> Version);
 
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
@@ -116,11 +151,17 @@ public:
       const lspserver::DidChangeConfigurationParams &) {
     fetchConfig();
   }
+
   void onHover(const lspserver::TextDocumentPositionParams &,
-               lspserver::Callback<llvm::json::Value>);
+               lspserver::Callback<lspserver::Hover>);
+  void onWorkerHover(const lspserver::TextDocumentPositionParams &,
+                     lspserver::Callback<llvm::json::Value>);
 
   void onCompletion(const lspserver::CompletionParams &,
-                    lspserver::Callback<llvm::json::Value>);
+                    lspserver::Callback<lspserver::CompletionList>);
+
+  void onWorkerCompletion(const lspserver::CompletionParams &,
+                          lspserver::Callback<llvm::json::Value>);
 };
 
 }; // namespace nixd

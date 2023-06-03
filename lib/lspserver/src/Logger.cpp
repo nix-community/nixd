@@ -7,10 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "lspserver/Logger.h"
+
 #include <llvm/Support/Chrono.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/FormatVariadic.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <unistd.h>
+
 #include <mutex>
 
 namespace lspserver {
@@ -51,8 +55,8 @@ void StreamLogger::log(Logger::Level Level, const char *Fmt,
     return;
   llvm::sys::TimePoint<> Timestamp = std::chrono::system_clock::now();
   std::lock_guard<std::mutex> Guard(StreamMutex);
-  Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}\n", indicator(Level),
-                        Timestamp, Message);
+  Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}: {3}\n", indicator(Level),
+                        Timestamp, getpid(), Message);
   Logs.flush();
 }
 

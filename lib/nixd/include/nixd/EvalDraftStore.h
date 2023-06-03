@@ -93,40 +93,8 @@ struct IValueEvalResult {
   EvalASTForest Forest;
   std::unique_ptr<IValueEvalSession> Session;
 
-  static const IValueEvalResult *
-  search(const std::string &Path,
-         const std::vector<const IValueEvalResult *> &Order) {
-    for (const auto &Result : Order) {
-      try {
-        Result->Forest.at(Path);
-        return Result;
-      } catch (...) {
-      }
-    }
-    return nullptr;
-  }
+  IValueEvalResult(decltype(Forest) Forest, decltype(Session) Session)
+      : Forest(std::move(Forest)), Session(std::move(Session)) {}
 };
 
-/// Ownes `EvalASTForest`s, mark it is evaluated or not, clients query on this
-/// cache to find a suitable AST Tree
-struct ForestCache {
-
-  IValueEvalResult EvaluatedResult;
-
-  IValueEvalResult NonEmptyResult;
-
-  enum class ASTPreference { Evaluated, NonEmpty };
-
-  [[nodiscard]] const IValueEvalResult *
-  searchAST(const std::string &Path, ASTPreference Preference) const {
-    switch (Preference) {
-    case ASTPreference::Evaluated:
-      return IValueEvalResult::search(Path,
-                                      {&EvaluatedResult, &NonEmptyResult});
-    case ASTPreference::NonEmpty:
-      return IValueEvalResult::search(Path,
-                                      {&NonEmptyResult, &EvaluatedResult});
-    }
-  };
-};
 } // namespace nixd

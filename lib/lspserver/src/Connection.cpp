@@ -1,8 +1,15 @@
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
+
+#include <llvm/ADT/SmallString.h>
+
+#include <sys/stat.h>
+
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <optional>
+#include <system_error>
 
 namespace lspserver {
 
@@ -90,22 +97,22 @@ bool InboundPort::dispatch(llvm::json::Value Message, MessageHandler &Handler) {
   return Handler.onNotify(*Method, std::move(Params));
 }
 
-bool readLine(std::FILE *In, llvm::SmallVectorImpl<char> &Line) {
-  static constexpr int BufSize = 128;
-  size_t Size = 0;
+bool readLine(int fd, llvm::SmallString<128> &Line) {
   Line.clear();
   for (;;) {
-    Line.resize_for_overwrite(Size + BufSize);
-    std::fgets(&Line[Size], BufSize, In);
-    clearerr(In);
-    // If the line contained null bytes, anything after it (including \n)
-    // will be ignored. Fortunately this is not a legal header or JSON.
-    size_t Read = std::strlen(&Line[Size]);
-    if (Read > 0 && Line[Size + Read - 1] == '\n') {
-      Line.resize(Size + Read);
-      return true;
+    char Ch;
+    // FIXME: inefficient
+    ssize_t BytesRead = read(fd, &Ch, 1);
+    if (BytesRead == -1) {
+      if (errno != EINTR)
+        return false;
+    } else if (BytesRead == 0)
+      return false;
+    else {
+      if (Ch == '\n')
+        return true;
+      Line += Ch;
     }
-    Size += Read;
   }
 }
 
@@ -113,7 +120,7 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
   unsigned long long ContentLength = 0;
   llvm::SmallString<128> Line;
   while (true) {
-    if (feof(In) || ferror(In) || !readLine(In, Line))
+    if (!readLine(In, Line))
       return false;
 
     llvm::StringRef LineRef = Line;
@@ -132,15 +139,14 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
 
   JSONString.resize(ContentLength);
   for (size_t Pos = 0, Read; Pos < ContentLength; Pos += Read) {
-    Read = std::fread(&JSONString[Pos], 1, ContentLength - Pos, In);
+
+    Read = read(In, JSONString.data() + Pos, ContentLength - Pos);
+
     if (Read == 0) {
       elog("Input was aborted. Read only {0} bytes of expected {1}.", Pos,
            ContentLength);
       return false;
     }
-    clearerr(In); // If we're done, the error was transient. If we're not done,
-                  // either it was transient or we'll see it again on retry.
-    Pos += Read;
   }
   return true;
 }
@@ -168,11 +174,6 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
         IsInputBlock = true;
     }
   }
-
-  if (ferror(In) != 0) {
-    elog("Input error while reading message!");
-    return false;
-  }
   return true; // Including at EOF
 }
 
@@ -191,13 +192,15 @@ void InboundPort::loop(MessageHandler &Handler) {
   std::string JSONString;
   llvm::SmallString<128> Line;
 
-  while (!feof(stdin)) {
+  for (;;) {
     if (readMessage(JSONString)) {
       vlog("<<< {0}", JSONString);
       if (auto ExpectedParsedJSON = llvm::json::parse(JSONString)) {
         if (!dispatch(*ExpectedParsedJSON, Handler))
           return;
       } else {
+        auto Err = ExpectedParsedJSON.takeError();
+        elog("The received json cannot be parsed, reason: {0}", Err);
         return;
       }
     } else {

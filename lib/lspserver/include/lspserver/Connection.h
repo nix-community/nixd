@@ -5,6 +5,7 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mutex>
+#include <unistd.h>
 
 namespace lspserver {
 
@@ -30,8 +31,8 @@ public:
 };
 
 class InboundPort {
-private:
-  std::FILE *In;
+public:
+  int In;
 
   JSONStreamStyle StreamStyle = JSONStreamStyle::Standard;
 
@@ -39,8 +40,7 @@ private:
 
   bool readDelimitedMessage(std::string &JSONString);
 
-public:
-  InboundPort(std::FILE *In = stdin,
+  InboundPort(int In = STDIN_FILENO,
               JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
       : In(In), StreamStyle(StreamStyle){};
 
