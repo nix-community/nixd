@@ -275,10 +275,9 @@ void Server::onCompletion(
     lspserver::Callback<lspserver::CompletionList> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
     // For all active workers, send the completion request
-
-    std::vector<lspserver::CompletionList> ListStore(Workers.size());
-
-    auto *StorePtr = &ListStore;
+    auto ListStore = std::make_shared<std::vector<lspserver::CompletionList>>(
+        Workers.size());
+    auto ListStoreLock = std::make_shared<std::mutex>();
 
     size_t I = 0;
     for (const auto &Worker : Workers) {
@@ -287,19 +286,17 @@ void Server::onCompletion(
               "nixd/worker/textDocument/completion", Worker->OutPort.get());
 
       ComplectionRequest(
-          Params,
-          [I, &StorePtr](llvm::Expected<lspserver::CompletionList> Result) {
+          Params, [I, ListStore, ListStoreLock](
+                      llvm::Expected<lspserver::CompletionList> Result) {
             // The worker answered our request, fill the completion
             // lists then.
             if (Result) {
               lspserver::log(
                   "received result from our client, which has {0} item(s)",
                   Result.get().items.size());
-              if (StorePtr) {
-                (*StorePtr)[I] = Result.get();
-              } else if (!Result.get().items.empty()) {
-                lspserver::elog(
-                    "ignored non-empty response, because it's to late.");
+              {
+                std::lock_guard Guard(*ListStoreLock);
+                (*ListStore)[I] = Result.get();
               }
             }
           });
@@ -310,13 +307,13 @@ void Server::onCompletion(
 
     // Reset the store ptr in event handling module, so that client reply after
     // 'usleep' will not write the store (to avoid data race)
-    StorePtr = nullptr;
+    std::lock_guard Guard(*ListStoreLock);
 
     // brute-force iterating over the result, and choose the biggest item
     size_t BestIdx = 0;
     size_t BestSize = 0;
-    for (size_t I = 0; I < ListStore.size(); I++) {
-      auto LSize = ListStore[I].items.size();
+    for (size_t I = 0; I < ListStore->size(); I++) {
+      auto LSize = ListStore->at(I).items.size();
       if (LSize >= BestSize) {
         BestIdx = I;
         BestSize = LSize;
@@ -324,8 +321,7 @@ void Server::onCompletion(
     }
     // And finally, reply our client
     lspserver::log("chosed {0} completion lists.", BestSize);
-    Reply(ListStore.at(BestIdx));
-    ListStore.resize(0);
+    Reply(ListStore->at(BestIdx));
   });
 
   Thread.detach();
