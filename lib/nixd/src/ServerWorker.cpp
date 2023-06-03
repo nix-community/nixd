@@ -143,12 +143,6 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
     ~ReplyRAII() { R(Response); };
   } RR(std::move(Reply));
 
-  auto GetStaticEnvItems = [this]() {
-    return CompletionHelper::fromStaticEnv(
-        IER->Session->getState()->symbols,
-        *IER->Session->getState()->staticBaseEnv);
-  };
-
   RR.Response.isIncomplete = false;
 
   try {
