@@ -6,15 +6,19 @@
   };
 
   outputs = { nixpkgs, flake-parts, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
+    imports = [
+      inputs.flake-parts.flakeModules.easyOverlay
+    ];
     perSystem = { config, self', inputs', pkgs, system, ... }:
       let
         nixd = pkgs.callPackage ./default.nix { };
       in
       {
-        packages = {
-          inherit nixd;
-          default = nixd;
+        packages.default = nixd;
+        overlayAttrs = {
+          inherit (config.packages) nixd;
         };
+        packages.nixd = nixd;
 
         devShells.default = nixd.overrideAttrs (old: {
           nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang-tools pkgs.gdb ];
