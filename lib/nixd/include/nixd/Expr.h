@@ -76,4 +76,46 @@ inline const char *getExprName(nix::Expr *E) {
 #undef NIX_EXPR
 }
 
+// Traverse on the AST nodes, and construct parent information into the map
+[[nodiscard]] std::map<const nix::Expr *, const nix::Expr *>
+getParentMap(const nix::Expr *Root);
+
+/// For `ExprVar`s statically look up in `Env`s (i.e. !fromWith), search the
+/// position
+nix::PosIdx searchDefinition(
+    const nix::ExprVar *,
+    const std::map<const nix::Expr *, const nix::Expr *> &ParentMap);
+
+const nix::Expr *
+searchEnvExpr(const nix::ExprVar *,
+              const std::map<const nix::Expr *, const nix::Expr *> &ParentMap);
+
+//-----------------------------------------------------------------------------/
+// nix::PosIdx getDisplOf (Expr, Displ)
+//
+// Get the corresponding position, of the expression Expr setted Displ.
+// e.g. ExprLet will create a list of displacement, that denotes to it's
+// attributes, used for name lookup.
+//
+// PosIdx is trivially-copyable
+
+nix::PosIdx getDisplOf(const nix::Expr *E, nix::Displacement Displ);
+
+nix::PosIdx getDisplOf(const nix::ExprAttrs *E, nix::Displacement Displ);
+
+nix::PosIdx getDisplOf(const nix::ExprLet *E, nix::Displacement Displ);
+
+nix::PosIdx getDisplOf(const nix::ExprLambda *E, nix::Displacement Displ);
+
+//-----------------------------------------------------------------------------/
+// bool isEnvCreated (Expr* Parent, Expr Child)
+//
+// Check that if `Parent` created a env for the `Child`.
+
+bool isEnvCreated(const nix::Expr *, const nix::Expr *);
+
+bool isEnvCreated(const nix::ExprAttrs *, const nix::Expr *);
+
+bool isEnvCreated(const nix::ExprWith *, const nix::Expr *);
+
 } // namespace nixd
