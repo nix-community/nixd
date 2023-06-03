@@ -1,6 +1,5 @@
 ## Developers' Manual
 
-
 ### Design
 
 #### How does language information being collected?
@@ -20,7 +19,6 @@ When you open a file in your workspace, we first parse it to obtain normal Nix a
 We then recursively rewrite all AST nodes with our own data structure, creating a new tree.
 Finally, we call `cacheFile` in Nix to inject our own data structure into the evaluator.
 
-
 #### How does cross-file analysis work?
 
 For example, you write a NixOS module:
@@ -39,7 +37,6 @@ Here's how it works:
 
 When you open the file, `nixd` will parse it for you, and rewrite and inject it into the Nix evaluator (as mentioned earlier). Then, the top-level evaluation process begins, and the lambdas are evaluated. Our callback function is invoked, and the necessary information is collected in the callbacks.
 
-
 ### Testing
 
 This project is tested by "unit tests" and "regression tests".
@@ -48,7 +45,6 @@ Regression tests are written in **markdown**, and directly execute the compiled 
 Unit tests are used for testing class interfaces, mostly public methods.
 
 Nixd regression tests could be found at [here](tools/nixd/test/).
-
 
 ### Contributing
 

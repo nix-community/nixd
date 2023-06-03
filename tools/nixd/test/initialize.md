@@ -6,16 +6,15 @@ Check basic handshake with the server, i.e. "initialize"
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":0,
-   "method":"initialize",
-   "params":{
-      "processId":123,
-      "rootPath":"",
-      "capabilities":{
-      },
-      "trace":"off"
-   }
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "processId": 123,
+    "rootPath": "",
+    "capabilities": {},
+    "trace": "off"
+  }
 }
 ```
 
@@ -51,15 +50,12 @@ CHECK-NEXT: }
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"initialized",
-   "params":{
-
-   }
+  "jsonrpc": "2.0",
+  "method": "initialized",
+  "params": {}
 }
 ```
 
-
 ```json
-{"jsonrpc":"2.0","method":"exit"}
+{ "jsonrpc": "2.0", "method": "exit" }
 ```

@@ -1,23 +1,22 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-
 <-- initialize(0)
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":0,
-   "method":"initialize",
-   "params":{
-      "processId":123,
-      "rootPath":"",
-      "capabilities":{
-        "workspace": {
-            "configuration": false
-        }
-      },
-      "trace":"off"
-   }
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "processId": 123,
+    "rootPath": "",
+    "capabilities": {
+      "workspace": {
+        "configuration": false
+      }
+    },
+    "trace": "off"
+  }
 }
 ```
 
@@ -25,11 +24,9 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"initialized",
-   "params":{
-
-   }
+  "jsonrpc": "2.0",
+  "method": "initialized",
+  "params": {}
 }
 ```
 
@@ -40,5 +37,5 @@ CHECK-NOT: "method": "workspace/configuration",
 ```
 
 ```json
-{"jsonrpc":"2.0","method":"exit"}
+{ "jsonrpc": "2.0", "method": "exit" }
 ```

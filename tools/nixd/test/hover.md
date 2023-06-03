@@ -4,19 +4,17 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":0,
-   "method":"initialize",
-   "params":{
-      "processId":123,
-      "rootPath":"",
-      "capabilities":{
-      },
-      "trace":"off"
-   }
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "processId": 123,
+    "rootPath": "",
+    "capabilities": {},
+    "trace": "off"
+  }
 }
 ```
-
 
 <-- textDocument/didOpen
 
@@ -35,16 +33,16 @@ a
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///with.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"let\n  pkgs = {\n    a = 1;\n  };\nin\nwith pkgs;\n\na\n\n"
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///with.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "let\n  pkgs = {\n    a = 1;\n  };\nin\nwith pkgs;\n\na\n\n"
+    }
+  }
 }
 ```
 
@@ -52,21 +50,20 @@ a
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":1,
-   "method":"textDocument/hover",
-   "params":{
-      "textDocument":{
-         "uri":"file:///with.nix"
-      },
-      "position":{
-         "line":7,
-         "character":0
-      }
-   }
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "textDocument/hover",
+  "params": {
+    "textDocument": {
+      "uri": "file:///with.nix"
+    },
+    "position": {
+      "line": 7,
+      "character": 0
+    }
+  }
 }
 ```
-
 
 ```
      CHECK:  "id": 1,
@@ -80,5 +77,5 @@ CHECK-NEXT:  }
 ```
 
 ```json
-{"jsonrpc":"2.0","method":"exit"}
+{ "jsonrpc": "2.0", "method": "exit" }
 ```

@@ -1,23 +1,22 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-
 <-- initialize(0)
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":0,
-   "method":"initialize",
-   "params":{
-      "processId":123,
-      "rootPath":"",
-      "capabilities":{
-        "workspace": {
-            "configuration": true
-        }
-      },
-      "trace":"off"
-   }
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "processId": 123,
+    "rootPath": "",
+    "capabilities": {
+      "workspace": {
+        "configuration": true
+      }
+    },
+    "trace": "off"
+  }
 }
 ```
 
@@ -25,11 +24,9 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"initialized",
-   "params":{
-
-   }
+  "jsonrpc": "2.0",
+  "method": "initialized",
+  "params": {}
 }
 ```
 
@@ -57,31 +54,28 @@ The server should parse it correctly and do not crash.
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":1,
-   "result":[
-      {
-         "installable":{
-            "args":[
-               "--file",
-               "rootInstallable.nix"
-            ],
-            "installable":""
-         }
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": [
+    {
+      "installable": {
+        "args": ["--file", "rootInstallable.nix"],
+        "installable": ""
       }
-   ]
+    }
+  ]
 }
 ```
+
 <-- workspace/didChangeConfiguration
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"workspace/didChangeConfiguration",
-   "params":{
-      "settings":{
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "workspace/didChangeConfiguration",
+  "params": {
+    "settings": {}
+  }
 }
 ```
 
@@ -106,18 +100,18 @@ CHECK-NEXT:   }
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":2,
-   "result":[
-      {
-         "whateverNotExpected": true
-      }
-   ]
+  "jsonrpc": "2.0",
+  "id": 2,
+  "result": [
+    {
+      "whateverNotExpected": true
+    }
+  ]
 }
 ```
 
 Do not crash on unexpected configuration!
 
 ```json
-{"jsonrpc":"2.0","method":"exit"}
+{ "jsonrpc": "2.0", "method": "exit" }
 ```

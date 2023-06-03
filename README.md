@@ -18,7 +18,6 @@ Some notable features provided by linking with the Nix library include:
 - Precise Nix language support. We do not maintain "yet another parser & evaluator".
 - Support for built-ins, including Nix plugins.
 
-
 ## Features Preview
 
 <details><summary>Handle evaluations exactly same as nix evaluator</summary>
@@ -47,7 +46,6 @@ And diagnostic:
 
 ![eval-ast](docs/images/c7e8a8c7-5c0e-4736-868f-1e2c345468fd.png)
 
-
 </details>
 
 <details><summary>Complete dynamic envs, like `with` expression</summary>
@@ -61,12 +59,14 @@ And diagnostic:
 ### Build the project
 
 #### nix-build
-``` sh
+
+```sh
 nix-build --expr 'with import <nixpkgs> { }; callPackage ./. { }'
 ```
 
 #### Nix Flakes
-``` sh
+
+```sh
 nix build -L #.
 ```
 

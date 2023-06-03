@@ -4,16 +4,15 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":0,
-   "method":"initialize",
-   "params":{
-      "processId":123,
-      "rootPath":"",
-      "capabilities":{
-      },
-      "trace":"off"
-   }
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "processId": 123,
+    "rootPath": "",
+    "capabilities": {},
+    "trace": "off"
+  }
 }
 ```
 
@@ -21,16 +20,16 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"let x = 1; in x"
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///basic.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "let x = 1; in x"
+    }
+  }
 }
 ```
 
@@ -50,16 +49,16 @@ CHECK-NEXT: }
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"what ? x not parsed!"
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///basic.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "what ? x not parsed!"
+    }
+  }
 }
 ```
 
@@ -86,19 +85,18 @@ CHECK-NEXT: }
 
 Then, check that we do eval the file. Nix files are legal expressions, and should be evaluable.
 
-
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///test-eval.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"let x = 1; in y"
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///test-eval.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "let x = 1; in y"
+    }
+  }
 }
 ```
 
@@ -123,41 +121,38 @@ Check that we handle relative paths corretly. Introduce `importee.nix` and `impo
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///importee.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{a, b}: a + b"
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///importee.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "{a, b}: a + b"
+    }
+  }
 }
 ```
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///importor.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"import ./importee.nix { a = 1; }"
-      }
-   }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///importor.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "import ./importee.nix { a = 1; }"
+    }
+  }
 }
 ```
-
 
 ```
 CHECK: "message": "function 'anonymous lambda' called without required argument 'b'",
 ```
 
-
-
 ```json
-{"jsonrpc":"2.0","method":"exit"}
+{ "jsonrpc": "2.0", "method": "exit" }
 ```

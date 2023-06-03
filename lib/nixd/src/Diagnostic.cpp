@@ -16,7 +16,7 @@
   FUNC(ANSI_MAGENTA)                                                           \
   FUNC(ANSI_CYAN)
 
-static std::string stripANSI(std::string Msg){
+static std::string stripANSI(std::string Msg) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
 #define REMOVE_ANSI_STR_FUNC(ANSI_STR)                                         \

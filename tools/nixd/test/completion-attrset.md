@@ -4,16 +4,15 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":0,
-   "method":"initialize",
-   "params":{
-      "processId":123,
-      "rootPath":"",
-      "capabilities":{
-      },
-      "trace":"off"
-   }
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "processId": 123,
+    "rootPath": "",
+    "capabilities": {},
+    "trace": "off"
+  }
 }
 ```
 
@@ -30,71 +29,70 @@ Complete this file:
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "textDocument/didOpen",
-    "params": {
-        "textDocument": {
-            "uri": "file:///foo.nix",
-            "languageId": "nix",
-            "version": 1,
-            "text": "{\n    some.long = 1;\n    short = 2;\n}\n"
-        }
+  "jsonrpc": "2.0",
+  "method": "textDocument/didOpen",
+  "params": {
+    "textDocument": {
+      "uri": "file:///foo.nix",
+      "languageId": "nix",
+      "version": 1,
+      "text": "{\n    some.long = 1;\n    short = 2;\n}\n"
     }
+  }
 }
 ```
 
 ```json
 {
-    "jsonrpc": "2.0",
-    "method": "textDocument/didChange",
-    "params": {
-        "textDocument": {
-            "uri": "file:///foo.nix",
-            "version": 2
-        },
-        "contentChanges": [
-            {
-                "range": {
-                    "start": {
-                        "line": 3,
-                        "character": 1
-                    },
-                    "end": {
-                        "line": 3,
-                        "character": 1
-                    }
-                },
-                "rangeLength": 0,
-                "text": "."
-            }
-        ]
-    }
-}
-```
-```json
-{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "textDocument/completion",
-    "params": {
-        "textDocument": {
-            "uri": "file:///foo.nix"
-        },
-        "position": {
+  "jsonrpc": "2.0",
+  "method": "textDocument/didChange",
+  "params": {
+    "textDocument": {
+      "uri": "file:///foo.nix",
+      "version": 2
+    },
+    "contentChanges": [
+      {
+        "range": {
+          "start": {
             "line": 3,
-            "character": 2
+            "character": 1
+          },
+          "end": {
+            "line": 3,
+            "character": 1
+          }
         },
-        "context": {
-            "triggerKind": 2,
-            "triggerCharacter": "."
-        }
-    }
+        "rangeLength": 0,
+        "text": "."
+      }
+    ]
+  }
 }
 ```
 
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "textDocument/completion",
+  "params": {
+    "textDocument": {
+      "uri": "file:///foo.nix"
+    },
+    "position": {
+      "line": 3,
+      "character": 2
+    },
+    "context": {
+      "triggerKind": 2,
+      "triggerCharacter": "."
+    }
+  }
+}
+```
 
 --> reply:textDocument/completion(1)
-
 
 ```
      CHECK:   "id": 1,
@@ -117,5 +115,5 @@ CHECK-NEXT:   }
 ```
 
 ```json
-{"jsonrpc":"2.0","method":"exit"}
+{ "jsonrpc": "2.0", "method": "exit" }
 ```

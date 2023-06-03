@@ -241,28 +241,28 @@ Server::getDraft(lspserver::PathRef File) const {
 }
 
 Server::Server(std::unique_ptr<lspserver::InboundPort> In,
-         std::unique_ptr<lspserver::OutboundPort> Out)
-      : LSPServer(std::move(In), std::move(Out)) {
-    Registry.addMethod("initialize", this, &Server::onInitialize);
-    Registry.addMethod("textDocument/hover", this, &Server::onHover);
-    Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
-    Registry.addNotification("initialized", this, &Server::onInitialized);
+               std::unique_ptr<lspserver::OutboundPort> Out)
+    : LSPServer(std::move(In), std::move(Out)) {
+  Registry.addMethod("initialize", this, &Server::onInitialize);
+  Registry.addMethod("textDocument/hover", this, &Server::onHover);
+  Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
+  Registry.addNotification("initialized", this, &Server::onInitialized);
 
-    // Text Document Synchronization
-    Registry.addNotification("textDocument/didOpen", this,
-                             &Server::onDocumentDidOpen);
-    Registry.addNotification("textDocument/didChange", this,
-                             &Server::onDocumentDidChange);
+  // Text Document Synchronization
+  Registry.addNotification("textDocument/didOpen", this,
+                           &Server::onDocumentDidOpen);
+  Registry.addNotification("textDocument/didChange", this,
+                           &Server::onDocumentDidChange);
 
-    // Workspace
-    Registry.addNotification("workspace/didChangeConfiguration", this,
-                             &Server::onWorkspaceDidChangeConfiguration);
-    PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
-        "textDocument/publishDiagnostics");
-    WorkspaceConfiguration =
-        mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
-            "workspace/configuration");
-  }
+  // Workspace
+  Registry.addNotification("workspace/didChangeConfiguration", this,
+                           &Server::onWorkspaceDidChangeConfiguration);
+  PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
+      "textDocument/publishDiagnostics");
+  WorkspaceConfiguration =
+      mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
+          "workspace/configuration");
+}
 
 void Server::onDocumentDidOpen(
     const lspserver::DidOpenTextDocumentParams &Params) {
