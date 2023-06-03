@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <gtest/gtest.h>
 
 #include "nixd/CallbackExpr.h"
@@ -145,13 +146,7 @@ rec {
   Visitor.traverseExpr(CallbackExprRoot);
 }
 
-TEST(Expr, ParentMapLetSearch) {
-  static const char *NixSrc = R"(
-let
-    pkgs = { a = 1; };
-in
-pkgs
-  )";
+void mkLookupTest(const char *NixSrc, uint32_t Line, uint32_t Column) {
   InitNix Inix;
 
   auto State = Inix.getDummyState();
@@ -179,52 +174,37 @@ pkgs
   Visitor.traverseExpr(ASTRoot);
 
   auto Pos = State->positions[Visitor.P];
-  ASSERT_EQ(Pos.line, 3);
-  ASSERT_EQ(Pos.column, 5);
+  ASSERT_EQ(Pos.line, Line);
+  ASSERT_EQ(Pos.column, Column);
+}
+
+TEST(Expr, ParentMapLetSearch) {
+  static const char *NixSrc = R"(
+let
+    pkgs = { a = 1; };
+#   ^
+in
+pkgs
+  )";
+  mkLookupTest(NixSrc, 3, 5);
 }
 
 TEST(Expr, ParentMapRecSearch) {
   static const char *NixSrc = R"(
 rec {
   a = 1;
+# ^
   b = a;
 }
   )";
-  InitNix Inix;
-
-  auto State = Inix.getDummyState();
-  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
-
-  auto PMap = getParentMap(ASTRoot);
-
-  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
-    decltype(PMap) *CapturedPMap;
-    decltype(State) *CapturedState;
-
-    nix::PosIdx P;
-
-    bool visitExprVar(const nix::ExprVar *E) {
-      // E->show((*State)->symbols, std::cout);
-      // std::cout << "\n";
-      P = searchDefinition(E, *CapturedPMap);
-      return true;
-    }
-  } Visitor;
-
-  Visitor.CapturedPMap = &PMap;
-  Visitor.CapturedState = &State;
-
-  Visitor.traverseExpr(ASTRoot);
-
-  auto Pos = State->positions[Visitor.P];
-  ASSERT_EQ(Pos.line, 3);
-  ASSERT_EQ(Pos.column, 3);
+  mkLookupTest(NixSrc, 3, 3);
 }
 
 TEST(Expr, ParentMapLetNested) {
   static const char *NixSrc = R"(
 let
   var = 1;
+# ^
 in
 {
   x = rec {
@@ -232,35 +212,7 @@ in
   };
 }
   )";
-  InitNix Inix;
-
-  auto State = Inix.getDummyState();
-  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
-
-  auto PMap = getParentMap(ASTRoot);
-
-  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
-    decltype(PMap) *CapturedPMap;
-    decltype(State) *CapturedState;
-
-    nix::PosIdx P;
-
-    bool visitExprVar(const nix::ExprVar *E) {
-      // E->show((*State)->symbols, std::cout);
-      // std::cout << "\n";
-      P = searchDefinition(E, *CapturedPMap);
-      return true;
-    }
-  } Visitor;
-
-  Visitor.CapturedPMap = &PMap;
-  Visitor.CapturedState = &State;
-
-  Visitor.traverseExpr(ASTRoot);
-
-  auto Pos = State->positions[Visitor.P];
-  ASSERT_EQ(Pos.line, 3);
-  ASSERT_EQ(Pos.column, 3);
+  mkLookupTest(NixSrc, 3, 3);
 }
 
 } // namespace nixd
