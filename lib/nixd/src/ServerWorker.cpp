@@ -154,18 +154,15 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
                    Params.context.triggerCharacter);
 
     if (Params.context.triggerCharacter == ".") {
-      try {
-        auto *Node = AST->lookupPosition(Params.position);
-        auto Value = AST->getValue(Node);
-        if (Value.type() == nix::ValueType::nAttrs) {
-          // Traverse attribute bindings
-          for (auto Binding : *Value.attrs) {
-            Items.emplace_back(
-                CompletionItem{.label = State->symbols[Binding.name],
-                               .kind = CompletionItemKind::Field});
-          }
+      auto *Node = AST->lookupPosition(Params.position);
+      auto Value = AST->getValue(Node);
+      if (Value.type() == nix::ValueType::nAttrs) {
+        // Traverse attribute bindings
+        for (auto Binding : *Value.attrs) {
+          Items.emplace_back(
+              CompletionItem{.label = State->symbols[Binding.name],
+                             .kind = CompletionItemKind::Field});
         }
-      } catch (...) {
       }
     } else {
       try {
