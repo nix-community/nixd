@@ -115,7 +115,7 @@ public:
 
   ~Server() override { usleep(WaitWorker); }
 
-  void eval(const std::string &Fallback);
+  void eval(const std::string &Fallback, int Depth);
 
   void updateWorkspaceVersion();
 

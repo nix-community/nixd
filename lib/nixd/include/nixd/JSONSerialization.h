@@ -40,6 +40,9 @@ struct TopLevel {
   /// Nix installables that will be used for root translation unit.
   std::optional<InstallableConfigurationItem> installable;
 
+  /// The depth you'd like to eval *after* reached "installable" target.
+  std::optional<int> evalDepth;
+
   /// Get installable arguments specified in this config, fallback to file \p
   /// Fallback if 'installable' is not set.
   [[nodiscard]] std::tuple<std::list<std::string>, std::string>

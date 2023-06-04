@@ -86,7 +86,7 @@ void Server::switchToEvaluator() {
 
   WorkerDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
 
-  eval("");
+  eval("", Config.evalDepth.value_or(10));
 }
 
 lspserver::PublishDiagnosticsParams
@@ -101,8 +101,7 @@ Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
   Notification.version = Version;
   return Notification;
 }
-
-void Server::eval(const std::string &Fallback) {
+void Server::eval(const std::string &Fallback, int Depth = 0) {
   assert(Role != ServerRole::Controller &&
          "eval must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
@@ -124,7 +123,7 @@ void Server::eval(const std::string &Fallback) {
   WorkerDiagnostic(Diagnostics);
 
   try {
-    Session->eval(Installable);
+    Session->eval(Installable, Depth);
     lspserver::log("evaluation done on worspace version: {0}",
                    WorkspaceVersion);
   } catch (nix::BaseError &BE) {

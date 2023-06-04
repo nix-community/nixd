@@ -2,8 +2,10 @@
 
 #include "nixd/AST.h"
 #include "nixd/CallbackExpr.h"
+#include "nixd/nix/EvalState.h"
 
 #include "lspserver/DraftStore.h"
+#include "lspserver/Logger.h"
 
 #include <nix/command-installable-value.hh>
 #include <nix/installable-value.hh>
@@ -82,10 +84,13 @@ struct IValueEvalSession {
     return IVC->getEvalState();
   };
 
-  void eval(const std::string &Installable) const {
+  void eval(const std::string &Installable, int Depth = 0) const {
+    lspserver::log("evaluation on installable {0}, requested depth: {1}",
+                   Installable, Depth);
     auto IValue = nix::InstallableValue::require(
         IVC->parseInstallable(IVC->getStore(), Installable));
-    IValue->toValue(*getState());
+    auto [Value, _] = IValue->toValue(*getState());
+    nix::forceValueDepth(*IVC->getEvalState(), *Value, Depth);
   }
 };
 
