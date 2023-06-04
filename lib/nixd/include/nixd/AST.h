@@ -4,6 +4,7 @@
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
+#include "nixd/Expr.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
@@ -70,6 +71,10 @@ public:
   /// Find the expression that created 'Env' for ExprVar
   const nix::Expr *envExpr(const nix::ExprVar *Var) const {
     return searchEnvExpr(Var, ParentMap);
+  }
+
+  nix::PosIdx definition(const nix::ExprVar *Var) const {
+    return searchDefinition(Var, ParentMap);
   }
 
   /// Lookup an AST node located at the position.
