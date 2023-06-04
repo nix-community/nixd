@@ -32,6 +32,7 @@ CHECK-NEXT:         "triggerCharacters": [
 CHECK-NEXT:           "."
 CHECK-NEXT:         ]
 CHECK-NEXT:       },
+CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
