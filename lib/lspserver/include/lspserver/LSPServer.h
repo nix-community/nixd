@@ -61,7 +61,7 @@ protected:
   mkOutNotifiction(llvm::StringRef Method, OutboundPort *O = nullptr) {
     if (!O)
       O = Out.get();
-    return [=, this](const T &Params) {
+    return [=](const T &Params) {
       log("--> notify {0}", Method);
       O->notify(Method, Params);
     };
