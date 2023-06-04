@@ -1,6 +1,7 @@
 #pragma once
 
-#include "CallbackExpr.h"
+#include "nixd/CallbackExpr.h"
+#include "nixd/Expr.h"
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
@@ -49,19 +50,32 @@ public:
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
   /// used for completion.
-  const nix::Env *getEnv(nix::Expr *Expr) const { return EnvMap.at(Expr); }
+  const nix::Env *getEnv(const nix::Expr *Expr) const {
+    return EnvMap.at(Expr);
+  }
 
   /// Get the parent of some expr, if it is root, \return Expr itself
-  const nix::Expr *parent(nix::Expr *Expr) const { return ParentMap.at(Expr); };
+  const nix::Expr *parent(const nix::Expr *Expr) const {
+    return ParentMap.at(Expr);
+  };
 
   void prepareParentTable() { ParentMap = getParentMap(Root); }
 
   /// Try to search (traverse) up the expr and find the first `Env` associated
   /// ancestor, return its env
-  const nix::Env *searchUpEnv(nix::Expr *Expr) const;
+  const nix::Env *searchUpEnv(const nix::Expr *Expr) const;
 
   /// Similar to `searchUpEnv`, but search for Values
-  nix::Value searchUpValue(nix::Expr *Expr) const;
+  nix::Value searchUpValue(const nix::Expr *Expr) const;
+
+  /// Find the expression that created 'Env' for ExprVar
+  const nix::Expr *envExpr(const nix::ExprVar *Var) const {
+    return searchEnvExpr(Var, ParentMap);
+  }
+
+  nix::PosIdx definition(const nix::ExprVar *Var) const {
+    return searchDefinition(Var, ParentMap);
+  }
 
   /// Lookup an AST node located at the position.
   /// Call 'preparePositionLookup' first.
