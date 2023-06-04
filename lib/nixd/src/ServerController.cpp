@@ -132,6 +132,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
            {"change", (int)lspserver::TextDocumentSyncKind::Incremental},
            {"save", true},
        }},
+      {"definitionProvider", true},
       {"hoverProvider", true},
       {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
 
@@ -175,6 +176,8 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("initialize", this, &Server::onInitialize);
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
+  Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
+
   Registry.addNotification("initialized", this, &Server::onInitialized);
 
   // Text Document Synchronization
@@ -201,6 +204,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/hover", this,
                      &Server::onWorkerHover);
+
+  Registry.addMethod("nixd/ipc/textDocument/definition", this,
+                     &Server::onWorkerDefinition);
 }
 
 void Server::onDocumentDidOpen(
@@ -233,6 +239,57 @@ void Server::onDocumentDidChange(
     }
   }
   addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
+}
+
+//-----------------------------------------------------------------------------/
+// Location Search: goto definition, declaration, ...
+
+void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
+                          lspserver::Callback<lspserver::Location> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    // For all active workers, send the completion request
+    auto ListStore =
+        std::make_shared<std::vector<lspserver::Location>>(Workers.size());
+    auto ListStoreLock = std::make_shared<std::mutex>();
+
+    size_t I = 0;
+    for (const auto &Worker : Workers) {
+      auto Request = mkOutMethod<lspserver::TextDocumentPositionParams,
+                                 lspserver::Location>(
+          "nixd/ipc/textDocument/definition", Worker->OutPort.get());
+
+      Request(Params, [I, ListStore, ListStoreLock](
+                          llvm::Expected<lspserver::Location> Result) {
+        // The worker answered our request, fill the completion
+        // lists then.
+        if (Result) {
+          std::lock_guard Guard(*ListStoreLock);
+          (*ListStore)[I] = Result.get();
+        }
+      });
+      I++;
+    }
+    // Wait for our client, this is currently hardcoded
+    usleep(2e4);
+
+    // Reset the store ptr in event handling module, so that client reply after
+    // 'usleep' will not write the store (to avoid data race)
+    std::lock_guard Guard(*ListStoreLock);
+
+    size_t BestIdx = 0;
+    for (size_t I = ListStore->size(); I-- > 0;) {
+      // lspserver::log("WWWWWWWWWWWWWWWWWWWWWW: {0}",
+      //                ListStore->at(I).range.start.line);
+      if (ListStore->at(I).range.start.line != -1) {
+        BestIdx = I;
+        // break;
+      }
+    }
+    // And finally, reply our client
+    Reply(ListStore->at(BestIdx));
+  });
+
+  Thread.detach();
 }
 
 //-----------------------------------------------------------------------------/

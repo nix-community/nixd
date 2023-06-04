@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lspserver/Protocol.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/JSONSerialization.h"
 
@@ -151,6 +152,12 @@ public:
       const lspserver::DidChangeConfigurationParams &) {
     fetchConfig();
   }
+
+  void onDefinition(const lspserver::TextDocumentPositionParams &,
+                    lspserver::Callback<lspserver::Location>);
+
+  void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
+                          lspserver::Callback<lspserver::Location>);
 
   void onHover(const lspserver::TextDocumentPositionParams &,
                lspserver::Callback<lspserver::Hover>);
