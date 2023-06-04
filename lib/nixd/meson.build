@@ -8,6 +8,7 @@ nixd_server_lib = library('nixd-lsp'
   , 'src/JSONSerialization.cpp'
   , 'src/ServerController.cpp'
   , 'src/ServerWorker.cpp'
+  , 'src/nix/EvalState.cpp'
   ]
 , include_directories: nixd_server_inc
 , dependencies: [ llvm
