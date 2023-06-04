@@ -73,6 +73,10 @@ inline const char *getExprName(nix::Expr *E) {
     return #EXPR;                                                              \
   }
 #include "NixASTNodes.inc"
+  assert(
+      false &&
+      "Cannot dynamic-cast to nix::Expr*, missing entries in NixASTNodes.inc?");
+  return nullptr;
 #undef NIX_EXPR
 }
 
