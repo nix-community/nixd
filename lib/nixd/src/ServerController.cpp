@@ -9,13 +9,13 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/URI.h"
 
-#include <cstdint>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/ScopedPrinter.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <cstdint>
 #include <exception>
 #include <filesystem>
 #include <memory>
