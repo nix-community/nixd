@@ -31,19 +31,27 @@ void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
 }
 
 nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {
-  for (const auto *Parent = parent(Expr); Parent != Expr; Expr = parent(Expr)) {
+  for (;;) {
     if (ValueMap.contains(Expr))
       return ValueMap.at(Expr);
+    if (parent(Expr) == Expr)
+      break;
+
+    Expr = parent(Expr);
   }
   throw std::out_of_range("No such value associated to ancestors");
 }
 
 const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
-  for (const auto *Parent = parent(Expr); Parent != Expr; Expr = parent(Expr)) {
+  for (;;) {
     if (EnvMap.contains(Expr))
       return EnvMap.at(Expr);
+    if (parent(Expr) == Expr)
+      break;
+
+    Expr = parent(Expr);
   }
-  return nullptr;
+  throw std::out_of_range("No such env associated to ancestors");
 }
 
 nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {
