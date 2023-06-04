@@ -1,14 +1,14 @@
-#include "lspserver/Protocol.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
 #include "nixd/Server.h"
 
 #include "lspserver/Connection.h"
-#include "nixexpr.hh"
+#include "lspserver/Protocol.h"
 
 #include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/globals.hh>
+#include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
 #include <nix/util.hh>
