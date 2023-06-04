@@ -1,11 +1,14 @@
 #include <gtest/gtest.h>
 
+#include "nixutil.h"
+
 #include "nixd/CallbackExpr.h"
 #include "nixd/Expr.h"
-#include "nixutil.h"
 
 #include <nix/eval.hh>
 #include <nix/shared.hh>
+
+#include <cstdint>
 
 namespace nixd {
 
@@ -143,6 +146,75 @@ rec {
          const nix::Value &) {},
       MyState->parseExprFromString(NixSrc, "/"));
   Visitor.traverseExpr(CallbackExprRoot);
+}
+
+void mkLookupTest(const char *NixSrc, uint32_t Line, uint32_t Column) {
+  InitNix Inix;
+
+  auto State = Inix.getDummyState();
+  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+
+  auto PMap = getParentMap(ASTRoot);
+
+  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+    decltype(PMap) *CapturedPMap;
+    decltype(State) *CapturedState;
+
+    nix::PosIdx P;
+
+    bool visitExprVar(const nix::ExprVar *E) {
+      // E->show((*State)->symbols, std::cout);
+      // std::cout << "\n";
+      P = searchDefinition(E, *CapturedPMap);
+      return true;
+    }
+  } Visitor;
+
+  Visitor.CapturedPMap = &PMap;
+  Visitor.CapturedState = &State;
+
+  Visitor.traverseExpr(ASTRoot);
+
+  auto Pos = State->positions[Visitor.P];
+  ASSERT_EQ(Pos.line, Line);
+  ASSERT_EQ(Pos.column, Column);
+}
+
+TEST(Expr, ParentMapLetSearch) {
+  static const char *NixSrc = R"(
+let
+    pkgs = { a = 1; };
+#   ^
+in
+pkgs
+  )";
+  mkLookupTest(NixSrc, 3, 5);
+}
+
+TEST(Expr, ParentMapRecSearch) {
+  static const char *NixSrc = R"(
+rec {
+  a = 1;
+# ^
+  b = a;
+}
+  )";
+  mkLookupTest(NixSrc, 3, 3);
+}
+
+TEST(Expr, ParentMapLetNested) {
+  static const char *NixSrc = R"(
+let
+  var = 1;
+# ^
+in
+{
+  x = rec {
+    y = var;
+  };
+}
+  )";
+  mkLookupTest(NixSrc, 3, 3);
 }
 
 } // namespace nixd
