@@ -278,11 +278,9 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
 
     size_t BestIdx = 0;
     for (size_t I = ListStore->size(); I-- > 0;) {
-      // lspserver::log("WWWWWWWWWWWWWWWWWWWWWW: {0}",
-      //                ListStore->at(I).range.start.line);
       if (ListStore->at(I).range.start.line != -1) {
         BestIdx = I;
-        // break;
+        break;
       }
     }
     // And finally, reply our client
