@@ -67,7 +67,7 @@ template <class Derived> struct RecursiveASTVisitor {
 #undef TRY_TO_TRAVERSE
 #undef TRY_TO
 
-inline const char *getExprName(nix::Expr *E) {
+inline const char *getExprName(const nix::Expr *E) {
 #define NIX_EXPR(EXPR)                                                         \
   if (dynamic_cast<const nix::EXPR *>(E)) {                                    \
     return #EXPR;                                                              \

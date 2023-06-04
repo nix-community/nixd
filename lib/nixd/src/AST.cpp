@@ -54,11 +54,11 @@ const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
   throw std::out_of_range("No such env associated to ancestors");
 }
 
-nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {
+const nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {
   auto WordHead = PosMap.upper_bound(Pos);
   if (WordHead != PosMap.begin())
     WordHead--;
-  return Cxt.Nodes[WordHead->second].get();
+  return WordHead->second;
 }
 
 void EvalAST::preparePositionLookup(const nix::EvalState &State) {
@@ -69,12 +69,35 @@ void EvalAST::preparePositionLookup(const nix::EvalState &State) {
   // e.g. ExprSelect = (some).foo.bar
   //       ExprVar   = some
   // "lookupPosition" should return ExprSelect, instead of ExprVar.
+
+  auto AddPosMap = [this, PosTable = State.positions](nix::PosIdx Idx,
+                                                      const nix::Expr *E) {
+    if (Idx == nix::noPos)
+      return;
+    PosMap.insert({translatePosition(PosTable[Idx]), E});
+  };
+
   for (size_t Idx = Cxt.Nodes.size(); Idx-- > 0;) {
-    auto PosIdx = Cxt.Nodes[Idx]->getPos();
-    if (PosIdx == nix::noPos)
-      continue;
-    nix::Pos Pos = State.positions[PosIdx];
-    PosMap.insert({translatePosition(Pos), Idx});
+    const nix::Expr *E = Cxt.Nodes[Idx].get();
+
+    // Trivial case
+    AddPosMap(E->getPos(), E);
+
+    if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
+      // Iterate on it's AttrDefs, and DynamicAttrDefs.
+      for (const auto &[_, Def] : EA->attrs)
+        AddPosMap(Def.pos, Def.e);
+
+      for (const auto &[Name, Value, Pos] : EA->dynamicAttrs)
+        AddPosMap(Pos, Name);
+    }
+
+    if (const auto *ELambda = dynamic_cast<const nix::ExprLambda *>(E)) {
+      if (ELambda->hasFormals()) {
+        for (auto Formal : ELambda->formals->formals)
+          AddPosMap(Formal.pos, Formal.def);
+      }
+    }
   }
 }
 
