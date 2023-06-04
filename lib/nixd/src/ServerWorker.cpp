@@ -1,11 +1,14 @@
 #include "nixd/Diagnostic.h"
+#include "nixd/Expr.h"
 #include "nixd/Server.h"
 
 #include "lspserver/Connection.h"
+#include "lspserver/Protocol.h"
 
 #include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/globals.hh>
+#include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
 #include <nix/util.hh>
@@ -131,6 +134,45 @@ void Server::eval(const std::string &Fallback) {
   }
   IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
                                            std::move(Session));
+}
+
+void Server::onWorkerDefinition(
+    const lspserver::TextDocumentPositionParams &Params,
+    lspserver::Callback<lspserver::Location> Reply) {
+  using namespace lspserver;
+  std::string RequestedFile = Params.textDocument.uri.file().str();
+
+  struct ReplyRAII {
+    decltype(Reply) R;
+    Location Response;
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(Response); };
+  } RR(std::move(Reply));
+
+  RR.Response.uri = Params.textDocument.uri;
+  RR.Response.range.start.line = -1;
+
+  try {
+    auto AST = IER->Forest.at(RequestedFile);
+    auto State = IER->Session->getState();
+
+    auto *Node = AST->lookupPosition(Params.position);
+    if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
+      if (EVar->fromWith)
+        return;
+      auto PIdx = AST->definition(EVar);
+      if (PIdx == nix::noPos)
+        return;
+
+      auto Position = translatePosition(State->positions[PIdx]);
+      RR.Response = Location{Params.textDocument.uri, {Position, Position}};
+    } else {
+      lspserver::log("requested expression is not an ExprVar.");
+    }
+
+  } catch (std::out_of_range &) {
+    lspserver::log("no such ast while location lookup");
+  }
 }
 
 void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,

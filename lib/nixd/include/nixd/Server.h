@@ -152,6 +152,12 @@ public:
     fetchConfig();
   }
 
+  void onDefinition(const lspserver::TextDocumentPositionParams &,
+                    lspserver::Callback<llvm::json::Value>);
+
+  void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
+                          lspserver::Callback<lspserver::Location>);
+
   void onHover(const lspserver::TextDocumentPositionParams &,
                lspserver::Callback<lspserver::Hover>);
   void onWorkerHover(const lspserver::TextDocumentPositionParams &,
