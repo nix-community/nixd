@@ -1,10 +1,10 @@
 #pragma once
 
-#include "CallbackExpr.h"
+#include "nixd/CallbackExpr.h"
+#include "nixd/Expr.h"
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
-#include "nixd/Expr.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
