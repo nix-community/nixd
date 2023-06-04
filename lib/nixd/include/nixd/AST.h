@@ -67,6 +67,11 @@ public:
   /// Similar to `searchUpEnv`, but search for Values
   nix::Value searchUpValue(const nix::Expr *Expr) const;
 
+  /// Find the expression that created 'Env' for ExprVar
+  const nix::Expr *envExpr(const nix::ExprVar *Var) const {
+    return searchEnvExpr(Var, ParentMap);
+  }
+
   /// Lookup an AST node located at the position.
   /// Call 'preparePositionLookup' first.
   [[nodiscard]] nix::Expr *lookupPosition(lspserver::Position) const;
