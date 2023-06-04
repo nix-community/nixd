@@ -154,7 +154,7 @@ public:
   }
 
   void onDefinition(const lspserver::TextDocumentPositionParams &,
-                    lspserver::Callback<lspserver::Location>);
+                    lspserver::Callback<llvm::json::Value>);
 
   void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
                           lspserver::Callback<lspserver::Location>);

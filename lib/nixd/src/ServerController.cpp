@@ -9,6 +9,7 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/URI.h"
 
+#include <cstdint>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
@@ -245,7 +246,7 @@ void Server::onDocumentDidChange(
 // Location Search: goto definition, declaration, ...
 
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
-                          lspserver::Callback<lspserver::Location> Reply) {
+                          lspserver::Callback<llvm::json::Value> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
     // For all active workers, send the completion request
     auto ListStore =
@@ -276,13 +277,19 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
     // 'usleep' will not write the store (to avoid data race)
     std::lock_guard Guard(*ListStoreLock);
 
-    size_t BestIdx = 0;
+    size_t BestIdx = UINT64_MAX; // unspecified value
     for (size_t I = ListStore->size(); I-- > 0;) {
       if (ListStore->at(I).range.start.line != -1) {
         BestIdx = I;
         break;
       }
     }
+
+    if (BestIdx == UINT64_MAX) {
+      Reply(llvm::json::Object{});
+      return;
+    }
+
     // And finally, reply our client
     Reply(ListStore->at(BestIdx));
   });
