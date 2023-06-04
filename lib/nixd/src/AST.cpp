@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <exception>
 #include <memory>
+#include <stdexcept>
 
 namespace nixd {
 
@@ -27,6 +28,22 @@ EvalAST::EvalAST(nix::Expr *Root) : Cxt(ASTContext()) {
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
   nix::Value DummyValue{};
   State.cacheFile(Path.str(), Path.str(), Root, DummyValue);
+}
+
+nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {
+  for (const auto *Parent = parent(Expr); Parent != Expr; Expr = parent(Expr)) {
+    if (ValueMap.contains(Expr))
+      return ValueMap.at(Expr);
+  }
+  throw std::out_of_range("No such value associated to ancestors");
+}
+
+const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
+  for (const auto *Parent = parent(Expr); Parent != Expr; Expr = parent(Expr)) {
+    if (EnvMap.contains(Expr))
+      return EnvMap.at(Expr);
+  }
+  return nullptr;
 }
 
 nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {

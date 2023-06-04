@@ -28,6 +28,7 @@ EvalDraftStore::injectFiles(const nix::ref<nix::EvalState> &State) noexcept {
           State->parseExprFromString(*Draft.Contents, AFPath.remove_filename());
       EAF.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
       EAF.at(ActiveFile)->preparePositionLookup(*State);
+      EAF.at(ActiveFile)->prepareParentTable();
       EAF.at(ActiveFile)->injectAST(*State, ActiveFile);
     } catch (nix::BaseError &Err) {
       std::exception_ptr Ptr = std::current_exception();
