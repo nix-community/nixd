@@ -1,12 +1,14 @@
-#include <cstdint>
 #include <gtest/gtest.h>
+
+#include "nixutil.h"
 
 #include "nixd/CallbackExpr.h"
 #include "nixd/Expr.h"
-#include "nixutil.h"
 
 #include <nix/eval.hh>
 #include <nix/shared.hh>
+
+#include <cstdint>
 
 namespace nixd {
 
