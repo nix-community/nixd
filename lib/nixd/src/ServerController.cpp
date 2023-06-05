@@ -2,6 +2,7 @@
 #include "nixd/EvalDraftStore.h"
 #include "nixd/Expr.h"
 #include "nixd/Server.h"
+#include "nixd/Support.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
@@ -249,31 +250,18 @@ void Server::onDocumentDidChange(
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    auto [ListStore, Answered, ListStoreLock] =
+    auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
-            Workers, "nixd/ipc/textDocument/definition", Params);
-    // Wait for our client, this is currently hardcoded
-    usleep(2e4);
+            Workers, "nixd/ipc/textDocument/definition", Params, 2e4);
+    llvm::json::Value Response =
+        latestMatchOr<lspserver::Location, llvm::json::Value>(
+            Responses,
+            [](const lspserver::Location &Location) -> bool {
+              return Location.range.start.line != -1;
+            },
+            llvm::json::Object{});
 
-    // Reset the store ptr in event handling module, so that client reply after
-    // 'usleep' will not write the store (to avoid data race)
-    std::lock_guard Guard(*ListStoreLock);
-
-    size_t BestIdx = UINT64_MAX; // unspecified value
-    for (size_t I = ListStore->size(); I-- > 0;) {
-      if (Answered->at(I) && ListStore->at(I).range.start.line != -1) {
-        BestIdx = I;
-        break;
-      }
-    }
-
-    if (BestIdx == UINT64_MAX) {
-      Reply(llvm::json::Object{});
-      return;
-    }
-
-    // And finally, reply our client
-    Reply(ListStore->at(BestIdx));
+    Reply(Response);
   });
 
   Thread.detach();
@@ -325,58 +313,31 @@ void Server::onCompletion(
     const lspserver::CompletionParams &Params,
     lspserver::Callback<lspserver::CompletionList> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    auto [ListStore, Answered, ListStoreLock] =
+    auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
-            Workers, "nixd/ipc/textDocument/completion", Params);
-    // Wait for our client, this is currently hardcoded
-    usleep(5e5);
-
-    // Reset the store ptr in event handling module, so that client reply after
-    // 'usleep' will not write the store (to avoid data race)
-    std::lock_guard Guard(*ListStoreLock);
-
-    // brute-force iterating over the result, and choose the biggest item
-    size_t BestIdx = 0;
-    size_t BestSize = 0;
-    for (size_t I = 0; I < ListStore->size(); I++) {
-      auto LSize = ListStore->at(I).items.size();
-      if (LSize >= BestSize) {
-        BestIdx = I;
-        BestSize = LSize;
-      }
-    }
-    // And finally, reply our client
-    lspserver::log("chosed {0} completion lists.", BestSize);
-    Reply(ListStore->at(BestIdx));
+            Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
+    Reply(bestMatchOr<lspserver::CompletionList>(
+        Responses,
+        [](const lspserver::CompletionList &L) -> uint64_t {
+          return L.items.size() + 1;
+        },
+        lspserver::CompletionList{}));
   });
-
   Thread.detach();
 }
 
 void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
                      lspserver::Callback<lspserver::Hover> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    auto [ListStore, Answered, ListStoreLock] =
+    auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
-            Workers, "nixd/ipc/textDocument/hover", Params);
-    // Wait for our client, this is currently hardcoded
-    usleep(2e4);
-
-    // Reset the store ptr in event handling module, so that client reply after
-    // 'usleep' will not write the store (to avoid data race)
-    std::lock_guard Guard(*ListStoreLock);
-
-    size_t BestIdx = 0;
-    size_t BestSize = 0;
-    for (size_t I = 0; I < ListStore->size(); I++) {
-      auto LSize = ListStore->at(I).contents.value.length();
-      if (LSize >= BestSize) {
-        BestIdx = I;
-        BestSize = LSize;
-      }
-    }
-    // And finally, reply our client
-    Reply(ListStore->at(BestIdx));
+            Workers, "nixd/ipc/textDocument/hover", Params, 2e4);
+    Reply(latestMatchOr<lspserver::Hover>(
+        Responses,
+        [](const lspserver::Hover &H) {
+          return H.contents.value.length() != 0;
+        },
+        lspserver::Hover{}));
   });
 
   Thread.detach();

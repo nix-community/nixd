@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 namespace nixd {
 
@@ -105,29 +106,40 @@ class Server : public lspserver::LSPServer {
 
   template <class Arg, class Resp>
   auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-                  llvm::StringRef IPCMethod, const Arg &Params) {
+                  llvm::StringRef IPCMethod, const Arg &Params,
+                  unsigned Timeout) {
     // For all active workers, send the completion request
-    auto ListStore = std::make_shared<std::vector<Resp>>(Workers.size());
-    auto Answered = std::make_shared<std::vector<bool>>(Workers.size());
+    auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
+        Workers.size(), std::nullopt);
     auto ListStoreLock = std::make_shared<std::mutex>();
 
     size_t I = 0;
     for (const auto &Worker : Workers) {
       auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
-      Request(Params, [I, ListStore, ListStoreLock,
-                       Answered](llvm::Expected<Resp> Result) {
+      Request(Params, [I, ListStoreOptional,
+                       ListStoreLock](llvm::Expected<Resp> Result) {
         // The worker answered our request, fill the completion
         // lists then.
         if (Result) {
           std::lock_guard Guard(*ListStoreLock);
-          (*ListStore)[I] = Result.get();
-          (*Answered)[I] = true;
+          (*ListStoreOptional)[I] = Result.get();
         }
       });
       I++;
     }
 
-    return std::tuple{ListStore, Answered, ListStoreLock};
+    usleep(Timeout);
+
+    std::lock_guard Guard(*ListStoreLock);
+    std::vector<Resp> AnsweredResp;
+    AnsweredResp.reserve(ListStoreOptional->size());
+    // Then, filter out un-answered response
+    for (const auto &R : *ListStoreOptional) {
+      if (R.has_value())
+        AnsweredResp.push_back(*R);
+    }
+
+    return AnsweredResp;
   }
 
   //---------------------------------------------------------------------------/
