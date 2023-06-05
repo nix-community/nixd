@@ -210,6 +210,8 @@ public:
 
   void onWorkerCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
+  void onFormat(const lspserver::DocumentFormattingParams &,
+                    lspserver::Callback<std::vector<lspserver::TextEdit>>);
 };
 
 }; // namespace nixd

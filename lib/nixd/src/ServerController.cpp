@@ -137,6 +137,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
        }},
       {"definitionProvider", true},
       {"hoverProvider", true},
+      {"documentFormattingProvider", true},
       {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
 
   llvm::json::Object Result{
@@ -180,6 +181,7 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
   Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
+  Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
 
   Registry.addNotification("initialized", this, &Server::onInitialized);
 
@@ -337,4 +339,42 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   Thread.detach();
 }
 
+void Server::onFormat(
+    const lspserver::DocumentFormattingParams &Params,
+    lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
+
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    lspserver::PathRef File = Params.textDocument.uri.file();
+    auto Code = getDraft(File);
+    std::string FormattedCode;
+
+    auto To = std::make_unique<nix::Pipe>();
+    auto From = std::make_unique<nix::Pipe>();
+
+    To->create();
+    From->create();
+
+    auto ForkPID = fork();
+    if (ForkPID == -1) {
+      lspserver::elog("Cannot create child worker process for formatting");
+    } else if (ForkPID == 0) {
+      dup2(To->readSide.get(), 0);
+      dup2(From->writeSide.get(), 1);
+      char *Args[] = {"nixpkgs-fmt", nullptr};
+      execvp(Args[0], Args);
+    } else {
+      write(To->writeSide.get(), Code->c_str(), Code->size());
+
+      char Buf[1024];
+      while (read(From->readSide.get(), Buf, sizeof(Buf)))
+        FormattedCode += Buf;
+
+      std::vector<lspserver::TextEdit> Edits;
+      lspserver::TextEdit E{{.start = 0, .end = 0}, FormattedCode};
+      Edits.push_back(std::move(E));
+      Reply(Edits);
+    }
+  });
+  Thread.detach();
+}
 } // namespace nixd
