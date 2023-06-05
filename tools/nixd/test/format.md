@@ -23,10 +23,10 @@
    "method":"textDocument/didOpen",
    "params":{
       "textDocument":{
-         "uri":"file:///with.nix",
+         "uri":"file:///format.nix",
          "languageId":"nix",
          "version":1,
-         "text":"let x=1; in    x"
+         "text":"{ stdenv,\npkgs}: \n let x=1; in { y = x; }"
       }
    }
 }
@@ -36,15 +36,25 @@
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":1,
-   "method":"textDocument/formatting",
-   "params":{
-      "textDocument":{
-         "uri":"file:///with.nix"
-      },
-   }
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "textDocument/formatting",
+    "params": {
+        "textDocument": {
+            "uri": "file:///format.nix"
+        },
+        "options": {
+            "tabSize": 2,
+            "insertSpaces": true,
+            "trimTrailingWhitespace": true,
+            "insertFinalNewline": true
+        }
+    }
 }
+```
+
+```
+CHECK: "newText": "{ stdenv\n, pkgs\n}:\nlet x = 1; in { y = x; }\n",
 ```
 
 ```json
