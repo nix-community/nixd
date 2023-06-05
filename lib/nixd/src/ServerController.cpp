@@ -253,15 +253,13 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
             Workers, "nixd/ipc/textDocument/definition", Params, 2e4);
-    llvm::json::Value Response =
-        latestMatchOr<lspserver::Location, llvm::json::Value>(
-            Responses,
-            [](const lspserver::Location &Location) -> bool {
-              return Location.range.start.line != -1;
-            },
-            llvm::json::Object{});
 
-    Reply(Response);
+    Reply(latestMatchOr<lspserver::Location, llvm::json::Value>(
+        Responses,
+        [](const lspserver::Location &Location) -> bool {
+          return Location.range.start.line != -1;
+        },
+        llvm::json::Object{}));
   });
 
   Thread.detach();
