@@ -86,7 +86,7 @@ This is much similar to `compile_commands.json` in C/C++ world.
 
 #### Evaluation Depth
 
-Nix evaluator will be lazily pefrom evaluation on your specified task[^nix-evaluation-peformance].
+Nix evaluator will be lazily peform evaluation on your specified task[^nix-evaluation-peformance].
 
 [^nix-evaluation-peformance]: https://nixos.wiki/wiki/Nix_Evaluation_Performance
 
