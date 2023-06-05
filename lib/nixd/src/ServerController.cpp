@@ -102,7 +102,7 @@ void Server::updateWorkspaceVersion() {
                  .InputDispatcher = std::move(WorkerInputDispatcher)});
 
     Workers.emplace_back(std::move(WorkerProc));
-    if (Workers.size() > 5) {
+    if (Workers.size() > Config.getNumWorkers()) {
       Workers.pop_front();
     }
   }
