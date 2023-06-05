@@ -9,6 +9,7 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/URI.h"
 
+#include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
@@ -248,28 +249,9 @@ void Server::onDocumentDidChange(
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    // For all active workers, send the completion request
-    auto ListStore =
-        std::make_shared<std::vector<lspserver::Location>>(Workers.size());
-    auto ListStoreLock = std::make_shared<std::mutex>();
-
-    size_t I = 0;
-    for (const auto &Worker : Workers) {
-      auto Request = mkOutMethod<lspserver::TextDocumentPositionParams,
-                                 lspserver::Location>(
-          "nixd/ipc/textDocument/definition", Worker->OutPort.get());
-
-      Request(Params, [I, ListStore, ListStoreLock](
-                          llvm::Expected<lspserver::Location> Result) {
-        // The worker answered our request, fill the completion
-        // lists then.
-        if (Result) {
-          std::lock_guard Guard(*ListStoreLock);
-          (*ListStore)[I] = Result.get();
-        }
-      });
-      I++;
-    }
+    auto [ListStore, Answered, ListStoreLock] =
+        askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
+            Workers, "nixd/ipc/textDocument/definition", Params);
     // Wait for our client, this is currently hardcoded
     usleep(2e4);
 
@@ -279,7 +261,7 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
 
     size_t BestIdx = UINT64_MAX; // unspecified value
     for (size_t I = ListStore->size(); I-- > 0;) {
-      if (ListStore->at(I).range.start.line != -1) {
+      if (Answered->at(I) && ListStore->at(I).range.start.line != -1) {
         BestIdx = I;
         break;
       }
@@ -343,32 +325,9 @@ void Server::onCompletion(
     const lspserver::CompletionParams &Params,
     lspserver::Callback<lspserver::CompletionList> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    // For all active workers, send the completion request
-    auto ListStore = std::make_shared<std::vector<lspserver::CompletionList>>(
-        Workers.size());
-    auto ListStoreLock = std::make_shared<std::mutex>();
-
-    size_t I = 0;
-    for (const auto &Worker : Workers) {
-      auto ComplectionRequest =
-          mkOutMethod<lspserver::CompletionParams, lspserver::CompletionList>(
-              "nixd/ipc/textDocument/completion", Worker->OutPort.get());
-
-      ComplectionRequest(
-          Params, [I, ListStore, ListStoreLock](
-                      llvm::Expected<lspserver::CompletionList> Result) {
-            // The worker answered our request, fill the completion
-            // lists then.
-            if (Result) {
-              lspserver::log(
-                  "received result from our client, which has {0} item(s)",
-                  Result.get().items.size());
-              std::lock_guard Guard(*ListStoreLock);
-              (*ListStore)[I] = Result.get();
-            }
-          });
-      I++;
-    }
+    auto [ListStore, Answered, ListStoreLock] =
+        askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
+            Workers, "nixd/ipc/textDocument/completion", Params);
     // Wait for our client, this is currently hardcoded
     usleep(5e5);
 
@@ -397,28 +356,9 @@ void Server::onCompletion(
 void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
                      lspserver::Callback<lspserver::Hover> Reply) {
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    // For all active workers, send the completion request
-    auto ListStore =
-        std::make_shared<std::vector<lspserver::Hover>>(Workers.size());
-    auto ListStoreLock = std::make_shared<std::mutex>();
-
-    size_t I = 0;
-    for (const auto &Worker : Workers) {
-      auto HoverRequest =
-          mkOutMethod<lspserver::TextDocumentPositionParams, lspserver::Hover>(
-              "nixd/ipc/textDocument/hover", Worker->OutPort.get());
-
-      HoverRequest(Params, [I, ListStore, ListStoreLock](
-                               llvm::Expected<lspserver::Hover> Result) {
-        // The worker answered our request, fill the completion
-        // lists then.
-        if (Result) {
-          std::lock_guard Guard(*ListStoreLock);
-          (*ListStore)[I] = Result.get();
-        }
-      });
-      I++;
-    }
+    auto [ListStore, Answered, ListStoreLock] =
+        askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
+            Workers, "nixd/ipc/textDocument/hover", Params);
     // Wait for our client, this is currently hardcoded
     usleep(2e4);
 

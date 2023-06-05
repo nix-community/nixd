@@ -103,6 +103,33 @@ class Server : public lspserver::LSPServer {
   // Controller
   void onWorkerDiagnostic(const ipc::Diagnostics &);
 
+  template <class Arg, class Resp>
+  auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+                  llvm::StringRef IPCMethod, const Arg &Params) {
+    // For all active workers, send the completion request
+    auto ListStore = std::make_shared<std::vector<Resp>>(Workers.size());
+    auto Answered = std::make_shared<std::vector<bool>>(Workers.size());
+    auto ListStoreLock = std::make_shared<std::mutex>();
+
+    size_t I = 0;
+    for (const auto &Worker : Workers) {
+      auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
+      Request(Params, [I, ListStore, ListStoreLock,
+                       Answered](llvm::Expected<Resp> Result) {
+        // The worker answered our request, fill the completion
+        // lists then.
+        if (Result) {
+          std::lock_guard Guard(*ListStoreLock);
+          (*ListStore)[I] = Result.get();
+          (*Answered)[I] = true;
+        }
+      });
+      I++;
+    }
+
+    return std::tuple{ListStore, Answered, ListStoreLock};
+  }
+
   //---------------------------------------------------------------------------/
   // Worker members
   llvm::unique_function<void(const ipc::Diagnostics &)> WorkerDiagnostic;
