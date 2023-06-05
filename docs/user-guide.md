@@ -138,7 +138,7 @@ The default value is `std::thread::hardware_concurrency()`.
 Because nix itself does not preserve enough source locations.
 We can only know about where is the start point of an `AttrDef`, but we cannot even know where is the `=`, or where is the expression.
 
-So hover information may only works on limited nix AST nodes, that nix do not discards it.
+So hover information may only works on limited nix AST nodes, that nix does not discard it.
 
 #### Why there is no rename & code action now?
 
@@ -157,7 +157,7 @@ Actually we are waiting for [Source tree abstraction (by edolstra)](https://gith
 
 If you would like to use `nixd` in your personal flake, you can use `flake-compat` to turn your project in a "non-flake" installable.
 
-Note that `flake-compat` by edolstra will fetch a git project in nix store, that will break many things.
+Note that `flake-compat` by edolstra will fetch a git project in nix store, that will break everything just as the same case as normal flakes.
 
 So tldr, to use `nixd` in your flake project, you have to:
 
