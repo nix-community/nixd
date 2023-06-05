@@ -115,3 +115,16 @@ As for language service, we have an custom extension to nix evaluator that allow
     "evalDepth": 5
 }
 ```
+
+#### Workers
+
+Nixd evals your project concurrently.
+You can specify how many workers will be used for language tasks, e.g. parsing & evaluation.
+
+```jsonc
+{
+  "numWorkers": 10
+}
+```
+
+The default value is `std::thread::hardware_concurrency()`.
