@@ -79,7 +79,7 @@ class Server : public lspserver::LSPServer {
 
   void removeDocument(lspserver::PathRef File) {
     DraftMgr.removeDraft(File);
-    updateWorkspaceVersion();
+    updateWorkspaceVersion(File);
   }
 
   /// LSP defines file versions as numbers that increase.
@@ -115,11 +115,11 @@ public:
 
   ~Server() override { usleep(WaitWorker); }
 
-  void eval(const std::string &Fallback, int Depth);
+  void eval(lspserver::PathRef File, int Depth);
 
-  void updateWorkspaceVersion();
+  void updateWorkspaceVersion(lspserver::PathRef File);
 
-  void switchToEvaluator();
+  void switchToEvaluator(lspserver::PathRef File);
 
   void fetchConfig();
 
