@@ -3,6 +3,7 @@
 #include <llvm/Support/JSON.h>
 
 #include <list>
+#include <thread>
 
 // Extension to `lspserver`
 namespace lspserver {
@@ -42,6 +43,14 @@ struct TopLevel {
 
   /// The depth you'd like to eval *after* reached "installable" target.
   std::optional<int> evalDepth;
+
+  /// Number of workers forking
+  /// defaults to std::thread::hardware_concurrency
+  std::optional<int> numWorkers;
+
+  int getNumWorkers() {
+    return numWorkers.value_or(std::thread::hardware_concurrency());
+  }
 
   /// Get installable arguments specified in this config, fallback to file \p
   /// Fallback if 'installable' is not set.
