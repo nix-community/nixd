@@ -128,3 +128,56 @@ You can specify how many workers will be used for language tasks, e.g. parsing &
 ```
 
 The default value is `std::thread::hardware_concurrency()`.
+
+
+### FAQ
+
+
+#### Why it shows incorrect hover message on my NixOS configuration?
+
+Because nix itself does not preserve enough source locations.
+We can only know about where is the start point of an `AttrDef`, but we cannot even know where is the `=`, or where is the expression.
+
+So hover information may only works on limited nix AST nodes, that nix do not discards it.
+
+#### Why there is no rename & code action now?
+
+Actually we do not know anything about the **ranges**.
+Because nix itself has only one `PosIdx` for each expression, and that is the "range.begin", but how about the "range.end"?
+
+We do not know.
+
+#### How to use nixd in my *flake*?
+
+Nix flakes are now hardcoded being evaluated in your store, e.g. `/nix/store`.
+That is, we cannot hack caches by injecting our own data structre.
+So basically language callbacks (i.e. dynamic bindings & values) are not available.
+
+Actually we are waiting for [Source tree abstraction (by edolstra)](https://github.com/NixOS/nix/pull/6530), to handle this issue.
+
+If you would like to use `nixd` in your personal flake, you can use `flake-compat` to turn your project in a "non-flake" installable.
+
+Note that `flake-compat` by edolstra will fetch a git project in nix store, that will break many things.
+
+So tldr, to use `nixd` in your flake project, you have to:
+
+1. Turn your project into a legacy one, by using `flake-compat`
+2. Do not use git repository, if you fetched `edolstra/flake-compat`.
+   Also, you can fork `flake-compat` to make git working though.
+
+Example:
+
+```json
+{
+    "nixd": {
+        "installable": {
+            "args": [
+                "-f",
+                "default.nix"
+            ],
+            "installable": "devShells.x86_64-linux.llvm"
+        },
+        "evalDepth": 3
+    }
+}
+```
