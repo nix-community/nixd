@@ -315,11 +315,9 @@ void Server::onCompletion(
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
             Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
     Reply(bestMatchOr<lspserver::CompletionList>(
-        Responses,
-        [](const lspserver::CompletionList &L) -> uint64_t {
+        Responses, [](const lspserver::CompletionList &L) -> uint64_t {
           return L.items.size() + 1;
-        },
-        lspserver::CompletionList{}));
+        }));
   });
   Thread.detach();
 }
@@ -331,11 +329,9 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
             Workers, "nixd/ipc/textDocument/hover", Params, 2e4);
     Reply(latestMatchOr<lspserver::Hover>(
-        Responses,
-        [](const lspserver::Hover &H) {
+        Responses, [](const lspserver::Hover &H) {
           return H.contents.value.length() != 0;
-        },
-        lspserver::Hover{}));
+        }));
   });
 
   Thread.detach();

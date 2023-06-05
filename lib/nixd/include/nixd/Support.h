@@ -2,9 +2,9 @@
 
 #include <boost/range/adaptor/reversed.hpp>
 
-template <class T, class U>
+template <class T, class U = T>
 auto latestMatchOr(const std::vector<T> &Container,
-                   llvm::unique_function<bool(T)> Metric, const U &Or) -> U {
+                   llvm::unique_function<bool(T)> Metric, U Or = U{}) -> U {
   for (const auto &R : boost::adaptors::reverse(Container)) {
     if (Metric(R))
       return U(R);
@@ -12,9 +12,9 @@ auto latestMatchOr(const std::vector<T> &Container,
   return Or;
 }
 
-template <class T, class U>
+template <class T, class U = T>
 static auto bestMatchOr(const std::vector<T> &Container,
-                        llvm::unique_function<uint64_t(T)> Metric, const U &Or,
+                        llvm::unique_function<uint64_t(T)> Metric, U Or = U{},
                         bool UpdateEqual = true) -> U {
   auto BestIt = Container.end();
   auto It = Container.begin();
