@@ -28,6 +28,12 @@ Some notable features provided by linking with the Nix library include:
 
 ## Features Preview
 
+<details><summary>Write a package using nixd</summary>
+
+![package](/docs/images/8d106acc-6b1a-4062-9dc7-175b09751fd0.gif)
+
+</details>
+
 <details><summary>Handle evaluations exactly same as nix evaluator</summary>
 
 ![infinte-recursion](docs/images/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
@@ -62,6 +68,13 @@ And diagnostic:
 ![complete-with](docs/images/ae629b9f-95cb-48df-aa1d-4f5f94c3c06a.png)
 
 </details>
+
+## Resources
+
+- [User Guide](docs/user-guide.md)
+- [Developers' Manual](docs/dev.md) (internal design, contributing):
+- Project matrix room: https://matrix.to/#/#nixd:matrix.org
+
 
 ## Installation
 
@@ -102,7 +115,3 @@ Used for dumping internal data structures in nix parser.
 
 Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
 
-## Resources
-
-- Developers' Manual (internal design, contributing): [Developers' Manual](docs/dev.md)
-- Project matrix room: https://matrix.to/#/#nixd:matrix.org
