@@ -66,7 +66,7 @@ CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
   return Result;
 }
 
-void Server::switchToEvaluator() {
+void Server::switchToEvaluator(lspserver::PathRef File) {
   assert(Role == ServerRole::Controller &&
          "Must switch from controller's fork!");
   Role = ServerRole::Evaluator;
@@ -86,7 +86,7 @@ void Server::switchToEvaluator() {
 
   WorkerDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
 
-  eval("", Config.evalDepth.value_or(10));
+  eval(File, Config.evalDepth.value_or(10));
 }
 
 lspserver::PublishDiagnosticsParams
@@ -101,12 +101,12 @@ Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
   Notification.version = Version;
   return Notification;
 }
-void Server::eval(const std::string &Fallback, int Depth = 0) {
+void Server::eval(lspserver::PathRef File, int Depth = 0) {
   assert(Role != ServerRole::Controller &&
          "eval must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
 
-  auto [Args, Installable] = Config.getInstallable(Fallback);
+  auto [Args, Installable] = Config.getInstallable("");
 
   Session->parseArgs(Args);
 
@@ -119,18 +119,16 @@ void Server::eval(const std::string &Fallback, int Depth = 0) {
                      decltype(DraftMgr)::decodeVersion(ErrInfo.Version)));
   }
   Diagnostics.WorkspaceVersion = WorkspaceVersion;
-
   WorkerDiagnostic(Diagnostics);
-
   try {
     Session->eval(Installable, Depth);
     lspserver::log("evaluation done on worspace version: {0}",
                    WorkspaceVersion);
   } catch (nix::BaseError &BE) {
-    lspserver::elog("evaluation error on workspace version: {0}, reason: {1}",
-                    WorkspaceVersion, stripANSI(BE.what()));
+    Diagnostics.Params.emplace_back(diagNixError(File, BE, std::nullopt));
   } catch (...) {
   }
+  WorkerDiagnostic(Diagnostics);
   IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
                                            std::move(Session));
 }

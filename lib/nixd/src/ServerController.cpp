@@ -45,7 +45,7 @@ configuration::TopLevel::getInstallable(std::string Fallback) const {
                     std::string{""}};
 }
 
-void Server::updateWorkspaceVersion() {
+void Server::updateWorkspaceVersion(lspserver::PathRef File) {
   assert(Role == ServerRole::Controller &&
          "Workspace updates must happen in the Controller.");
   WorkspaceVersion++;
@@ -71,7 +71,7 @@ void Server::updateWorkspaceVersion() {
     dup2(To->readSide.get(), 0);
     dup2(From->writeSide.get(), 1);
 
-    switchToEvaluator();
+    switchToEvaluator(File);
 
   } else {
 
@@ -120,7 +120,7 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
   PublishDiagnostic(Notification);
 
   DraftMgr.addDraft(File, Version, Contents);
-  updateWorkspaceVersion();
+  updateWorkspaceVersion(File);
 }
 
 void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
