@@ -34,6 +34,12 @@ Some notable features provided by linking with the Nix library include:
 
 </details>
 
+<details><summary>Native cross-file analysis</summary>
+
+![package](docs/images/3e4fc99c-7a20-42be-a337-d1746239c731.png)
+
+</details>
+
 <details><summary>Handle evaluations exactly same as nix evaluator</summary>
 
 ![infinte-recursion](docs/images/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
