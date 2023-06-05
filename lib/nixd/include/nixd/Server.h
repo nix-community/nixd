@@ -33,19 +33,8 @@ struct CompletionHelper {
 
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
-
+public:
   using WorkspaceVersionTy = ipc::WorkspaceVersionTy;
-
-  int WaitWorker = 0;
-
-  enum class ServerRole {
-    /// Parent process of the server
-    Controller,
-    /// Child process
-    Evaluator
-  } Role = ServerRole::Controller;
-
-  WorkspaceVersionTy WorkspaceVersion = 1;
 
   struct Proc {
     std::unique_ptr<nix::Pipe> ToPipe;
@@ -64,6 +53,20 @@ class Server : public lspserver::LSPServer {
       return FromPipe->readSide.get();
     };
   };
+
+  enum class ServerRole {
+    /// Parent process of the server
+    Controller,
+    /// Child process
+    Evaluator
+  };
+
+private:
+  int WaitWorker = 0;
+
+  ServerRole Role = ServerRole::Controller;
+
+  WorkspaceVersionTy WorkspaceVersion = 1;
 
   std::deque<std::unique_ptr<Proc>> Workers;
 
