@@ -123,7 +123,7 @@ You can specify how many workers will be used for language tasks, e.g. parsing &
 
 ```jsonc
 {
-  "numWorkers": 10
+    "numWorkers": 10
 }
 ```
 
