@@ -28,6 +28,12 @@ Some notable features provided by linking with the Nix library include:
 
 ## Features Preview
 
+<details><summary>Write a package using nixd</summary>
+
+![package](/docs/images/8d106acc-6b1a-4062-9dc7-175b09751fd0.gif)
+
+</details>
+
 <details><summary>Handle evaluations exactly same as nix evaluator</summary>
 
 ![infinte-recursion](docs/images/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
@@ -63,34 +69,11 @@ And diagnostic:
 
 </details>
 
-## Installation
+## Resources
 
-### Build the project
-
-#### nix-build
-``` sh
-nix-build --expr 'with import <nixpkgs> { }; callPackage ./. { }'
-```
-
-#### Nix Flakes
-``` sh
-nix build -L #.
-```
-
-#### Development
-
-Here are a short snippet used in our CI, should works fine and reproducible in your development environment.
-
-```
-meson setup build/
-meson compile -C build
-meson test -C build
-```
-
-### Editors
-
-We do not provide a custom editor extension or plugins now, configuring nixd like other nix lsp should work out of box.
-
+- [User Guide](docs/user-guide.md)
+- [Developers' Manual](docs/dev.md) (internal design, contributing):
+- Project matrix room: https://matrix.to/#/#nixd:matrix.org
 
 ## Tooling
 
@@ -102,7 +85,3 @@ Used for dumping internal data structures in nix parser.
 
 Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
 
-## Resources
-
-- Developers' Manual (internal design, contributing): [Developers' Manual](docs/dev.md)
-- Project matrix room: https://matrix.to/#/#nixd:matrix.org
