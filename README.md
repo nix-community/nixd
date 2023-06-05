@@ -75,36 +75,6 @@ And diagnostic:
 - [Developers' Manual](docs/dev.md) (internal design, contributing):
 - Project matrix room: https://matrix.to/#/#nixd:matrix.org
 
-
-## Installation
-
-### Build the project
-
-#### nix-build
-``` sh
-nix-build --expr 'with import <nixpkgs> { }; callPackage ./. { }'
-```
-
-#### Nix Flakes
-``` sh
-nix build -L #.
-```
-
-#### Development
-
-Here are a short snippet used in our CI, should works fine and reproducible in your development environment.
-
-```
-meson setup build/
-meson compile -C build
-meson test -C build
-```
-
-### Editors
-
-We do not provide a custom editor extension or plugins now, configuring nixd like other nix lsp should work out of box.
-
-
 ## Tooling
 
 We provide some extra tools based on our codebase.

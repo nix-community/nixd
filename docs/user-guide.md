@@ -37,6 +37,20 @@ So, if you would like to use `nixd` in your flake:
 Note that please do NOT override nixpkgs revision for nixd inputs.
 The source code have tested on specific version on NixOS/nix, which may not work at your version.
 
+### Build the project from source
+
+This is a guide for build the project from git source.
+
+#### nix-build
+``` sh
+nix-build --expr 'with import <nixpkgs> { }; callPackage ./. { }'
+```
+
+#### Nix Flakes
+``` sh
+nix build -L .#
+```
+
 ### Configuration
 
 
