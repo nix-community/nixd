@@ -1,4 +1,5 @@
 #include "nixd/AST.h"
+#include "canon-path.hh"
 #include "nixd/CallbackExpr.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
@@ -27,7 +28,8 @@ EvalAST::EvalAST(nix::Expr *Root) : Cxt(ASTContext()) {
 
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
   nix::Value DummyValue{};
-  State.cacheFile(Path.str(), Path.str(), Root, DummyValue);
+  State.cacheFile(nix::CanonPath(Path.str()), nix::CanonPath(Path.str()), Root,
+                  DummyValue);
 }
 
 nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {

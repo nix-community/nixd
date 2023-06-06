@@ -1,5 +1,6 @@
 #include "nixd/Diagnostic.h"
 
+#include "canon-path.hh"
 #include "nixutil.h"
 
 #include <gtest/gtest.h>
@@ -33,7 +34,7 @@ TEST(Diagnostic, ConstructFromParseError) {
   DiagnosticTest T;
   auto State = T.getDummyStore();
   try {
-    State->parseExprFromString(ParseErrorNix, "/");
+    State->parseExprFromString(ParseErrorNix, nix::CanonPath("/"));
   } catch (const nix::ParseError &PE) {
     auto Diagnostics = mkDiagnostics(PE);
     ASSERT_TRUE(Diagnostics.size() != 0);

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "canon-path.hh"
 #include "lspserver/Protocol.h"
 
 #include "nixd/AST.h"
@@ -15,7 +16,7 @@ TEST(AST, lookupPosition) {
 
   InitNix INix;
   auto State = INix.getDummyState();
-  auto *RawExpr = State->parseExprFromString(NixSrc, "/");
+  auto *RawExpr = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
   auto AST = EvalAST(RawExpr);
 
   AST.preparePositionLookup(*State);

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "canon-path.hh"
 #include "nixutil.h"
 
 #include "nixd/CallbackExpr.h"
@@ -36,7 +37,7 @@ a
   } Visitor;
 
   auto State = Inix.getDummyState();
-  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+  auto *ASTRoot = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
   ASSERT_TRUE(Visitor.traverseExpr(ASTRoot));
   ASSERT_TRUE(Visitor.VisitedWith);
   ASSERT_TRUE(Visitor.VisitedLet);
@@ -88,7 +89,7 @@ rec {
   } Visitor;
 
   auto State = N.getDummyState();
-  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+  auto *ASTRoot = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
   ASSERT_TRUE(Visitor.traverseExpr(ASTRoot));
 #define NIX_EXPR(EXPR) ASSERT_TRUE(Visitor.Visited##EXPR);
 #include "nixd/NixASTNodes.inc"
@@ -144,7 +145,7 @@ rec {
       *Cxt,
       [](const nix::Expr *, const nix::EvalState &, const nix::Env &,
          const nix::Value &) {},
-      MyState->parseExprFromString(NixSrc, "/"));
+      MyState->parseExprFromString(NixSrc, nix::CanonPath("/")));
   Visitor.traverseExpr(CallbackExprRoot);
 }
 
@@ -152,7 +153,7 @@ void mkLookupTest(const char *NixSrc, uint32_t Line, uint32_t Column) {
   InitNix Inix;
 
   auto State = Inix.getDummyState();
-  auto *ASTRoot = State->parseExprFromString(NixSrc, "/");
+  auto *ASTRoot = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
 
   auto PMap = getParentMap(ASTRoot);
 
