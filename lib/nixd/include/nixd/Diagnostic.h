@@ -1,7 +1,7 @@
 #pragma once
 #include "lspserver/Protocol.h"
 
-#include <nixexpr.hh>
+#include <nix/nixexpr.hh>
 
 namespace nixd {
 

@@ -173,12 +173,18 @@ public:
   diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
                std::optional<int64_t> Version);
 
+  //---------------------------------------------------------------------------/
+  // Life Cycle
+
   void onInitialize(const lspserver::InitializeParams &,
                     lspserver::Callback<llvm::json::Value>);
 
   void onInitialized(const lspserver::InitializedParams &Params) {
     fetchConfig();
   }
+
+  //---------------------------------------------------------------------------/
+  // Text Document Synchronization
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
@@ -187,33 +193,45 @@ public:
 
   void onDocumentDidClose(const lspserver::DidCloseTextDocumentParams &Params);
 
+  //---------------------------------------------------------------------------/
+  // Language Features
+
   void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
                                    std::string Content,
                                    std::optional<int64_t> LSPVersion);
+
+  // Controller Methods
+
+  void onDefinition(const lspserver::TextDocumentPositionParams &,
+                    lspserver::Callback<llvm::json::Value>);
+
+  void onHover(const lspserver::TextDocumentPositionParams &,
+               lspserver::Callback<lspserver::Hover>);
+
+  void onCompletion(const lspserver::CompletionParams &,
+                    lspserver::Callback<lspserver::CompletionList>);
+
+  void onFormat(const lspserver::DocumentFormattingParams &,
+                lspserver::Callback<std::vector<lspserver::TextEdit>>);
+
+  // Worker
+
+  void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
+                          lspserver::Callback<lspserver::Location>);
+
+  void onWorkerHover(const lspserver::TextDocumentPositionParams &,
+                     lspserver::Callback<llvm::json::Value>);
+
+  void onWorkerCompletion(const lspserver::CompletionParams &,
+                          lspserver::Callback<llvm::json::Value>);
+
+  //---------------------------------------------------------------------------/
+  // Workspace Features
 
   void onWorkspaceDidChangeConfiguration(
       const lspserver::DidChangeConfigurationParams &) {
     fetchConfig();
   }
-
-  void onDefinition(const lspserver::TextDocumentPositionParams &,
-                    lspserver::Callback<llvm::json::Value>);
-
-  void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
-                          lspserver::Callback<lspserver::Location>);
-
-  void onHover(const lspserver::TextDocumentPositionParams &,
-               lspserver::Callback<lspserver::Hover>);
-  void onWorkerHover(const lspserver::TextDocumentPositionParams &,
-                     lspserver::Callback<llvm::json::Value>);
-
-  void onCompletion(const lspserver::CompletionParams &,
-                    lspserver::Callback<lspserver::CompletionList>);
-
-  void onWorkerCompletion(const lspserver::CompletionParams &,
-                          lspserver::Callback<llvm::json::Value>);
-  void onFormat(const lspserver::DocumentFormattingParams &,
-                lspserver::Callback<std::vector<lspserver::TextEdit>>);
 };
 
 }; // namespace nixd

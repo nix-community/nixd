@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Expr.h"
-#include "eval.hh"
+
+#include <nix/eval.hh>
+
 #include <memory>
 
 namespace nixd {

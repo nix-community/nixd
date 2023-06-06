@@ -1,5 +1,6 @@
 #include "nixd/Expr.h"
-#include "nixexpr.hh"
+
+#include <nix/nixexpr.hh>
 
 namespace nixd {
 
@@ -13,7 +14,7 @@ getParentMap(const nix::Expr *Root) {
 
     bool traverseExpr(const nix::Expr *E) {
       CapturedRet->insert({E, ParentExpr});
-      auto OldParent = ParentExpr;
+      const auto *OldParent = ParentExpr;
       ParentExpr = E; // Set the parent into the visitor, it should be the
                       // parent when we are traversing child nodes.
       if (!RecursiveASTVisitor<VisitorClass>::traverseExpr(E))

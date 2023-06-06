@@ -12,6 +12,7 @@
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
 #include <nix/util.hh>
+
 #include <stdexcept>
 
 namespace nixd {
@@ -101,6 +102,7 @@ Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
   Notification.version = Version;
   return Notification;
 }
+
 void Server::eval(lspserver::PathRef File, int Depth = 0) {
   assert(Role != ServerRole::Controller &&
          "eval must be called in child workers.");
@@ -172,6 +174,43 @@ void Server::onWorkerDefinition(
   }
 }
 
+void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
+                           lspserver::Callback<llvm::json::Value> Reply) {
+  using namespace lspserver;
+  std::string HoverFile = Paras.textDocument.uri.file().str();
+
+  struct ReplyRAII {
+    decltype(Reply) R;
+    Hover Response;
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(Response); };
+  } RR(std::move(Reply));
+
+  try {
+
+    auto AST = IER->Forest.at(HoverFile);
+
+    auto *Node = AST->lookupPosition(Paras.position);
+    const auto *ExprName = getExprName(Node);
+    std::string HoverText;
+    RR.Response.contents.kind = MarkupKind::Markdown;
+    try {
+      auto Value = AST->getValue(Node);
+      std::stringstream Res{};
+      Value.print(IER->Session->getState()->symbols, Res);
+      HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
+    } catch (const std::out_of_range &) {
+      // No such value, just reply dummy item
+      std::stringstream NodeOut;
+      Node->show(IER->Session->getState()->symbols, NodeOut);
+      lspserver::vlog("no associated value on node {0}!", NodeOut.str());
+      HoverText = llvm::formatv("`{0}`", ExprName);
+    }
+    RR.Response.contents.value = HoverText;
+  } catch (std::out_of_range &) {
+  }
+}
+
 void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
                                 lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
@@ -220,43 +259,6 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
       }
     }
     RR.Response.items = Items;
-  } catch (std::out_of_range &) {
-  }
-}
-
-void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
-                           lspserver::Callback<llvm::json::Value> Reply) {
-  using namespace lspserver;
-  std::string HoverFile = Paras.textDocument.uri.file().str();
-
-  struct ReplyRAII {
-    decltype(Reply) R;
-    Hover Response;
-    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
-    ~ReplyRAII() { R(Response); };
-  } RR(std::move(Reply));
-
-  try {
-
-    auto AST = IER->Forest.at(HoverFile);
-
-    auto *Node = AST->lookupPosition(Paras.position);
-    const auto *ExprName = getExprName(Node);
-    std::string HoverText;
-    RR.Response.contents.kind = MarkupKind::Markdown;
-    try {
-      auto Value = AST->getValue(Node);
-      std::stringstream Res{};
-      Value.print(IER->Session->getState()->symbols, Res);
-      HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
-    } catch (const std::out_of_range &) {
-      // No such value, just reply dummy item
-      std::stringstream NodeOut;
-      Node->show(IER->Session->getState()->symbols, NodeOut);
-      lspserver::vlog("no associated value on node {0}!", NodeOut.str());
-      HoverText = llvm::formatv("`{0}`", ExprName);
-    }
-    RR.Response.contents.value = HoverText;
   } catch (std::out_of_range &) {
   }
 }
