@@ -128,28 +128,6 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
   updateWorkspaceVersion(File);
 }
 
-void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
-                          lspserver::Callback<llvm::json::Value> Reply) {
-  ClientCaps = InitializeParams.capabilities;
-  llvm::json::Object ServerCaps{
-      {"textDocumentSync",
-       llvm::json::Object{
-           {"openClose", true},
-           {"change", (int)lspserver::TextDocumentSyncKind::Incremental},
-           {"save", true},
-       }},
-      {"definitionProvider", true},
-      {"hoverProvider", true},
-      {"documentFormattingProvider", true},
-      {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
-
-  llvm::json::Object Result{
-      {{"serverInfo",
-        llvm::json::Object{{"name", "nixd"}, {"version", "0.0.0"}}},
-       {"capabilities", std::move(ServerCaps)}}};
-  Reply(std::move(Result));
-}
-
 void Server::fetchConfig() {
   if (ClientCaps.WorkspaceConfiguration) {
     WorkspaceConfiguration(
@@ -222,6 +200,34 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
                      &Server::onWorkerDefinition);
 }
 
+//-----------------------------------------------------------------------------/
+// Life Cycle
+
+void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
+                          lspserver::Callback<llvm::json::Value> Reply) {
+  ClientCaps = InitializeParams.capabilities;
+  llvm::json::Object ServerCaps{
+      {"textDocumentSync",
+       llvm::json::Object{
+           {"openClose", true},
+           {"change", (int)lspserver::TextDocumentSyncKind::Incremental},
+           {"save", true},
+       }},
+      {"definitionProvider", true},
+      {"hoverProvider", true},
+      {"documentFormattingProvider", true},
+      {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
+
+  llvm::json::Object Result{
+      {{"serverInfo",
+        llvm::json::Object{{"name", "nixd"}, {"version", "0.0.0"}}},
+       {"capabilities", std::move(ServerCaps)}}};
+  Reply(std::move(Result));
+}
+
+//-----------------------------------------------------------------------------/
+// Text Document Synchronization
+
 void Server::onDocumentDidOpen(
     const lspserver::DidOpenTextDocumentParams &Params) {
   lspserver::PathRef File = Params.textDocument.uri.file();
@@ -262,7 +268,7 @@ void Server::onDocumentDidClose(
 }
 
 //-----------------------------------------------------------------------------/
-// Location Search: goto definition, declaration, ...
+// Language Features
 
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
@@ -282,8 +288,35 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
   Thread.detach();
 }
 
-//-----------------------------------------------------------------------------/
-// Diagnostics
+void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
+                     lspserver::Callback<lspserver::Hover> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    auto Responses =
+        askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
+            Workers, "nixd/ipc/textDocument/hover", Params, 2e4);
+    Reply(latestMatchOr<lspserver::Hover>(
+        Responses, [](const lspserver::Hover &H) {
+          return H.contents.value.length() != 0;
+        }));
+  });
+
+  Thread.detach();
+}
+
+void Server::onCompletion(
+    const lspserver::CompletionParams &Params,
+    lspserver::Callback<lspserver::CompletionList> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    auto Responses =
+        askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
+            Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
+    Reply(bestMatchOr<lspserver::CompletionList>(
+        Responses, [](const lspserver::CompletionList &L) -> uint64_t {
+          return L.items.size() + 1;
+        }));
+  });
+  Thread.detach();
+}
 
 void Server::clearDiagnostic(lspserver::PathRef Path) {
   lspserver::URIForFile Uri = lspserver::URIForFile::canonicalize(Path, Path);
@@ -319,39 +352,6 @@ void Server::onWorkerDiagnostic(const ipc::Diagnostics &Diag) {
       PublishDiagnostic(Diag);
     }
   }
-}
-
-//-----------------------------------------------------------------------------/
-// Completion
-
-void Server::onCompletion(
-    const lspserver::CompletionParams &Params,
-    lspserver::Callback<lspserver::CompletionList> Reply) {
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
-            Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
-    Reply(bestMatchOr<lspserver::CompletionList>(
-        Responses, [](const lspserver::CompletionList &L) -> uint64_t {
-          return L.items.size() + 1;
-        }));
-  });
-  Thread.detach();
-}
-
-void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
-                     lspserver::Callback<lspserver::Hover> Reply) {
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
-            Workers, "nixd/ipc/textDocument/hover", Params, 2e4);
-    Reply(latestMatchOr<lspserver::Hover>(
-        Responses, [](const lspserver::Hover &H) {
-          return H.contents.value.length() != 0;
-        }));
-  });
-
-  Thread.detach();
 }
 
 void Server::onFormat(
