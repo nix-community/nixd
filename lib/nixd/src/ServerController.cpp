@@ -349,35 +349,35 @@ void Server::onFormat(
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
     lspserver::PathRef File = Params.textDocument.uri.file();
     auto Code = *getDraft(File);
-    auto FormatFuture =
-        std::async([Code = std::move(Code)]() -> std::optional<std::string> {
-          try {
-            namespace bp = boost::process;
-            bp::opstream To;
-            bp::ipstream From;
-            bp::child Fmt("nixpkgs-fmt", bp::std_out > From, bp::std_in < To);
+    auto FormatFuture = std::async([Code = std::move(Code),
+                                    this]() -> std::optional<std::string> {
+      try {
+        namespace bp = boost::process;
+        bp::opstream To;
+        bp::ipstream From;
+        bp::child Fmt(Config.getFormatCommand(), bp::std_out > From,
+                      bp::std_in < To);
 
-            To << Code;
-            To.flush();
+        To << Code;
+        To.flush();
 
-            To.pipe().close();
+        To.pipe().close();
 
-            std::string FormattedCode;
-            while (From.good() && !From.eof()) {
-              std::string Buf;
-              std::getline(From, Buf, {});
-              FormattedCode += Buf;
-            }
-            Fmt.wait();
-            return FormattedCode;
-          } catch (std::exception &E) {
-            lspserver::elog(
-                "cannot summon external formatting command, reason: {0}",
-                E.what());
-          } catch (...) {
-          }
-          return std::nullopt;
-        });
+        std::string FormattedCode;
+        while (From.good() && !From.eof()) {
+          std::string Buf;
+          std::getline(From, Buf, {});
+          FormattedCode += Buf;
+        }
+        Fmt.wait();
+        return FormattedCode;
+      } catch (std::exception &E) {
+        lspserver::elog(
+            "cannot summon external formatting command, reason: {0}", E.what());
+      } catch (...) {
+      }
+      return std::nullopt;
+    });
 
     /// Wait for the external command, if this timeout, something went wrong
     auto Status = FormatFuture.wait_for(std::chrono::seconds(1));

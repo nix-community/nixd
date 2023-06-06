@@ -11,7 +11,8 @@ bool fromJSON(const Value &Params, TopLevel &R, Path P) {
   auto X = PA->front();
   ObjectMapper O(X, P);
   return O && O.map("installable", R.installable) &&
-         O.map("evalDepth", R.evalDepth) && O.map("numWorkers", R.numWorkers);
+         O.map("evalDepth", R.evalDepth) && O.map("numWorkers", R.numWorkers) &&
+         O.map("formatCommand", R.formatCommand);
 }
 
 bool fromJSON(const Value &Params, std::list<std::string> &R, Path P) {

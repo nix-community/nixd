@@ -48,6 +48,14 @@ struct TopLevel {
   /// defaults to std::thread::hardware_concurrency
   std::optional<int> numWorkers;
 
+  /// External command for formatting
+  /// defauls to "nixpkgs-fmt"
+  std::optional<std::string> formatCommand;
+
+  [[nodiscard]] std::string getFormatCommand() const {
+    return formatCommand.value_or("nixpkgs-fmt");
+  }
+
   [[nodiscard]] int getEvalDepth() const { return evalDepth.value_or(0); }
 
   int getNumWorkers() {
