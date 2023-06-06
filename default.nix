@@ -5,7 +5,7 @@
 , pkg-config
 , lit
 , nixUnstable
-, boost
+, boost182
 , gtest
 , llvmPackages_16
 , lib
@@ -35,7 +35,7 @@ stdenv.mkDerivation {
     lit
 
     nixUnstable.dev
-    boost.dev
+    boost182.dev
     gtest.dev
     llvmPackages.llvm.dev
     llvmPackages.clang
@@ -44,6 +44,7 @@ stdenv.mkDerivation {
   buildInputs = [
     nixUnstable
     gtest
+    boost182.dev
 
     llvmPackages.llvm.lib
   ];
