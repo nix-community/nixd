@@ -34,6 +34,6 @@ void forceValueDepth(EvalState &State, Value &v, int depth) {
     }
   };
 
-  recurse(v, depth - 1);
+  recurse(v, depth);
 }
 } // namespace nix
