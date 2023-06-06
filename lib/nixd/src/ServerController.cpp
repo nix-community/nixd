@@ -17,6 +17,9 @@
 #include <llvm/Support/ScopedPrinter.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <boost/iostreams/stream.hpp>
+#include <boost/process.hpp>
+
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -137,6 +140,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
        }},
       {"definitionProvider", true},
       {"hoverProvider", true},
+      {"documentFormattingProvider", true},
       {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
 
   llvm::json::Object Result{
@@ -180,6 +184,7 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
   Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
+  Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
 
   Registry.addNotification("initialized", this, &Server::onInitialized);
 
@@ -337,4 +342,57 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   Thread.detach();
 }
 
+void Server::onFormat(
+    const lspserver::DocumentFormattingParams &Params,
+    lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
+
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    lspserver::PathRef File = Params.textDocument.uri.file();
+    auto Code = *getDraft(File);
+    auto FormatFuture =
+        std::async([Code = std::move(Code)]() -> std::optional<std::string> {
+          try {
+            namespace bp = boost::process;
+            bp::opstream To;
+            bp::ipstream From;
+            bp::child Fmt("nixpkgs-fmt", bp::std_out > From, bp::std_in < To);
+
+            To << Code;
+            To.flush();
+
+            To.pipe().close();
+
+            std::string FormattedCode;
+            while (From.good() && !From.eof()) {
+              std::string Buf;
+              std::getline(From, Buf, {});
+              FormattedCode += Buf;
+            }
+            Fmt.wait();
+            return FormattedCode;
+          } catch (std::exception &E) {
+            lspserver::elog(
+                "cannot summon external formatting command, reason: {0}",
+                E.what());
+          } catch (...) {
+          }
+          return std::nullopt;
+        });
+
+    /// Wait for the external command, if this timeout, something went wrong
+    auto Status = FormatFuture.wait_for(std::chrono::seconds(1));
+    std::optional<std::string> FormattedCode;
+    using lspserver::TextEdit;
+    if (Status == std::future_status::ready)
+      FormattedCode = FormatFuture.get();
+
+    if (FormattedCode.has_value()) {
+      TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, FormattedCode.value()};
+      Reply(std::vector{E});
+    } else {
+      Reply(lspserver::error("no formatting response received"));
+    }
+  });
+  Thread.detach();
+}
 } // namespace nixd
