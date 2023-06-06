@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 
 namespace nixd {
 
@@ -59,6 +60,14 @@ public:
     Controller,
     /// Child process
     Evaluator
+  };
+
+  template <class ReplyTy> struct ReplyRAII {
+    lspserver::Callback<ReplyTy> R;
+    llvm::Expected<ReplyTy> Response =
+        lspserver::error("no response available");
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(std::move(Response)); };
   };
 
 private:
@@ -126,6 +135,9 @@ private:
         if (Result) {
           std::lock_guard Guard(*ListStoreLock);
           (*ListStoreOptional)[I] = Result.get();
+        } else {
+          lspserver::elog("worker {0} reported error: {1}", I,
+                          Result.takeError());
         }
       });
       I++;
@@ -156,6 +168,20 @@ public:
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
   ~Server() override { usleep(WaitWorker); }
+
+  template <class ReplyTy>
+  void
+  withAST(const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
+          llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
+              Action) {
+    try {
+      auto AST = IER->Forest.at(RequestedFile);
+      Action(AST, std::move(RR));
+    } catch (std::out_of_range &E) {
+      RR.Response = lspserver::error("no AST available on requested file {0}",
+                                     RequestedFile);
+    }
+  }
 
   void eval(lspserver::PathRef File, int Depth);
 
