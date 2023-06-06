@@ -349,30 +349,49 @@ void Server::onFormat(
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
     lspserver::PathRef File = Params.textDocument.uri.file();
     auto Code = *getDraft(File);
-    std::string FormattedCode;
+    auto FormatFuture =
+        std::async([Code = std::move(Code)]() -> std::optional<std::string> {
+          try {
+            namespace bp = boost::process;
+            bp::opstream To;
+            bp::ipstream From;
+            bp::child Fmt("nixpkgs-fmt", bp::std_out > From, bp::std_in < To);
 
-    namespace bp = boost::process;
+            To << Code;
+            To.flush();
 
-    bp::opstream To;
-    bp::ipstream From;
+            To.pipe().close();
 
-    bp::child Fmt("nixpkgs-fmt", bp::std_out > From, bp::std_in < To);
+            std::string FormattedCode;
+            while (From.good() && !From.eof()) {
+              std::string Buf;
+              std::getline(From, Buf, {});
+              FormattedCode += Buf;
+            }
+            Fmt.wait();
+            return FormattedCode;
+          } catch (std::exception &E) {
+            lspserver::elog(
+                "cannot summon external formatting command, reason: {0}",
+                E.what());
+          } catch (...) {
+          }
+          return std::nullopt;
+        });
 
-    To << Code;
-    To.flush();
+    /// Wait for the external command, if this timeout, something went wrong
+    auto Status = FormatFuture.wait_for(std::chrono::seconds(1));
+    std::optional<std::string> FormattedCode;
+    using lspserver::TextEdit;
+    if (Status == std::future_status::ready)
+      FormattedCode = FormatFuture.get();
 
-    To.pipe().close();
-
-    while (From.good() && !From.eof()) {
-      std::string Buf;
-      std::getline(From, Buf, {});
-      FormattedCode += Buf;
+    if (FormattedCode.has_value()) {
+      TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, FormattedCode.value()};
+      Reply(std::vector{E});
+    } else {
+      Reply(lspserver::error("no formatting response received"));
     }
-    Fmt.wait();
-
-    lspserver::TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, FormattedCode};
-
-    Reply(std::vector{E});
   });
   Thread.detach();
 }
