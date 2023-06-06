@@ -179,13 +179,8 @@ Server::getDraft(lspserver::PathRef File) const {
 Server::Server(std::unique_ptr<lspserver::InboundPort> In,
                std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker)
     : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker) {
-
+  // Life Cycle
   Registry.addMethod("initialize", this, &Server::onInitialize);
-  Registry.addMethod("textDocument/hover", this, &Server::onHover);
-  Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
-  Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
-  Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
-
   Registry.addNotification("initialized", this, &Server::onInitialized);
 
   // Text Document Synchronization
@@ -197,11 +192,18 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addNotification("textDocument/didClose", this,
                            &Server::onDocumentDidClose);
 
+  // Language Features
+  Registry.addMethod("textDocument/hover", this, &Server::onHover);
+  Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
+  Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
+  Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
+
+  PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
+      "textDocument/publishDiagnostics");
+
   // Workspace
   Registry.addNotification("workspace/didChangeConfiguration", this,
                            &Server::onWorkspaceDidChangeConfiguration);
-  PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
-      "textDocument/publishDiagnostics");
   WorkspaceConfiguration =
       mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
           "workspace/configuration");
