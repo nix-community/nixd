@@ -48,6 +48,8 @@ struct TopLevel {
   /// defaults to std::thread::hardware_concurrency
   std::optional<int> numWorkers;
 
+  [[nodiscard]] int getEvalDepth() const { return evalDepth.value_or(0); }
+
   int getNumWorkers() {
     return numWorkers.value_or(std::thread::hardware_concurrency());
   }

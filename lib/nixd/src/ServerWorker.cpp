@@ -86,7 +86,7 @@ void Server::switchToEvaluator(lspserver::PathRef File) {
 
   WorkerDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
 
-  eval(File, Config.evalDepth.value_or(10));
+  eval(File, Config.getEvalDepth());
 }
 
 lspserver::PublishDiagnosticsParams
