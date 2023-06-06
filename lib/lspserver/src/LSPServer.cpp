@@ -36,6 +36,11 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
                       if (Response) {
                         log("--> reply:{0}({1})", Method, ID);
                         Out->reply(std::move(ID), std::move(Response));
+                      } else {
+                        llvm::Error Err = Response.takeError();
+                        log("--> reply:{0}({1}) {2:ms}, error: {3}", Method, ID,
+                            Err);
+                        Out->reply(std::move(ID), std::move(Err));
                       }
                     });
   else

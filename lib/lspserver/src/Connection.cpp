@@ -1,5 +1,6 @@
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
+#include "lspserver/Protocol.h"
 
 #include <llvm/ADT/SmallString.h>
 
@@ -12,6 +13,33 @@
 #include <system_error>
 
 namespace lspserver {
+
+static llvm::json::Object encodeError(llvm::Error Error) {
+  std::string Message;
+  ErrorCode Code = ErrorCode::UnknownErrorCode;
+  auto HandlerFn = [&](const LSPError &E) -> llvm::Error {
+    Message = E.Message;
+    Code = E.Code;
+    return llvm::Error::success();
+  };
+  if (llvm::Error Unhandled = llvm::handleErrors(std::move(Error), HandlerFn))
+    Message = llvm::toString(std::move(Unhandled));
+
+  return llvm::json::Object{
+      {"message", std::move(Message)},
+      {"code", int64_t(Code)},
+  };
+}
+
+/// Decode the given JSON object into an error.
+llvm::Error decodeError(const llvm::json::Object &O) {
+  llvm::StringRef Message =
+      O.getString("message").value_or("Unspecified error");
+  if (std::optional<int64_t> Code = O.getInteger("code"))
+    return llvm::make_error<LSPError>(Message.str(), ErrorCode(*Code));
+  return llvm::make_error<llvm::StringError>(llvm::inconvertibleErrorCode(),
+                                             Message.str());
+}
 
 void OutboundPort::notify(llvm::StringRef Method, llvm::json::Value Params) {
   sendMessage(llvm::json::Object{
@@ -37,12 +65,12 @@ void OutboundPort::reply(llvm::json::Value ID,
         {"id", std::move(ID)},
         {"result", std::move(*Result)},
     });
-    // } else {
-    //   sendMessage(llvm::json::Object{
-    //       {"jsonrpc", "2.0"},
-    //       {"id", std::move(ID)},
-    //       {"error", encodeError(Result.takeError())},
-    //   });
+  } else {
+    sendMessage(llvm::json::Object{
+        {"jsonrpc", "2.0"},
+        {"id", std::move(ID)},
+        {"error", encodeError(Result.takeError())},
+    });
   }
 }
 
@@ -79,8 +107,7 @@ bool InboundPort::dispatch(llvm::json::Value Message, MessageHandler &Handler) {
     }
     if (auto *Err = Object->getObject("error"))
       // TODO: Logging & reply errors.
-      // return Handler.onReply(std::move(*ID), decodeError(*Err));
-      return false;
+      return Handler.onReply(std::move(*ID), decodeError(*Err));
     // Result should be given, use null if not.
     llvm::json::Value Result = nullptr;
     if (auto *R = Object->get("result"))
