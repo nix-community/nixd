@@ -185,6 +185,8 @@ public:
   void
   onDocumentDidChange(const lspserver::DidChangeTextDocumentParams &Params);
 
+  void onDocumentDidClose(const lspserver::DidCloseTextDocumentParams &Params);
+
   void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
                                    std::string Content,
                                    std::optional<int64_t> LSPVersion);
@@ -211,7 +213,7 @@ public:
   void onWorkerCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
   void onFormat(const lspserver::DocumentFormattingParams &,
-                    lspserver::Callback<std::vector<lspserver::TextEdit>>);
+                lspserver::Callback<std::vector<lspserver::TextEdit>>);
 };
 
 }; // namespace nixd

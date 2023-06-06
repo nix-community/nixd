@@ -194,6 +194,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addNotification("textDocument/didChange", this,
                            &Server::onDocumentDidChange);
 
+  Registry.addNotification("textDocument/didClose", this,
+                           &Server::onDocumentDidClose);
+
   // Workspace
   Registry.addNotification("workspace/didChangeConfiguration", this,
                            &Server::onWorkspaceDidChangeConfiguration);
@@ -247,6 +250,13 @@ void Server::onDocumentDidChange(
     }
   }
   addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
+}
+
+void Server::onDocumentDidClose(
+    const lspserver::DidCloseTextDocumentParams &Params) {
+  lspserver::PathRef File = Params.textDocument.uri.file();
+  auto Code = getDraft(File);
+  removeDocument(File);
 }
 
 //-----------------------------------------------------------------------------/
