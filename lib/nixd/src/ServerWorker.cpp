@@ -1,3 +1,4 @@
+#include "nixd/AST.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
 #include "nixd/Server.h"
@@ -139,72 +140,60 @@ void Server::onWorkerDefinition(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
   using namespace lspserver;
-  std::string RequestedFile = Params.textDocument.uri.file().str();
+  withAST<Location>(
+      Params.textDocument.uri.file().str(),
+      ReplyRAII<Location>(std::move(Reply)),
+      [Params, this](const nix::ref<EvalAST> &AST, ReplyRAII<Location> &&RR) {
+        auto State = IER->Session->getState();
 
-  ReplyRAII<Location> RR(std::move(Reply));
-  try {
-    auto AST = IER->Forest.at(RequestedFile);
-    auto State = IER->Session->getState();
+        auto *Node = AST->lookupPosition(Params.position);
+        if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
+          if (EVar->fromWith)
+            return;
+          auto PIdx = AST->definition(EVar);
+          if (PIdx == nix::noPos)
+            return;
 
-    auto *Node = AST->lookupPosition(Params.position);
-    if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
-      if (EVar->fromWith)
+          auto Position = translatePosition(State->positions[PIdx]);
+          RR.Response = Location{Params.textDocument.uri, {Position, Position}};
+          return;
+        }
+        RR.Response = error("requested expression is not an ExprVar.");
         return;
-      auto PIdx = AST->definition(EVar);
-      if (PIdx == nix::noPos)
-        return;
-
-      auto Position = translatePosition(State->positions[PIdx]);
-      RR.Response = Location{Params.textDocument.uri, {Position, Position}};
-      return;
-    }
-    RR.Response = lspserver::error("requested expression is not an ExprVar.");
-    return;
-
-  } catch (std::out_of_range &) {
-    RR.Response = error("no such AST on file: {0}", RequestedFile);
-  }
+      });
 }
 
-void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
+void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Params,
                            lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
-  std::string HoverFile = Paras.textDocument.uri.file().str();
-
-  ReplyRAII<Hover> RR(std::move(Reply));
-
-  try {
-    auto AST = IER->Forest.at(HoverFile);
-    auto *Node = AST->lookupPosition(Paras.position);
-    const auto *ExprName = getExprName(Node);
-    RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
-    auto &HoverText = RR.Response->contents.value;
-    try {
-      auto Value = AST->getValue(Node);
-      std::stringstream Res{};
-      Value.print(IER->Session->getState()->symbols, Res);
-      HoverText = llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
-    } catch (const std::out_of_range &) {
-      // No such value, just reply dummy item
-      std::stringstream NodeOut;
-      Node->show(IER->Session->getState()->symbols, NodeOut);
-      lspserver::vlog("no associated value on node {0}!", NodeOut.str());
-      HoverText = llvm::formatv("`{0}`", ExprName);
-    }
-  } catch (std::out_of_range &) {
-    RR.Response = error("no such AST on file: {0}", HoverFile);
-  }
+  withAST<Hover>(
+      Params.textDocument.uri.file().str(), ReplyRAII<Hover>(std::move(Reply)),
+      [Params, this](const nix::ref<EvalAST> &AST, ReplyRAII<Hover> &&RR) {
+        auto *Node = AST->lookupPosition(Params.position);
+        const auto *ExprName = getExprName(Node);
+        RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
+        auto &HoverText = RR.Response->contents.value;
+        try {
+          auto Value = AST->getValue(Node);
+          std::stringstream Res{};
+          Value.print(IER->Session->getState()->symbols, Res);
+          HoverText =
+              llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
+        } catch (const std::out_of_range &) {
+          // No such value, just reply dummy item
+          std::stringstream NodeOut;
+          Node->show(IER->Session->getState()->symbols, NodeOut);
+          lspserver::vlog("no associated value on node {0}!", NodeOut.str());
+          HoverText = llvm::formatv("`{0}`", ExprName);
+        }
+      });
 }
 
 void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
                                 lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
-  std::string CompletionFile = Params.textDocument.uri.file().str();
-
-  ReplyRAII<CompletionList> RR(std::move(Reply));
-
-  try {
-    auto AST = IER->Forest.at(CompletionFile);
+  auto Action = [Params, this](const nix::ref<EvalAST> &AST,
+                               ReplyRAII<CompletionList> &&RR) {
     auto State = IER->Session->getState();
     // Lookup an AST node, and get it's 'Env' after evaluation
     CompletionHelper::Items Items;
@@ -235,8 +224,6 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
         Items = CompletionHelper::fromEnvRecursive(
             State->symbols, *State->staticBaseEnv, *ExprEnv);
       } catch (std::out_of_range &) {
-        // If there is no such AST, or no associated 'Env', i.e. not evaluated
-        // Then just answer static env bindings (they are builtins).
         Items = CompletionHelper::fromStaticEnv(State->symbols,
                                                 *State->staticBaseEnv);
       }
@@ -246,9 +233,11 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
     List.isIncomplete = false;
     List.items = Items;
     RR.Response = List;
-  } catch (std::out_of_range &) {
-    RR.Response = error("no such AST on file: {0}", CompletionFile);
-  }
+  };
+
+  withAST<CompletionList>(Params.textDocument.uri.file().str(),
+                          ReplyRAII<CompletionList>(std::move(Reply)),
+                          std::move(Action));
 }
 
 } // namespace nixd
