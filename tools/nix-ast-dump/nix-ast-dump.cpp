@@ -1,6 +1,6 @@
-#include "canon-path.hh"
 #include "nixd/Expr.h"
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 #include <nix/nixexpr.hh>
 #include <nix/shared.hh>

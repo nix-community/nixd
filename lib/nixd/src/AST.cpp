@@ -1,5 +1,4 @@
 #include "nixd/AST.h"
-#include "canon-path.hh"
 #include "nixd/CallbackExpr.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
@@ -7,6 +6,7 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 
+#include <nix/canon-path.hh>
 #include <nix/nixexpr.hh>
 
 #include <cstddef>

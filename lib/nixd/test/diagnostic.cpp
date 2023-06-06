@@ -1,10 +1,10 @@
 #include "nixd/Diagnostic.h"
 
-#include "canon-path.hh"
 #include "nixutil.h"
 
 #include <gtest/gtest.h>
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>

@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include "canon-path.hh"
 #include "lspserver/Protocol.h"
 
 #include "nixd/AST.h"
 
 #include "nixutil.h"
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 
 namespace nixd {

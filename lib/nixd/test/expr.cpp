@@ -1,11 +1,11 @@
 #include <gtest/gtest.h>
 
-#include "canon-path.hh"
 #include "nixutil.h"
 
 #include "nixd/CallbackExpr.h"
 #include "nixd/Expr.h"
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 #include <nix/shared.hh>
 
