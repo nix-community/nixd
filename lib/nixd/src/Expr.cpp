@@ -1,5 +1,6 @@
 #include "nixd/Expr.h"
-#include "nixexpr.hh"
+
+#include <nix/nixexpr.hh>
 
 namespace nixd {
 

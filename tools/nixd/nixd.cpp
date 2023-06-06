@@ -1,6 +1,7 @@
 #include "lspserver/Connection.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
+
 #include "nixd/Server.h"
 
 #include <nix/eval.hh>

@@ -1,6 +1,8 @@
 #include "nixd/CallbackExpr.h"
 #include "nixd/Expr.h"
-#include "nixexpr.hh"
+
+#include <nix/nixexpr.hh>
+
 #include <memory>
 
 namespace nixd {

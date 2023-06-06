@@ -12,6 +12,7 @@
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
 #include <nix/util.hh>
+
 #include <stdexcept>
 
 namespace nixd {
