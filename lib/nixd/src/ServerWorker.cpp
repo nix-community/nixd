@@ -162,7 +162,7 @@ void Server::onWorkerDefinition(
     return;
 
   } catch (std::out_of_range &) {
-    RR.Response = error("no such ast while location lookup");
+    RR.Response = error("no such AST on file: {0}", RequestedFile);
   }
 }
 
@@ -192,7 +192,7 @@ void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
       HoverText = llvm::formatv("`{0}`", ExprName);
     }
   } catch (std::out_of_range &) {
-    RR.Response = error("no such AST available");
+    RR.Response = error("no such AST on file: {0}", HoverFile);
   }
 }
 
@@ -247,7 +247,7 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
     List.items = Items;
     RR.Response = List;
   } catch (std::out_of_range &) {
-    RR.Response = error("no such AST available");
+    RR.Response = error("no such AST on file: {0}", CompletionFile);
   }
 }
 
