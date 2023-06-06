@@ -141,16 +141,7 @@ void Server::onWorkerDefinition(
   using namespace lspserver;
   std::string RequestedFile = Params.textDocument.uri.file().str();
 
-  struct ReplyRAII {
-    decltype(Reply) R;
-    Location Response;
-    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
-    ~ReplyRAII() { R(Response); };
-  } RR(std::move(Reply));
-
-  RR.Response.uri = Params.textDocument.uri;
-  RR.Response.range.start.line = -1;
-
+  ReplyRAII<Location> RR(std::move(Reply));
   try {
     auto AST = IER->Forest.at(RequestedFile);
     auto State = IER->Session->getState();
@@ -165,12 +156,13 @@ void Server::onWorkerDefinition(
 
       auto Position = translatePosition(State->positions[PIdx]);
       RR.Response = Location{Params.textDocument.uri, {Position, Position}};
-    } else {
-      lspserver::log("requested expression is not an ExprVar.");
+      return;
     }
+    RR.Response = lspserver::error("requested expression is not an ExprVar.");
+    return;
 
   } catch (std::out_of_range &) {
-    lspserver::log("no such ast while location lookup");
+    RR.Response = error("no such ast while location lookup");
   }
 }
 
@@ -179,21 +171,14 @@ void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
   using namespace lspserver;
   std::string HoverFile = Paras.textDocument.uri.file().str();
 
-  struct ReplyRAII {
-    decltype(Reply) R;
-    Hover Response;
-    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
-    ~ReplyRAII() { R(Response); };
-  } RR(std::move(Reply));
+  ReplyRAII<Hover> RR(std::move(Reply));
 
   try {
-
     auto AST = IER->Forest.at(HoverFile);
-
     auto *Node = AST->lookupPosition(Paras.position);
     const auto *ExprName = getExprName(Node);
-    std::string HoverText;
-    RR.Response.contents.kind = MarkupKind::Markdown;
+    RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
+    auto &HoverText = RR.Response->contents.value;
     try {
       auto Value = AST->getValue(Node);
       std::stringstream Res{};
@@ -206,8 +191,8 @@ void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Paras,
       lspserver::vlog("no associated value on node {0}!", NodeOut.str());
       HoverText = llvm::formatv("`{0}`", ExprName);
     }
-    RR.Response.contents.value = HoverText;
   } catch (std::out_of_range &) {
+    RR.Response = error("no such AST available");
   }
 }
 
@@ -216,14 +201,7 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
   using namespace lspserver;
   std::string CompletionFile = Params.textDocument.uri.file().str();
 
-  struct ReplyRAII {
-    decltype(Reply) R;
-    CompletionList Response;
-    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
-    ~ReplyRAII() { R(Response); };
-  } RR(std::move(Reply));
-
-  RR.Response.isIncomplete = false;
+  ReplyRAII<CompletionList> RR(std::move(Reply));
 
   try {
     auto AST = IER->Forest.at(CompletionFile);
@@ -235,14 +213,19 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
 
     if (Params.context.triggerCharacter == ".") {
       auto *Node = AST->lookupPosition(Params.position);
-      auto Value = AST->getValue(Node);
-      if (Value.type() == nix::ValueType::nAttrs) {
-        // Traverse attribute bindings
-        for (auto Binding : *Value.attrs) {
-          Items.emplace_back(
-              CompletionItem{.label = State->symbols[Binding.name],
-                             .kind = CompletionItemKind::Field});
+      try {
+        auto Value = AST->getValue(Node);
+        if (Value.type() == nix::ValueType::nAttrs) {
+          // Traverse attribute bindings
+          for (auto Binding : *Value.attrs) {
+            Items.emplace_back(
+                CompletionItem{.label = State->symbols[Binding.name],
+                               .kind = CompletionItemKind::Field});
+          }
         }
+      } catch (std::out_of_range &) {
+        RR.Response = error("no associated value on requested attrset.");
+        return;
       }
     } else {
       try {
@@ -258,8 +241,13 @@ void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
                                                 *State->staticBaseEnv);
       }
     }
-    RR.Response.items = Items;
+    // Make the response.
+    CompletionList List;
+    List.isIncomplete = false;
+    List.items = Items;
+    RR.Response = List;
   } catch (std::out_of_range &) {
+    RR.Response = error("no such AST available");
   }
 }
 

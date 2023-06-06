@@ -61,6 +61,14 @@ public:
     Evaluator
   };
 
+  template <class ReplyTy> struct ReplyRAII {
+    lspserver::Callback<ReplyTy> R;
+    llvm::Expected<ReplyTy> Response =
+        lspserver::error("no response available");
+    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
+    ~ReplyRAII() { R(std::move(Response)); };
+  };
+
 private:
   int WaitWorker = 0;
 
@@ -126,6 +134,9 @@ private:
         if (Result) {
           std::lock_guard Guard(*ListStoreLock);
           (*ListStoreOptional)[I] = Result.get();
+        } else {
+          lspserver::elog("worker {0} reported error: {1}", I,
+                          Result.takeError());
         }
       });
       I++;
