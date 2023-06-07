@@ -34,7 +34,7 @@ bool fromJSON(const Value &Params, TopLevel &R, Path P) {
   }
   ObjectMapper O(X, P);
 
-  return O && O.map("eval", R.eval) && O.map("formatting", R.formartting) &&
+  return O && O.map("eval", R.eval) && O.map("formatting", R.formatting) &&
          O.map("options", R.options);
 }
 

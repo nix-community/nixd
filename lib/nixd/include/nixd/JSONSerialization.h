@@ -56,7 +56,7 @@ struct TopLevel {
   struct Formatting {
     std::optional<std::string> command;
   };
-  std::optional<Formatting> formartting;
+  std::optional<Formatting> formatting;
 
   struct Options {
     std::optional<bool> enable;
@@ -66,8 +66,8 @@ struct TopLevel {
   std::optional<Options> options;
 
   [[nodiscard]] std::string getFormatCommand() const {
-    if (formartting.has_value() && formartting->command.has_value())
-      return formartting->command.value();
+    if (formatting.has_value() && formatting->command.has_value())
+      return formatting->command.value();
     return "nixpkgs-fmt";
   }
 
