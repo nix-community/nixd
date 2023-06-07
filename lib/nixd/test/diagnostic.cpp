@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
@@ -33,7 +34,7 @@ TEST(Diagnostic, ConstructFromParseError) {
   DiagnosticTest T;
   auto State = T.getDummyStore();
   try {
-    State->parseExprFromString(ParseErrorNix, "/");
+    State->parseExprFromString(ParseErrorNix, nix::CanonPath("/"));
   } catch (const nix::ParseError &PE) {
     auto Diagnostics = mkDiagnostics(PE);
     ASSERT_TRUE(Diagnostics.size() != 0);

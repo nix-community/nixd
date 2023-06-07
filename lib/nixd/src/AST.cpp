@@ -6,6 +6,7 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 
+#include <nix/canon-path.hh>
 #include <nix/nixexpr.hh>
 
 #include <cstddef>
@@ -27,7 +28,8 @@ EvalAST::EvalAST(nix::Expr *Root) : Cxt(ASTContext()) {
 
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
   nix::Value DummyValue{};
-  State.cacheFile(Path.str(), Path.str(), Root, DummyValue);
+  State.cacheFile(nix::CanonPath(Path.str()), nix::CanonPath(Path.str()), Root,
+                  DummyValue);
 }
 
 nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {

@@ -6,6 +6,7 @@
 
 #include "nixutil.h"
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 
 namespace nixd {
@@ -15,7 +16,7 @@ TEST(AST, lookupPosition) {
 
   InitNix INix;
   auto State = INix.getDummyState();
-  auto *RawExpr = State->parseExprFromString(NixSrc, "/");
+  auto *RawExpr = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
   auto AST = EvalAST(RawExpr);
 
   AST.preparePositionLookup(*State);

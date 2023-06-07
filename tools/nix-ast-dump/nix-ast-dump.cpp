@@ -1,5 +1,6 @@
 #include "nixd/Expr.h"
 
+#include <nix/canon-path.hh>
 #include <nix/eval.hh>
 #include <nix/nixexpr.hh>
 #include <nix/shared.hh>
@@ -50,7 +51,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
 int main(int argc, char *argv[]) {
   InitNix I;
   auto State = I.getDummyState();
-  const auto *E = State->parseExprFromFile(argv[1]);
+  const auto *E = State->parseExprFromFile(nix::CanonPath(argv[1]));
   ASTDump A;
   A.State = std::move(State);
   A.traverseExpr(E);
