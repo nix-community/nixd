@@ -232,7 +232,6 @@ void Server::onWorkerCompletionOptions(
     lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   using namespace nix::nixd;
-  // auto RequestedFile = Params.textDocument.uri.file().str();
   ReplyRAII<CompletionList> RR(std::move(Reply));
 
   try {
