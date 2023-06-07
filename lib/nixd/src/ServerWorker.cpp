@@ -2,6 +2,8 @@
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
 #include "nixd/Server.h"
+#include "nixd/nix/Option.h"
+#include "nixd/nix/Value.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
@@ -229,6 +231,7 @@ void Server::onWorkerCompletionOptions(
     const ipc::AttrPathParams &Params,
     lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
+  using namespace nix::nixd;
   // auto RequestedFile = Params.textDocument.uri.file().str();
   ReplyRAII<CompletionList> RR(std::move(Reply));
 
@@ -253,60 +256,14 @@ void Server::onWorkerCompletionOptions(
       if (V->type() != nix::ValueType::nAttrs)
         return;
 
-      auto IsOption = [](nix::EvalState &State, nix::Value &V) {
-        State.forceValue(V, nix::noPos);
-        if (V.type() != nix::ValueType::nAttrs)
-          return false;
-        bool HasDesc = false;
-        bool HasType = false;
-        for (auto Attr : *V.attrs) {
-          auto Name = State.symbols[Attr.name];
-          if (std::string_view(Name) == "description")
-            HasDesc = true;
-          if (std::string_view(Name) == "type")
-            HasType = true;
-        }
-        return HasType && HasDesc;
-      };
-
-      struct OptionInfo {
-        std::optional<std::string> Type;
-        std::optional<std::string> Description;
-      } Info;
-
-      auto GetAttrPathString =
-          [](nix::EvalState &State, nix::Value &V,
-             const std::string &AttrPath) -> std::optional<std::string> {
-        try {
-          auto [VPath, _] = nix::findAlongAttrPath(State, AttrPath,
-                                                   *State.allocBindings(0), V);
-          if (VPath->type() == nix::ValueType::nString)
-            return std::string(State.forceStringNoCtx(*VPath, nix::noPos, ""));
-        } catch (std::exception &E) {
-          return std::nullopt;
-        }
-        return std::nullopt;
-      };
-
-      auto GetOptionInfo = [&GetAttrPathString](nix::EvalState &State,
-                                                nix::Value &V) {
-        OptionInfo Info;
-        Info.Type = GetAttrPathString(State, V, "type.name");
-        Info.Description = GetAttrPathString(State, V, "description");
-        if (!Info.Description.has_value())
-          Info.Description = GetAttrPathString(State, V, "description.text");
-
-        return Info;
-      };
-
       auto &State = *OptionIES->getState();
 
-      if (IsOption(State, *V))
+      if (isOption(State, *V))
         return;
 
       for (auto Attr : *V->attrs) {
-        if (IsOption(State, *Attr.value)) {
-          auto OI = GetOptionInfo(State, *Attr.value);
+        if (isOption(State, *Attr.value)) {
+          auto OI = optionInfo(State, *Attr.value);
           Items.emplace_back(CompletionItem{
               .label = State.symbols[Attr.name],
               .kind = CompletionItemKind::Constructor,
