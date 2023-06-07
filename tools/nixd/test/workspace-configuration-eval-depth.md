@@ -42,14 +42,16 @@ The server should parse it correctly and do not crash.
    "id":1,
    "result":[
       {
-         "installable":{
-            "args":[
-               "--file",
-               "/deeper.nix"
-            ],
-            "installable":""
-         },
-         "evalDepth": 3
+         "eval":{
+            "target": {
+               "args":[
+                  "--file",
+                  "/deeper.nix"
+               ],
+               "installable":""
+            },
+            "depth": 3
+         }
       }
    ]
 }

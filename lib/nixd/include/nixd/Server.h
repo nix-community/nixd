@@ -59,7 +59,8 @@ public:
     /// Parent process of the server
     Controller,
     /// Child process
-    Evaluator
+    Evaluator,
+    OptionProvider
   };
 
   template <class ReplyTy> struct ReplyRAII {
@@ -78,6 +79,8 @@ private:
   WorkspaceVersionTy WorkspaceVersion = 1;
 
   std::deque<std::unique_ptr<Proc>> Workers;
+
+  std::deque<std::unique_ptr<Proc>> OptionWorkers;
 
   EvalDraftStore DraftMgr;
 
@@ -163,6 +166,12 @@ private:
 
   std::unique_ptr<IValueEvalResult> IER;
 
+  /// The AttrSet having options, we use this for any nixpkgs options.
+  /// nixpkgs basically defined options under "options" attrpath
+  /// we can use this for completion (to support ALL option system)
+  nix::Value *OptionAttrSet;
+  std::unique_ptr<IValueEvalSession> OptionIES;
+
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
@@ -183,7 +192,29 @@ public:
     }
   }
 
-  void eval(lspserver::PathRef File, int Depth);
+  void evalInstallable(lspserver::PathRef File, int Depth);
+
+  void forkWorker(llvm::unique_function<void()> WorkerAction,
+                  std::deque<std::unique_ptr<Proc>> &WorkerPool);
+
+  void forkOptionWorker() {
+    forkWorker(
+        [this]() {
+          switchToOptionProvider();
+          Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
+                             &Server::onWorkerCompletionOptions);
+          for (auto &W : OptionWorkers) {
+            W->Pid.release();
+          }
+        },
+        OptionWorkers);
+    if (OptionWorkers.size() > 1)
+      OptionWorkers.pop_front();
+  }
+
+  void initWorker();
+
+  void switchToOptionProvider();
 
   void updateWorkspaceVersion(lspserver::PathRef File);
 
@@ -250,6 +281,9 @@ public:
 
   void onWorkerCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
+
+  void onWorkerCompletionOptions(const ipc::AttrPathParams &,
+                                 lspserver::Callback<llvm::json::Value>);
 
   //---------------------------------------------------------------------------/
   // Workspace Features

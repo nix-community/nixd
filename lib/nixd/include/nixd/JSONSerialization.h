@@ -3,6 +3,7 @@
 #include <llvm/Support/JSON.h>
 
 #include <list>
+#include <optional>
 #include <thread>
 
 // Extension to `lspserver`
@@ -38,36 +39,61 @@ struct InstallableConfigurationItem {
 };
 
 struct TopLevel {
-  /// Nix installables that will be used for root translation unit.
-  std::optional<InstallableConfigurationItem> installable;
 
-  /// The depth you'd like to eval *after* reached "installable" target.
-  std::optional<int> evalDepth;
+  struct Eval {
+    /// Nix installables that will be used for root translation unit.
+    std::optional<InstallableConfigurationItem> target;
 
-  /// Number of workers forking
-  /// defaults to std::thread::hardware_concurrency
-  std::optional<int> numWorkers;
+    /// The depth you'd like to eval *after* reached "installable" target.
+    std::optional<int> depth;
+    /// Number of workers forking
+    /// defaults to std::thread::hardware_concurrency
+    std::optional<int> workers;
+  };
 
-  /// External command for formatting
-  /// defauls to "nixpkgs-fmt"
-  std::optional<std::string> formatCommand;
+  std::optional<Eval> eval;
+
+  struct Formatting {
+    std::optional<std::string> command;
+  };
+  std::optional<Formatting> formartting;
+
+  struct Options {
+    std::optional<bool> enable;
+    std::optional<InstallableConfigurationItem> target;
+  };
+
+  std::optional<Options> options;
 
   [[nodiscard]] std::string getFormatCommand() const {
-    return formatCommand.value_or("nixpkgs-fmt");
+    if (formartting.has_value() && formartting->command.has_value())
+      return formartting->command.value();
+    return "nixpkgs-fmt";
   }
 
-  [[nodiscard]] int getEvalDepth() const { return evalDepth.value_or(0); }
+  [[nodiscard]] int getEvalDepth() const {
+    if (eval.has_value() && eval->depth.has_value())
+      return eval->depth.value();
+    return 0;
+  }
 
-  int getNumWorkers() {
-    return numWorkers.value_or(std::thread::hardware_concurrency());
+  [[nodiscard]] int getNumWorkers() const {
+    if (eval.has_value() && eval->workers.has_value())
+      return eval->workers.value();
+    return static_cast<int>(std::thread::hardware_concurrency());
   }
 
   /// Get installable arguments specified in this config, fallback to file \p
   /// Fallback if 'installable' is not set.
-  [[nodiscard]] std::tuple<std::list<std::string>, std::string>
-  getInstallable(std::string Fallback) const;
+  [[nodiscard]] static std::tuple<std::list<std::string>, std::string>
+  getInstallable(const InstallableConfigurationItem &);
 };
-
+bool fromJSON(const llvm::json::Value &Params, TopLevel::Eval &R,
+              llvm::json::Path P);
+bool fromJSON(const llvm::json::Value &Params, TopLevel::Formatting &R,
+              llvm::json::Path P);
+bool fromJSON(const llvm::json::Value &Params, TopLevel::Options &R,
+              llvm::json::Path P);
 bool fromJSON(const llvm::json::Value &Params, TopLevel &R, llvm::json::Path P);
 bool fromJSON(const llvm::json::Value &Params, InstallableConfigurationItem &R,
               llvm::json::Path P);
@@ -97,9 +123,13 @@ bool fromJSON(const llvm::json::Value &, lspserver::PublishDiagnosticsParams &,
 bool fromJSON(const llvm::json::Value &, Diagnostics &, llvm::json::Path);
 llvm::json::Value toJSON(const Diagnostics &);
 
-struct Completion : WorkerMessage {
-  lspserver::CompletionList List;
+struct AttrPathParams {
+  std::string Path;
 };
+
+bool fromJSON(const llvm::json::Value &, AttrPathParams &, llvm::json::Path);
+
+llvm::json::Value toJSON(const AttrPathParams &);
 
 } // namespace ipc
 } // namespace nixd

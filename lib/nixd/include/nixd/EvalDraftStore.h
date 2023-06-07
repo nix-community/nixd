@@ -84,13 +84,14 @@ struct IValueEvalSession {
     return IVC->getEvalState();
   };
 
-  void eval(const std::string &Installable, int Depth = 0) const {
+  nix::Value *eval(const std::string &Installable, int Depth = 0) const {
     lspserver::log("evaluation on installable {0}, requested depth: {1}",
                    Installable, Depth);
     auto IValue = nix::InstallableValue::require(
         IVC->parseInstallable(IVC->getStore(), Installable));
     auto [Value, _] = IValue->toValue(*getState());
     nix::forceValueDepth(*IVC->getEvalState(), *Value, Depth);
+    return Value;
   }
 };
 
