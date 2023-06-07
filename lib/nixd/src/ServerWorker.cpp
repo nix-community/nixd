@@ -301,6 +301,9 @@ void Server::onWorkerCompletionOptions(
 
       auto &State = *OptionIES->getState();
 
+      if (IsOption(State, *V))
+        return;
+
       for (auto Attr : *V->attrs) {
         if (IsOption(State, *Attr.value)) {
           auto OI = GetOptionInfo(State, *Attr.value);
