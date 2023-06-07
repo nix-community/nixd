@@ -56,7 +56,45 @@ nix build -L .#
 
 We support LSP standard `workspace/configuration` for server configurations.
 
-#### Project Installable
+Configuration overview:
+
+```jsonc
+{
+  // The evaluation section, provide auto completion for dynamic bindings.
+  "eval": {
+    "target": {
+      // Accept args as "nix eval"
+      "args": [],
+      // "nix eval"
+      "installable": ""
+    },
+    // Extra depth for evaluation
+    "depth": 0,
+    // The number of workers for evaluation task.
+    "workers": 3
+  },
+  "formatting": {
+    // Which command you would like to do formatting
+    "command": "nixpkgs-fmt"
+  },
+  // Tell the language server your desired option set, for completion
+  // This is lazily evaluated.
+  "options": {
+    // Enable option completion task.
+    // If you are writting a package, disable this
+    "enable": true,
+    "target": {
+      // Accept args as "nix eval"
+      "args": [],
+      // "nix eval"
+      "installable": ""
+    }
+  }
+}
+```
+
+#### Evaluation
+
 
 Unlike any other nix lsp implementation, you may need to explicitly specify a `installable` in your workspace.
 The language server will consider the `installable` is your desired "object file", and it is the cross-file analysis pivot.
@@ -87,12 +125,19 @@ We accept the same argument as `nix eval`, and perform evaluation for language a
 
 
 ```jsonc
-"installable": {
-    "args":[
+{
+  "eval": {
+    "target": {
+      // Same as:
+      // nix eval --expr "..."
+      "args": [
         "--expr",
         "with import <nixpkgs> { }; callPackage ./some-package.nix { } "
-    ],
-    "installable":""
+      ],
+      // AttrPath
+      "installable": ""
+    }
+  }
 }
 ```
 
@@ -112,7 +157,9 @@ As for language service, we have an custom extension to nix evaluator that allow
 
 ```jsonc
 {
-    "evalDepth": 5
+    "eval": {
+      "depth": 5
+    }
 }
 ```
 
@@ -123,7 +170,9 @@ You can specify how many workers will be used for language tasks, e.g. parsing &
 
 ```jsonc
 {
-    "numWorkers": 10
+    "eval": {
+      "workers": 5
+    }
 }
 ```
 
@@ -167,17 +216,17 @@ So tldr, to use `nixd` in your flake project, you have to:
 
 Example:
 
-```json
+```jsonc
 {
-    "nixd": {
-        "installable": {
-            "args": [
-                "-f",
-                "default.nix"
-            ],
-            "installable": "devShells.x86_64-linux.llvm"
-        },
-        "evalDepth": 3
-    }
+  "eval": {
+    "target": {
+      "args": [
+        "-f",
+        "default.nix"
+      ],
+      "installable": "devShells.x86_64-linux.llvm"
+    },
+    "depth": 3
+  }
 }
 ```
