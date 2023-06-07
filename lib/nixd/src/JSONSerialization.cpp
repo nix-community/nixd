@@ -1,18 +1,41 @@
 #include "nixd/JSONSerialization.h"
 
+#include "lspserver/Logger.h"
+
+#include <llvm/Support/JSON.h>
+
 namespace nixd {
 
 using namespace llvm::json;
 
 namespace configuration {
 
+bool fromJSON(const Value &Params, TopLevel::Eval &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("depth", R.depth) && O.map("target", R.target) &&
+         O.map("workers", R.workers);
+}
+
+bool fromJSON(const Value &Params, TopLevel::Formatting &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("command", R.command);
+}
+
+bool fromJSON(const Value &Params, TopLevel::Options &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("enable", R.enable) && O.map("target", R.target);
+}
+
 bool fromJSON(const Value &Params, TopLevel &R, Path P) {
-  const auto *PA = Params.getAsArray();
-  auto X = PA->front();
+  Value X = Params;
+  if (Params.kind() == Value::Array) {
+    const auto *PA = Params.getAsArray();
+    X = PA->front();
+  }
   ObjectMapper O(X, P);
-  return O && O.map("installable", R.installable) &&
-         O.map("evalDepth", R.evalDepth) && O.map("numWorkers", R.numWorkers) &&
-         O.map("formatCommand", R.formatCommand);
+
+  return O && O.map("eval", R.eval) && O.map("formatting", R.formatting) &&
+         O.map("options", R.options);
 }
 
 bool fromJSON(const Value &Params, std::list<std::string> &R, Path P) {
@@ -48,6 +71,14 @@ Value toJSON(const Diagnostics &R) {
   Base.getAsObject()->insert({"Params", R.Params});
   return Base;
 }
+
+bool fromJSON(const Value &Params, AttrPathParams &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("Path", R.Path);
+}
+
+Value toJSON(const AttrPathParams &R) { return Object{{"Path", R.Path}}; }
+
 } // namespace ipc
 
 } // namespace nixd
@@ -90,7 +121,9 @@ Value toJSON(const CompletionParams &R) {
 
 bool fromJSON(const Value &Params, CompletionItem &R, llvm::json::Path P) {
   ObjectMapper O(Params, P);
-  return O && O.map("label", R.label) && O.map("kind", R.kind);
+  return O && O.map("label", R.label) && O.map("kind", R.kind) &&
+         O.mapOptional("detail", R.detail) &&
+         O.mapOptional("documentation", R.documentation);
 }
 
 bool fromJSON(const Value &Params, CompletionList &R, llvm::json::Path P) {

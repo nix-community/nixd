@@ -56,7 +56,46 @@ nix build -L .#
 
 We support LSP standard `workspace/configuration` for server configurations.
 
-#### Project Installable
+Configuration overview:
+
+```jsonc
+{
+  // The evaluation section, provide auto completion for dynamic bindings.
+  "eval": {
+    "target": {
+      // Accept args as "nix eval"
+      "args": [],
+      // "nix eval"
+      "installable": ""
+    },
+    // Extra depth for evaluation
+    "depth": 0,
+    // The number of workers for evaluation task.
+    "workers": 3
+  },
+  "formatting": {
+    // Which command you would like to do formatting
+    "command": "nixpkgs-fmt"
+  },
+  // Tell the language server your desired option set, for completion
+  // This is lazily evaluated.
+  "options": {
+    // Enable option completion task.
+    // If you are writting a package, disable this
+    "enable": true,
+    "target": {
+      // Accept args as "nix eval"
+      "args": [],
+      // "nix eval"
+      "installable": ""
+    }
+  }
+}
+```
+
+#### Evaluation
+
+##### Target
 
 Unlike any other nix lsp implementation, you may need to explicitly specify a `installable` in your workspace.
 The language server will consider the `installable` is your desired "object file", and it is the cross-file analysis pivot.
@@ -87,12 +126,19 @@ We accept the same argument as `nix eval`, and perform evaluation for language a
 
 
 ```jsonc
-"installable": {
-    "args":[
+{
+  "eval": {
+    "target": {
+      // Same as:
+      // nix eval --expr "..."
+      "args": [
         "--expr",
         "with import <nixpkgs> { }; callPackage ./some-package.nix { } "
-    ],
-    "installable":""
+      ],
+      // AttrPath
+      "installable": ""
+    }
+  }
 }
 ```
 
@@ -102,7 +148,7 @@ Here is the demo video that I used the above installable in my workspace:
 
 ![package](/docs/images/8d106acc-6b1a-4062-9dc7-175b09751fd0.gif)
 
-#### Evaluation Depth
+##### Depth
 
 Nix evaluator will be lazily peform evaluation on your specified task[^nix-evaluation-peformance].
 
@@ -112,22 +158,85 @@ As for language service, we have an custom extension to nix evaluator that allow
 
 ```jsonc
 {
-    "evalDepth": 5
+    "eval": {
+      "depth": 5
+    }
 }
 ```
 
-#### Workers
+##### Workers
 
 Nixd evals your project concurrently.
 You can specify how many workers will be used for language tasks, e.g. parsing & evaluation.
 
 ```jsonc
 {
-    "numWorkers": 10
+    "eval": {
+      "workers": 5
+    }
 }
 ```
 
 The default value is `std::thread::hardware_concurrency()`.
+
+#### Format
+
+To configure which command will be used for formatting, you can change the "formatting" section.
+
+```jsonc
+{
+  "formatting": {
+    // The external command to be invoked for formatting
+    "command": ""
+  }
+}
+```
+
+#### Options
+
+This is our support for nixpkgs option system.
+
+Generally options are merged under a special attribute path.
+For example, NixOS options could be found at:
+
+```
+<flakeref>#nixosConfigurations.<name>.options
+```
+
+And, home-manager options also could be found at:
+
+```
+<flakeref>#homeConfigurations.<name>.options
+```
+
+In our option system, you need to specify which option set you'd like to use.
+
+```jsonc
+{
+  "options": {
+    // Disable it if you are not writting modules.
+    "enable": true,
+    "target": {
+      "args": [],
+      // Example of NixOS options.
+      "installable": "<flakeref>#nixosConfigurations.<name>.options"
+    }
+  }
+}
+```
+
+<details><summary>Options auto completion</summary>
+
+**Home-manager Options**
+
+![hm-docs](https://github.com/nix-community/nixd/assets/36667224/38039c75-379f-463f-aac8-e33ff71eea38)
+
+**NixOS Options**
+
+![nixos-option-docs](https://github.com/nix-community/nixd/assets/36667224/ca4ed4dc-469f-4c2b-9dea-7beab9a417e8)
+
+
+</details>
 
 
 ### FAQ
@@ -167,17 +276,17 @@ So tldr, to use `nixd` in your flake project, you have to:
 
 Example:
 
-```json
+```jsonc
 {
-    "nixd": {
-        "installable": {
-            "args": [
-                "-f",
-                "default.nix"
-            ],
-            "installable": "devShells.x86_64-linux.llvm"
-        },
-        "evalDepth": 3
-    }
+  "eval": {
+    "target": {
+      "args": [
+        "-f",
+        "default.nix"
+      ],
+      "installable": "devShells.x86_64-linux.llvm"
+    },
+    "depth": 3
+  }
 }
 ```

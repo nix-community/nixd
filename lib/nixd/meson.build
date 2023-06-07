@@ -9,6 +9,8 @@ nixd_server_lib = library('nixd-lsp'
   , 'src/ServerController.cpp'
   , 'src/ServerWorker.cpp'
   , 'src/nix/EvalState.cpp'
+  , 'src/nix/Option.cpp'
+  , 'src/nix/Value.cpp'
   ]
 , include_directories: nixd_server_inc
 , dependencies: [ llvm

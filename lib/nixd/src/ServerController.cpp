@@ -35,25 +35,13 @@
 
 namespace nixd {
 
-std::tuple<nix::Strings, std::string>
-configuration::TopLevel::getInstallable(std::string Fallback) const {
-  if (auto Installable = installable) {
-    auto ConfigArgs = Installable->args;
-    lspserver::log("using client specified installable: [{0}] {1}",
-                   llvm::iterator_range(ConfigArgs.begin(), ConfigArgs.end()),
-                   Installable->installable);
-    return std::tuple{nix::Strings(ConfigArgs.begin(), ConfigArgs.end()),
-                      Installable->installable};
-  }
-  // Fallback to current file otherwise.
-  return std::tuple{nix::Strings{"--file", std::move(Fallback)},
-                    std::string{""}};
+std::tuple<nix::Strings, std::string> configuration::TopLevel::getInstallable(
+    const InstallableConfigurationItem &Item) {
+  return {nix::Strings(Item.args.begin(), Item.args.end()), Item.installable};
 }
 
-void Server::updateWorkspaceVersion(lspserver::PathRef File) {
-  assert(Role == ServerRole::Controller &&
-         "Workspace updates must happen in the Controller.");
-  WorkspaceVersion++;
+void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
+                        std::deque<std::unique_ptr<Proc>> &WorkerPool) {
   auto To = std::make_unique<nix::Pipe>();
   auto From = std::make_unique<nix::Pipe>();
 
@@ -76,7 +64,7 @@ void Server::updateWorkspaceVersion(lspserver::PathRef File) {
     dup2(To->readSide.get(), 0);
     dup2(From->writeSide.get(), 1);
 
-    switchToEvaluator(File);
+    WorkerAction();
 
   } else {
 
@@ -106,11 +94,24 @@ void Server::updateWorkspaceVersion(lspserver::PathRef File) {
                  .WorkspaceVersion = WorkspaceVersion,
                  .InputDispatcher = std::move(WorkerInputDispatcher)});
 
-    Workers.emplace_back(std::move(WorkerProc));
-    if (Workers.size() > Config.getNumWorkers()) {
-      Workers.pop_front();
-    }
+    WorkerPool.emplace_back(std::move(WorkerProc));
   }
+}
+
+void Server::updateWorkspaceVersion(lspserver::PathRef File) {
+  assert(Role == ServerRole::Controller &&
+         "Workspace updates must happen in the Controller.");
+  WorkspaceVersion++;
+  forkWorker(
+      [File, this]() {
+        switchToEvaluator(File);
+        // unregister "Procs" in worker process, they are managed by controller
+        for (auto &Worker : Workers)
+          Worker->Pid.release();
+      },
+      Workers);
+  if (Workers.size() > Config.getNumWorkers())
+    Workers.pop_front();
 }
 
 void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
@@ -137,6 +138,7 @@ void Server::fetchConfig() {
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
             Config = std::move(Response.get());
+            forkOptionWorker();
           }
         });
   }
@@ -198,6 +200,8 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onWorkerDefinition);
+
+  forkOptionWorker();
 }
 
 //-----------------------------------------------------------------------------/
@@ -310,10 +314,31 @@ void Server::onCompletion(
     auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
             Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
-    Reply(bestMatchOr<lspserver::CompletionList>(
-        Responses, [](const lspserver::CompletionList &L) -> uint64_t {
-          return L.items.size() + 1;
-        }));
+
+    ipc::AttrPathParams APParams;
+
+    if (Params.context.triggerCharacter == ".") {
+      // Get nixpkgs options
+      auto Code = llvm::StringRef(
+          *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
+      auto ExpectedPosition = positionToOffset(Code, Params.position);
+
+      // get the attr path
+      auto TruncateBackCode = Code.substr(0, ExpectedPosition.get());
+
+      auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
+      APParams.Path = AttrPath.str();
+    }
+
+    auto RespOption =
+        askWorkers<ipc::AttrPathParams, lspserver::CompletionList>(
+            OptionWorkers, "nixd/ipc/textDocument/completion/options", APParams,
+            5e4);
+
+    Responses.insert(Responses.end(), RespOption.begin(), RespOption.end());
+    Reply(latestMatchOr<lspserver::CompletionList>(
+        Responses,
+        [](const lspserver::CompletionList &L) -> bool { return true; }));
   });
   Thread.detach();
 }
