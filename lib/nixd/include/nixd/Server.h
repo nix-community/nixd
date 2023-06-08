@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lspserver/Protocol.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/JSONSerialization.h"
 
@@ -12,6 +13,7 @@
 #include "lspserver/SourceCode.h"
 
 #include <llvm/ADT/FunctionExtras.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cstdint>
@@ -220,7 +222,16 @@ public:
 
   void switchToEvaluator(lspserver::PathRef File);
 
+  void updateConfig(configuration::TopLevel &&NewConfig);
+
   void fetchConfig();
+
+  static llvm::Expected<configuration::TopLevel>
+  parseConfig(llvm::StringRef JSON);
+
+  /// Try to update the server config from json encoded file \p File
+  /// Won't touch config field if exceptions encountered
+  void readJSONConfig(lspserver::PathRef File = ".nixd.json") noexcept;
 
   void clearDiagnostic(lspserver::PathRef Path);
 
