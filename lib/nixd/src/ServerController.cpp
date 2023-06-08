@@ -348,32 +348,36 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
 void Server::onCompletion(
     const lspserver::CompletionParams &Params,
     lspserver::Callback<lspserver::CompletionList> Reply) {
+  auto EnableOption =
+      bool(Config.options) && Config.options->enable.value_or(false);
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
             Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
 
-    ipc::AttrPathParams APParams;
+    if (EnableOption) {
+      ipc::AttrPathParams APParams;
 
-    if (Params.context.triggerCharacter == ".") {
-      // Get nixpkgs options
-      auto Code = llvm::StringRef(
-          *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
-      auto ExpectedPosition = positionToOffset(Code, Params.position);
+      if (Params.context.triggerCharacter == ".") {
+        // Get nixpkgs options
+        auto Code = llvm::StringRef(
+            *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
+        auto ExpectedPosition = positionToOffset(Code, Params.position);
 
-      // get the attr path
-      auto TruncateBackCode = Code.substr(0, ExpectedPosition.get());
+        // get the attr path
+        auto TruncateBackCode = Code.substr(0, ExpectedPosition.get());
 
-      auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
-      APParams.Path = AttrPath.str();
+        auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
+        APParams.Path = AttrPath.str();
+      }
+
+      auto RespOption =
+          askWorkers<ipc::AttrPathParams, lspserver::CompletionList>(
+              OptionWorkers, "nixd/ipc/textDocument/completion/options",
+              APParams, 5e4);
+
+      Responses.insert(Responses.end(), RespOption.begin(), RespOption.end());
     }
-
-    auto RespOption =
-        askWorkers<ipc::AttrPathParams, lspserver::CompletionList>(
-            OptionWorkers, "nixd/ipc/textDocument/completion/options", APParams,
-            5e4);
-
-    Responses.insert(Responses.end(), RespOption.begin(), RespOption.end());
     Reply(latestMatchOr<lspserver::CompletionList>(
         Responses,
         [](const lspserver::CompletionList &L) -> bool { return true; }));
