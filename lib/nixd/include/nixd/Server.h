@@ -269,6 +269,9 @@ public:
 
   // Controller Methods
 
+  void onDecalration(const lspserver::TextDocumentPositionParams &,
+                     lspserver::Callback<llvm::json::Value>);
+
   void onDefinition(const lspserver::TextDocumentPositionParams &,
                     lspserver::Callback<llvm::json::Value>);
 
@@ -282,6 +285,9 @@ public:
                 lspserver::Callback<std::vector<lspserver::TextEdit>>);
 
   // Worker
+
+  void onOptionDeclaration(const ipc::AttrPathParams &,
+                           lspserver::Callback<lspserver::Location>);
 
   void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
                           lspserver::Callback<lspserver::Location>);

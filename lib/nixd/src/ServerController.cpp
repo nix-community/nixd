@@ -10,6 +10,7 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
+#include "lspserver/SourceCode.h"
 #include "lspserver/URI.h"
 
 #include <llvm/ADT/FunctionExtras.h>
@@ -29,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -213,6 +215,7 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   // Language Features
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
+  Registry.addMethod("textDocument/declaration", this, &Server::onDecalration);
   Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
   Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
 
@@ -239,6 +242,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onWorkerDefinition);
 
+  Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
+                     &Server::onOptionDeclaration);
+
   readJSONConfig();
 }
 
@@ -255,6 +261,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
            {"change", (int)lspserver::TextDocumentSyncKind::Incremental},
            {"save", true},
        }},
+      {"declarationProvider", true},
       {"definitionProvider", true},
       {"hoverProvider", true},
       {"documentFormattingProvider", true},
@@ -311,6 +318,56 @@ void Server::onDocumentDidClose(
 
 //-----------------------------------------------------------------------------/
 // Language Features
+
+void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
+                           lspserver::Callback<llvm::json::Value> Reply) {
+  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+    ReplyRAII<llvm::json::Value> RR(std::move(Reply));
+
+    // Set the default response to "null", instead of errors
+    RR.Response = nullptr;
+
+    ipc::AttrPathParams APParams;
+
+    // Try to get current attribute path, expand the position
+
+    auto Code = llvm::StringRef(
+        *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
+    auto ExpectedOffset = positionToOffset(Code, Params.position);
+
+    if (!ExpectedOffset)
+      RR.Response = ExpectedOffset.takeError();
+
+    auto Offset = ExpectedOffset.get();
+    auto From = Offset;
+    auto To = Offset;
+
+    std::string Punc = "\r\n\t ;";
+
+    auto IsPunc = [&Punc](char C) {
+      return std::ranges::any_of(Punc, [C](char Ck) { return Ck == C; });
+    };
+
+    for (; From >= 0 && !IsPunc(Code[From]);)
+      From--;
+    for (; To < Code.size() && !IsPunc(Code[To]);)
+      To++;
+
+    APParams.Path = Code.substr(From, To - From).trim(Punc);
+    lspserver::log("requesting path: {0}", APParams.Path);
+
+    auto Responses = askWorkers<ipc::AttrPathParams, lspserver::Location>(
+        OptionWorkers, "nixd/ipc/option/textDocument/declaration", APParams,
+        2e4);
+
+    if (Responses.empty())
+      return;
+
+    RR.Response = std::move(Responses.back());
+  });
+
+  Thread.detach();
+}
 
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
