@@ -134,7 +134,8 @@ int main(int argc, char *argv[]) {
   StreamLogger Logger(llvm::errs(), LogLevel);
   lspserver::LoggingSession Session(Logger);
 
-  lspserver::log("Server started.");
+  lspserver::log("nixd {0} started, revision: {1}", NIXD_VERSION,
+                 NIXD_REVISION);
   nixd::Server Server{
       std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
       std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
