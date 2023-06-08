@@ -32,6 +32,7 @@ CHECK-NEXT:         "triggerCharacters": [
 CHECK-NEXT:           "."
 CHECK-NEXT:         ]
 CHECK-NEXT:       },
+CHECK-NEXT:       "declarationProvider": true,
 CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "documentFormattingProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
