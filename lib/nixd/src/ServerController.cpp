@@ -321,6 +321,11 @@ void Server::onDocumentDidClose(
 
 void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
                            lspserver::Callback<llvm::json::Value> Reply) {
+  if (!Config.options || !Config.options->enable.value_or(false)) {
+    Reply(nullptr);
+    return;
+  }
+
   auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
     ReplyRAII<llvm::json::Value> RR(std::move(Reply));
 
