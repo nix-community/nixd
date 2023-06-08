@@ -228,7 +228,7 @@ void Server::onOptionDeclaration(
   }
 }
 
-void Server::onWorkerDefinition(
+void Server::onEvalDefinition(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
   using namespace lspserver;
@@ -255,8 +255,8 @@ void Server::onWorkerDefinition(
       });
 }
 
-void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Params,
-                           lspserver::Callback<llvm::json::Value> Reply) {
+void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
+                         lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   withAST<Hover>(
       Params.textDocument.uri.file().str(), ReplyRAII<Hover>(std::move(Reply)),
@@ -281,9 +281,8 @@ void Server::onWorkerHover(const lspserver::TextDocumentPositionParams &Params,
       });
 }
 
-void Server::onWorkerCompletionOptions(
-    const ipc::AttrPathParams &Params,
-    lspserver::Callback<llvm::json::Value> Reply) {
+void Server::onOptionCompletion(const ipc::AttrPathParams &Params,
+                                lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   using namespace nix::nixd;
   ReplyRAII<CompletionList> RR(std::move(Reply));
@@ -338,8 +337,8 @@ void Server::onWorkerCompletionOptions(
   }
 }
 
-void Server::onWorkerCompletion(const lspserver::CompletionParams &Params,
-                                lspserver::Callback<llvm::json::Value> Reply) {
+void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
+                              lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   auto Action = [Params, this](const nix::ref<EvalAST> &AST,
                                ReplyRAII<CompletionList> &&RR) {

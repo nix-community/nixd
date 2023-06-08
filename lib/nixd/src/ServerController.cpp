@@ -231,16 +231,15 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   /// IPC
   Registry.addNotification("nixd/ipc/diagnostic", this,
-                           &Server::onWorkerDiagnostic);
+                           &Server::onEvalDiagnostic);
 
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
-                     &Server::onWorkerCompletion);
+                     &Server::onEvalCompletion);
 
-  Registry.addMethod("nixd/ipc/textDocument/hover", this,
-                     &Server::onWorkerHover);
+  Registry.addMethod("nixd/ipc/textDocument/hover", this, &Server::onEvalHover);
 
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
-                     &Server::onWorkerDefinition);
+                     &Server::onEvalDefinition);
 
   Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
                      &Server::onOptionDeclaration);
@@ -459,7 +458,7 @@ void Server::clearDiagnostic(const lspserver::URIForFile &FileUri) {
   PublishDiagnostic(Notification);
 }
 
-void Server::onWorkerDiagnostic(const ipc::Diagnostics &Diag) {
+void Server::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
   lspserver::log("received diagnostic from worker: {0}", Diag.WorkspaceVersion);
 
   {
