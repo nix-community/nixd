@@ -8,6 +8,7 @@
 , boost182
 , gtest
 , llvmPackages_16
+, libbacktrace
 , lib
 }:
 
@@ -42,6 +43,7 @@ stdenv.mkDerivation {
   ];
 
   buildInputs = [
+    libbacktrace
     nixUnstable
     gtest
     boost182.dev

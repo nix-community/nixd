@@ -10,10 +10,61 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/Support/CommandLine.h>
 
+// Fix build on macOS. See
+// https://github.com/nix-community/nixd/actions/runs/5208659631/jobs/9397498730?pr=90
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#define BOOST_STACKTRACE_USE_BACKTRACE
+#include <boost/filesystem.hpp>
+#include <boost/stacktrace.hpp>
+
+#include <filesystem>
+#include <fstream>
+
+#include <csignal>
 #include <unistd.h>
 
 using lspserver::JSONStreamStyle;
 using lspserver::Logger;
+
+namespace nixd {
+
+constexpr const char *StackDumpFile = "nixd-backtrace.dump";
+
+void sigHandler(int Signum) {
+  ::signal(Signum, SIG_DFL);
+  boost::stacktrace::safe_dump_to(StackDumpFile);
+
+  // POSIX say we can use `read` and `write` syscall, this is async-signal-safe
+  std::cerr << "Please file an issue at https://github.com/nix-community/nixd"
+            << "\n";
+  std::cerr << boost::stacktrace::stacktrace() << "\n";
+  ::raise(SIGABRT);
+}
+
+void checkStackDump() {
+  if (std::filesystem::exists(StackDumpFile)) {
+    // there is a backtrace
+    std::ifstream IFS(StackDumpFile);
+
+    boost::stacktrace::stacktrace ST =
+        boost::stacktrace::stacktrace::from_dump(IFS);
+
+    std::cerr << "Previous run crashed:\n" << ST << std::endl;
+
+    // cleaning up
+    IFS.close();
+    std::filesystem::remove(StackDumpFile);
+  }
+}
+
+void registerSigHanlder() {
+  signal(SIGSEGV, sigHandler);
+  signal(SIGABRT, sigHandler);
+}
+
+} // namespace nixd
 
 using namespace llvm::cl;
 
@@ -55,6 +106,8 @@ opt<int> WaitWorker{"wait-worker",
 
 int main(int argc, char *argv[]) {
   using namespace lspserver;
+  nixd::registerSigHanlder();
+  nixd::checkStackDump();
   const char *FlagsEnvVar = "NIXD_FLAGS";
   HideUnrelatedOptions(NixdCatogories);
   ParseCommandLineOptions(argc, argv, "nixd language server", nullptr,
