@@ -10,6 +10,11 @@
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/Support/CommandLine.h>
 
+// Fix build on macOS. See
+// https://github.com/nix-community/nixd/actions/runs/5208659631/jobs/9397498730?pr=90
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #define BOOST_STACKTRACE_USE_BACKTRACE
 #include <boost/filesystem.hpp>
 #include <boost/stacktrace.hpp>
