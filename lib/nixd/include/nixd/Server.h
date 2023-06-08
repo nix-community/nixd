@@ -118,7 +118,7 @@ private:
 
   //---------------------------------------------------------------------------/
   // Controller
-  void onWorkerDiagnostic(const ipc::Diagnostics &);
+  void onEvalDiagnostic(const ipc::Diagnostics &);
 
   template <class Arg, class Resp>
   auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
@@ -203,7 +203,7 @@ public:
         [this]() {
           switchToOptionProvider();
           Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
-                             &Server::onWorkerCompletionOptions);
+                             &Server::onOptionCompletion);
           for (auto &W : OptionWorkers) {
             W->Pid.release();
           }
@@ -289,17 +289,17 @@ public:
   void onOptionDeclaration(const ipc::AttrPathParams &,
                            lspserver::Callback<lspserver::Location>);
 
-  void onWorkerDefinition(const lspserver::TextDocumentPositionParams &,
-                          lspserver::Callback<lspserver::Location>);
+  void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
+                        lspserver::Callback<lspserver::Location>);
 
-  void onWorkerHover(const lspserver::TextDocumentPositionParams &,
-                     lspserver::Callback<llvm::json::Value>);
+  void onEvalHover(const lspserver::TextDocumentPositionParams &,
+                   lspserver::Callback<llvm::json::Value>);
 
-  void onWorkerCompletion(const lspserver::CompletionParams &,
+  void onEvalCompletion(const lspserver::CompletionParams &,
+                        lspserver::Callback<llvm::json::Value>);
+
+  void onOptionCompletion(const ipc::AttrPathParams &,
                           lspserver::Callback<llvm::json::Value>);
-
-  void onWorkerCompletionOptions(const ipc::AttrPathParams &,
-                                 lspserver::Callback<llvm::json::Value>);
 
   //---------------------------------------------------------------------------/
   // Workspace Features
