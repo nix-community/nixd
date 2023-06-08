@@ -15,11 +15,15 @@ gtest_main = dependency('gtest_main')
 llvm = dependency('llvm')
 boost = dependency('boost')
 
+cpp = meson.get_compiler('cpp')
+backtrace = cpp.find_library('backtrace')
+
 
 subdir('lib')
 
 nixd = executable('nixd', ['tools/nixd/nixd.cpp']
-, dependencies: [ boost
+, dependencies: [ backtrace
+                , boost
                 , llvm
                 , nixd_lsp_server
                 , nixd_server
