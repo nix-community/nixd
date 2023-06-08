@@ -1,3 +1,5 @@
+#include "nixd-config.h"
+
 #include "nixd/Diagnostic.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/Expr.h"
@@ -260,7 +262,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
 
   llvm::json::Object Result{
       {{"serverInfo",
-        llvm::json::Object{{"name", "nixd"}, {"version", "0.0.0"}}},
+        llvm::json::Object{{"name", "nixd"}, {"version", NIXD_VERSION}}},
        {"capabilities", std::move(ServerCaps)}}};
   Reply(std::move(Result));
 }

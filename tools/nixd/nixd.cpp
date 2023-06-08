@@ -1,3 +1,5 @@
+#include "nixd-config.h"
+
 #include "lspserver/Connection.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
@@ -32,13 +34,19 @@ namespace nixd {
 
 constexpr const char *StackDumpFile = "nixd-backtrace.dump";
 
+void printReportInfo() {
+  std::cerr
+      << "Please file an issue at https://github.com/nix-community/nixd/issues/"
+      << "\n"
+      << "nixd version: " << NIXD_VERSION << std::endl;
+}
+
 void sigHandler(int Signum) {
   ::signal(Signum, SIG_DFL);
   boost::stacktrace::safe_dump_to(StackDumpFile);
 
   // POSIX say we can use `read` and `write` syscall, this is async-signal-safe
-  std::cerr << "Please file an issue at https://github.com/nix-community/nixd"
-            << "\n";
+  printReportInfo();
   std::cerr << boost::stacktrace::stacktrace() << "\n";
   ::raise(SIGABRT);
 }
@@ -51,6 +59,7 @@ void checkStackDump() {
     boost::stacktrace::stacktrace ST =
         boost::stacktrace::stacktrace::from_dump(IFS);
 
+    printReportInfo();
     std::cerr << "Previous run crashed:\n" << ST << std::endl;
 
     // cleaning up
@@ -124,7 +133,7 @@ int main(int argc, char *argv[]) {
   StreamLogger Logger(llvm::errs(), LogLevel);
   lspserver::LoggingSession Session(Logger);
 
-  lspserver::log("Server started.");
+  lspserver::log("nixd {0} started", NIXD_VERSION);
   nixd::Server Server{
       std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
       std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
