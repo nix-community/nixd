@@ -6,16 +6,10 @@ bool isOption(EvalState &State, Value &V) {
   State.forceValue(V, noPos);
   if (V.type() != ValueType::nAttrs)
     return false;
-  bool HasDesc = false;
-  bool HasType = false;
-  for (auto Attr : *V.attrs) {
-    auto Name = State.symbols[Attr.name];
-    if (std::string_view(Name) == "description")
-      HasDesc = true;
-    if (std::string_view(Name) == "type")
-      HasType = true;
-  }
-  return HasType && HasDesc;
+
+  // https://github.com/NixOS/nixpkgs/blob/58ca986543b591a8269cbce3328293ca8d64480f/lib/options.nix#L89
+  auto S = attrPathStr(State, V, "_type");
+  return S && S.value() == "option";
 };
 
 std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
