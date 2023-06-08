@@ -3,8 +3,13 @@ project( 'nixd'
        , default_options : ['cpp_std=gnu++20']
        )
 
+git_revision_command = run_command(['git', 'rev-parse', 'HEAD'], capture : true, check : true)
+git_revision = git_revision_command.stdout().strip()
+
 config_h = configuration_data()
 config_h.set_quoted('NIXD_VERSION', meson.project_version())
+config_h.set_quoted('NIXD_REVISION', git_revision)
+
 configure_file(
   output: 'nixd-config.h',
   configuration: config_h,
