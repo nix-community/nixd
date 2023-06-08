@@ -93,6 +93,48 @@ Configuration overview:
 }
 ```
 
+Note: we support a configuration file named `.nixd.json` at your workspace directory.
+This is a feature requested by nvim users.
+
+Typically, you can write a nix file, and evaluate the result into `.nixd.json`, because json does not support comments:
+
+```nix
+# .nixd.nix
+{
+  eval = {
+    # Example target for writting a package.
+    target = {
+      args = [ "--expr" "with import <nixpkgs> { }; callPackage ./somePackage.nix { }" ];
+      installable = "";
+    };
+    # Force thunks
+    depth = 10;
+  };
+  formatting.command = "nixpkgs-fmt";
+  options = {
+    enable = true;
+    target = {
+      args = [ ];
+      # Example installable for flake-parts, nixos, and home-manager
+
+      # flake-parts
+      installable = "/flakeref#debug.options";
+
+      # nixOS configuration
+      installable = "/flakeref#nixosConfigurations.<adrastea>.options";
+
+      # home-manager configuration
+      installable = "/flakeref#homeConfigurations.<name>.options";
+    };
+  };
+}
+
+```
+
+```console
+nix eval --json --file .nixd.nix > .nixd.json
+```
+
 #### Evaluation
 
 ##### Target

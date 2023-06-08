@@ -19,6 +19,7 @@ This is a Nix language server that directly uses (i.e., is linked with) the offi
 
 Some notable features provided by linking with the Nix library include:
 
+- Nixpkgs option support, for all option system (NixOS/home-manager/flake-parts).
 - Diagnostics and evaluation that produce identical results as the real Nix command.
 - Shared eval caches (flake, file) with your system's Nix.
 - Native support for cross-file analysis.
@@ -27,6 +28,15 @@ Some notable features provided by linking with the Nix library include:
 
 
 ## Features Preview
+
+
+<details><summary>Home-manager options auto-complete & goto declaration</summary>
+
+![hm-options-decl](https://user-images.githubusercontent.com/36667224/244408335-5c2b40a9-48da-4214-9071-5f80fcb721ae.gif)
+
+See how to configure option system: https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#options
+
+</details>
 
 <details><summary>Write a package using nixd</summary>
 
@@ -37,6 +47,8 @@ Some notable features provided by linking with the Nix library include:
 <details><summary>Native cross-file analysis</summary>
 
 ![package](docs/images/3e4fc99c-7a20-42be-a337-d1746239c731.png)
+
+See how to configure the evaluator for cross-file analysis: https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#evaluation
 
 </details>
 
@@ -53,25 +65,6 @@ Some notable features provided by linking with the Nix library include:
 And diagnostic:
 
 ![eval-builtin-diagnostic](docs/images/f6e10994-41e4-4a03-84a2-ef275fb402fd.png)
-
-</details>
-
-<details><summary>Eval nixpkgs</summary>
-
-![eval-nixpkgs](docs/images/abe2fafc-d139-4741-89af-53339312a1af.png)
-
-</details>
-
-<details><summary>Print internal AST Node type, and evalution result just as same as nix repl</summary>
-
-![eval-ast](docs/images/c7e8a8c7-5c0e-4736-868f-1e2c345468fd.png)
-
-
-</details>
-
-<details><summary>Complete dynamic envs, like `with` expression</summary>
-
-![complete-with](docs/images/ae629b9f-95cb-48df-aa1d-4f5f94c3c06a.png)
 
 </details>
 
