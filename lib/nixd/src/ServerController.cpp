@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -129,6 +130,11 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
   updateWorkspaceVersion(File);
 }
 
+void Server::updateConfig(configuration::TopLevel &&NewConfig) {
+  Config = std::move(NewConfig);
+  forkOptionWorker();
+}
+
 void Server::fetchConfig() {
   if (ClientCaps.WorkspaceConfiguration) {
     WorkspaceConfiguration(
@@ -137,10 +143,40 @@ void Server::fetchConfig() {
                 lspserver::ConfigurationItem{.section = "nixd"}}},
         [this](llvm::Expected<configuration::TopLevel> Response) {
           if (Response) {
-            Config = std::move(Response.get());
-            forkOptionWorker();
+            updateConfig(std::move(Response.get()));
           }
         });
+  }
+}
+
+llvm::Expected<configuration::TopLevel>
+Server::parseConfig(llvm::StringRef JSON) {
+  using namespace configuration;
+
+  auto ExpectedValue = llvm::json::parse(JSON);
+  if (!ExpectedValue)
+    return ExpectedValue.takeError();
+  TopLevel NewConfig;
+  llvm::json::Path::Root P;
+  if (fromJSON(ExpectedValue.get(), NewConfig, P))
+    return NewConfig;
+  return lspserver::error("value cannot be converted to internal config type");
+}
+
+void Server::readJSONConfig(lspserver::PathRef File) noexcept {
+  try {
+    std::string ConfigStr;
+    std::ostringstream SS;
+    std::ifstream In(File.str(), std::ios::in);
+    SS << In.rdbuf();
+
+    if (auto NewConfig = parseConfig(SS.str()))
+      updateConfig(std::move(NewConfig.get()));
+    else {
+      throw nix::Error("configuration cannot be parsed");
+    }
+  } catch (std::exception &E) {
+  } catch (...) {
   }
 }
 
@@ -201,7 +237,7 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onWorkerDefinition);
 
-  forkOptionWorker();
+  readJSONConfig();
 }
 
 //-----------------------------------------------------------------------------/
