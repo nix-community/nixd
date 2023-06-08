@@ -7,6 +7,7 @@
 , nixUnstable
 , boost182
 , gtest
+, git
 , llvmPackages_16
 , libbacktrace
 , lib
@@ -31,6 +32,7 @@ stdenv.mkDerivation {
     ninja
     cmake
     pkg-config
+    git
 
     # Testing only
     lit
