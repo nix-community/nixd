@@ -1,6 +1,5 @@
 #pragma once
 
-#include "lspserver/Protocol.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/JSONSerialization.h"
 

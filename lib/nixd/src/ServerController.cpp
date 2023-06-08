@@ -1,4 +1,3 @@
-#include "error.hh"
 #include "nixd/Diagnostic.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/Expr.h"
