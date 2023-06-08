@@ -141,6 +141,18 @@ llvm::Expected<size_t> positionToOffset(llvm::StringRef Code, Position P,
   return StartOfLine + ByteInLine;
 }
 
+Position offsetToPosition(llvm::StringRef Code, size_t Offset) {
+  Offset = std::min(Code.size(), Offset);
+  llvm::StringRef Before = Code.substr(0, Offset);
+  int Lines = Before.count('\n');
+  size_t PrevNL = Before.rfind('\n');
+  size_t StartOfLine = (PrevNL == llvm::StringRef::npos) ? 0 : (PrevNL + 1);
+  Position Pos;
+  Pos.line = Lines;
+  Pos.character = lspLength(Before.substr(StartOfLine));
+  return Pos;
+}
+
 // Workaround for editors that have buggy handling of newlines at end of file.
 //
 // The editor is supposed to expose document contents over LSP as an exact

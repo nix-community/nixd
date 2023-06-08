@@ -174,6 +174,60 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
                                            std::move(Session));
 }
 
+void Server::onOptionDeclaration(
+    const ipc::AttrPathParams &Params,
+    lspserver::Callback<lspserver::Location> Reply) {
+  assert(Role == ServerRole::OptionProvider &&
+         "option declaration should be calculated in option worker!");
+  using namespace lspserver;
+  ReplyRAII<Location> RR(std::move(Reply));
+  if (OptionAttrSet->type() != nix::ValueType::nAttrs)
+    return;
+
+  try {
+    nix::Value *V = OptionAttrSet;
+    if (!Params.Path.empty()) {
+      auto &Bindings(*OptionIES->getState()->allocBindings(0));
+      V = nix::findAlongAttrPath(*OptionIES->getState(), Params.Path, Bindings,
+                                 *OptionAttrSet)
+              .first;
+    }
+
+    auto &State = *OptionIES->getState();
+    State.forceValue(*V, nix::noPos);
+
+    auto *VDecl = nix::findAlongAttrPath(State, "declarations",
+                                         *State.allocBindings(0), *V)
+                      .first;
+
+    State.forceValue(*VDecl, nix::noPos);
+
+    // declarations should be a list containing file paths
+    if (!VDecl->isList())
+      return;
+
+    for (auto *VFile : VDecl->listItems()) {
+      State.forceValue(*VFile, nix::noPos);
+      if (VFile->type() == nix::ValueType::nString) {
+        auto File = VFile->str();
+        Location L;
+        L.uri = URIForFile::canonicalize(File, File);
+
+        // Where is the range?
+        L.range.start = {0, 0};
+        L.range.end = {0, 0};
+
+        RR.Response = L;
+        return;
+      }
+    }
+
+  } catch (std::exception &E) {
+    RR.Response = error(stripANSI(E.what()));
+  } catch (...) {
+  }
+}
+
 void Server::onWorkerDefinition(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
