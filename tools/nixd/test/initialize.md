@@ -43,7 +43,7 @@ CHECK-NEXT:       }
 CHECK-NEXT:     },
 CHECK-NEXT:     "serverInfo": {
 CHECK-NEXT:       "name": "nixd",
-CHECK-NEXT:       "version": "0.0.0"
+CHECK-NEXT:       "version": {{.*}}
 CHECK-NEXT:     }
 CHECK-NEXT:   }
 CHECK-NEXT: }
