@@ -37,7 +37,8 @@ constexpr const char *StackDumpFile = "nixd-backtrace.dump";
 void printReportInfo() {
   std::cerr
       << "Please file an issue at https://github.com/nix-community/nixd/issues/"
-      << "\n";
+      << "\n"
+      << "nixd version: " << NIXD_VERSION << std::endl;
 }
 
 void sigHandler(int Signum) {
