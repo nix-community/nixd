@@ -6,13 +6,6 @@
   </p>
 </div>
 
-# Note: This server is working in progress!
-
-Status page: https://github.com/nix-community/nixd/issues/49
-
-Please join our matrix room (https://matrix.to/#/#nixd:matrix.org) for internal testing & feedback.
-
-
 ## About
 
 This is a Nix language server that directly uses (i.e., is linked with) the official Nix library (https://github.com/NixOS/nix).
