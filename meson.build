@@ -3,6 +3,18 @@ project( 'nixd'
        , default_options : ['cpp_std=gnu++20']
        )
 
+config_h = configuration_data()
+config_h.set_quoted('NIXD_VERSION', meson.project_version())
+configure_file(
+  output: 'nixd-config.h',
+  configuration: config_h,
+)
+
+add_project_arguments([
+  '-I' + meson.project_build_root(),
+], language: 'cpp')
+
+
 nix_all = [ dependency('nix-expr')
           , dependency('nix-cmd')
           , dependency('nix-store')
