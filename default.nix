@@ -16,7 +16,7 @@ let
   llvmPackages = llvmPackages_16;
   nix = nixVersions.nix_2_16;
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "nixd";
   version = "nightly";
 
