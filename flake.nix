@@ -21,7 +21,12 @@
         packages.nixd = nixd;
 
         devShells.default = nixd.overrideAttrs (old: {
-          nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang-tools pkgs.gdb pkgs.nixpkgs-fmt ];
+          nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
+            clang-tools
+            gdb
+            nixpkgs-fmt
+            llvmPackages_16.clang
+          ]);
           shellHook = ''
             export PATH="${pkgs.clang-tools}/bin:$PATH"
             export NIX_SRC=${pkgs.nixUnstable.src}
