@@ -1,3 +1,7 @@
+## We ❤️ Contributions!
+
+Please update this doc (tweaks, tricks, or how to setup for another editor)!
+
 ## Editor Setup Guide
 
 This is the description about how to setup your editor to use nixd.
