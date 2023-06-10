@@ -28,6 +28,9 @@ stdenv.mkDerivation {
     meson
     ninja
     pkg-config
+
+    # For C++ 20 library features on darwin devices.
+    llvmPackages.clang
   ];
 
   nativeCheckInputs = [
