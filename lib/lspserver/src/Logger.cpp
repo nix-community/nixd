@@ -13,6 +13,9 @@
 #include <llvm/Support/FormatVariadic.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
+
 #include <unistd.h>
 
 #include <mutex>
@@ -51,10 +54,13 @@ const char *detail::debugType(const char *Filename) {
 
 void StreamLogger::log(Logger::Level Level, const char *Fmt,
                        const llvm::formatv_object_base &Message) {
+  using namespace boost::interprocess;
   if (Level < MinLevel)
     return;
   llvm::sys::TimePoint<> Timestamp = std::chrono::system_clock::now();
-  std::lock_guard<std::mutex> Guard(StreamMutex);
+  named_mutex NamedMutex(open_or_create, "nixd.ipc.mutex.log");
+
+  scoped_lock<named_mutex> Lock(NamedMutex);
   Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}: {3}\n", indicator(Level),
                         Timestamp, getpid(), Message);
   Logs.flush();

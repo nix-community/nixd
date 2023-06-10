@@ -112,8 +112,6 @@ public:
 private:
   Logger::Level MinLevel;
   llvm::raw_ostream &Logs;
-
-  std::mutex StreamMutex;
 };
 
 } // namespace lspserver
