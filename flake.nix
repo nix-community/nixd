@@ -10,8 +10,14 @@
       inputs.flake-parts.flakeModules.easyOverlay
     ];
     perSystem = { config, self', inputs', pkgs, system, ... }:
+      with pkgs;
       let
-        nixd = pkgs.callPackage ./default.nix { };
+        nixd = callPackage ./default.nix {
+          stdenv =
+            if stdenv.isDarwin
+            then llvmPackages_16.libcxxStdenv
+            else stdenv;
+        };
       in
       {
         packages.default = nixd;
