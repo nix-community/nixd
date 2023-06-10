@@ -50,3 +50,8 @@ Please file a bug if you encountered some trouble using the extension.
    }
 }
 ```
+
+### Neovim
+
+Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig).
+We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.txt#nixd)
