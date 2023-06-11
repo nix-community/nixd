@@ -32,6 +32,7 @@
         devShells.nvim = pkgs.mkShell {
           nativeBuildInputs = [
             nixd
+            pkgs.nixpkgs-fmt
             (import ./editors/nvim-lsp.nix { inherit pkgs; })
           ];
         };
