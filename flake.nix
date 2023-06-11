@@ -28,6 +28,13 @@
             export NIX_DEBUG_INFO_DIRS=${pkgs.nixUnstable.debug}/lib/debug
           '';
         });
+
+        devShells.nvim = pkgs.mkShell {
+          nativeBuildInputs = [
+            nixd
+            (import ./editors/nvim-lsp.nix { inherit pkgs; })
+          ];
+        };
       };
     systems = nixpkgs.lib.systems.flakeExposed;
   };
