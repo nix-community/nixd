@@ -7,7 +7,7 @@ jobs:
   flake-default:
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: cachix/install-nix-action@v20
