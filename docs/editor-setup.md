@@ -55,3 +55,17 @@ Please file a bug if you encountered some trouble using the extension.
 
 Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig).
 We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.txt#nixd)
+
+Also, we provide an [example config](/editors/nvim-lsp.nix) for testing, You can run the following command to edit a *.nix file
+```console
+$ nix develop github:nix-community/nixd#nvim
+
+$ nvim-lsp /tmp/test/default.nix
+```
+tip: If you want to configure lsp itself, see [configuration](/docs/user-guide.md#configuration), and the following tree-like directory
+```console
+# tree -a /tmp/test
+/tmp/test/
+├── default.nix
+└── .nixd.json
+```
