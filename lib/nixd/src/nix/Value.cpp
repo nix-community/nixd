@@ -1,5 +1,7 @@
 #include "nixd/nix/Value.h"
 
+#include <nix/eval.hh>
+
 namespace nix::nixd {
 
 bool isOption(EvalState &State, Value &V) {
@@ -11,6 +13,16 @@ bool isOption(EvalState &State, Value &V) {
   auto S = attrPathStr(State, V, "_type");
   return S && S.value() == "option";
 };
+
+bool isDerivation(EvalState &State, Value &V) {
+  State.forceValue(V, noPos);
+  if (V.type() != ValueType::nAttrs)
+    return false;
+
+  // Derivations has a special attribute "type" == "derivation"
+  auto S = attrPathStr(State, V, "type");
+  return S && S.value() == "derivation";
+}
 
 std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
                                        const std::string &AttrPath) noexcept {

@@ -239,6 +239,29 @@ void Server::onEvalDefinition(
         auto State = IER->Session->getState();
 
         auto *Node = AST->lookupPosition(Params.position);
+
+        // If the expression evaluates to a "derivation", try to bring our user
+        // to the location which defines the package.
+        try {
+          auto V = AST->getValue(Node);
+          if (nix::nixd::isDerivation(*State, V)) {
+            if (auto S = nix::nixd::attrPathStr(*State, V, "meta.position")) {
+              llvm::StringRef PositionStr = S.value();
+              auto [Path, LineStr] = PositionStr.split(':');
+              int Line;
+              if (LLVM_LIKELY(!LineStr.getAsInteger(10, Line))) {
+                lspserver::Position Position{.line = Line, .character = 0};
+                RR.Response = Location{URIForFile::canonicalize(Path, Path),
+                                       {Position, Position}};
+                return;
+              }
+            }
+          }
+        } catch (...) {
+          lspserver::vlog("no associated value on this expression");
+        }
+
+        // Otherwise, we try to find the location binds to the variable.
         if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
           if (EVar->fromWith)
             return;
