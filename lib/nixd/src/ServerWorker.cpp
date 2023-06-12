@@ -320,8 +320,8 @@ void Server::onOptionCompletion(const ipc::AttrPathParams &Params,
               .label = State.symbols[Attr.name],
               .kind = CompletionItemKind::Constructor,
               .detail = OI.Type.value_or(""),
-              .documentation = MarkupContent{MarkupKind::Markdown,
-                                             OI.Description.value_or("")}});
+              .documentation =
+                  MarkupContent{MarkupKind::Markdown, OI.mdDoc()}});
         } else {
           Items.emplace_back(
               CompletionItem{.label = OptionIES->getState()->symbols[Attr.name],
