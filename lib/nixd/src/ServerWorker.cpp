@@ -14,6 +14,7 @@
 #include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/globals.hh>
+#include <nix/input-accessor.hh>
 #include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
@@ -251,6 +252,21 @@ void Server::onEvalDefinition(
               int Line;
               if (LLVM_LIKELY(!LineStr.getAsInteger(10, Line))) {
                 lspserver::Position Position{.line = Line, .character = 0};
+                RR.Response = Location{URIForFile::canonicalize(Path, Path),
+                                       {Position, Position}};
+                return;
+              }
+            }
+          } else {
+            // There is a value avaiable, this might be useful for locations
+            auto P = V.determinePos(nix::noPos);
+            if (P != nix::noPos) {
+              auto Pos = State->positions[P];
+              if (auto *SourcePath =
+                      std::get_if<nix::SourcePath>(&Pos.origin)) {
+                auto Path = SourcePath->to_string();
+                lspserver::Position Position =
+                    translatePosition(State->positions[P]);
                 RR.Response = Location{URIForFile::canonicalize(Path, Path),
                                        {Position, Position}};
                 return;
