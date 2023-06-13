@@ -66,6 +66,10 @@ File #2:
 }
 ```
 
+## Wait 100000
+
+Sync worker 0 & worker 1, ensure that they are finished.
+
 <-- textDocument/hover
 
 ```json
