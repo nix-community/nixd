@@ -15,9 +15,9 @@ struct OptionInfo {
 
   std::string mdDoc() {
     return llvm::formatv(R"(
-## Example
+### Example
 `{0}`
-## Description
+### Description
 {1}
     )",
                          Example, Description);
