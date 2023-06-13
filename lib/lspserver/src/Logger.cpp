@@ -58,7 +58,7 @@ void StreamLogger::log(Logger::Level Level, const char *Fmt,
   if (Level < MinLevel)
     return;
   llvm::sys::TimePoint<> Timestamp = std::chrono::system_clock::now();
-  named_mutex NamedMutex(open_or_create, "nixd.ipc.mutex.log");
+  named_mutex NamedMutex(open_or_create, StreamLockName);
 
   scoped_lock<named_mutex> Lock(NamedMutex);
   Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}: {3}\n", indicator(Level),
