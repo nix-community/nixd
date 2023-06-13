@@ -4,6 +4,8 @@
 
 #include <nix/eval.hh>
 
+#include <llvm/Support/FormatVariadic.h>
+
 namespace nix::nixd {
 
 OptionInfo optionInfo(nix::EvalState &State, nix::Value &V) {
@@ -28,5 +30,15 @@ OptionInfo optionInfo(nix::EvalState &State, nix::Value &V) {
 
   return Info;
 };
+
+std::string OptionInfo::mdDoc() {
+  return llvm::formatv(R"(
+### Example
+`{0}`
+### Description
+{1}
+    )",
+                       Example, Description);
+}
 
 } // namespace nix::nixd

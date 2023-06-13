@@ -2,8 +2,6 @@
 
 #include <nix/eval.hh>
 
-#include "llvm/Support/FormatVariadic.h"
-
 #include <optional>
 #include <string>
 
@@ -13,15 +11,7 @@ struct OptionInfo {
   std::optional<std::string> Description;
   std::optional<std::string> Example;
 
-  std::string mdDoc() {
-    return llvm::formatv(R"(
-### Example
-`{0}`
-### Description
-{1}
-    )",
-                         Example, Description);
-  }
+  std::string mdDoc();
 };
 
 OptionInfo optionInfo(nix::EvalState &State, nix::Value &V);
