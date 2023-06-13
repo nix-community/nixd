@@ -1,11 +1,18 @@
 project( 'nixd'
        , ['c', 'cpp']
        , default_options : ['cpp_std=gnu++20']
-       , version: '1.0.0'
+       , version: 'nightly'
        )
 
-
 config_h = configuration_data()
+
+git = find_program('git', required : false)
+if git.found()
+  res = run_command(['git', 'describe', '--tags', '--always'], capture : true, check : false)
+  describe = res.stdout().strip()
+  config_h.set_quoted('NIXD_VCS_TAG', describe)
+endif
+
 config_h.set_quoted('NIXD_VERSION', meson.project_version())
 
 configure_file(

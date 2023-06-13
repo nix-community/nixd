@@ -38,7 +38,11 @@ void printReportInfo() {
   std::cerr
       << "Please file an issue at https://github.com/nix-community/nixd/issues/"
       << "\n"
-      << "nixd version: " << NIXD_VERSION << std::endl;
+      << "nixd version: " << NIXD_VERSION
+#ifdef NIXD_VCS_TAG
+      << " " << NIXD_VCS_TAG
+#endif
+      << std::endl;
 }
 
 void sigHandler(int Signum) {
@@ -134,7 +138,11 @@ int main(int argc, char *argv[]) {
   StreamLogger Logger(llvm::errs(), LogLevel);
   lspserver::LoggingSession Session(Logger);
 
+#ifdef NIXD_VCS_TAG
+  lspserver::log("nixd {0} started", NIXD_VCS_TAG);
+#else
   lspserver::log("nixd {0} started", NIXD_VERSION);
+#endif
   nixd::Server Server{
       std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
       std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
