@@ -109,17 +109,17 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
   assert(Role != ServerRole::Controller && "must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
 
-  nix::Strings Args;
-  std::string Installable;
-  if (!Config.eval.has_value() || !Config.eval->target) {
-    Args = {"--file", std::string(File)};
-    Installable = "";
-  } else {
-    std::tie(Args, Installable) =
-        configuration::TopLevel::getInstallable(Config.eval->target.value());
-  }
+  decltype(Config.eval->target) I;
 
-  Session->parseArgs(Args);
+  if (!Config.eval.has_value())
+    I = std::nullopt;
+  else
+    I = Config.eval->target;
+
+  auto ShoudlEval = I.has_value() && !I->empty();
+
+  if (ShoudlEval)
+    Session->parseArgs(I->ndArgs());
 
   auto ILR = DraftMgr.injectFiles(Session->getState());
 
@@ -132,9 +132,11 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
   Diagnostics.WorkspaceVersion = WorkspaceVersion;
   EvalDiagnostic(Diagnostics);
   try {
-    Session->eval(Installable, Depth);
-    lspserver::log("evaluation done on worspace version: {0}",
-                   WorkspaceVersion);
+    if (ShoudlEval) {
+      Session->eval(I->dInstallable(), Depth);
+      lspserver::log("evaluation done on worspace version: {0}",
+                     WorkspaceVersion);
+    }
   } catch (nix::BaseError &BE) {
     Diagnostics.Params.emplace_back(diagNixError(File, BE, std::nullopt));
   } catch (...) {
