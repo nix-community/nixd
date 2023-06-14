@@ -82,7 +82,7 @@ private:
 
   WorkspaceVersionTy WorkspaceVersion = 1;
 
-  std::deque<std::unique_ptr<Proc>> Workers;
+  std::deque<std::unique_ptr<Proc>> EvalWorkers;
 
   // Evaluator notify us "evaluation done" by incresing this semaphore.
   std::counting_semaphore<> EvalDoneSmp = std::counting_semaphore(0);
@@ -122,25 +122,12 @@ private:
     WorkspaceVersionTy WorkspaceVersion = 0;
   } DiagStatus; // GUARDED_BY(DiagStatusLock)
 
-  //---------------------------------------------------------------------------/
-  // Controller
-
   boost::asio::thread_pool Pool;
-
-  void onEvalDiagnostic(const ipc::Diagnostics &);
-
-  void onEvalFinished(const ipc::WorkerMessage &);
-
-  template <class Arg, class Resp>
-  auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-                  llvm::StringRef IPCMethod, const Arg &Params,
-                  unsigned Timeout);
 
   //---------------------------------------------------------------------------/
   // Worker members
-  llvm::unique_function<void(const ipc::Diagnostics &)> WorkerDiagnostic;
 
-  std::unique_ptr<IValueEvalResult> IER;
+  // Worker::Option
 
   /// The AttrSet having options, we use this for any nixpkgs options.
   /// nixpkgs basically defined options under "options" attrpath
@@ -148,60 +135,27 @@ private:
   nix::Value *OptionAttrSet;
   std::unique_ptr<IValueEvalSession> OptionIES;
 
+  // Worker::Eval
+
+  llvm::unique_function<void(const ipc::Diagnostics &)> EvalDiagnostic;
+
+  std::unique_ptr<IValueEvalResult> IER;
+
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
   ~Server() override {
     Pool.join();
-    auto EvalWorkerSize = Workers.size();
+    auto EvalWorkerSize = EvalWorkers.size();
     // Ensure that all workers are finished eval, or being killed
     for (auto I = 0; I < EvalWorkerSize; I++) {
       EvalDoneSmp.acquire();
     }
-    for (auto &Worker : Workers) {
+    for (auto &Worker : EvalWorkers) {
       Worker.reset();
     }
   }
-
-  template <class ReplyTy>
-  void withAST(
-      const std::string &, ReplyRAII<ReplyTy>,
-      llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
-
-  void evalInstallable(lspserver::PathRef File, int Depth);
-
-  void forkWorker(llvm::unique_function<void()> WorkerAction,
-                  std::deque<std::unique_ptr<Proc>> &WorkerPool);
-
-  void forkOptionWorker();
-
-  void initWorker();
-
-  void switchToOptionProvider();
-
-  void updateWorkspaceVersion(lspserver::PathRef File);
-
-  void switchToEvaluator(lspserver::PathRef File);
-
-  void updateConfig(configuration::TopLevel &&NewConfig);
-
-  void fetchConfig();
-
-  static llvm::Expected<configuration::TopLevel>
-  parseConfig(llvm::StringRef JSON);
-
-  /// Try to update the server config from json encoded file \p File
-  /// Won't touch config field if exceptions encountered
-  void readJSONConfig(lspserver::PathRef File = ".nixd.json") noexcept;
-
-  void clearDiagnostic(lspserver::PathRef Path);
-
-  void clearDiagnostic(const lspserver::URIForFile &FileUri);
-
-  static lspserver::PublishDiagnosticsParams
-  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
-               std::optional<int64_t> Version);
 
   //---------------------------------------------------------------------------/
   // Life Cycle
@@ -216,6 +170,8 @@ public:
   //---------------------------------------------------------------------------/
   // Text Document Synchronization
 
+  void updateWorkspaceVersion(lspserver::PathRef File);
+
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
   void
@@ -226,11 +182,17 @@ public:
   //---------------------------------------------------------------------------/
   // Language Features
 
+  void clearDiagnostic(lspserver::PathRef Path);
+
+  void clearDiagnostic(const lspserver::URIForFile &FileUri);
+
+  static lspserver::PublishDiagnosticsParams
+  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
+               std::optional<int64_t> Version);
+
   void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
                                    std::string Content,
                                    std::optional<int64_t> LSPVersion);
-
-  // Controller Methods
 
   void onDecalration(const lspserver::TextDocumentPositionParams &,
                      lspserver::Callback<llvm::json::Value>);
@@ -247,10 +209,68 @@ public:
   void onFormat(const lspserver::DocumentFormattingParams &,
                 lspserver::Callback<std::vector<lspserver::TextEdit>>);
 
+  //---------------------------------------------------------------------------/
+  // Workspace Features
+
+  void updateConfig(configuration::TopLevel &&NewConfig);
+
+  void fetchConfig();
+
+  static llvm::Expected<configuration::TopLevel>
+  parseConfig(llvm::StringRef JSON);
+
+  /// Try to update the server config from json encoded file \p File
+  /// Won't touch config field if exceptions encountered
+  void readJSONConfig(lspserver::PathRef File = ".nixd.json") noexcept;
+
+  void onWorkspaceDidChangeConfiguration(
+      const lspserver::DidChangeConfigurationParams &) {
+    fetchConfig();
+  }
+
+  //---------------------------------------------------------------------------/
+  // Interprocess
+
+  // Controller
+
+  void forkWorker(llvm::unique_function<void()> WorkerAction,
+                  std::deque<std::unique_ptr<Proc>> &WorkerPool);
+
+  void onEvalDiagnostic(const ipc::Diagnostics &);
+
+  void onEvalFinished(const ipc::WorkerMessage &);
+
+  template <class Arg, class Resp>
+  auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+                  llvm::StringRef IPCMethod, const Arg &Params,
+                  unsigned Timeout);
+
   // Worker
+
+  void initWorker();
+
+  // Worker::Nix::Option
+
+  void forkOptionWorker();
+
+  void switchToOptionProvider();
 
   void onOptionDeclaration(const ipc::AttrPathParams &,
                            lspserver::Callback<lspserver::Location>);
+
+  void onOptionCompletion(const ipc::AttrPathParams &,
+                          lspserver::Callback<llvm::json::Value>);
+
+  // Worker::Nix::Eval
+
+  void switchToEvaluator(lspserver::PathRef File);
+
+  template <class ReplyTy>
+  void withAST(
+      const std::string &, ReplyRAII<ReplyTy>,
+      llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
+
+  void evalInstallable(lspserver::PathRef File, int Depth);
 
   void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
                         lspserver::Callback<lspserver::Location>);
@@ -260,17 +280,6 @@ public:
 
   void onEvalCompletion(const lspserver::CompletionParams &,
                         lspserver::Callback<llvm::json::Value>);
-
-  void onOptionCompletion(const ipc::AttrPathParams &,
-                          lspserver::Callback<llvm::json::Value>);
-
-  //---------------------------------------------------------------------------/
-  // Workspace Features
-
-  void onWorkspaceDidChangeConfiguration(
-      const lspserver::DidChangeConfigurationParams &) {
-    fetchConfig();
-  }
 };
 
 template <class Arg, class Resp>

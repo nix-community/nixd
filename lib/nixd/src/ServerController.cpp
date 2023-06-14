@@ -111,12 +111,12 @@ void Server::updateWorkspaceVersion(lspserver::PathRef File) {
       [File, this]() {
         switchToEvaluator(File);
         // unregister "Procs" in worker process, they are managed by controller
-        for (auto &Worker : Workers)
+        for (auto &Worker : EvalWorkers)
           Worker->Pid.release();
       },
-      Workers);
-  if (Workers.size() > Config.getNumWorkers() && !WaitWorker)
-    Workers.pop_front();
+      EvalWorkers);
+  if (EvalWorkers.size() > Config.getNumWorkers() && !WaitWorker)
+    EvalWorkers.pop_front();
 }
 
 void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
@@ -381,7 +381,7 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
-            Workers, "nixd/ipc/textDocument/definition", Params, 2e4);
+            EvalWorkers, "nixd/ipc/textDocument/definition", Params, 2e4);
 
     Reply(latestMatchOr<lspserver::Location, llvm::json::Value>(
         Responses,
@@ -399,7 +399,7 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
-            Workers, "nixd/ipc/textDocument/hover", Params, 2e4);
+            EvalWorkers, "nixd/ipc/textDocument/hover", Params, 2e4);
     Reply(latestMatchOr<lspserver::Hover>(
         Responses, [](const lspserver::Hover &H) {
           return H.contents.value.length() != 0;
@@ -417,7 +417,7 @@ void Server::onCompletion(
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
-            Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
+            EvalWorkers, "nixd/ipc/textDocument/completion", Params, 5e4);
 
     if (EnableOption) {
       ipc::AttrPathParams APParams;

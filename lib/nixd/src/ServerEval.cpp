@@ -83,23 +83,10 @@ CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
   return Result;
 }
 
-void Server::initWorker() {
-  assert(Role == ServerRole::Controller &&
-         "Must switch from controller's fork!");
-  nix::initNix();
-  nix::initLibStore();
-  nix::initPlugins();
-  nix::initGC();
-
-  /// Basically communicate with the controller in standard mode. because we do
-  /// not support "lit-test" outbound port.
-  switchStreamStyle(lspserver::JSONStreamStyle::Standard);
-}
-
 void Server::switchToEvaluator(lspserver::PathRef File) {
   initWorker();
   Role = ServerRole::Evaluator;
-  WorkerDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
+  EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
   evalInstallable(File, Config.getEvalDepth());
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/eval/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
@@ -143,7 +130,7 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
                      decltype(DraftMgr)::decodeVersion(ErrInfo.Version)));
   }
   Diagnostics.WorkspaceVersion = WorkspaceVersion;
-  WorkerDiagnostic(Diagnostics);
+  EvalDiagnostic(Diagnostics);
   try {
     Session->eval(Installable, Depth);
     lspserver::log("evaluation done on worspace version: {0}",
@@ -152,7 +139,7 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
     Diagnostics.Params.emplace_back(diagNixError(File, BE, std::nullopt));
   } catch (...) {
   }
-  WorkerDiagnostic(Diagnostics);
+  EvalDiagnostic(Diagnostics);
   IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
                                            std::move(Session));
 }
