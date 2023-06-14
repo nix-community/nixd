@@ -22,6 +22,17 @@
 
 namespace nixd {
 
+struct CompletionHelper {
+  using Items = std::vector<lspserver::CompletionItem>;
+  static Items fromEnvRecursive(const nix::SymbolTable &STable,
+                                const nix::StaticEnv &SEnv,
+                                const nix::Env &NixEnv);
+  static Items fromEnvWith(const nix::SymbolTable &STable,
+                           const nix::Env &NixEnv);
+  static Items fromStaticEnv(const nix::SymbolTable &STable,
+                             const nix::StaticEnv &SEnv);
+};
+
 CompletionHelper::Items
 CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
                                 const nix::StaticEnv &SEnv) {

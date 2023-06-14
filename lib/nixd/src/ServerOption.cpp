@@ -89,7 +89,7 @@ void Server::onOptionCompletion(const ipc::AttrPathParams &Params,
   try {
     CompletionList List;
     List.isIncomplete = false;
-    List.items = CompletionHelper::Items{};
+    List.items = decltype(CompletionList::items){};
 
     auto &Items = List.items;
 
