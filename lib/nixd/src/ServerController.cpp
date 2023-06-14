@@ -328,7 +328,7 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
     return;
   }
 
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
     ReplyRAII<llvm::json::Value> RR(std::move(Reply));
 
     // Set the default response to "null", instead of errors
@@ -371,14 +371,14 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
       return;
 
     RR.Response = std::move(Responses.back());
-  });
+  };
 
-  PendingReply.emplace_back(std::move(Thread));
+  boost::asio::post(Pool, std::move(Task));
 }
 
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
             Workers, "nixd/ipc/textDocument/definition", Params, 2e4);
@@ -389,14 +389,14 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
           return Location.range.start.line != -1;
         },
         llvm::json::Object{}));
-  });
+  };
 
-  PendingReply.emplace_back(std::move(Thread));
+  boost::asio::post(Pool, std::move(Task));
 }
 
 void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
                      lspserver::Callback<lspserver::Hover> Reply) {
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
             Workers, "nixd/ipc/textDocument/hover", Params, 2e4);
@@ -404,9 +404,9 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
         Responses, [](const lspserver::Hover &H) {
           return H.contents.value.length() != 0;
         }));
-  });
+  };
 
-  PendingReply.emplace_back(std::move(Thread));
+  boost::asio::post(Pool, std::move(Task));
 }
 
 void Server::onCompletion(
@@ -414,7 +414,7 @@ void Server::onCompletion(
     lspserver::Callback<lspserver::CompletionList> Reply) {
   auto EnableOption =
       bool(Config.options) && Config.options->enable.value_or(false);
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
             Workers, "nixd/ipc/textDocument/completion", Params, 5e4);
@@ -445,8 +445,8 @@ void Server::onCompletion(
     Reply(latestMatchOr<lspserver::CompletionList>(
         Responses,
         [](const lspserver::CompletionList &L) -> bool { return true; }));
-  });
-  PendingReply.emplace_back(std::move(Thread));
+  };
+  boost::asio::post(Pool, std::move(Task));
 }
 
 void Server::clearDiagnostic(lspserver::PathRef Path) {
@@ -493,7 +493,7 @@ void Server::onFormat(
     const lspserver::DocumentFormattingParams &Params,
     lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
 
-  auto Thread = std::thread([=, Reply = std::move(Reply), this]() mutable {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
     lspserver::PathRef File = Params.textDocument.uri.file();
     auto Code = *getDraft(File);
     auto FormatFuture = std::async([Code = std::move(Code),
@@ -539,7 +539,7 @@ void Server::onFormat(
     } else {
       Reply(lspserver::error("no formatting response received"));
     }
-  });
-  PendingReply.emplace_back(std::move(Thread));
+  };
+  boost::asio::post(Pool, std::move(Task));
 }
 } // namespace nixd

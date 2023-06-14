@@ -15,6 +15,8 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <boost/thread.hpp>
+
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -134,7 +136,7 @@ private:
   //---------------------------------------------------------------------------/
   // Controller
 
-  std::vector<std::thread> PendingReply;
+  boost::asio::thread_pool Pool;
 
   void onEvalDiagnostic(const ipc::Diagnostics &);
 
@@ -207,9 +209,7 @@ public:
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
   ~Server() override {
-    for (auto &T : PendingReply) {
-      T.join();
-    }
+    Pool.join();
     auto EvalWorkerSize = Workers.size();
     // Ensure that all workers are finished eval, or being killed
     for (auto I = 0; I < EvalWorkerSize; I++) {
