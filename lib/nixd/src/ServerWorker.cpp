@@ -100,6 +100,8 @@ void Server::switchToEvaluator(lspserver::PathRef File) {
   Role = ServerRole::Evaluator;
   WorkerDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
   evalInstallable(File, Config.getEvalDepth());
+  mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/eval/finished")(
+      ipc::WorkerMessage{WorkspaceVersion});
 }
 
 void Server::switchToOptionProvider() {
