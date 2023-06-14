@@ -28,17 +28,6 @@
 
 namespace nixd {
 
-struct CompletionHelper {
-  using Items = std::vector<lspserver::CompletionItem>;
-  static Items fromEnvRecursive(const nix::SymbolTable &STable,
-                                const nix::StaticEnv &SEnv,
-                                const nix::Env &NixEnv);
-  static Items fromEnvWith(const nix::SymbolTable &STable,
-                           const nix::Env &NixEnv);
-  static Items fromStaticEnv(const nix::SymbolTable &STable,
-                             const nix::StaticEnv &SEnv);
-};
-
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
 public:
@@ -93,7 +82,7 @@ private:
 
   WorkspaceVersionTy WorkspaceVersion = 1;
 
-  std::deque<std::unique_ptr<Proc>> Workers;
+  std::deque<std::unique_ptr<Proc>> EvalWorkers;
 
   // Evaluator notify us "evaluation done" by incresing this semaphore.
   std::counting_semaphore<> EvalDoneSmp = std::counting_semaphore(0);
@@ -133,70 +122,12 @@ private:
     WorkspaceVersionTy WorkspaceVersion = 0;
   } DiagStatus; // GUARDED_BY(DiagStatusLock)
 
-  //---------------------------------------------------------------------------/
-  // Controller
-
   boost::asio::thread_pool Pool;
-
-  void onEvalDiagnostic(const ipc::Diagnostics &);
-
-  void onEvalFinished(const ipc::WorkerMessage &);
-
-  template <class Arg, class Resp>
-  auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-                  llvm::StringRef IPCMethod, const Arg &Params,
-                  unsigned Timeout) {
-    // For all active workers, send the completion request
-    std::counting_semaphore Sema(0);
-    auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
-        Workers.size(), std::nullopt);
-    auto ListStoreLock = std::make_shared<std::mutex>();
-
-    size_t I = 0;
-    for (const auto &Worker : Workers) {
-      auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
-      Request(Params, [I, ListStoreOptional, ListStoreLock,
-                       &Sema](llvm::Expected<Resp> Result) {
-        // The worker answered our request, fill the completion lists then.
-        if (Result) {
-          std::lock_guard Guard(*ListStoreLock);
-          (*ListStoreOptional)[I] = Result.get();
-        } else {
-          lspserver::vlog("worker {0} reported error: {1}", I,
-                          Result.takeError());
-        }
-        Sema.release();
-      });
-      I++;
-    }
-
-    std::future<void> F = std::async([&Sema, Size = I]() {
-      for (auto I = 0; I < Size; I++)
-        Sema.acquire();
-    });
-
-    if (WaitWorker)
-      F.wait();
-    else
-      F.wait_for(std::chrono::microseconds(Timeout));
-
-    std::lock_guard Guard(*ListStoreLock);
-    std::vector<Resp> AnsweredResp;
-    AnsweredResp.reserve(ListStoreOptional->size());
-    // Then, filter out un-answered response
-    for (const auto &R : *ListStoreOptional) {
-      if (R.has_value())
-        AnsweredResp.push_back(*R);
-    }
-
-    return AnsweredResp;
-  }
 
   //---------------------------------------------------------------------------/
   // Worker members
-  llvm::unique_function<void(const ipc::Diagnostics &)> WorkerDiagnostic;
 
-  std::unique_ptr<IValueEvalResult> IER;
+  // Worker::Option
 
   /// The AttrSet having options, we use this for any nixpkgs options.
   /// nixpkgs basically defined options under "options" attrpath
@@ -204,82 +135,27 @@ private:
   nix::Value *OptionAttrSet;
   std::unique_ptr<IValueEvalSession> OptionIES;
 
+  // Worker::Eval
+
+  llvm::unique_function<void(const ipc::Diagnostics &)> EvalDiagnostic;
+
+  std::unique_ptr<IValueEvalResult> IER;
+
 public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
   ~Server() override {
     Pool.join();
-    auto EvalWorkerSize = Workers.size();
+    auto EvalWorkerSize = EvalWorkers.size();
     // Ensure that all workers are finished eval, or being killed
     for (auto I = 0; I < EvalWorkerSize; I++) {
       EvalDoneSmp.acquire();
     }
-    for (auto &Worker : Workers) {
+    for (auto &Worker : EvalWorkers) {
       Worker.reset();
     }
   }
-
-  template <class ReplyTy>
-  void
-  withAST(const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
-          llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
-              Action) {
-    try {
-      auto AST = IER->Forest.at(RequestedFile);
-      Action(AST, std::move(RR));
-    } catch (std::out_of_range &E) {
-      RR.Response = lspserver::error("no AST available on requested file {0}",
-                                     RequestedFile);
-    }
-  }
-
-  void evalInstallable(lspserver::PathRef File, int Depth);
-
-  void forkWorker(llvm::unique_function<void()> WorkerAction,
-                  std::deque<std::unique_ptr<Proc>> &WorkerPool);
-
-  void forkOptionWorker() {
-    forkWorker(
-        [this]() {
-          switchToOptionProvider();
-          Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
-                             &Server::onOptionCompletion);
-          for (auto &W : OptionWorkers) {
-            W->Pid.release();
-          }
-        },
-        OptionWorkers);
-    if (OptionWorkers.size() > 1)
-      OptionWorkers.pop_front();
-  }
-
-  void initWorker();
-
-  void switchToOptionProvider();
-
-  void updateWorkspaceVersion(lspserver::PathRef File);
-
-  void switchToEvaluator(lspserver::PathRef File);
-
-  void updateConfig(configuration::TopLevel &&NewConfig);
-
-  void fetchConfig();
-
-  static llvm::Expected<configuration::TopLevel>
-  parseConfig(llvm::StringRef JSON);
-
-  /// Try to update the server config from json encoded file \p File
-  /// Won't touch config field if exceptions encountered
-  void readJSONConfig(lspserver::PathRef File = ".nixd.json") noexcept;
-
-  void clearDiagnostic(lspserver::PathRef Path);
-
-  void clearDiagnostic(const lspserver::URIForFile &FileUri);
-
-  static lspserver::PublishDiagnosticsParams
-  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
-               std::optional<int64_t> Version);
 
   //---------------------------------------------------------------------------/
   // Life Cycle
@@ -294,6 +170,8 @@ public:
   //---------------------------------------------------------------------------/
   // Text Document Synchronization
 
+  void updateWorkspaceVersion(lspserver::PathRef File);
+
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
   void
@@ -304,11 +182,17 @@ public:
   //---------------------------------------------------------------------------/
   // Language Features
 
+  void clearDiagnostic(lspserver::PathRef Path);
+
+  void clearDiagnostic(const lspserver::URIForFile &FileUri);
+
+  static lspserver::PublishDiagnosticsParams
+  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
+               std::optional<int64_t> Version);
+
   void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
                                    std::string Content,
                                    std::optional<int64_t> LSPVersion);
-
-  // Controller Methods
 
   void onDecalration(const lspserver::TextDocumentPositionParams &,
                      lspserver::Callback<llvm::json::Value>);
@@ -325,10 +209,68 @@ public:
   void onFormat(const lspserver::DocumentFormattingParams &,
                 lspserver::Callback<std::vector<lspserver::TextEdit>>);
 
+  //---------------------------------------------------------------------------/
+  // Workspace Features
+
+  void updateConfig(configuration::TopLevel &&NewConfig);
+
+  void fetchConfig();
+
+  static llvm::Expected<configuration::TopLevel>
+  parseConfig(llvm::StringRef JSON);
+
+  /// Try to update the server config from json encoded file \p File
+  /// Won't touch config field if exceptions encountered
+  void readJSONConfig(lspserver::PathRef File = ".nixd.json") noexcept;
+
+  void onWorkspaceDidChangeConfiguration(
+      const lspserver::DidChangeConfigurationParams &) {
+    fetchConfig();
+  }
+
+  //---------------------------------------------------------------------------/
+  // Interprocess
+
+  // Controller
+
+  void forkWorker(llvm::unique_function<void()> WorkerAction,
+                  std::deque<std::unique_ptr<Proc>> &WorkerPool);
+
+  void onEvalDiagnostic(const ipc::Diagnostics &);
+
+  void onEvalFinished(const ipc::WorkerMessage &);
+
+  template <class Arg, class Resp>
+  auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+                  llvm::StringRef IPCMethod, const Arg &Params,
+                  unsigned Timeout);
+
   // Worker
+
+  void initWorker();
+
+  // Worker::Nix::Option
+
+  void forkOptionWorker();
+
+  void switchToOptionProvider();
 
   void onOptionDeclaration(const ipc::AttrPathParams &,
                            lspserver::Callback<lspserver::Location>);
+
+  void onOptionCompletion(const ipc::AttrPathParams &,
+                          lspserver::Callback<llvm::json::Value>);
+
+  // Worker::Nix::Eval
+
+  void switchToEvaluator(lspserver::PathRef File);
+
+  template <class ReplyTy>
+  void withAST(
+      const std::string &, ReplyRAII<ReplyTy>,
+      llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
+
+  void evalInstallable(lspserver::PathRef File, int Depth);
 
   void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
                         lspserver::Callback<lspserver::Location>);
@@ -338,17 +280,70 @@ public:
 
   void onEvalCompletion(const lspserver::CompletionParams &,
                         lspserver::Callback<llvm::json::Value>);
-
-  void onOptionCompletion(const ipc::AttrPathParams &,
-                          lspserver::Callback<llvm::json::Value>);
-
-  //---------------------------------------------------------------------------/
-  // Workspace Features
-
-  void onWorkspaceDidChangeConfiguration(
-      const lspserver::DidChangeConfigurationParams &) {
-    fetchConfig();
-  }
 };
+
+template <class Arg, class Resp>
+auto Server::askWorkers(
+    const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+    llvm::StringRef IPCMethod, const Arg &Params, unsigned Timeout) {
+  // For all active workers, send the completion request
+  std::counting_semaphore Sema(0);
+  auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
+      Workers.size(), std::nullopt);
+  auto ListStoreLock = std::make_shared<std::mutex>();
+
+  size_t I = 0;
+  for (const auto &Worker : Workers) {
+    auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
+    Request(Params, [I, ListStoreOptional, ListStoreLock,
+                     &Sema](llvm::Expected<Resp> Result) {
+      // The worker answered our request, fill the completion lists then.
+      if (Result) {
+        std::lock_guard Guard(*ListStoreLock);
+        (*ListStoreOptional)[I] = Result.get();
+      } else {
+        lspserver::vlog("worker {0} reported error: {1}", I,
+                        Result.takeError());
+      }
+      Sema.release();
+    });
+    I++;
+  }
+
+  std::future<void> F = std::async([&Sema, Size = I]() {
+    for (auto I = 0; I < Size; I++)
+      Sema.acquire();
+  });
+
+  if (WaitWorker)
+    F.wait();
+  else
+    F.wait_for(std::chrono::microseconds(Timeout));
+
+  std::lock_guard Guard(*ListStoreLock);
+  std::vector<Resp> AnsweredResp;
+  AnsweredResp.reserve(ListStoreOptional->size());
+  // Then, filter out un-answered response
+  for (const auto &R : *ListStoreOptional) {
+    if (R.has_value())
+      AnsweredResp.push_back(*R);
+  }
+
+  return AnsweredResp;
+}
+
+template <class ReplyTy>
+void Server::withAST(
+    const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
+    llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
+        Action) {
+  try {
+    auto AST = IER->Forest.at(RequestedFile);
+    Action(AST, std::move(RR));
+  } catch (std::out_of_range &E) {
+    RR.Response = lspserver::error("no AST available on requested file {0}",
+                                   RequestedFile);
+  }
+}
 
 }; // namespace nixd
