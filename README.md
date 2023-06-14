@@ -25,7 +25,7 @@ Some notable features provided by linking with the Nix library include:
 
 <details><summary>Home-manager options auto-complete & goto declaration</summary>
 
-![hm-options-decl](https://user-images.githubusercontent.com/36667224/244408335-5c2b40a9-48da-4214-9071-5f80fcb721ae.gif)
+![options-example](https://github.com/nix-community/nixd/assets/36667224/43e00a8e-c2e6-4598-b188-f5e95d708256)
 
 See how to configure option system: https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#options
 
