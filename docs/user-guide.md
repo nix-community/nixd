@@ -3,39 +3,12 @@
 ### Installation
 
 Our flake.nix provides a package named `nixd`, and an overlay to nixpkgs that add the `nixd` package.
-So, if you would like to use `nixd` in your flake:
-
-```nix
-{
-  description = "My configuration";
-
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixd.url = "github:nix-community/nixd";
-  };
-
-  outputs = { nixpkgs, nixd, ... }:
-    {
-      nixosConfigurations = {
-        hostname = nixpkgs.lib.nixosSystem
-          {
-            system = "x86_64-linux";
-            modules = [
-              {
-                nixpkgs.overlays = [ nixd.overlays.default ];
-                environment.systemPackages = with pkgs;[
-                  nixd
-                ];
-              }
-            ];
-          };
-      };
-    };
-}
-```
 
 Note that please do NOT override nixpkgs revision for nixd inputs.
 The source code have tested on specific version on NixOS/nix, which may not work at your version.
+
+At this time (2023-06-14), nixd is under rapid development and it is highly recommended to install nixd from source.
+See instructions below.
 
 ### Build the project from source
 
