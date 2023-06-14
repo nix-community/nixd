@@ -145,52 +145,7 @@ private:
   template <class Arg, class Resp>
   auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
                   llvm::StringRef IPCMethod, const Arg &Params,
-                  unsigned Timeout) {
-    // For all active workers, send the completion request
-    std::counting_semaphore Sema(0);
-    auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
-        Workers.size(), std::nullopt);
-    auto ListStoreLock = std::make_shared<std::mutex>();
-
-    size_t I = 0;
-    for (const auto &Worker : Workers) {
-      auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
-      Request(Params, [I, ListStoreOptional, ListStoreLock,
-                       &Sema](llvm::Expected<Resp> Result) {
-        // The worker answered our request, fill the completion lists then.
-        if (Result) {
-          std::lock_guard Guard(*ListStoreLock);
-          (*ListStoreOptional)[I] = Result.get();
-        } else {
-          lspserver::vlog("worker {0} reported error: {1}", I,
-                          Result.takeError());
-        }
-        Sema.release();
-      });
-      I++;
-    }
-
-    std::future<void> F = std::async([&Sema, Size = I]() {
-      for (auto I = 0; I < Size; I++)
-        Sema.acquire();
-    });
-
-    if (WaitWorker)
-      F.wait();
-    else
-      F.wait_for(std::chrono::microseconds(Timeout));
-
-    std::lock_guard Guard(*ListStoreLock);
-    std::vector<Resp> AnsweredResp;
-    AnsweredResp.reserve(ListStoreOptional->size());
-    // Then, filter out un-answered response
-    for (const auto &R : *ListStoreOptional) {
-      if (R.has_value())
-        AnsweredResp.push_back(*R);
-    }
-
-    return AnsweredResp;
-  }
+                  unsigned Timeout);
 
   //---------------------------------------------------------------------------/
   // Worker members
@@ -350,5 +305,55 @@ public:
     fetchConfig();
   }
 };
+
+template <class Arg, class Resp>
+auto Server::askWorkers(
+    const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+    llvm::StringRef IPCMethod, const Arg &Params, unsigned Timeout) {
+  // For all active workers, send the completion request
+  std::counting_semaphore Sema(0);
+  auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
+      Workers.size(), std::nullopt);
+  auto ListStoreLock = std::make_shared<std::mutex>();
+
+  size_t I = 0;
+  for (const auto &Worker : Workers) {
+    auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
+    Request(Params, [I, ListStoreOptional, ListStoreLock,
+                     &Sema](llvm::Expected<Resp> Result) {
+      // The worker answered our request, fill the completion lists then.
+      if (Result) {
+        std::lock_guard Guard(*ListStoreLock);
+        (*ListStoreOptional)[I] = Result.get();
+      } else {
+        lspserver::vlog("worker {0} reported error: {1}", I,
+                        Result.takeError());
+      }
+      Sema.release();
+    });
+    I++;
+  }
+
+  std::future<void> F = std::async([&Sema, Size = I]() {
+    for (auto I = 0; I < Size; I++)
+      Sema.acquire();
+  });
+
+  if (WaitWorker)
+    F.wait();
+  else
+    F.wait_for(std::chrono::microseconds(Timeout));
+
+  std::lock_guard Guard(*ListStoreLock);
+  std::vector<Resp> AnsweredResp;
+  AnsweredResp.reserve(ListStoreOptional->size());
+  // Then, filter out un-answered response
+  for (const auto &R : *ListStoreOptional) {
+    if (R.has_value())
+      AnsweredResp.push_back(*R);
+  }
+
+  return AnsweredResp;
+}
 
 }; // namespace nixd
