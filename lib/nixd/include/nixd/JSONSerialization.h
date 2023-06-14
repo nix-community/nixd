@@ -33,9 +33,24 @@ bool fromJSON(const llvm::json::Value &Params, Location &R, llvm::json::Path P);
 namespace nixd {
 namespace configuration {
 
+inline std::list<std::string> toNixArgs(const std::vector<std::string> &Args) {
+  return {Args.begin(), Args.end()};
+}
 struct InstallableConfigurationItem {
-  std::vector<std::string> args;
-  std::string installable;
+  std::optional<std::vector<std::string>> args;
+  std::optional<std::string> installable;
+
+  [[nodiscard]] bool empty() const {
+    return !args.has_value() && !installable.has_value();
+  }
+
+  [[nodiscard]] auto dArgs() const {
+    return args.value_or(decltype(args.value()){});
+  }
+
+  [[nodiscard]] auto ndArgs() const { return toNixArgs(dArgs()); }
+
+  [[nodiscard]] auto dInstallable() const { return installable.value_or(""); }
 };
 
 struct TopLevel {
@@ -82,11 +97,6 @@ struct TopLevel {
       return eval->workers.value();
     return static_cast<int>(std::thread::hardware_concurrency());
   }
-
-  /// Get installable arguments specified in this config, fallback to file \p
-  /// Fallback if 'installable' is not set.
-  [[nodiscard]] static std::tuple<std::list<std::string>, std::string>
-  getInstallable(const InstallableConfigurationItem &);
 };
 bool fromJSON(const llvm::json::Value &Params, TopLevel::Eval &R,
               llvm::json::Path P);

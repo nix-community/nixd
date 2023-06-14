@@ -41,11 +41,6 @@
 
 namespace nixd {
 
-std::tuple<nix::Strings, std::string> configuration::TopLevel::getInstallable(
-    const InstallableConfigurationItem &Item) {
-  return {nix::Strings(Item.args.begin(), Item.args.end()), Item.installable};
-}
-
 void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
                         std::deque<std::unique_ptr<Proc>> &WorkerPool) {
   auto To = std::make_unique<nix::Pipe>();

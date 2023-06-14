@@ -79,14 +79,13 @@ void Server::switchToOptionProvider() {
   Role = ServerRole::OptionProvider;
 
   if (!Config.options.has_value() || !Config.options->enable.value_or(false) ||
-      !Config.options->target.has_value())
+      !Config.options->target.has_value() || Config.options->target->empty())
     return;
   try {
-    auto [Args, Installable] =
-        configuration::TopLevel::getInstallable(Config.options->target.value());
+    auto I = Config.options->target.value();
     auto SessionOption = std::make_unique<IValueEvalSession>();
-    SessionOption->parseArgs(Args);
-    OptionAttrSet = SessionOption->eval(Installable);
+    SessionOption->parseArgs(I.ndArgs());
+    OptionAttrSet = SessionOption->eval(I.dInstallable());
     OptionIES = std::move(SessionOption);
     lspserver::log("options are ready");
   } catch (std::exception &E) {
