@@ -15,10 +15,14 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <semaphore>
 #include <stdexcept>
+
+#include <pthread.h>
 
 namespace nixd {
 
@@ -48,12 +52,23 @@ public:
     WorkspaceVersionTy WorkspaceVersion;
     std::thread InputDispatcher;
 
+    std::counting_semaphore<> &EvalDoneSmp;
+
     [[nodiscard]] nix::AutoCloseFD to() const {
       return ToPipe->writeSide.get();
     };
     [[nodiscard]] nix::AutoCloseFD from() const {
       return FromPipe->readSide.get();
     };
+
+    ~Proc() {
+      auto Th = InputDispatcher.native_handle();
+      pthread_cancel(Th);
+      InputDispatcher.join();
+
+      // Tell that we finished (being killed).
+      // EvalDoneSmp.release();
+    }
   };
 
   enum class ServerRole {
@@ -80,6 +95,9 @@ private:
   WorkspaceVersionTy WorkspaceVersion = 1;
 
   std::deque<std::unique_ptr<Proc>> Workers;
+
+  // Evaluator notify us "evaluation done" by incresing this semaphore.
+  std::counting_semaphore<> EvalDoneSmp = std::counting_semaphore(0);
 
   std::deque<std::unique_ptr<Proc>> OptionWorkers;
 
@@ -118,13 +136,19 @@ private:
 
   //---------------------------------------------------------------------------/
   // Controller
+
+  std::vector<std::thread> PendingReply;
+
   void onEvalDiagnostic(const ipc::Diagnostics &);
+
+  void onEvalFinished(const ipc::WorkerMessage &);
 
   template <class Arg, class Resp>
   auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
                   llvm::StringRef IPCMethod, const Arg &Params,
                   unsigned Timeout) {
     // For all active workers, send the completion request
+    std::counting_semaphore Sema(0);
     auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
         Workers.size(), std::nullopt);
     auto ListStoreLock = std::make_shared<std::mutex>();
@@ -132,22 +156,30 @@ private:
     size_t I = 0;
     for (const auto &Worker : Workers) {
       auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
-      Request(Params, [I, ListStoreOptional,
-                       ListStoreLock](llvm::Expected<Resp> Result) {
-        // The worker answered our request, fill the completion
-        // lists then.
+      Request(Params, [I, ListStoreOptional, ListStoreLock,
+                       &Sema](llvm::Expected<Resp> Result) {
+        // The worker answered our request, fill the completion lists then.
+        Sema.release();
         if (Result) {
           std::lock_guard Guard(*ListStoreLock);
           (*ListStoreOptional)[I] = Result.get();
         } else {
-          lspserver::elog("worker {0} reported error: {1}", I,
+          lspserver::vlog("worker {0} reported error: {1}", I,
                           Result.takeError());
         }
       });
       I++;
     }
 
-    usleep(Timeout);
+    std::future<void> F = std::async([&Sema, Size = I]() {
+      for (auto I = 0; I < Size; I++)
+        Sema.acquire();
+    });
+
+    if (WaitWorker)
+      F.wait();
+    else
+      F.wait_for(std::chrono::microseconds(Timeout));
 
     std::lock_guard Guard(*ListStoreLock);
     std::vector<Resp> AnsweredResp;
@@ -177,7 +209,19 @@ public:
   Server(std::unique_ptr<lspserver::InboundPort> In,
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
-  ~Server() override { usleep(WaitWorker); }
+  ~Server() override {
+    for (auto &T : PendingReply) {
+      T.join();
+    }
+    auto EvalWorkerSize = Workers.size();
+    // Ensure that all workers are finished eval, or being killed
+    for (auto I = 0; I < EvalWorkerSize; I++) {
+      EvalDoneSmp.acquire();
+    }
+    for (auto &Worker : Workers) {
+      Worker.reset();
+    }
+  }
 
   template <class ReplyTy>
   void

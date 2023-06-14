@@ -82,7 +82,6 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
           // The loop will exit when the worker process close the pipe.
           IPort->loop(*this);
         });
-    WorkerInputDispatcher.detach();
 
     auto ProcFdStream =
         std::make_unique<llvm::raw_fd_ostream>(To->writeSide.get(), false);
@@ -97,7 +96,8 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
                  .OwnedStream = std::move(ProcFdStream),
                  .Pid = ForkPID,
                  .WorkspaceVersion = WorkspaceVersion,
-                 .InputDispatcher = std::move(WorkerInputDispatcher)});
+                 .InputDispatcher = std::move(WorkerInputDispatcher),
+                 .EvalDoneSmp = std::ref(EvalDoneSmp)});
 
     WorkerPool.emplace_back(std::move(WorkerProc));
   }
@@ -244,6 +244,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
                      &Server::onOptionDeclaration);
 
+  Registry.addNotification("nixd/ipc/eval/finished", this,
+                           &Server::onEvalFinished);
+
   readJSONConfig();
 }
 
@@ -370,7 +373,7 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
     RR.Response = std::move(Responses.back());
   });
 
-  Thread.detach();
+  PendingReply.emplace_back(std::move(Thread));
 }
 
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
@@ -388,7 +391,7 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
         llvm::json::Object{}));
   });
 
-  Thread.detach();
+  PendingReply.emplace_back(std::move(Thread));
 }
 
 void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
@@ -403,7 +406,7 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
         }));
   });
 
-  Thread.detach();
+  PendingReply.emplace_back(std::move(Thread));
 }
 
 void Server::onCompletion(
@@ -443,7 +446,7 @@ void Server::onCompletion(
         Responses,
         [](const lspserver::CompletionList &L) -> bool { return true; }));
   });
-  Thread.detach();
+  PendingReply.emplace_back(std::move(Thread));
 }
 
 void Server::clearDiagnostic(lspserver::PathRef Path) {
@@ -480,6 +483,10 @@ void Server::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
       PublishDiagnostic(Diag);
     }
   }
+}
+
+void Server::onEvalFinished(const ipc::WorkerMessage &) {
+  EvalDoneSmp.release();
 }
 
 void Server::onFormat(
@@ -533,6 +540,6 @@ void Server::onFormat(
       Reply(lspserver::error("no formatting response received"));
     }
   });
-  Thread.detach();
+  PendingReply.emplace_back(std::move(Thread));
 }
 } // namespace nixd
