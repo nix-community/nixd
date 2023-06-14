@@ -65,9 +65,6 @@ public:
       auto Th = InputDispatcher.native_handle();
       pthread_cancel(Th);
       InputDispatcher.join();
-
-      // Tell that we finished (being killed).
-      // EvalDoneSmp.release();
     }
   };
 

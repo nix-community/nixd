@@ -115,7 +115,7 @@ void Server::updateWorkspaceVersion(lspserver::PathRef File) {
           Worker->Pid.release();
       },
       Workers);
-  if (Workers.size() > Config.getNumWorkers())
+  if (Workers.size() > Config.getNumWorkers() && !WaitWorker)
     Workers.pop_front();
 }
 
