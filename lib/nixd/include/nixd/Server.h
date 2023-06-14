@@ -156,7 +156,6 @@ private:
       Request(Params, [I, ListStoreOptional, ListStoreLock,
                        &Sema](llvm::Expected<Resp> Result) {
         // The worker answered our request, fill the completion lists then.
-        Sema.release();
         if (Result) {
           std::lock_guard Guard(*ListStoreLock);
           (*ListStoreOptional)[I] = Result.get();
@@ -164,6 +163,7 @@ private:
           lspserver::vlog("worker {0} reported error: {1}", I,
                           Result.takeError());
         }
+        Sema.release();
       });
       I++;
     }
