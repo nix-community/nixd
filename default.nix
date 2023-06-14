@@ -22,7 +22,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "nixd";
-  version = "0.0.1";
+  version = "nightly";
 
   src = filterMesonBuild ./.;
 
