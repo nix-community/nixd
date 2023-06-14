@@ -34,9 +34,10 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <unistd.h>
 #include <utility>
 #include <variant>
+
+#include <unistd.h>
 
 namespace nixd {
 
