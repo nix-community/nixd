@@ -76,7 +76,6 @@ c
 }
 ```
 
-## Wait 100000
 
 <-- textDocument/definition(1)
 

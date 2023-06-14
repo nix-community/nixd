@@ -1,4 +1,4 @@
-# RUN: nixd --lit-test --wait-worker=1000000 < %s | FileCheck %s
+# RUN: nixd --lit-test < %s | FileCheck %s
 
 <-- initialize(0)
 

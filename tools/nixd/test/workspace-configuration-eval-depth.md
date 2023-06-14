@@ -68,7 +68,6 @@ The server should parse it correctly and do not crash.
 }
 ```
 
-## Wait 10000
 
 ```json
 {

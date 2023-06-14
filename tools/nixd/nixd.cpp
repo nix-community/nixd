@@ -93,11 +93,11 @@ opt<JSONStreamStyle> InputStyle{
     cat(Misc),
     Hidden,
 };
-opt<bool> LitTest{
-    "lit-test",
-    desc("Abbreviation for -input-style=delimited -pretty -log=verbose. "
-         "Intended to simplify lit tests"),
-    init(false), cat(Misc)};
+opt<bool> LitTest{"lit-test",
+                  desc("Abbreviation for -input-style=delimited -pretty "
+                       "-log=verbose -wait-worker. "
+                       "Intended to simplify lit tests"),
+                  init(false), cat(Misc)};
 opt<Logger::Level> LogLevel{
     "log", desc("Verbosity of log messages written to stderr"),
     values(
@@ -109,9 +109,10 @@ opt<Logger::Level> LogLevel{
 opt<bool> PrettyPrint{"pretty", desc("Pretty-print JSON output"), init(false),
                       cat(Misc)};
 
-opt<int> WaitWorker{"wait-worker",
-                    desc("Microseconds to wait before exit (for testing)"),
-                    init(0), cat(Misc), Hidden};
+opt<bool> WaitWorker{"wait-worker",
+                     desc("wait all response from workers, instead of having "
+                          "any timeout logic"),
+                     init(false), cat(Misc)};
 
 int main(int argc, char *argv[]) {
   using namespace lspserver;
@@ -127,7 +128,7 @@ int main(int argc, char *argv[]) {
     LogLevel = Logger::Level::Verbose;
     PrettyPrint = true;
     if (!WaitWorker)
-      WaitWorker = 2e5; // 0.2s
+      WaitWorker = true;
   }
 
   StreamLogger Logger(llvm::errs(), LogLevel);

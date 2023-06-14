@@ -85,7 +85,7 @@ public:
   };
 
 private:
-  int WaitWorker = 0;
+  bool WaitWorker = false;
 
   ServerRole Role = ServerRole::Controller;
 

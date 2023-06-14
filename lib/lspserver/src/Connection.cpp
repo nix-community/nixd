@@ -197,12 +197,6 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
 
       JSONString += Line;
     } else {
-      if (LineRef.starts_with("## Wait")) {
-        LineRef.consume_front("## Wait");
-        unsigned long long WaitSecs;
-        llvm::getAsUnsignedInteger(LineRef.trim(), 0, WaitSecs);
-        usleep(WaitSecs);
-      }
       if (LineRef.startswith("```json"))
         IsInputBlock = true;
     }
