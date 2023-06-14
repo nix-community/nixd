@@ -15,7 +15,7 @@ Some notable features provided by linking with the Nix library include:
 - Nixpkgs option support, for all option system (NixOS/home-manager/flake-parts).
 - Diagnostics and evaluation that produce identical results as the real Nix command.
 - Shared eval caches (flake, file) with your system's Nix.
-- Native support for cross-file analysis.
+- Native support for cross-file analysis (goto definition to locations in nixpkgs).
 - Precise Nix language support. We do not maintain "yet another parser & evaluator".
 - Support for built-ins, including Nix plugins.
 
@@ -40,6 +40,15 @@ See how to configure option system: https://github.com/nix-community/nixd/blob/m
 <details><summary>Native cross-file analysis</summary>
 
 ![package](docs/images/3e4fc99c-7a20-42be-a337-d1746239c731.png)
+
+We support goto-definition on nix derivations!
+Just `Ctrl + click` to see where is a package defined.
+
+![goto-def-pkg-2](https://github.com/nix-community/nixd/assets/36667224/726c711f-cf75-48f4-9f3b-40dd1b9f53be)
+
+And also for nix lambda:
+
+![lambda-location](https://github.com/nix-community/nixd/assets/36667224/5792da0b-8152-4e51-9b0e-0387b045eeb5)
 
 See how to configure the evaluator for cross-file analysis: https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#evaluation
 
