@@ -5,6 +5,21 @@
 
 namespace nixd {
 
+void Server::forkOptionWorker() {
+  forkWorker(
+      [this]() {
+        switchToOptionProvider();
+        Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
+                           &Server::onOptionCompletion);
+        for (auto &W : OptionWorkers) {
+          W->Pid.release();
+        }
+      },
+      OptionWorkers);
+  if (OptionWorkers.size() > 1)
+    OptionWorkers.pop_front();
+}
+
 void Server::onOptionDeclaration(
     const ipc::AttrPathParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {

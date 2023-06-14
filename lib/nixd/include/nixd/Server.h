@@ -165,38 +165,16 @@ public:
   }
 
   template <class ReplyTy>
-  void
-  withAST(const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
-          llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
-              Action) {
-    try {
-      auto AST = IER->Forest.at(RequestedFile);
-      Action(AST, std::move(RR));
-    } catch (std::out_of_range &E) {
-      RR.Response = lspserver::error("no AST available on requested file {0}",
-                                     RequestedFile);
-    }
-  }
+  void withAST(
+      const std::string &, ReplyRAII<ReplyTy>,
+      llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
 
   void evalInstallable(lspserver::PathRef File, int Depth);
 
   void forkWorker(llvm::unique_function<void()> WorkerAction,
                   std::deque<std::unique_ptr<Proc>> &WorkerPool);
 
-  void forkOptionWorker() {
-    forkWorker(
-        [this]() {
-          switchToOptionProvider();
-          Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
-                             &Server::onOptionCompletion);
-          for (auto &W : OptionWorkers) {
-            W->Pid.release();
-          }
-        },
-        OptionWorkers);
-    if (OptionWorkers.size() > 1)
-      OptionWorkers.pop_front();
-  }
+  void forkOptionWorker();
 
   void initWorker();
 
@@ -343,6 +321,20 @@ auto Server::askWorkers(
   }
 
   return AnsweredResp;
+}
+
+template <class ReplyTy>
+void Server::withAST(
+    const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
+    llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
+        Action) {
+  try {
+    auto AST = IER->Forest.at(RequestedFile);
+    Action(AST, std::move(RR));
+  } catch (std::out_of_range &E) {
+    RR.Response = lspserver::error("no AST available on requested file {0}",
+                                   RequestedFile);
+  }
 }
 
 }; // namespace nixd
