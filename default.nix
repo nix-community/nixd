@@ -1,6 +1,8 @@
 { lib
 , stdenv
+, bison
 , boost182
+, flex
 , gtest
 , libbacktrace
 , lit
@@ -28,6 +30,8 @@ stdenv.mkDerivation {
     meson
     ninja
     pkg-config
+    bison
+    flex
   ];
 
   nativeCheckInputs = [
