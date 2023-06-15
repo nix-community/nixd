@@ -1,15 +1,15 @@
-{ stdenv
-, meson
-, ninja
-, pkg-config
-, lit
+{ lib
+, stdenv
 , boost182
 , gtest
-, llvmPackages_16
 , libbacktrace
-, lib
+, lit
+, llvmPackages_16
+, meson
+, ninja
 , nixVersions
 , nixpkgs-fmt
+, pkg-config
 }:
 
 let
@@ -40,15 +40,15 @@ stdenv.mkDerivation {
     nix
     gtest
     boost182
-
     llvmPackages.llvm
   ];
 
-  CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
+  env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
 
   doCheck = true;
 
   checkPhase = ''
+    runHook preCheck
     dirs=(store var var/nix var/log/nix etc home)
 
     for dir in $dirs; do
@@ -65,6 +65,7 @@ stdenv.mkDerivation {
     # Disable nixd regression tests, because it uses some features provided by
     # nix, and does not correctly work in the sandbox
     meson test --print-errorlogs server regression/nix-ast-dump
+    runHook postCheck
   '';
 
   meta = {
