@@ -10,8 +10,14 @@
       inputs.flake-parts.flakeModules.easyOverlay
     ];
     perSystem = { config, self', inputs', pkgs, system, ... }:
+      with pkgs;
       let
-        nixd = pkgs.callPackage ./default.nix { };
+        nixd = callPackage ./default.nix {
+          stdenv =
+            if stdenv.isDarwin
+            then llvmPackages_16.libcxxStdenv
+            else stdenv;
+        };
       in
       {
         packages.default = nixd;
@@ -21,7 +27,12 @@
         packages.nixd = nixd;
 
         devShells.default = nixd.overrideAttrs (old: {
-          nativeBuildInputs = old.nativeBuildInputs ++ [ pkgs.clang-tools pkgs.gdb pkgs.nixpkgs-fmt ];
+          nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
+            clang-tools
+            gdb
+            nixpkgs-fmt
+            llvmPackages_16.clang
+          ]);
           shellHook = ''
             export PATH="${pkgs.clang-tools}/bin:$PATH"
             export NIX_SRC=${pkgs.nixUnstable.src}
