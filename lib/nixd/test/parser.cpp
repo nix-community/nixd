@@ -53,49 +53,40 @@ rec {
   auto Data = nixd::parse(Foo.data(), Foo.length(), CanonPath("/foo"),
                           CanonPath("/bar"), *State);
 
-  struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
+  struct VTy : nixd::RecursiveASTVisitor<VTy> {
     ParseData *Data;
-    int Depth = 0;
+    int VisitedNodes = 0;
 
-    bool traverseExpr(const nix::Expr *E) {
-      Depth++;
-      if (!nixd::RecursiveASTVisitor<ASTDump>::traverseExpr(E))
-        return false;
-      Depth--;
-      return true;
-    }
-
-    void showPos(const nix::Expr *E) const {
+    void showPos(const Expr *E) {
       try {
         auto BeginIdx = Data->locations.at(E);
         auto EndIdx = Data->end.at(BeginIdx);
         auto Begin = Data->state.positions[BeginIdx];
         auto End = Data->state.positions[EndIdx];
-        // std::cout << Begin.line << ":" << Begin.column << " " << End.line <<
-        // ":"
-        //           << End.column;
+        VisitedNodes++;
+        if (const auto *Elet = dynamic_cast<const ExprLet *>(E)) {
+          // This is toplevel declaration, assert the range is correct
+          ASSERT_EQ(Begin.line, 2);
+          ASSERT_EQ(Begin.column, 1);
+          ASSERT_EQ(End.line, 27);
+          ASSERT_EQ(End.column, 2);
+        }
       } catch (...) {
       }
     }
 
-#define NIX_EXPR(EXPR)                                                         \
-  bool visit##EXPR(const nix::EXPR *E) {                                       \
-    for (int i = 0; i < Depth; i++) {                                          \
-      std::cout << " ";                                                        \
-    }                                                                          \
-    std::cout << #EXPR << ": ";                                                \
-    E->show(Data->state.symbols, std::cout);                                   \
-    std::cout << " ";                                                          \
-    showPos(E);                                                                \
-    std::cout << "\n";                                                         \
-    return true;                                                               \
-  }
-#include "nixd/NixASTNodes.inc"
-#undef NIX_EXPR
+    bool traverseExpr(const Expr *E) {
+      showPos(E);
+      return RecursiveASTVisitor<VTy>::traverseExpr(E);
+    }
+
   } V;
 
   V.Data = Data.get();
   V.traverseExpr(Data->result);
+
+  // Assert that we visited expected nodes.
+  ASSERT_EQ(V.VisitedNodes, 61);
 }
 
 } // namespace nixd
