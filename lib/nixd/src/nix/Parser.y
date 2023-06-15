@@ -683,6 +683,6 @@ std::unique_ptr<ParseData> parse(
     // Do not bindVars, just parse.
     /* data.result->bindVars(*this, staticEnv); */
 
-    return std::move(data);
+    return data; // NRVO
 }
 } // namespace nixd
