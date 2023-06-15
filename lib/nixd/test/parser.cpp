@@ -1,14 +1,13 @@
 #include <gtest/gtest.h>
-#include <memory>
 
-#include "canon-path.hh"
-#include "input-accessor.hh"
+#include "nixutil.h"
+
+#include "Parser.tab.h"
+
 #include "nixd/Expr.h"
 #include "nixd/Parser.h"
 
-#include "Parser.tab.h"
-#include "nixexpr.hh"
-#include "nixutil.h"
+#include <memory>
 
 namespace nixd {
 
@@ -73,8 +72,9 @@ rec {
         auto EndIdx = Data->end.at(BeginIdx);
         auto Begin = Data->state.positions[BeginIdx];
         auto End = Data->state.positions[EndIdx];
-        std::cout << Begin.line << ":" << Begin.column << " " << End.line << ":"
-                  << End.column;
+        // std::cout << Begin.line << ":" << Begin.column << " " << End.line <<
+        // ":"
+        //           << End.column;
       } catch (...) {
       }
     }
