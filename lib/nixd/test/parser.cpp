@@ -65,8 +65,7 @@ rec {
       return true;
     }
 
-    void showPos(const nix::Expr *E) {
-      auto EPtr = static_cast<const void *>(E);
+    void showPos(const nix::Expr *E) const {
       try {
         auto BeginIdx = Data->locations.at(E);
         auto EndIdx = Data->end.at(BeginIdx);
@@ -137,7 +136,7 @@ rec {
   auto Data = nixd::parse(Foo.data(), Foo.length(), CanonPath("/foo"),
                           CanonPath("/bar"), *State);
 
-  if (auto Top = dynamic_cast<nix::ExprAttrs *>(Data->result)) {
+  if (auto *Top = dynamic_cast<nix::ExprAttrs *>(Data->result)) {
     for (auto [Sym, _] : Top->attrs) {
       auto BeginIdx = Data->symbolLocations[Sym];
       auto EndIdx = Data->end[BeginIdx];
