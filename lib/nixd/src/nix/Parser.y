@@ -7,9 +7,9 @@
 %defines
 /* %no-lines */
 %parse-param { void * scanner }
-%parse-param { nix::ParseData * data }
+%parse-param { nixd::ParseData * data }
 %lex-param { void * scanner }
-%lex-param { nix::ParseData * data }
+%lex-param { nixd::ParseData * data }
 %expect 1
 %expect-rr 1
 
@@ -26,7 +26,9 @@
 #include "eval.hh"
 #include "globals.hh"
 
-namespace nix {
+namespace nixd {
+
+using namespace nix;
 
     struct ParseData
     {
@@ -45,7 +47,7 @@ namespace nix {
         bool ellipsis = false;
     };
 
-}
+} // namespace nixd
 
 // using C a struct allows us to avoid having to define the special
 // members that using string_view here would implicitly delete.
@@ -57,7 +59,7 @@ struct StringToken {
 };
 
 #define YY_DECL int yylex \
-    (YYSTYPE * yylval_param, YYLTYPE * yylloc_param, yyscan_t yyscanner, nix::ParseData * data)
+    (YYSTYPE * yylval_param, YYLTYPE * yylloc_param, yyscan_t yyscanner, nixd::ParseData * data)
 
 #endif
 
@@ -71,6 +73,8 @@ struct StringToken {
 YY_DECL;
 
 using namespace nix;
+using nixd::ParseData;
+using nixd::ParserFormals;
 
 
 namespace nix {
@@ -312,7 +316,7 @@ void yyerror(YYLTYPE * loc, yyscan_t scanner, ParseData * data, const char * err
   nix::Expr * e;
   nix::ExprList * list;
   nix::ExprAttrs * attrs;
-  nix::ParserFormals * formals;
+  nixd::ParserFormals * formals;
   nix::Formal * formal;
   nix::NixInt n;
   nix::NixFloat nf;
@@ -682,191 +686,3 @@ std::unique_ptr<ParseData> parse(
     return std::move(data);
 }
 } // namespace nixd
-
-namespace nix {
-
-
-Expr * EvalState::parse(
-    char * text,
-    size_t length,
-    Pos::Origin origin,
-    const SourcePath & basePath,
-    std::shared_ptr<StaticEnv> & staticEnv)
-{
-    yyscan_t scanner;
-    ParseData data {
-        .state = *this,
-        .symbols = symbols,
-        .basePath = std::move(basePath),
-        .origin = {origin},
-    };
-
-    yylex_init(&scanner);
-    yy_scan_buffer(text, length, scanner);
-    int res = yyparse(scanner, &data);
-    yylex_destroy(scanner);
-
-    if (res) throw ParseError(data.error.value());
-
-    data.result->bindVars(*this, staticEnv);
-
-    return data.result;
-}
-
-
-SourcePath resolveExprPath(const SourcePath & path)
-{
-    /* If `path' is a symlink, follow it.  This is so that relative
-       path references work. */
-    auto path2 = path.resolveSymlinks();
-
-    /* If `path' refers to a directory, append `/default.nix'. */
-    if (path2.lstat().type == InputAccessor::tDirectory)
-        return path2 + "default.nix";
-
-    return path2;
-}
-
-
-Expr * EvalState::parseExprFromFile(const SourcePath & path)
-{
-    return parseExprFromFile(path, staticBaseEnv);
-}
-
-
-Expr * EvalState::parseExprFromFile(const SourcePath & path, std::shared_ptr<StaticEnv> & staticEnv)
-{
-    auto buffer = path.readFile();
-    // readFile hopefully have left some extra space for terminators
-    buffer.append("\0\0", 2);
-    return parse(buffer.data(), buffer.size(), Pos::Origin(path), path.parent(), staticEnv);
-}
-
-
-Expr * EvalState::parseExprFromString(std::string s_, const SourcePath & basePath, std::shared_ptr<StaticEnv> & staticEnv)
-{
-    auto s = make_ref<std::string>(std::move(s_));
-    s->append("\0\0", 2);
-    return parse(s->data(), s->size(), Pos::String{.source = s}, basePath, staticEnv);
-}
-
-
-Expr * EvalState::parseExprFromString(std::string s, const SourcePath & basePath)
-{
-    return parseExprFromString(std::move(s), basePath, staticBaseEnv);
-}
-
-
-Expr * EvalState::parseStdin()
-{
-    //Activity act(*logger, lvlTalkative, "parsing standard input");
-    auto buffer = drainFD(0);
-    // drainFD should have left some extra space for terminators
-    buffer.append("\0\0", 2);
-    auto s = make_ref<std::string>(std::move(buffer));
-    return parse(s->data(), s->size(), Pos::Stdin{.source = s}, rootPath(CanonPath::fromCwd()), staticBaseEnv);
-}
-
-
-void EvalState::addToSearchPath(const std::string & s)
-{
-    size_t pos = s.find('=');
-    std::string prefix;
-    Path path;
-    if (pos == std::string::npos) {
-        path = s;
-    } else {
-        prefix = std::string(s, 0, pos);
-        path = std::string(s, pos + 1);
-    }
-
-    searchPath.emplace_back(prefix, path);
-}
-
-
-SourcePath EvalState::findFile(const std::string_view path)
-{
-    return findFile(searchPath, path);
-}
-
-
-SourcePath EvalState::findFile(SearchPath & searchPath, const std::string_view path, const PosIdx pos)
-{
-    for (auto & i : searchPath) {
-        std::string suffix;
-        if (i.first.empty())
-            suffix = concatStrings("/", path);
-        else {
-            auto s = i.first.size();
-            if (path.compare(0, s, i.first) != 0 ||
-                (path.size() > s && path[s] != '/'))
-                continue;
-            suffix = path.size() == s ? "" : concatStrings("/", path.substr(s));
-        }
-        auto r = resolveSearchPathElem(i);
-        if (!r.first) continue;
-        Path res = r.second + suffix;
-        if (pathExists(res)) return CanonPath(canonPath(res));
-    }
-
-    if (hasPrefix(path, "nix/"))
-        return CanonPath(concatStrings(corepkgsPrefix, path.substr(4)));
-
-    debugThrow(ThrownError({
-        .msg = hintfmt(evalSettings.pureEval
-            ? "cannot look up '<%s>' in pure evaluation mode (use '--impure' to override)"
-            : "file '%s' was not found in the Nix search path (add it using $NIX_PATH or -I)",
-            path),
-        .errPos = positions[pos]
-    }), 0, 0);
-}
-
-
-std::pair<bool, std::string> EvalState::resolveSearchPathElem(const SearchPathElem & elem)
-{
-    auto i = searchPathResolved.find(elem.second);
-    if (i != searchPathResolved.end()) return i->second;
-
-    std::pair<bool, std::string> res;
-
-    if (EvalSettings::isPseudoUrl(elem.second)) {
-        try {
-            auto storePath = fetchers::downloadTarball(
-                store, EvalSettings::resolvePseudoUrl(elem.second), "source", false).first.storePath;
-            res = { true, store->toRealPath(storePath) };
-        } catch (FileTransferError & e) {
-            logWarning({
-                .msg = hintfmt("Nix search path entry '%1%' cannot be downloaded, ignoring", elem.second)
-            });
-            res = { false, "" };
-        }
-    }
-
-    else if (hasPrefix(elem.second, "flake:")) {
-        experimentalFeatureSettings.require(Xp::Flakes);
-        auto flakeRef = parseFlakeRef(elem.second.substr(6), {}, true, false);
-        debug("fetching flake search path element '%s''", elem.second);
-        auto storePath = flakeRef.resolve(store).fetchTree(store).first.storePath;
-        res = { true, store->toRealPath(storePath) };
-    }
-
-    else {
-        auto path = absPath(elem.second);
-        if (pathExists(path))
-            res = { true, path };
-        else {
-            logWarning({
-                .msg = hintfmt("Nix search path entry '%1%' does not exist, ignoring", elem.second)
-            });
-            res = { false, "" };
-        }
-    }
-
-    debug("resolved search path element '%s' to '%s'", elem.second, res.second);
-
-    searchPathResolved[elem.second] = res;
-    return res;
-}
-
-
-}

@@ -28,6 +28,9 @@ using namespace nix;
 
 namespace nix {
 
+using nixd::ParseData;
+using nixd::ParserFormals;
+
 static inline PosIdx makeCurPos(const YYLTYPE & loc, ParseData * data)
 {
     auto Res = data->state.positions.add(data->origin, loc.first_line, loc.first_column);
