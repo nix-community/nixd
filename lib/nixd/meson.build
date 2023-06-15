@@ -53,7 +53,10 @@ test_server = executable('test-server'
   , 'test/diagnostic.cpp'
   , 'test/evalDraftStore.cpp'
   , 'test/expr.cpp'
+  , 'test/parser.cpp'
   ]
+, lfiles
+, pfiles
 , dependencies: [ nixd_server
                 , llvm
                 , gtest_main

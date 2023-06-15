@@ -30,7 +30,9 @@ namespace nix {
 
 static inline PosIdx makeCurPos(const YYLTYPE & loc, ParseData * data)
 {
-    return data->state.positions.add(data->origin, loc.first_line, loc.first_column);
+    auto Res = data->state.positions.add(data->origin, loc.first_line, loc.first_column);
+    data->end[Res] = data->state.positions.add(data->origin, loc.last_line, loc.last_column);
+    return Res;
 }
 
 #define CUR_POS makeCurPos(*yylloc, data)

@@ -1,3 +1,5 @@
+// \$\$ = (.*);
+// { $$$$ = $1;  data->locations[$$$$] = CUR_POS; }
 %glr-parser
 %define api.pure
 %locations
@@ -34,6 +36,8 @@ namespace nix {
         SourcePath basePath;
         PosTable::Origin origin;
         std::optional<ErrorInfo> error;
+        std::map<PosIdx, PosIdx> end;
+        std::map<const void *, PosIdx> locations;
     };
 
     struct ParserFormals {
@@ -281,7 +285,9 @@ static Expr * stripIndentation(const PosIdx pos, SymbolTable & symbols,
 
 static inline PosIdx makeCurPos(const YYLTYPE & loc, ParseData * data)
 {
-    return data->state.positions.add(data->origin, loc.first_line, loc.first_column);
+    auto Res = data->state.positions.add(data->origin, loc.first_line, loc.first_column);
+    data->end[Res] = data->state.positions.add(data->origin, loc.last_line, loc.last_column);
+    return Res;
 }
 
 #define CUR_POS makeCurPos(*yylocp, data)
@@ -362,59 +368,59 @@ expr: expr_function;
 
 expr_function
   : ID ':' expr_function
-    { $$ = new ExprLambda(CUR_POS, data->symbols.create($1), 0, $3); }
+    { { $$ = new ExprLambda(CUR_POS, data->symbols.create($1), 0, $3);  data->locations[$$] = CUR_POS; } }
   | '{' formals '}' ':' expr_function
-    { $$ = new ExprLambda(CUR_POS, toFormals(*data, $2), $5); }
+    { { $$ = new ExprLambda(CUR_POS, toFormals(*data, $2), $5);  data->locations[$$] = CUR_POS; } }
   | '{' formals '}' '@' ID ':' expr_function
     {
       auto arg = data->symbols.create($5);
-      $$ = new ExprLambda(CUR_POS, arg, toFormals(*data, $2, CUR_POS, arg), $7);
+      { $$ = new ExprLambda(CUR_POS, arg, toFormals(*data, $2, CUR_POS, arg), $7);  data->locations[$$] = CUR_POS; }
     }
   | ID '@' '{' formals '}' ':' expr_function
     {
       auto arg = data->symbols.create($1);
-      $$ = new ExprLambda(CUR_POS, arg, toFormals(*data, $4, CUR_POS, arg), $7);
+      { $$ = new ExprLambda(CUR_POS, arg, toFormals(*data, $4, CUR_POS, arg), $7);  data->locations[$$] = CUR_POS; }
     }
   | ASSERT expr ';' expr_function
-    { $$ = new ExprAssert(CUR_POS, $2, $4); }
+    { { $$ = new ExprAssert(CUR_POS, $2, $4);  data->locations[$$] = CUR_POS; } }
   | WITH expr ';' expr_function
-    { $$ = new ExprWith(CUR_POS, $2, $4); }
+    { { $$ = new ExprWith(CUR_POS, $2, $4);  data->locations[$$] = CUR_POS; } }
   | LET binds IN expr_function
     { if (!$2->dynamicAttrs.empty())
         throw ParseError({
             .msg = hintfmt("dynamic attributes not allowed in let"),
             .errPos = data->state.positions[CUR_POS]
         });
-      $$ = new ExprLet($2, $4);
+      { $$ = new ExprLet($2, $4);  data->locations[$$] = CUR_POS; }
     }
   | expr_if
   ;
 
 expr_if
-  : IF expr THEN expr ELSE expr { $$ = new ExprIf(CUR_POS, $2, $4, $6); }
+  : IF expr THEN expr ELSE expr { { $$ = new ExprIf(CUR_POS, $2, $4, $6);  data->locations[$$] = CUR_POS; } }
   | expr_op
   ;
 
 expr_op
-  : '!' expr_op %prec NOT { $$ = new ExprOpNot($2); }
-  | '-' expr_op %prec NEGATE { $$ = new ExprCall(CUR_POS, new ExprVar(data->symbols.create("__sub")), {new ExprInt(0), $2}); }
-  | expr_op EQ expr_op { $$ = new ExprOpEq($1, $3); }
-  | expr_op NEQ expr_op { $$ = new ExprOpNEq($1, $3); }
-  | expr_op '<' expr_op { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$1, $3}); }
-  | expr_op LEQ expr_op { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$3, $1})); }
-  | expr_op '>' expr_op { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$3, $1}); }
-  | expr_op GEQ expr_op { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$1, $3})); }
-  | expr_op AND expr_op { $$ = new ExprOpAnd(makeCurPos(@2, data), $1, $3); }
-  | expr_op OR expr_op { $$ = new ExprOpOr(makeCurPos(@2, data), $1, $3); }
-  | expr_op IMPL expr_op { $$ = new ExprOpImpl(makeCurPos(@2, data), $1, $3); }
-  | expr_op UPDATE expr_op { $$ = new ExprOpUpdate(makeCurPos(@2, data), $1, $3); }
-  | expr_op '?' attrpath { $$ = new ExprOpHasAttr($1, std::move(*$3)); delete $3; }
+  : '!' expr_op %prec NOT { { $$ = new ExprOpNot($2);  data->locations[$$] = CUR_POS; } }
+  | '-' expr_op %prec NEGATE { { $$ = new ExprCall(CUR_POS, new ExprVar(data->symbols.create("__sub")), {new ExprInt(0), $2});  data->locations[$$] = CUR_POS; } }
+  | expr_op EQ expr_op { { $$ = new ExprOpEq($1, $3);  data->locations[$$] = CUR_POS; } }
+  | expr_op NEQ expr_op { { $$ = new ExprOpNEq($1, $3);  data->locations[$$] = CUR_POS; } }
+  | expr_op '<' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op LEQ expr_op { { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$3, $1}));  data->locations[$$] = CUR_POS; } }
+  | expr_op '>' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$3, $1});  data->locations[$$] = CUR_POS; } }
+  | expr_op GEQ expr_op { { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$1, $3}));  data->locations[$$] = CUR_POS; } }
+  | expr_op AND expr_op { { $$ = new ExprOpAnd(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
+  | expr_op OR expr_op { { $$ = new ExprOpOr(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
+  | expr_op IMPL expr_op { { $$ = new ExprOpImpl(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
+  | expr_op UPDATE expr_op { { $$ = new ExprOpUpdate(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
+  | expr_op '?' attrpath { { $$ = new ExprOpHasAttr($1, std::move(*$3)); delete $3;  data->locations[$$] = CUR_POS; } }
   | expr_op '+' expr_op
-    { $$ = new ExprConcatStrings(makeCurPos(@2, data), false, new std::vector<std::pair<PosIdx, Expr *> >({{makeCurPos(@1, data), $1}, {makeCurPos(@3, data), $3}})); }
-  | expr_op '-' expr_op { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__sub")), {$1, $3}); }
-  | expr_op '*' expr_op { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__mul")), {$1, $3}); }
-  | expr_op '/' expr_op { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__div")), {$1, $3}); }
-  | expr_op CONCAT expr_op { $$ = new ExprOpConcatLists(makeCurPos(@2, data), $1, $3); }
+    { { $$ = new ExprConcatStrings(makeCurPos(@2, data), false, new std::vector<std::pair<PosIdx, Expr *> >({{makeCurPos(@1, data), $1}, {makeCurPos(@3, data), $3}}));  data->locations[$$] = CUR_POS; } }
+  | expr_op '-' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__sub")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op '*' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__mul")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op '/' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__div")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op CONCAT expr_op { { $$ = new ExprOpConcatLists(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
   | expr_app
   ;
 
@@ -422,22 +428,22 @@ expr_app
   : expr_app expr_select {
       if (auto e2 = dynamic_cast<ExprCall *>($1)) {
           e2->args.push_back($2);
-          $$ = $1;
+          { $$ = $1;  data->locations[$$] = CUR_POS; }
       } else
-          $$ = new ExprCall(CUR_POS, $1, {$2});
+          { $$ = new ExprCall(CUR_POS, $1, {$2});  data->locations[$$] = CUR_POS; }
   }
   | expr_select
   ;
 
 expr_select
   : expr_simple '.' attrpath
-    { $$ = new ExprSelect(CUR_POS, $1, std::move(*$3), nullptr); delete $3; }
+    { { $$ = new ExprSelect(CUR_POS, $1, std::move(*$3), nullptr); delete $3;  data->locations[$$] = CUR_POS; } }
   | expr_simple '.' attrpath OR_KW expr_select
-    { $$ = new ExprSelect(CUR_POS, $1, std::move(*$3), $5); delete $3; }
+    { { $$ = new ExprSelect(CUR_POS, $1, std::move(*$3), $5); delete $3;  data->locations[$$] = CUR_POS; } }
   | /* Backwards compatibility: because Nixpkgs has a rarely used
        function named ‘or’, allow stuff like ‘map or [...]’. */
     expr_simple OR_KW
-    { $$ = new ExprCall(CUR_POS, $1, {new ExprVar(CUR_POS, data->symbols.create("or"))}); }
+    { { $$ = new ExprCall(CUR_POS, $1, {new ExprVar(CUR_POS, data->symbols.create("or"))});  data->locations[$$] = CUR_POS; } }
   | expr_simple
   ;
 
@@ -445,21 +451,21 @@ expr_simple
   : ID {
       std::string_view s = "__curPos";
       if ($1.l == s.size() && strncmp($1.p, s.data(), s.size()) == 0)
-          $$ = new ExprPos(CUR_POS);
+          { $$ = new ExprPos(CUR_POS);  data->locations[$$] = CUR_POS; }
       else
-          $$ = new ExprVar(CUR_POS, data->symbols.create($1));
+          { $$ = new ExprVar(CUR_POS, data->symbols.create($1));  data->locations[$$] = CUR_POS; }
   }
-  | INT { $$ = new ExprInt($1); }
-  | FLOAT { $$ = new ExprFloat($1); }
-  | '"' string_parts '"' { $$ = $2; }
+  | INT { { $$ = new ExprInt($1);  data->locations[$$] = CUR_POS; } }
+  | FLOAT { { $$ = new ExprFloat($1);  data->locations[$$] = CUR_POS; } }
+  | '"' string_parts '"' { { $$ = $2;  data->locations[$$] = CUR_POS; } }
   | IND_STRING_OPEN ind_string_parts IND_STRING_CLOSE {
-      $$ = stripIndentation(CUR_POS, data->symbols, std::move(*$2));
+      { $$ = stripIndentation(CUR_POS, data->symbols, std::move(*$2));  data->locations[$$] = CUR_POS; }
       delete $2;
   }
   | path_start PATH_END
   | path_start string_parts_interpolated PATH_END {
       $2->insert($2->begin(), {makeCurPos(@1, data), $1});
-      $$ = new ExprConcatStrings(CUR_POS, false, $2);
+      { $$ = new ExprConcatStrings(CUR_POS, false, $2);  data->locations[$$] = CUR_POS; }
   }
   | SPATH {
       std::string path($1.p + 1, $1.l - 2);
@@ -475,33 +481,33 @@ expr_simple
               .msg = hintfmt("URL literals are disabled"),
               .errPos = data->state.positions[CUR_POS]
           });
-      $$ = new ExprString(std::string($1));
+      { $$ = new ExprString(std::string($1));  data->locations[$$] = CUR_POS; }
   }
-  | '(' expr ')' { $$ = $2; }
+  | '(' expr ')' { { $$ = $2;  data->locations[$$] = CUR_POS; } }
   /* Let expressions `let {..., body = ...}' are just desugared
      into `(rec {..., body = ...}).body'. */
   | LET '{' binds '}'
-    { $3->recursive = true; $$ = new ExprSelect(noPos, $3, data->symbols.create("body")); }
+    { $3->recursive = true; { $$ = new ExprSelect(noPos, $3, data->symbols.create("body"));  data->locations[$$] = CUR_POS; } }
   | REC '{' binds '}'
-    { $3->recursive = true; $$ = $3; }
+    { $3->recursive = true; { $$ = $3;  data->locations[$$] = CUR_POS; } }
   | '{' binds '}'
-    { $$ = $2; }
-  | '[' expr_list ']' { $$ = $2; }
+    { { $$ = $2;  data->locations[$$] = CUR_POS; } }
+  | '[' expr_list ']' { { $$ = $2;  data->locations[$$] = CUR_POS; } }
   ;
 
 string_parts
-  : STR { $$ = new ExprString(std::string($1)); }
-  | string_parts_interpolated { $$ = new ExprConcatStrings(CUR_POS, true, $1); }
-  | { $$ = new ExprString(""); }
+  : STR { { $$ = new ExprString(std::string($1));  data->locations[$$] = CUR_POS; } }
+  | string_parts_interpolated { { $$ = new ExprConcatStrings(CUR_POS, true, $1);  data->locations[$$] = CUR_POS; } }
+  | { { $$ = new ExprString("");  data->locations[$$] = CUR_POS; } }
   ;
 
 string_parts_interpolated
   : string_parts_interpolated STR
-  { $$ = $1; $1->emplace_back(makeCurPos(@2, data), new ExprString(std::string($2))); }
-  | string_parts_interpolated DOLLAR_CURLY expr '}' { $$ = $1; $1->emplace_back(makeCurPos(@2, data), $3); }
-  | DOLLAR_CURLY expr '}' { $$ = new std::vector<std::pair<PosIdx, Expr *>>; $$->emplace_back(makeCurPos(@1, data), $2); }
+  { { $$ = $1; $1->emplace_back(makeCurPos(@2, data), new ExprString(std::string($2)));  data->locations[$$] = CUR_POS; } }
+  | string_parts_interpolated DOLLAR_CURLY expr '}' { { $$ = $1; $1->emplace_back(makeCurPos(@2, data), $3);  data->locations[$$] = CUR_POS; } }
+  | DOLLAR_CURLY expr '}' { { $$ = new std::vector<std::pair<PosIdx, Expr *>>; $$->emplace_back(makeCurPos(@1, data), $2);  data->locations[$$] = CUR_POS; } }
   | STR DOLLAR_CURLY expr '}' {
-      $$ = new std::vector<std::pair<PosIdx, Expr *>>;
+      { $$ = new std::vector<std::pair<PosIdx, Expr *>>;  data->locations[$$] = CUR_POS; }
       $$->emplace_back(makeCurPos(@1, data), new ExprString(std::string($1)));
       $$->emplace_back(makeCurPos(@2, data), $3);
     }
@@ -513,7 +519,7 @@ path_start
     /* add back in the trailing '/' to the first segment */
     if ($1.p[$1.l-1] == '/' && $1.l > 1)
       path += "/";
-    $$ = new ExprPath(path);
+    { $$ = new ExprPath(path);  data->locations[$$] = CUR_POS; }
   }
   | HPATH {
     if (evalSettings.pureEval) {
@@ -523,20 +529,20 @@ path_start
         );
     }
     Path path(getHome() + std::string($1.p + 1, $1.l - 1));
-    $$ = new ExprPath(path);
+    { $$ = new ExprPath(path);  data->locations[$$] = CUR_POS; }
   }
   ;
 
 ind_string_parts
-  : ind_string_parts IND_STR { $$ = $1; $1->emplace_back(makeCurPos(@2, data), $2); }
-  | ind_string_parts DOLLAR_CURLY expr '}' { $$ = $1; $1->emplace_back(makeCurPos(@2, data), $3); }
-  | { $$ = new std::vector<std::pair<PosIdx, std::variant<Expr *, StringToken>>>; }
+  : ind_string_parts IND_STR { { $$ = $1; $1->emplace_back(makeCurPos(@2, data), $2);  data->locations[$$] = CUR_POS; } }
+  | ind_string_parts DOLLAR_CURLY expr '}' { { $$ = $1; $1->emplace_back(makeCurPos(@2, data), $3);  data->locations[$$] = CUR_POS; } }
+  | { { $$ = new std::vector<std::pair<PosIdx, std::variant<Expr *, StringToken>>>;  data->locations[$$] = CUR_POS; } }
   ;
 
 binds
-  : binds attrpath '=' expr ';' { $$ = $1; addAttr($$, std::move(*$2), $4, makeCurPos(@2, data), data->state); delete $2; }
+  : binds attrpath '=' expr ';' { { $$ = $1; addAttr($$, std::move(*$2), $4, makeCurPos(@2, data), data->state); delete $2;  data->locations[$$] = CUR_POS; } }
   | binds INHERIT attrs ';'
-    { $$ = $1;
+    { { $$ = $1;  data->locations[$$] = CUR_POS; }
       for (auto & i : *$3) {
           if ($$->attrs.find(i.symbol) != $$->attrs.end())
               dupAttr(data->state, i.symbol, makeCurPos(@3, data), $$->attrs[i.symbol].pos);
@@ -546,7 +552,7 @@ binds
       delete $3;
     }
   | binds INHERIT '(' expr ')' attrs ';'
-    { $$ = $1;
+    { { $$ = $1;  data->locations[$$] = CUR_POS; }
       /* !!! Should ensure sharing of the expression in $4. */
       for (auto & i : *$6) {
           if ($$->attrs.find(i.symbol) != $$->attrs.end())
@@ -555,13 +561,13 @@ binds
       }
       delete $6;
     }
-  | { $$ = new ExprAttrs(makeCurPos(@0, data)); }
+  | { { $$ = new ExprAttrs(makeCurPos(@0, data));  data->locations[$$] = CUR_POS; } }
   ;
 
 attrs
-  : attrs attr { $$ = $1; $1->push_back(AttrName(data->symbols.create($2))); }
+  : attrs attr { { $$ = $1; $1->push_back(AttrName(data->symbols.create($2)));  data->locations[$$] = CUR_POS; } }
   | attrs string_attr
-    { $$ = $1;
+    { { $$ = $1;  data->locations[$$] = CUR_POS; }
       ExprString * str = dynamic_cast<ExprString *>($2);
       if (str) {
           $$->push_back(AttrName(data->symbols.create(str->s)));
@@ -572,13 +578,13 @@ attrs
               .errPos = data->state.positions[makeCurPos(@2, data)]
           });
     }
-  | { $$ = new AttrPath; }
+  | { { $$ = new AttrPath;  data->locations[$$] = CUR_POS; } }
   ;
 
 attrpath
-  : attrpath '.' attr { $$ = $1; $1->push_back(AttrName(data->symbols.create($3))); }
+  : attrpath '.' attr { { $$ = $1; $1->push_back(AttrName(data->symbols.create($3)));  data->locations[$$] = CUR_POS; } }
   | attrpath '.' string_attr
-    { $$ = $1;
+    { { $$ = $1;  data->locations[$$] = CUR_POS; }
       ExprString * str = dynamic_cast<ExprString *>($3);
       if (str) {
           $$->push_back(AttrName(data->symbols.create(str->s)));
@@ -586,9 +592,9 @@ attrpath
       } else
           $$->push_back(AttrName($3));
     }
-  | attr { $$ = new std::vector<AttrName>; $$->push_back(AttrName(data->symbols.create($1))); }
+  | attr { { $$ = new std::vector<AttrName>; $$->push_back(AttrName(data->symbols.create($1)));  data->locations[$$] = CUR_POS; } }
   | string_attr
-    { $$ = new std::vector<AttrName>;
+    { { $$ = new std::vector<AttrName>;  data->locations[$$] = CUR_POS; }
       ExprString *str = dynamic_cast<ExprString *>($1);
       if (str) {
           $$->push_back(AttrName(data->symbols.create(str->s)));
@@ -600,33 +606,33 @@ attrpath
 
 attr
   : ID
-  | OR_KW { $$ = {"or", 2}; }
+  | OR_KW { { $$ = {"or", 2}; } }
   ;
 
 string_attr
-  : '"' string_parts '"' { $$ = $2; }
-  | DOLLAR_CURLY expr '}' { $$ = $2; }
+  : '"' string_parts '"' { { $$ = $2;  data->locations[$$] = CUR_POS; } }
+  | DOLLAR_CURLY expr '}' { { $$ = $2;  data->locations[$$] = CUR_POS; } }
   ;
 
 expr_list
-  : expr_list expr_select { $$ = $1; $1->elems.push_back($2); /* !!! dangerous */ }
-  | { $$ = new ExprList; }
+  : expr_list expr_select { { $$ = $1; $1->elems.push_back($2);  data->locations[$$] = CUR_POS; } /* !!! dangerous */ }
+  | { { $$ = new ExprList;  data->locations[$$] = CUR_POS; } }
   ;
 
 formals
   : formal ',' formals
-    { $$ = $3; $$->formals.emplace_back(*$1); delete $1; }
+    { { $$ = $3; $$->formals.emplace_back(*$1); delete $1;  data->locations[$$] = CUR_POS; } }
   | formal
-    { $$ = new ParserFormals; $$->formals.emplace_back(*$1); $$->ellipsis = false; delete $1; }
+    { { $$ = new ParserFormals; $$->formals.emplace_back(*$1); $$->ellipsis = false; delete $1;  data->locations[$$] = CUR_POS; } }
   |
-    { $$ = new ParserFormals; $$->ellipsis = false; }
+    { { $$ = new ParserFormals; $$->ellipsis = false;  data->locations[$$] = CUR_POS; } }
   | ELLIPSIS
-    { $$ = new ParserFormals; $$->ellipsis = true; }
+    { { $$ = new ParserFormals; $$->ellipsis = true;  data->locations[$$] = CUR_POS; } }
   ;
 
 formal
-  : ID { $$ = new Formal{CUR_POS, data->symbols.create($1), 0}; }
-  | ID '?' expr { $$ = new Formal{CUR_POS, data->symbols.create($1), $3}; }
+  : ID { { $$ = new Formal{CUR_POS, data->symbols.create($1), 0};  data->locations[$$] = CUR_POS; } }
+  | ID '?' expr { { $$ = new Formal{CUR_POS, data->symbols.create($1), $3};  data->locations[$$] = CUR_POS; } }
   ;
 
 %%
@@ -643,6 +649,39 @@ formal
 #include "store-api.hh"
 #include "flake/flake.hh"
 
+
+namespace nixd {
+
+using namespace nix;
+
+std::unique_ptr<ParseData> parse(
+    char * text,
+    size_t length,
+    Pos::Origin origin,
+    const SourcePath & basePath, EvalState& state)
+{
+    yyscan_t scanner;
+    std::unique_ptr<ParseData> data = std::unique_ptr<ParseData>(new ParseData{
+        .state = state,
+        .symbols = state.symbols,
+        .basePath = std::move(basePath),
+        .origin = {origin},
+    });
+
+    yylex_init(&scanner);
+    yy_scan_buffer(text, length, scanner);
+    int res = yyparse(scanner, data.get());
+    yylex_destroy(scanner);
+
+    // Do not throw.
+    /* if (res) throw ParseError(data->error.value()); */
+
+    // Do not bindVars, just parse.
+    /* data.result->bindVars(*this, staticEnv); */
+
+    return std::move(data);
+}
+} // namespace nixd
 
 namespace nix {
 
