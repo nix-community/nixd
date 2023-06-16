@@ -6,16 +6,17 @@ bison = find_program('bison')
 # Args are specified in:
 # https://github.com/NixOS/nix/blob/a1cf16563f681b5cb3026f2bbca629996ed36d86/src/libexpr/local.mk#L31
 
-lgen = generator(flex,
-output : ['@BASENAME@.tab.cpp', '@BASENAME@.tab.h' ],
-arguments : ['--outfile=@OUTPUT0@', '--header-file=@OUTPUT1@', '@INPUT@'])
+lexer = custom_target('lexer'
+, input : [ 'src/nix/Lexer.l' ]
+, output : [ '@BASENAME@.tab.cpp', '@BASENAME@.tab.h' ]
+, command : [ flex, '--outfile=@OUTPUT0@', '--header-file=@OUTPUT1@', '@INPUT@' ]
+)
 
-pgen = generator(bison,
-output : ['@BASENAME@.tab.cpp', '@BASENAME@.tab.h'],
-arguments : ['@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@'])
-
-lfiles = lgen.process('src/nix/Lexer.l')
-pfiles = pgen.process('src/nix/Parser.y')
+parser = custom_target('parser'
+, input : [ 'src/nix/Parser.y' ]
+, output : [ '@BASENAME@.tab.cpp', '@BASENAME@.tab.h' ]
+, command : [ bison, '@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@' ]
+)
 
 #------------------------------------------------------------------------------#
 
@@ -36,17 +37,19 @@ nixd_server_lib = library('nixd-lsp'
   , 'src/nix/Option.cpp'
   , 'src/nix/Value.cpp'
   ]
-, lfiles
-, pfiles
+, lexer
+, parser
 , include_directories: nixd_server_inc
 , dependencies: [ llvm
                 , nixd_lsp_server
                 ] + nix_all
 , install: true
 )
-nixd_server= declare_dependency( link_with: nixd_server_lib
-                            , include_directories: nixd_server_inc
-                            )
+
+nixd_server = declare_dependency( link_with: nixd_server_lib
+                                , include_directories: nixd_server_inc
+                                , sources: [ lexer, parser ]
+                                )
 
 test_server = executable('test-server'
 , [ 'test/ast.cpp'
@@ -55,8 +58,8 @@ test_server = executable('test-server'
   , 'test/expr.cpp'
   , 'test/parser.cpp'
   ]
-, lfiles
-, pfiles
+, lexer
+, parser
 , dependencies: [ nixd_server
                 , llvm
                 , gtest_main
