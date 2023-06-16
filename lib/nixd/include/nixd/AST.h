@@ -6,6 +6,7 @@
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
+#include "nixd/Position.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
@@ -21,6 +22,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <utility>
 
@@ -95,6 +97,20 @@ public:
   nix::PosIdx definition(const nix::ExprVar *Var) const {
     return searchDefinition(Var, ParentMap);
   }
+
+  std::optional<lspserver::Range> lRange(const void *Ptr) {
+    try {
+      return toLSPRange(nRange(Ptr));
+    } catch (...) {
+      return std::nullopt;
+    }
+  }
+
+  Range nRange(const void *Ptr) {
+    return {nRangeIdx(Ptr), Data->state.positions};
+  }
+
+  RangeIdx nRangeIdx(const void *Ptr) { return {getPos(Ptr), Data->end}; }
 
   [[nodiscard]] nix::PosIdx getPos(const void *Ptr) {
     return Locations.at(Ptr);

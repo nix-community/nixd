@@ -146,4 +146,10 @@ bool fromJSON(const Value &Params, Location &R, llvm::json::Path P) {
   return O && O.map("range", R.range) && O.map("uri", R.uri);
 }
 
+bool fromJSON(const llvm::json::Value &Params, DocumentLink &R,
+              llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("range", R.range) && O.map("target", R.target);
+}
+
 } // namespace lspserver
