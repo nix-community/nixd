@@ -5,8 +5,6 @@
 #include <llvm/Support/FormatAdapters.h>
 #include <llvm/Support/FormatVariadic.h>
 
-#include <boost/interprocess/sync/named_mutex.hpp>
-
 #include <mutex>
 
 namespace lspserver {
@@ -104,13 +102,12 @@ public:
 
 // Logs to an output stream, such as stderr.
 class StreamLogger : public Logger {
-  static constexpr const char *StreamLockName = "nixd.ipc.mutex.log";
+  pthread_mutex_t *ShmLock;
 
 public:
-  StreamLogger(llvm::raw_ostream &Logs, Logger::Level MinLevel)
-      : MinLevel(MinLevel), Logs(Logs) {
-    boost::interprocess::named_mutex::remove(StreamLockName);
-  }
+  StreamLogger(llvm::raw_ostream &Logs, Logger::Level MinLevel);
+
+  ~StreamLogger() override { pthread_mutex_destroy(ShmLock); }
 
   /// Write a line to the logging stream.
   void log(Level, const char *Fmt,
