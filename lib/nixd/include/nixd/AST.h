@@ -66,7 +66,7 @@ public:
   void rewriteAST();
 
   /// Get the evaluation result (fixed point) of the expression.
-  nix::Value getValue(const nix::Expr *Expr) const { return ValueMap.at(Expr); }
+  nix::Value getValue(const nix::Expr *Expr) const;
 
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
