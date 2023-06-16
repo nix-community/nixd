@@ -272,7 +272,7 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
       }
     } else {
       try {
-        const auto *Node = AST->lookupStart(Params.position);
+        const auto *Node = AST->lookupContainMin(Params.position);
         if (!Node)
           return;
         const auto *ExprEnv = AST->getEnv(Node);
