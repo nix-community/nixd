@@ -25,11 +25,6 @@ add_project_arguments([
 ], language: 'cpp')
 
 
-nix_all = [ dependency('nix-expr')
-          , dependency('nix-cmd')
-          , dependency('nix-store')
-          , dependency('nix-main')
-          ]
 
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
@@ -39,7 +34,14 @@ boost = dependency('boost')
 
 cpp = meson.get_compiler('cpp')
 backtrace = cpp.find_library('backtrace')
+nixfetchers = cpp.find_library('nixfetchers')
 
+nix_all = [ dependency('nix-expr')
+          , dependency('nix-cmd')
+          , dependency('nix-store')
+          , dependency('nix-main')
+          , nixfetchers
+          ]
 
 subdir('lib')
 
