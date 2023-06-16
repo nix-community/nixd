@@ -2,6 +2,7 @@
 #include "nixd/CallbackExpr.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
+#include "nixd/Position.h"
 
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
@@ -76,7 +77,7 @@ void EvalAST::preparePositionLookup(const nix::EvalState &State) {
     if (PosIdx == nix::noPos)
       continue;
     nix::Pos Pos = State.positions[PosIdx];
-    PosMap.insert({translatePosition(Pos), Idx});
+    PosMap.insert({toLSPPos(Pos), Idx});
   }
 }
 

@@ -1,6 +1,7 @@
 #include "nixd/AST.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
+#include "nixd/Position.h"
 #include "nixd/Server.h"
 #include "nixd/nix/Option.h"
 #include "nixd/nix/Value.h"
@@ -182,8 +183,7 @@ void Server::onEvalDefinition(
               if (auto *SourcePath =
                       std::get_if<nix::SourcePath>(&Pos.origin)) {
                 auto Path = SourcePath->to_string();
-                lspserver::Position Position =
-                    translatePosition(State->positions[P]);
+                lspserver::Position Position = toLSPPos(State->positions[P]);
                 RR.Response = Location{URIForFile::canonicalize(Path, Path),
                                        {Position, Position}};
                 return;
@@ -202,7 +202,7 @@ void Server::onEvalDefinition(
           if (PIdx == nix::noPos)
             return;
 
-          auto Position = translatePosition(State->positions[PIdx]);
+          auto Position = toLSPPos(State->positions[PIdx]);
           RR.Response = Location{Params.textDocument.uri, {Position, Position}};
           return;
         }

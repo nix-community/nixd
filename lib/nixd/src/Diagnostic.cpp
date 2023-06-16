@@ -1,4 +1,5 @@
 #include "nixd/Diagnostic.h"
+#include "nixd/Position.h"
 
 #include "lspserver/Protocol.h"
 
@@ -37,21 +38,12 @@ std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::BaseError &Err) {
   std::vector<lspserver::Diagnostic> Ret;
   auto ErrPos = Err.info().errPos;
   lspserver::Position ErrLoc =
-      ErrPos ? translatePosition(*ErrPos) : lspserver::Position{};
+      ErrPos ? toLSPPos(*ErrPos) : lspserver::Position{};
   Ret.push_back(
       lspserver::Diagnostic{.range = {.start = ErrLoc, .end = ErrLoc},
                             .severity = /* Error */ 1,
                             .message = stripANSI(Err.info().msg.str())});
   return Ret;
-}
-
-lspserver::Position translatePosition(const nix::AbstractPos &P) {
-  return {.line = static_cast<int>(P.line - 1),
-          .character = static_cast<int>(P.column - 1)};
-}
-
-lspserver::Position translatePosition(const nix::Pos &Pos) {
-  return {static_cast<int>(Pos.line - 1), static_cast<int>(Pos.column - 1)};
 }
 
 } // namespace nixd
