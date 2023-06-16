@@ -132,8 +132,9 @@ searchEnvExpr(const nix::ExprVar *E,
     // Should be a parent nix::Expr that creates env.
     const auto *ParentExpr = ParentMap.at(EnvExpr);
 
-    assert(ParentExpr != E &&
-           "Searched at the root of AST, but the Level still requested up");
+    // Might be "builtin" variable
+    if (ParentExpr == E)
+      return nullptr;
 
     if (isEnvCreated(ParentExpr, EnvExpr))
       Level--;
@@ -150,7 +151,8 @@ nix::PosIdx searchDefinition(
 
   const auto *EnvExpr = searchEnvExpr(E, ParentMap);
 
-  assert(EnvExpr && "EnvExpr must be non-null!");
+  if (!EnvExpr)
+    return nix::noPos;
 
   return getDisplOf(EnvExpr, E->displ);
 }
