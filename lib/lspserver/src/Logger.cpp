@@ -16,9 +16,10 @@
 #include <boost/interprocess/sync/named_mutex.hpp>
 #include <boost/interprocess/sync/scoped_lock.hpp>
 
-#include <unistd.h>
-
 #include <mutex>
+
+#include <sys/mman.h>
+#include <unistd.h>
 
 namespace lspserver {
 
@@ -58,9 +59,12 @@ void StreamLogger::log(Logger::Level Level, const char *Fmt,
   if (Level < MinLevel)
     return;
   llvm::sys::TimePoint<> Timestamp = std::chrono::system_clock::now();
-  named_mutex NamedMutex(open_or_create, StreamLockName);
+  struct ShmLockGuard {
+    decltype(ShmLock) Lock;
+    ShmLockGuard(decltype(Lock) L) : Lock(L) { pthread_mutex_lock(Lock); }
+    ~ShmLockGuard() { pthread_mutex_unlock(Lock); }
+  } Guard(ShmLock);
 
-  scoped_lock<named_mutex> Lock(NamedMutex);
   Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}: {3}\n", indicator(Level),
                         Timestamp, getpid(), Message);
   Logs.flush();
@@ -88,4 +92,17 @@ llvm::Error detail::error(std::error_code EC, std::string &&Msg) {
   return llvm::make_error<SimpleStringError>(EC, std::move(Msg));
 }
 
+StreamLogger::StreamLogger(llvm::raw_ostream &Logs, Logger::Level MinLevel)
+    : MinLevel(MinLevel), Logs(Logs) {
+  ShmLock =
+      (pthread_mutex_t *)mmap(nullptr, getpagesize(), PROT_READ | PROT_WRITE,
+                              MAP_SHARED | MAP_ANON, -1, 0);
+
+  pthread_mutexattr_t Attr;
+  pthread_mutexattr_init(&Attr);
+  pthread_mutexattr_setpshared(&Attr, PTHREAD_PROCESS_SHARED);
+  pthread_mutexattr_setrobust(&Attr, PTHREAD_MUTEX_ROBUST);
+  pthread_mutex_init(ShmLock, &Attr);
+  pthread_mutexattr_destroy(&Attr);
+}
 } // namespace lspserver
