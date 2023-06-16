@@ -658,11 +658,9 @@ namespace nixd {
 
 using namespace nix;
 
-std::unique_ptr<ParseData> parse(
-    char * text,
-    size_t length,
-    Pos::Origin origin,
-    const SourcePath & basePath, EvalState& state)
+std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
+                                 const SourcePath &basePath, EvalState &state,
+                                 std::shared_ptr<StaticEnv> env)
 {
     yyscan_t scanner;
     std::unique_ptr<ParseData> data = std::unique_ptr<ParseData>(new ParseData{
@@ -677,11 +675,9 @@ std::unique_ptr<ParseData> parse(
     int res = yyparse(scanner, data.get());
     yylex_destroy(scanner);
 
-    // Do not throw.
-    /* if (res) throw ParseError(data->error.value()); */
+    if (res) throw ParseError(data->error.value());
 
-    // Do not bindVars, just parse.
-    /* data.result->bindVars(*this, staticEnv); */
+    data->result->bindVars(state, env);
 
     return data; // NRVO
 }
