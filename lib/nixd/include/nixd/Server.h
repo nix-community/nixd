@@ -200,6 +200,10 @@ public:
   void onDefinition(const lspserver::TextDocumentPositionParams &,
                     lspserver::Callback<llvm::json::Value>);
 
+  void
+  onDocumentLink(const lspserver::DocumentLinkParams &,
+                 lspserver::Callback<std::vector<lspserver::DocumentLink>>);
+
   void onHover(const lspserver::TextDocumentPositionParams &,
                lspserver::Callback<lspserver::Hover>);
 
@@ -274,6 +278,10 @@ public:
 
   void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
                         lspserver::Callback<lspserver::Location>);
+
+  void
+  onEvalDocumentLink(const lspserver::TextDocumentIdentifier &,
+                     lspserver::Callback<std::vector<lspserver::DocumentLink>>);
 
   void onEvalHover(const lspserver::TextDocumentPositionParams &,
                    lspserver::Callback<llvm::json::Value>);

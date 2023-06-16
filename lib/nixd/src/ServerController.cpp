@@ -209,6 +209,8 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
                            &Server::onDocumentDidClose);
 
   // Language Features
+  Registry.addMethod("textDocument/documentLink", this,
+                     &Server::onDocumentLink);
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
   Registry.addMethod("textDocument/declaration", this, &Server::onDecalration);
@@ -231,6 +233,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
                      &Server::onEvalCompletion);
+
+  Registry.addMethod("nixd/ipc/textDocument/documentLink", this,
+                     &Server::onEvalDocumentLink);
 
   Registry.addMethod("nixd/ipc/textDocument/hover", this, &Server::onEvalHover);
 
@@ -261,6 +266,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
        }},
       {"declarationProvider", true},
       {"definitionProvider", true},
+      {"documentLinkProvider", true},
       {"hoverProvider", true},
       {"documentFormattingProvider", true},
       {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
@@ -385,6 +391,24 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
           return Location.range.start.line != -1;
         },
         llvm::json::Object{}));
+  };
+
+  boost::asio::post(Pool, std::move(Task));
+}
+
+void Server::onDocumentLink(
+    const lspserver::DocumentLinkParams &Params,
+    lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
+    auto Responses = askWorkers<lspserver::TextDocumentIdentifier,
+                                std::vector<lspserver::DocumentLink>>(
+        EvalWorkers, "nixd/ipc/textDocument/documentLink", Params.textDocument,
+        2e4);
+
+    Reply(latestMatchOr<std::vector<lspserver::DocumentLink>>(
+        Responses, [](const std::vector<lspserver::DocumentLink> &) -> bool {
+          return true;
+        }));
   };
 
   boost::asio::post(Pool, std::move(Task));
