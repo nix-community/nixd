@@ -59,7 +59,7 @@ rec {
       },
       "position":{
          "line":3,
-         "character":9
+         "character":8
       }
    }
 }

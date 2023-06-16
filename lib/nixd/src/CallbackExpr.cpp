@@ -17,17 +17,19 @@ namespace nixd {
 #include "nixd/NixASTNodes.inc"
 #undef NIX_EXPR
 
-nix::Expr *rewriteCallback(ASTContext &Cxt, ExprCallback ECB,
-                           const nix::Expr *Root) {
+nix::Expr *
+rewriteCallback(ASTContext &Cxt, ExprCallback ECB, const nix::Expr *Root,
+                std::map<const nix::Expr *, nix::Expr *> &OldNewMap) {
 #define TRY_TO_TRAVERSE(CHILD)                                                 \
   do {                                                                         \
     CHILD = dynamic_cast<std::remove_reference<decltype(CHILD)>::type>(        \
-        rewriteCallback(Cxt, ECB, CHILD));                                     \
+        rewriteCallback(Cxt, ECB, CHILD, OldNewMap));                          \
   } while (false)
 
 #define DEF_TRAVERSE_TYPE(TYPE, CODE)                                          \
   if (const auto *E = dynamic_cast<const nix::TYPE *>(Root)) {                 \
     auto *T = Callback##TYPE::create(Cxt, *E, ECB);                            \
+    OldNewMap.insert({E, T});                                                  \
     { CODE; }                                                                  \
     return T;                                                                  \
   }

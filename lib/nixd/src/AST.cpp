@@ -2,6 +2,7 @@
 #include "nixd/CallbackExpr.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
+#include "nixd/Position.h"
 
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
@@ -16,14 +17,25 @@
 
 namespace nixd {
 
-EvalAST::EvalAST(nix::Expr *Root) : Cxt(ASTContext()) {
+void EvalAST::rewriteAST() {
   auto EvalCallback = [this](const nix::Expr *Expr, const nix::EvalState &,
                              const nix::Env &ExprEnv,
                              const nix::Value &ExprValue) {
     ValueMap[Expr] = ExprValue;
     EnvMap[Expr] = &ExprEnv;
   };
-  this->Root = rewriteCallback(Cxt, EvalCallback, Root);
+  std::map<const nix::Expr *, nix::Expr *> OldNewMap;
+
+  Root = rewriteCallback(Cxt, EvalCallback, Data->result, OldNewMap);
+
+  // Reconstruct location info from the mapping
+  for (auto [K, V] : Data->locations) {
+    const auto *Expr = static_cast<const nix::Expr *>(K);
+    if (OldNewMap.contains(Expr))
+      Locations.insert({OldNewMap[Expr], V});
+    else
+      Locations.insert({K, V});
+  }
 }
 
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
@@ -56,28 +68,133 @@ const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
   throw std::out_of_range("No such env associated to ancestors");
 }
 
-nix::Expr *EvalAST::lookupPosition(lspserver::Position Pos) const {
-  auto WordHead = PosMap.upper_bound(Pos);
-  if (WordHead != PosMap.begin())
-    WordHead--;
-  return Cxt.Nodes[WordHead->second].get();
+[[nodiscard]] const nix::Expr *
+EvalAST::lookupEnd(lspserver::Position Desired) const {
+  struct VTy : RecursiveASTVisitor<VTy> {
+    const decltype(Locations) &Loc;
+    const decltype(ParseData::end) &End;
+    const nix::PosTable &PTable;
+    const nix::Expr *R;
+    lspserver::Position RStart = {INT_MAX, INT_MAX};
+    lspserver::Position REnd = {INT_MIN, INT_MIN};
+
+    const lspserver::Position Desired;
+
+    bool visitExpr(const nix::Expr *E) {
+      if (Loc.contains(E)) {
+        auto ER = toLSPRange(Range(E, Loc, End, PTable));
+        if (ER.end <= Desired) {
+          if (REnd < ER.end || (REnd == ER.end && RStart <= ER.start)) {
+            // Update the expression.
+            R = E;
+            RStart = ER.start;
+            REnd = ER.end;
+          }
+        }
+      }
+      return true;
+    }
+  } V{.Loc = Locations,
+      .End = Data->end,
+      .PTable = Data->state.positions,
+      .Desired = Desired};
+
+  V.traverseExpr(root());
+  return V.R;
 }
 
-void EvalAST::preparePositionLookup(const nix::EvalState &State) {
-  assert(PosMap.empty() &&
-         "PosMap must be empty before preparing! (prepared before?)");
-  // Reversely traversing AST nodes, to make sure we found "larger" AST nodes
-  // before smaller
-  // e.g. ExprSelect = (some).foo.bar
-  //       ExprVar   = some
-  // "lookupPosition" should return ExprSelect, instead of ExprVar.
-  for (size_t Idx = Cxt.Nodes.size(); Idx-- > 0;) {
-    auto PosIdx = Cxt.Nodes[Idx]->getPos();
-    if (PosIdx == nix::noPos)
-      continue;
-    nix::Pos Pos = State.positions[PosIdx];
-    PosMap.insert({translatePosition(Pos), Idx});
-  }
+std::vector<const nix::Expr *>
+EvalAST::lookupContain(lspserver::Position Desired) const {
+  struct VTy : RecursiveASTVisitor<VTy> {
+    const decltype(Locations) &Loc;
+    const decltype(ParseData::end) &End;
+    const nix::PosTable &PTable;
+    std::vector<const nix::Expr *> R;
+
+    const lspserver::Position Desired;
+
+    bool visitExpr(const nix::Expr *E) {
+      if (Loc.contains(E)) {
+        auto ER = toLSPRange(Range(E, Loc, End, PTable));
+        if (ER.contains(Desired))
+          R.emplace_back(E);
+      }
+      return true;
+    }
+  } V{.Loc = Locations,
+      .End = Data->end,
+      .PTable = Data->state.positions,
+      .Desired = Desired};
+
+  V.traverseExpr(root());
+  return V.R;
+}
+
+[[nodiscard]] const nix::Expr *
+EvalAST::lookupContainMin(lspserver::Position Desired) const {
+  struct VTy : RecursiveASTVisitor<VTy> {
+    const decltype(Locations) &Loc;
+    const decltype(ParseData::end) &End;
+    const nix::PosTable &PTable;
+    const nix::Expr *R;
+    lspserver::Range RR = {{INT_MIN, INT_MIN}, {INT_MAX, INT_MAX}};
+
+    const lspserver::Position Desired;
+
+    bool visitExpr(const nix::Expr *E) {
+      if (Loc.contains(E)) {
+        auto ER = toLSPRange(Range(E, Loc, End, PTable));
+        if (ER.contains(Desired) && RR.contains(ER)) {
+          // Update the expression.
+          R = E;
+          RR = ER;
+        }
+      }
+      return true;
+    }
+
+  } V{.Loc = Locations,
+      .End = Data->end,
+      .PTable = Data->state.positions,
+      .Desired = Desired};
+
+  V.traverseExpr(root());
+  return V.R;
+}
+
+[[nodiscard]] const nix::Expr *
+EvalAST::lookupStart(lspserver::Position Desired) const {
+  struct VTy : RecursiveASTVisitor<VTy> {
+    const decltype(Locations) &Loc;
+    const decltype(ParseData::end) &End;
+    const nix::PosTable &PTable;
+    const nix::Expr *R;
+    lspserver::Position RStart = {INT_MAX, INT_MAX};
+    lspserver::Position REnd = {INT_MIN, INT_MIN};
+
+    const lspserver::Position Desired;
+
+    bool visitExpr(const nix::Expr *E) {
+      if (Loc.contains(E)) {
+        auto ER = toLSPRange(Range(E, Loc, End, PTable));
+        if (Desired <= ER.start) {
+          if (ER.start < RStart || (ER.start == RStart && ER.end <= REnd)) {
+            // Update the expression.
+            R = E;
+            RStart = ER.start;
+            REnd = ER.end;
+          }
+        }
+      }
+      return true;
+    }
+  } V{.Loc = Locations,
+      .End = Data->end,
+      .PTable = Data->state.positions,
+      .Desired = Desired};
+
+  V.traverseExpr(root());
+  return V.R;
 }
 
 } // namespace nixd

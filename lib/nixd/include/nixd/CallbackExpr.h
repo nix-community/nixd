@@ -29,6 +29,7 @@ using ExprCallback =
 /// Rewrite the AST, rooted at \p Root, \returns the root of the result tree.
 /// Nodes are stored into \p Cxt
 nix::Expr *rewriteCallback(ASTContext &Cxt, ExprCallback ECB,
-                           const nix::Expr *Root);
+                           const nix::Expr *Root,
+                           std::map<const nix::Expr *, nix::Expr *> &OldNewMap);
 
 } // namespace nixd

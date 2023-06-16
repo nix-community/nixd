@@ -60,8 +60,8 @@ a
          "uri":"file:///with.nix"
       },
       "position":{
-         "line":6,
-         "character":5
+         "line":5,
+         "character":6
       }
    }
 }
@@ -74,11 +74,11 @@ CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": {
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 2,
+CHECK-NEXT:         "character": 9,
 CHECK-NEXT:         "line": 1
 CHECK-NEXT:       },
 CHECK-NEXT:       "start": {
-CHECK-NEXT:         "character": 2,
+CHECK-NEXT:         "character": 9,
 CHECK-NEXT:         "line": 1
 CHECK-NEXT:       }
 CHECK-NEXT:     },
