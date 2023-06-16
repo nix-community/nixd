@@ -1,14 +1,52 @@
 ## User Guide
 
 ### Installation
+At this time (2023-06-14), nixd is under rapid development and it is highly recommended to install nixd from source.
 
-Our flake.nix provides a package named `nixd`, and an overlay to nixpkgs that add the `nixd` package.
+Package `nixd` can be found in [nixpkgs](https://github.com/NixOS/nixpkgs), there are different ways to install nixd, pick your favourite:
+
+<details>
+<summary>NixOS Configuration</summary>
+
+```nix
+{ pkgs, ... }: {
+  environment.systemPackages = with pkgs; [
+    nixd
+  ];
+}
+```
+
+</details>
+
+<details>
+<summary><b>nix-env</b>(legacy commands)</summary>
+On NixOS:
+
+```console
+$ nix-env -iA nixos.nixd
+```
+
+On Non NixOS:
+
+```console
+$ nix-env -iA nixpkgs.nixd
+```
+
+</details>
+
+<details>
+<summary><b>nix profile</b></summary>
+
+```console
+$ nix profile install github:nixos/nixpkgs#nixd
+```
+
+</details>
+
+And our flake.nix provides a package named `nixd`, and an overlay to nixpkgs that add the `nixd` package.
 
 Note that please do NOT override nixpkgs revision for nixd inputs.
 The source code have tested on specific version on NixOS/nix, which may not work at your version.
-
-At this time (2023-06-14), nixd is under rapid development and it is highly recommended to install nixd from source.
-See instructions below.
 
 ### Build the project from source
 
