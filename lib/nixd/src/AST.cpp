@@ -38,6 +38,19 @@ void EvalAST::rewriteAST() {
   }
 }
 
+nix::Value EvalAST::getValue(const nix::Expr *Expr) const {
+  if (const auto *EV = dynamic_cast<const nix::ExprVar *>(Expr)) {
+    if (!EV->fromWith) {
+      const auto *EnvExpr = searchEnvExpr(EV, ParentMap);
+      if (const auto *EL = dynamic_cast<const nix::ExprLambda *>(EnvExpr)) {
+        const auto *F = EnvMap.at(EL->body);
+        return *F->values[EV->displ];
+      }
+    }
+  }
+  return ValueMap.at(Expr);
+}
+
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
   nix::Value DummyValue{};
   State.cacheFile(nix::CanonPath(Path.str()), nix::CanonPath(Path.str()), Root,
