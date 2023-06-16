@@ -141,11 +141,12 @@ rec {
   InitNix INix;
   auto MyState = INix.getDummyState();
   auto Cxt = std::make_unique<ASTContext>();
+  std::map<const nix::Expr *, nix::Expr *> OldNewMap;
   auto *CallbackExprRoot = rewriteCallback(
       *Cxt,
       [](const nix::Expr *, const nix::EvalState &, const nix::Env &,
          const nix::Value &) {},
-      MyState->parseExprFromString(NixSrc, nix::CanonPath("/")));
+      MyState->parseExprFromString(NixSrc, nix::CanonPath("/")), OldNewMap);
   Visitor.traverseExpr(CallbackExprRoot);
 }
 

@@ -1,5 +1,6 @@
 #include "nixd/EvalDraftStore.h"
 
+#include "canon-path.hh"
 #include "lspserver/Logger.h"
 
 #include <nix/command-installable-value.hh>
@@ -24,11 +25,11 @@ EvalDraftStore::injectFiles(const nix::ref<nix::EvalState> &State) noexcept {
     auto Draft = getDraft(ActiveFile).value();
     try {
       std::filesystem::path AFPath = ActiveFile;
-      auto *FileAST = State->parseExprFromString(
-          *Draft.Contents, nix::CanonPath(AFPath.remove_filename().string()));
-      EAF.insert({ActiveFile, nix::make_ref<EvalAST>(FileAST)});
-      EAF.at(ActiveFile)->preparePositionLookup(*State);
-      EAF.at(ActiveFile)->prepareParentTable();
+      auto SourcePath = nix::CanonPath(AFPath.string());
+      auto BasePath = nix::CanonPath(AFPath.remove_filename().string());
+      EAF.insert(
+          {ActiveFile, nix::make_ref<EvalAST>(*Draft.Contents, SourcePath,
+                                              BasePath, *State)});
       EAF.at(ActiveFile)->injectAST(*State, ActiveFile);
     } catch (nix::BaseError &Err) {
       std::exception_ptr Ptr = std::current_exception();

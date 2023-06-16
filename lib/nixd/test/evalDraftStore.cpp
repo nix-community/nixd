@@ -36,20 +36,6 @@ TEST(EvalDraftStore, NoError) {
   ASSERT_EQ(ERoot.integer, 1);
 }
 
-TEST(EvalDraftStore, SetupLookup) {
-  auto EDS = std::make_unique<EvalDraftStore>();
-  EDS->addDraft(VirtualTestPath, "0", R"(
-    { x = 1; }
-  )");
-
-  IValueEvalSession Session;
-  Session.parseArgs({"--file", VirtualTestPath});
-  auto ILR = EDS->injectFiles(Session.getState());
-  auto FooAST = ILR.Forest.at(VirtualTestPath);
-  /// Ensure that 'lookupPosition' can be used
-  ASSERT_EQ(FooAST->lookupPosition({0, 0}), FooAST->root());
-}
-
 TEST(EvalDraftStore, IgnoreParseError) {
   auto EDS = std::make_unique<EvalDraftStore>();
   // ParseError!
@@ -67,8 +53,7 @@ TEST(EvalDraftStore, IgnoreParseError) {
 
   auto FooAST = ILR.Forest.at("/bar");
 
-  /// Ensure that 'lookupPosition' can be used
-  ASSERT_EQ(FooAST->lookupPosition({0, 0}), FooAST->root());
+  ASSERT_EQ(FooAST->lookupStart({0, 0}), FooAST->root());
 }
 
 TEST(EvalDraftStore, TransferInjectionError) {

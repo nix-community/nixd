@@ -11,27 +11,30 @@
 
 namespace nixd {
 
-TEST(AST, lookupPosition) {
-  static const char *NixSrc = R"(let x = 1; in x)";
-
-  InitNix INix;
-  auto State = INix.getDummyState();
-  auto *RawExpr = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
-  auto AST = EvalAST(RawExpr);
-
-  AST.preparePositionLookup(*State);
-
-  auto AssertPosition = [&](lspserver::Position Pos, std::string Val) {
-    ASSERT_TRUE(AST.lookupPosition(Pos) != nullptr);
-    std::stringstream SStream;
-    AST.lookupPosition(Pos)->show(State->symbols, SStream);
-    ASSERT_EQ(SStream.str(), Val);
+TEST(AST, lookupEnd) {
+  std::string NixSrc = R"(
+{
+  a = {
+    b = 1;
   };
 
-  for (auto I = 0; I < 14; I++)
-    AssertPosition({0, I}, "{ x = 1; }");
-  for (auto I = 14; I < 20; I++)
-    AssertPosition({0, I}, "x");
+  d = {
+    z = {
+      y = 1;
+    };
+  };
+}
+  )";
+  InitNix INix;
+  auto State = INix.getDummyState();
+  EvalAST A(NixSrc, CanonPath("foo"), CanonPath("/"), *State);
+  const auto *E = A.lookupEnd({4, 4});
+  if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
+    auto Pos = State->positions[A.getPos(EA)];
+    ASSERT_EQ(Pos.line, 3);
+  } else {
+    ASSERT_TRUE(false && "It must be an Attrs!");
+  }
 }
 
 } // namespace nixd

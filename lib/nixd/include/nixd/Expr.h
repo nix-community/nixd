@@ -19,12 +19,14 @@ template <class Derived> struct RecursiveASTVisitor {
 
   bool shouldTraversePostOrder() { return false; }
 
+  bool visitExpr(const nix::Expr *) { return true; }
+
 #define NIX_EXPR(EXPR) bool traverse##EXPR(const nix::EXPR *E);
 #include "NixASTNodes.inc"
 #undef NIX_EXPR
 
 #define NIX_EXPR(EXPR)                                                         \
-  bool visit##EXPR(const nix::EXPR *) { return true; }
+  bool visit##EXPR(const nix::EXPR *E) { return getDerived().visitExpr(E); }
 #include "NixASTNodes.inc"
 #undef NIX_EXPR
 
@@ -67,7 +69,7 @@ template <class Derived> struct RecursiveASTVisitor {
 #undef TRY_TO_TRAVERSE
 #undef TRY_TO
 
-inline const char *getExprName(nix::Expr *E) {
+inline const char *getExprName(const nix::Expr *E) {
 #define NIX_EXPR(EXPR)                                                         \
   if (dynamic_cast<const nix::EXPR *>(E)) {                                    \
     return #EXPR;                                                              \

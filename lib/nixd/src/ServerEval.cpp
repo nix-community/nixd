@@ -157,7 +157,7 @@ void Server::onEvalDefinition(
       [Params, this](const nix::ref<EvalAST> &AST, ReplyRAII<Location> &&RR) {
         auto State = IER->Session->getState();
 
-        auto *Node = AST->lookupPosition(Params.position);
+        const auto *Node = AST->lookupContainMin(Params.position);
 
         // If the expression evaluates to a "derivation", try to bring our user
         // to the location which defines the package.
@@ -217,7 +217,7 @@ void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
   withAST<Hover>(
       Params.textDocument.uri.file().str(), ReplyRAII<Hover>(std::move(Reply)),
       [Params, this](const nix::ref<EvalAST> &AST, ReplyRAII<Hover> &&RR) {
-        auto *Node = AST->lookupPosition(Params.position);
+        const auto *Node = AST->lookupContainMin(Params.position);
         const auto *ExprName = getExprName(Node);
         RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
         auto &HoverText = RR.Response->contents.value;
@@ -249,7 +249,7 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
                    Params.context.triggerCharacter);
 
     if (Params.context.triggerCharacter == ".") {
-      auto *Node = AST->lookupPosition(Params.position);
+      const auto *Node = AST->lookupEnd(Params.position);
       try {
         auto Value = AST->getValue(Node);
         if (Value.type() == nix::ValueType::nAttrs) {
@@ -266,7 +266,7 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
       }
     } else {
       try {
-        auto *Node = AST->lookupPosition(Params.position);
+        const auto *Node = AST->lookupStart(Params.position);
         const auto *ExprEnv = AST->getEnv(Node);
 
         Items = CompletionHelper::fromEnvRecursive(
