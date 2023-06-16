@@ -1,9 +1,9 @@
 ## User Guide
 
 ### Installation
-Version 1.0.0 is very experimental and has some known bugs, it is highly recommended to install nixd from source.
+At this time (2023-06-14), nixd is under rapid development and it is highly recommended to install nixd from source.
 
-This program can be found in [NixOS/nixpkgs](https://github.com/NixOS/nixpkgs), there are different ways to install nixd, pick your favourite:
+Package `nixd` can be found in [nixpkgs](https://github.com/NixOS/nixpkgs), there are different ways to install nixd, pick your favourite:
 
 <details>
 <summary>NixOS Configuration</summary>
