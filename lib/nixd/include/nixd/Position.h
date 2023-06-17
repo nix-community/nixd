@@ -8,6 +8,10 @@
 
 namespace nixd {
 
+struct Range;
+
+inline lspserver::Range toLSPRange(const Range &R);
+
 struct RangeIdx {
   PosIdx Begin;
   PosIdx End;
@@ -34,6 +38,8 @@ struct Range {
   Range(const void *Ptr, const decltype(ParseData::locations) &Loc,
         const decltype(ParseData::end) &End, const PosTable &Table)
       : Range(RangeIdx(Ptr, Loc, End), Table) {}
+
+  operator lspserver::Range() const { return toLSPRange(*this); }
 };
 
 inline lspserver::Position toLSPPos(const nix::AbstractPos &P) {
