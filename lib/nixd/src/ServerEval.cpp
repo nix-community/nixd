@@ -26,63 +26,48 @@ namespace nixd {
 
 struct CompletionHelper {
   using Items = std::vector<lspserver::CompletionItem>;
-  static Items fromEnvRecursive(const nix::SymbolTable &STable,
-                                const nix::StaticEnv &SEnv,
-                                const nix::Env &NixEnv);
-  static Items fromEnvWith(const nix::SymbolTable &STable,
-                           const nix::Env &NixEnv);
-  static Items fromStaticEnv(const nix::SymbolTable &STable,
-                             const nix::StaticEnv &SEnv);
+  static void fromEnvRecursive(const nix::SymbolTable &STable,
+                               const nix::StaticEnv &SEnv,
+                               const nix::Env &NixEnv, Items &Items);
+  static void fromEnvWith(const nix::SymbolTable &STable,
+                          const nix::Env &NixEnv, Items &Items);
+  static void fromStaticEnv(const nix::SymbolTable &STable,
+                            const nix::StaticEnv &SEnv, Items &Items);
 };
 
-CompletionHelper::Items
-CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
-                                const nix::StaticEnv &SEnv) {
-  Items Result;
+void CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
+                                     const nix::StaticEnv &SEnv, Items &Items) {
   for (auto [Symbol, Displ] : SEnv.vars) {
     std::string Name = STable[Symbol];
     if (Name.starts_with("__"))
       continue;
 
     // Variables in static envs, let's mark it as "Constant".
-    Result.emplace_back(lspserver::CompletionItem{
+    Items.emplace_back(lspserver::CompletionItem{
         .label = Name, .kind = lspserver::CompletionItemKind::Constant});
   }
-  return Result;
 }
 
-CompletionHelper::Items
-CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
-                              const nix::Env &NixEnv) {
-  Items Result;
+void CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
+                                   const nix::Env &NixEnv, Items &Items) {
   if (NixEnv.type == nix::Env::HasWithAttrs) {
     for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
       std::string Name = STable[SomeAttr.name];
-      Result.emplace_back(lspserver::CompletionItem{
+      Items.emplace_back(lspserver::CompletionItem{
           .label = Name, .kind = lspserver::CompletionItemKind::Variable});
     }
   }
-  return Result;
 }
 
-CompletionHelper::Items
-CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
-                                   const nix::StaticEnv &SEnv,
-                                   const nix::Env &NixEnv) {
+void CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
+                                        const nix::StaticEnv &SEnv,
+                                        const nix::Env &NixEnv, Items &Items) {
 
-  Items Result;
-  if ((SEnv.up != nullptr) && (NixEnv.up != nullptr)) {
-    Items Inherited = fromEnvRecursive(STable, *SEnv.up, *NixEnv.up);
-    Result.insert(Result.end(), Inherited.begin(), Inherited.end());
-  }
+  if ((SEnv.up != nullptr) && (NixEnv.up != nullptr))
+    fromEnvRecursive(STable, *SEnv.up, *NixEnv.up, Items);
 
-  auto StaticEnvItems = fromStaticEnv(STable, SEnv);
-  Result.insert(Result.end(), StaticEnvItems.begin(), StaticEnvItems.end());
-
-  auto EnvItems = fromEnvWith(STable, NixEnv);
-  Result.insert(Result.end(), EnvItems.begin(), EnvItems.end());
-
-  return Result;
+  fromStaticEnv(STable, SEnv, Items);
+  fromEnvWith(STable, NixEnv, Items);
 }
 
 void Server::switchToEvaluator(lspserver::PathRef File) {
@@ -310,12 +295,11 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
         if (!Node)
           return;
         const auto *ExprEnv = AST->getEnv(Node);
-
-        Items = CompletionHelper::fromEnvRecursive(
-            State->symbols, *State->staticBaseEnv, *ExprEnv);
+        CompletionHelper::fromEnvRecursive(
+            State->symbols, *State->staticBaseEnv, *ExprEnv, Items);
       } catch (std::out_of_range &) {
-        Items = CompletionHelper::fromStaticEnv(State->symbols,
-                                                *State->staticBaseEnv);
+        CompletionHelper::fromStaticEnv(State->symbols, *State->staticBaseEnv,
+                                        Items);
       }
     }
     // Make the response.
