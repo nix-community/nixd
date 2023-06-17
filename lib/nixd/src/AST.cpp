@@ -51,7 +51,7 @@ nix::Value EvalAST::getValue(const nix::Expr *Expr) const {
   return ValueMap.at(Expr);
 }
 
-void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) {
+void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) const {
   nix::Value DummyValue{};
   State.cacheFile(nix::CanonPath(Path.str()), nix::CanonPath(Path.str()), Root,
                   DummyValue);
@@ -82,11 +82,10 @@ const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
 }
 
 [[nodiscard]] const nix::Expr *
-EvalAST::lookupEnd(lspserver::Position Desired) const {
+ParseAST::lookupEnd(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
-    const decltype(Locations) &Loc;
-    const decltype(ParseData::end) &End;
-    const nix::PosTable &PTable;
+    const ParseAST &This;
+
     const nix::Expr *R;
     lspserver::Position RStart = {INT_MAX, INT_MAX};
     lspserver::Position REnd = {INT_MIN, INT_MIN};
@@ -94,93 +93,74 @@ EvalAST::lookupEnd(lspserver::Position Desired) const {
     const lspserver::Position Desired;
 
     bool visitExpr(const nix::Expr *E) {
-      if (Loc.contains(E)) {
-        auto ER = toLSPRange(Range(E, Loc, End, PTable));
-        if (ER.end <= Desired) {
-          if (REnd < ER.end || (REnd == ER.end && RStart <= ER.start)) {
-            // Update the expression.
-            R = E;
-            RStart = ER.start;
-            REnd = ER.end;
-          }
-        }
+      auto ER = This.lRange(E);
+      if (ER.has_value() && ER->end < Desired &&
+          (REnd < ER->end || (REnd == ER->end && RStart <= ER->start))) {
+        // Update the expression.
+        R = E;
+        RStart = ER->start;
+        REnd = ER->end;
       }
       return true;
     }
-  } V{.Loc = Locations,
-      .End = Data->end,
-      .PTable = Data->state.positions,
-      .Desired = Desired};
+  } V{.This = *this, .Desired = Desired};
 
   V.traverseExpr(root());
   return V.R;
 }
 
 std::vector<const nix::Expr *>
-EvalAST::lookupContain(lspserver::Position Desired) const {
+ParseAST::lookupContain(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
-    const decltype(Locations) &Loc;
-    const decltype(ParseData::end) &End;
-    const nix::PosTable &PTable;
+    const ParseAST &This;
+
     std::vector<const nix::Expr *> R;
 
     const lspserver::Position Desired;
 
     bool visitExpr(const nix::Expr *E) {
-      if (Loc.contains(E)) {
-        auto ER = toLSPRange(Range(E, Loc, End, PTable));
-        if (ER.contains(Desired))
-          R.emplace_back(E);
-      }
+      auto ER = This.lRange(E);
+      if (ER.has_value() && ER->contains(Desired))
+        R.emplace_back(E);
       return true;
     }
-  } V{.Loc = Locations,
-      .End = Data->end,
-      .PTable = Data->state.positions,
-      .Desired = Desired};
+  } V{.This = *this, .Desired = Desired};
 
   V.traverseExpr(root());
   return V.R;
 }
 
 [[nodiscard]] const nix::Expr *
-EvalAST::lookupContainMin(lspserver::Position Desired) const {
+ParseAST::lookupContainMin(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
-    const decltype(Locations) &Loc;
-    const decltype(ParseData::end) &End;
-    const nix::PosTable &PTable;
+    const ParseAST &This;
+
     const nix::Expr *R;
     lspserver::Range RR = {{INT_MIN, INT_MIN}, {INT_MAX, INT_MAX}};
 
     const lspserver::Position Desired;
 
     bool visitExpr(const nix::Expr *E) {
-      if (Loc.contains(E)) {
-        auto ER = toLSPRange(Range(E, Loc, End, PTable));
-        if (ER.contains(Desired) && RR.contains(ER)) {
-          // Update the expression.
-          R = E;
-          RR = ER;
-        }
+      auto ER = This.lRange(E);
+      if (ER.has_value() && ER->contains(Desired) && RR.contains(*ER)) {
+        // Update the expression.
+        R = E;
+        RR = *ER;
       }
       return true;
     }
 
-  } V{.Loc = Locations,
-      .End = Data->end,
-      .PTable = Data->state.positions,
-      .Desired = Desired};
+  } V{.This = *this, .Desired = Desired};
 
   V.traverseExpr(root());
   return V.R;
 }
 
 [[nodiscard]] const nix::Expr *
-EvalAST::lookupStart(lspserver::Position Desired) const {
+ParseAST::lookupStart(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
-    const decltype(Locations) &Loc;
-    const decltype(ParseData::end) &End;
-    const nix::PosTable &PTable;
+    const ParseAST &This;
+
     const nix::Expr *R;
     lspserver::Position RStart = {INT_MAX, INT_MAX};
     lspserver::Position REnd = {INT_MIN, INT_MIN};
@@ -188,23 +168,17 @@ EvalAST::lookupStart(lspserver::Position Desired) const {
     const lspserver::Position Desired;
 
     bool visitExpr(const nix::Expr *E) {
-      if (Loc.contains(E)) {
-        auto ER = toLSPRange(Range(E, Loc, End, PTable));
-        if (Desired <= ER.start) {
-          if (ER.start < RStart || (ER.start == RStart && ER.end <= REnd)) {
-            // Update the expression.
-            R = E;
-            RStart = ER.start;
-            REnd = ER.end;
-          }
-        }
+      auto ER = This.lRange(E);
+      if (ER.has_value() && Desired <= ER->start &&
+          (ER->start < RStart || (ER->start == RStart && ER->end <= REnd))) {
+        // Update the expression.
+        R = E;
+        RStart = ER->start;
+        REnd = ER->end;
       }
       return true;
     }
-  } V{.Loc = Locations,
-      .End = Data->end,
-      .PTable = Data->state.positions,
-      .Desired = Desired};
+  } V{.This = *this, .Desired = Desired};
 
   V.traverseExpr(root());
   return V.R;

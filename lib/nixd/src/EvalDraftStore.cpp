@@ -27,9 +27,8 @@ EvalDraftStore::injectFiles(const nix::ref<nix::EvalState> &State) noexcept {
       std::filesystem::path AFPath = ActiveFile;
       auto SourcePath = nix::CanonPath(AFPath.string());
       auto BasePath = nix::CanonPath(AFPath.remove_filename().string());
-      EAF.insert(
-          {ActiveFile, nix::make_ref<EvalAST>(*Draft.Contents, SourcePath,
-                                              BasePath, *State)});
+      auto ParseData = parse(*Draft.Contents, SourcePath, BasePath, *State);
+      EAF.insert({ActiveFile, nix::make_ref<EvalAST>(std::move(ParseData))});
       EAF.at(ActiveFile)->injectAST(*State, ActiveFile);
     } catch (nix::BaseError &Err) {
       std::exception_ptr Ptr = std::current_exception();
