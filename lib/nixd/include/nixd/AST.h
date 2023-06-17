@@ -28,66 +28,29 @@
 
 namespace nixd {
 
-/// A Nix language AST wrapper that support language features for LSP.
-class EvalAST {
-  ASTContext Cxt;
-  nix::Expr *Root;
-  std::map<const nix::Expr *, nix::Value> ValueMap;
-  std::map<const nix::Expr *, const nix::Env *> EnvMap;
-
+// Static Analysis (without any eval stuff)
+class ParseAST {
+protected:
+  std::unique_ptr<ParseData> Data;
   std::map<const nix::Expr *, const nix::Expr *> ParentMap;
 
-  std::unique_ptr<ParseData> Data;
-
-  std::map<const void *, PosIdx> Locations;
-
 public:
-  EvalAST(decltype(Data) D) : Data(std::move(D)) { initialize(); }
-
-  EvalAST(char *Text, size_t Length, nix::Pos::Origin Origin,
-          const nix::SourcePath &BasePath, nix::EvalState &State)
-      : EvalAST(parse(Text, Length, std::move(Origin), BasePath, State)){};
-
-  EvalAST(std::string Text, nix::Pos::Origin Origin,
-          const nix::SourcePath &BasePath, nix::EvalState &State) {
-    Text.append("\0\0", 2);
-    Data =
-        parse(Text.data(), Text.length(), std::move(Origin), BasePath, State);
-    initialize();
-  };
-
-  /// Inject myself into nix cache.
-  void injectAST(nix::EvalState &State, lspserver::PathRef Path);
-
-  void initialize() {
-    rewriteAST();
-    ParentMap = getParentMap(Root);
+  ParseAST(decltype(Data) D) : Data(std::move(D)) {
+    ParentMap = getParentMap(root());
   }
 
-  /// Rewrite the AST to our own nodes, used for collecting information
-  void rewriteAST();
+  virtual ~ParseAST() = default;
 
-  /// Get the evaluation result (fixed point) of the expression.
-  nix::Value getValue(const nix::Expr *Expr) const;
+  [[nodiscard]] virtual nix::Expr *root() const { return Data->result; }
 
-  /// Get the corresponding 'Env' while evaluating the expression.
-  /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
-  /// used for completion.
-  const nix::Env *getEnv(const nix::Expr *Expr) const {
-    return EnvMap.at(Expr);
+  [[nodiscard]] virtual nix::PosIdx getPos(const void *Ptr) const {
+    return Data->locations.at(Ptr);
   }
 
   /// Get the parent of some expr, if it is root, \return Expr itself
   const nix::Expr *parent(const nix::Expr *Expr) const {
     return ParentMap.at(Expr);
   };
-
-  /// Try to search (traverse) up the expr and find the first `Env` associated
-  /// ancestor, return its env
-  const nix::Env *searchUpEnv(const nix::Expr *Expr) const;
-
-  /// Similar to `searchUpEnv`, but search for Values
-  nix::Value searchUpValue(const nix::Expr *Expr) const;
 
   /// Find the expression that created 'Env' for ExprVar
   const nix::Expr *envExpr(const nix::ExprVar *Var) const {
@@ -98,7 +61,7 @@ public:
     return searchDefinition(Var, ParentMap);
   }
 
-  std::optional<lspserver::Range> lRange(const void *Ptr) {
+  std::optional<lspserver::Range> lRange(const void *Ptr) const {
     try {
       return toLSPRange(nRange(Ptr));
     } catch (...) {
@@ -106,15 +69,11 @@ public:
     }
   }
 
-  Range nRange(const void *Ptr) {
+  Range nRange(const void *Ptr) const {
     return {nRangeIdx(Ptr), Data->state.positions};
   }
 
-  RangeIdx nRangeIdx(const void *Ptr) { return {getPos(Ptr), Data->end}; }
-
-  [[nodiscard]] nix::PosIdx getPos(const void *Ptr) {
-    return Locations.at(Ptr);
-  }
+  RangeIdx nRangeIdx(const void *Ptr) const { return {getPos(Ptr), Data->end}; }
 
   /// Lookup an AST node that ends before or on the cursor.
   /// { }  |
@@ -134,8 +93,51 @@ public:
   /// |  { }
   ///    ^
   [[nodiscard]] const nix::Expr *lookupStart(lspserver::Position Desired) const;
+};
 
-  [[nodiscard]] nix::Expr *root() const { return Root; }
+/// A Nix language AST wrapper that support language features for LSP.
+class EvalAST : public ParseAST {
+  ASTContext Cxt;
+  nix::Expr *Root;
+  std::map<const nix::Expr *, nix::Value> ValueMap;
+  std::map<const nix::Expr *, const nix::Env *> EnvMap;
+
+  std::map<const void *, PosIdx> Locations;
+
+  /// Rewrite the AST to our own nodes, used for collecting information
+  void rewriteAST();
+
+public:
+  EvalAST(decltype(Data) D) : ParseAST(std::move(D)) {
+    rewriteAST();
+    ParentMap = getParentMap(root());
+  }
+
+  [[nodiscard]] nix::PosIdx getPos(const void *Ptr) const override {
+    return Locations.at(Ptr);
+  }
+
+  [[nodiscard]] nix::Expr *root() const override { return Root; }
+
+  /// Inject myself into nix cache.
+  void injectAST(nix::EvalState &State, lspserver::PathRef Path) const;
+
+  /// Try to search (traverse) up the expr and find the first `Env` associated
+  /// ancestor, return its env
+  const nix::Env *searchUpEnv(const nix::Expr *Expr) const;
+
+  /// Similar to `searchUpEnv`, but search for Values
+  nix::Value searchUpValue(const nix::Expr *Expr) const;
+
+  /// Get the evaluation result (fixed point) of the expression.
+  nix::Value getValue(const nix::Expr *Expr) const;
+
+  /// Get the corresponding 'Env' while evaluating the expression.
+  /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
+  /// used for completion.
+  const nix::Env *getEnv(const nix::Expr *Expr) const {
+    return EnvMap.at(Expr);
+  }
 };
 
 } // namespace nixd
