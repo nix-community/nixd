@@ -8,6 +8,34 @@
 
 namespace nixd {
 
+struct RangeIdx {
+  PosIdx Begin;
+  PosIdx End;
+
+  RangeIdx(PosIdx Begin, PosIdx End) : Begin(Begin), End(End) {}
+  RangeIdx(PosIdx Begin, const decltype(ParseData::end) &End)
+      : RangeIdx(Begin, End.at(Begin)) {}
+  RangeIdx(const void *Ptr, const decltype(ParseData::locations) &Loc,
+           const decltype(ParseData::end) &End)
+      : RangeIdx(Loc.at(Ptr), End) {}
+};
+
+struct Range {
+  Pos Begin;
+  Pos End;
+  Range(Pos Begin, Pos End) : Begin(std::move(Begin)), End(std::move(End)) {}
+  Range(RangeIdx Idx, const PosTable &Table) {
+    Begin = Table[Idx.Begin];
+    End = Table[Idx.End];
+  }
+  Range(PosIdx Begin, const decltype(ParseData::end) &End,
+        const PosTable &Table)
+      : Range(RangeIdx(Begin, End), Table) {}
+  Range(const void *Ptr, const decltype(ParseData::locations) &Loc,
+        const decltype(ParseData::end) &End, const PosTable &Table)
+      : Range(RangeIdx(Ptr, Loc, End), Table) {}
+};
+
 inline lspserver::Position toLSPPos(const nix::AbstractPos &P) {
   return {.line = static_cast<int>(P.line - 1),
           .character = static_cast<int>(P.column - 1)};
