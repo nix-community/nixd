@@ -65,12 +65,15 @@ nix::PosIdx getDisplOf(const nix::ExprLet *E, nix::Displacement Displ) {
 }
 
 nix::PosIdx getDisplOf(const nix::ExprLambda *E, nix::Displacement Displ) {
-  // this is broken because of:
+  if (E->arg) {
+    if (Displ == 0)
+      // It is just a symbol, so noPos.
+      return nix::noPos;
+    Displ--;
+  }
 
-  //         newEnv->sort();
-
-  // So we cannot now which position associated the Displ, *BEFORE* sorting.
-  return nix::noPos;
+  assert(E->hasFormals() && "Lambda must has formals to create displ");
+  return E->formals->formals[Displ].pos;
 }
 
 bool isEnvCreated(const nix::Expr *E, const nix::Expr *Child) {
