@@ -149,7 +149,7 @@ public:
     Pool.join();
     auto EvalWorkerSize = EvalWorkers.size();
     // Ensure that all workers are finished eval, or being killed
-    for (auto I = 0; I < EvalWorkerSize; I++) {
+    for (decltype(EvalWorkerSize) I = 0; I < EvalWorkerSize; I++) {
       EvalDoneSmp.acquire();
     }
     for (auto &Worker : EvalWorkers) {
@@ -319,7 +319,7 @@ auto Server::askWorkers(
   }
 
   std::future<void> F = std::async([&Sema, Size = I]() {
-    for (auto I = 0; I < Size; I++)
+    for (size_t I = 0; I < Size; I++)
       Sema.acquire();
   });
 

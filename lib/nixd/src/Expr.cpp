@@ -98,11 +98,11 @@ bool isEnvCreated(const nix::Expr *E, const nix::Expr *Child) {
   // -------------------------------------------------
 
   // src/libexpr/nixexpr.cc:435
-  if (const auto *CE = dynamic_cast<const nix::ExprLambda *>(E))
+  if (dynamic_cast<const nix::ExprLambda *>(E))
     return true;
 
   // src/libexpr/nixexpr.cc:472
-  if (const auto *CE = dynamic_cast<const nix::ExprLet *>(E))
+  if (dynamic_cast<const nix::ExprLet *>(E))
     return true;
 
   return false; // Most `nix::Expr`s do not create a new Env.
