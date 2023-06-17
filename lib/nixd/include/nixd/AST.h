@@ -57,6 +57,14 @@ public:
     return searchEnvExpr(Var, ParentMap);
   }
 
+  [[nodiscard]] nix::PosIdx end(nix::PosIdx P) const { return Data->end.at(P); }
+
+  [[nodiscard]] Range nPair(nix::PosIdx P) const {
+    return {nPairIdx(P), Data->state.positions};
+  }
+
+  [[nodiscard]] RangeIdx nPairIdx(nix::PosIdx P) const { return {P, end(P)}; }
+
   nix::PosIdx definition(const nix::ExprVar *Var) const {
     return searchDefinition(Var, ParentMap);
   }

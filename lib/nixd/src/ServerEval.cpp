@@ -205,8 +205,7 @@ void Server::onEvalDefinition(
           if (PIdx == nix::noPos)
             return;
 
-          auto Position = toLSPPos(State->positions[PIdx]);
-          RR.Response = Location{Params.textDocument.uri, {Position, Position}};
+          RR.Response = Location{Params.textDocument.uri, AST->nPair(PIdx)};
           return;
         }
         RR.Response = error("requested expression is not an ExprVar.");

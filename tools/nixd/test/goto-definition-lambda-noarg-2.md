@@ -77,7 +77,7 @@ CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": {
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 2,
+CHECK-NEXT:         "character": 15,
 CHECK-NEXT:         "line": 2
 CHECK-NEXT:       },
 CHECK-NEXT:       "start": {
