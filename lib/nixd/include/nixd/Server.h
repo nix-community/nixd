@@ -10,6 +10,7 @@
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
+#include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
 #include <llvm/ADT/FunctionExtras.h>
@@ -219,6 +220,10 @@ public:
   onDocumentLink(const lspserver::DocumentLinkParams &,
                  lspserver::Callback<std::vector<lspserver::DocumentLink>>);
 
+  void
+  onDocumentSymbol(const lspserver::DocumentSymbolParams &Params,
+                   lspserver::Callback<std::vector<lspserver::DocumentSymbol>>);
+
   void onHover(const lspserver::TextDocumentPositionParams &,
                lspserver::Callback<lspserver::Hover>);
 
@@ -297,6 +302,10 @@ public:
   void
   onEvalDocumentLink(const lspserver::TextDocumentIdentifier &,
                      lspserver::Callback<std::vector<lspserver::DocumentLink>>);
+
+  void onEvalDocumentSymbol(
+      const lspserver::TextDocumentIdentifier &,
+      lspserver::Callback<std::vector<lspserver::DocumentSymbol>>);
 
   void onEvalHover(const lspserver::TextDocumentPositionParams &,
                    lspserver::Callback<llvm::json::Value>);
