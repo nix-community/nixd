@@ -215,6 +215,8 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   // Language Features
   Registry.addMethod("textDocument/documentLink", this,
                      &Server::onDocumentLink);
+  Registry.addMethod("textDocument/documentSymbol", this,
+                     &Server::onDocumentSymbol);
   Registry.addMethod("textDocument/hover", this, &Server::onHover);
   Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
   Registry.addMethod("textDocument/declaration", this, &Server::onDecalration);
@@ -240,6 +242,8 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/documentLink", this,
                      &Server::onEvalDocumentLink);
+  Registry.addMethod("nixd/ipc/textDocument/documentSymbol", this,
+                     &Server::onEvalDocumentSymbol);
 
   Registry.addMethod("nixd/ipc/textDocument/hover", this, &Server::onEvalHover);
 
@@ -271,6 +275,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
       {"declarationProvider", true},
       {"definitionProvider", true},
       {"documentLinkProvider", true},
+      {"documentSymbolProvider", true},
       {"hoverProvider", true},
       {"documentFormattingProvider", true},
       {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
@@ -412,6 +417,25 @@ void Server::onDocumentLink(
 
     Reply(latestMatchOr<std::vector<lspserver::DocumentLink>>(
         Responses, [](const std::vector<lspserver::DocumentLink> &) -> bool {
+          return true;
+        }));
+  };
+
+  boost::asio::post(Pool, std::move(Task));
+}
+
+void Server::onDocumentSymbol(
+    const lspserver::DocumentSymbolParams &Params,
+    lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
+
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
+    auto Responses = askWorkers<lspserver::TextDocumentIdentifier,
+                                std::vector<lspserver::DocumentSymbol>>(
+        EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/documentSymbol",
+        Params.textDocument, 1e6);
+
+    Reply(latestMatchOr<std::vector<lspserver::DocumentSymbol>>(
+        Responses, [](const std::vector<lspserver::DocumentSymbol> &) -> bool {
           return true;
         }));
   };

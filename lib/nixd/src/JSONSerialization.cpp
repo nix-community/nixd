@@ -152,4 +152,15 @@ bool fromJSON(const llvm::json::Value &Params, DocumentLink &R,
   return O && O.map("range", R.range) && O.map("target", R.target);
 }
 
+bool fromJSON(const llvm::json::Value &Params, DocumentSymbol &R,
+              llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("range", R.range) &&
+         O.map("selectionRange", R.selectionRange) &&
+         O.mapOptional("children", R.children) &&
+         O.mapOptional("deprecated", R.deprecated) &&
+         O.mapOptional("detail", R.detail) && O.map("name", R.name) &&
+         O.map("kind", R.kind);
+}
+
 } // namespace lspserver
