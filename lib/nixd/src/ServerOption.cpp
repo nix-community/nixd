@@ -3,9 +3,12 @@
 #include "nixd/nix/Option.h"
 #include "nixd/nix/Value.h"
 
+#include <mutex>
+
 namespace nixd {
 
 void Server::forkOptionWorker() {
+  std::lock_guard _(OptionWorkerLock);
   forkWorker(
       [this]() {
         switchToOptionProvider();

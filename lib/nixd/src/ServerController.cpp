@@ -93,7 +93,8 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
                  .Pid = ForkPID,
                  .WorkspaceVersion = WorkspaceVersion,
                  .InputDispatcher = std::move(WorkerInputDispatcher),
-                 .EvalDoneSmp = std::ref(EvalDoneSmp)});
+                 .EvalDoneSmp = std::ref(EvalDoneSmp),
+                 .WaitWorker = WaitWorker});
 
     WorkerPool.emplace_back(std::move(WorkerProc));
   }
@@ -103,6 +104,7 @@ void Server::updateWorkspaceVersion(lspserver::PathRef File) {
   assert(Role == ServerRole::Controller &&
          "Workspace updates must happen in the Controller.");
   WorkspaceVersion++;
+  std::lock_guard Guard(EvalWorkerLock);
   forkWorker(
       [File, this]() {
         switchToEvaluator(File);
@@ -368,8 +370,8 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
     lspserver::log("requesting path: {0}", APParams.Path);
 
     auto Responses = askWorkers<ipc::AttrPathParams, lspserver::Location>(
-        OptionWorkers, "nixd/ipc/option/textDocument/declaration", APParams,
-        2e4);
+        OptionWorkers, OptionWorkerLock,
+        "nixd/ipc/option/textDocument/declaration", APParams, 2e4);
 
     if (Responses.empty())
       return;
@@ -385,7 +387,8 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
-            EvalWorkers, "nixd/ipc/textDocument/definition", Params, 2e4);
+            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/definition",
+            Params, 2e4);
 
     Reply(latestMatchOr<lspserver::Location, llvm::json::Value>(
         Responses,
@@ -404,8 +407,8 @@ void Server::onDocumentLink(
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses = askWorkers<lspserver::TextDocumentIdentifier,
                                 std::vector<lspserver::DocumentLink>>(
-        EvalWorkers, "nixd/ipc/textDocument/documentLink", Params.textDocument,
-        2e4);
+        EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/documentLink",
+        Params.textDocument, 2e4);
 
     Reply(latestMatchOr<std::vector<lspserver::DocumentLink>>(
         Responses, [](const std::vector<lspserver::DocumentLink> &) -> bool {
@@ -421,7 +424,8 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
-            EvalWorkers, "nixd/ipc/textDocument/hover", Params, 2e4);
+            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/hover", Params,
+            2e4);
     Reply(latestMatchOr<lspserver::Hover>(
         Responses, [](const lspserver::Hover &H) {
           return H.contents.value.length() != 0;
@@ -439,7 +443,8 @@ void Server::onCompletion(
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
-            EvalWorkers, "nixd/ipc/textDocument/completion", Params, 5e4);
+            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/completion",
+            Params, 5e4);
 
     if (EnableOption) {
       ipc::AttrPathParams APParams;
@@ -459,8 +464,8 @@ void Server::onCompletion(
 
       auto RespOption =
           askWorkers<ipc::AttrPathParams, lspserver::CompletionList>(
-              OptionWorkers, "nixd/ipc/textDocument/completion/options",
-              APParams, 5e4);
+              OptionWorkers, OptionWorkerLock,
+              "nixd/ipc/textDocument/completion/options", APParams, 5e4);
 
       Responses.insert(Responses.end(), RespOption.begin(), RespOption.end());
     }

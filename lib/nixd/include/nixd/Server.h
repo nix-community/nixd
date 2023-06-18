@@ -20,9 +20,11 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <semaphore>
 #include <stdexcept>
+#include <thread>
 
 #include <pthread.h>
 
@@ -45,6 +47,8 @@ public:
 
     std::counting_semaphore<> &EvalDoneSmp;
 
+    bool WaitWorker;
+
     [[nodiscard]] nix::AutoCloseFD to() const {
       return ToPipe->writeSide.get();
     };
@@ -53,9 +57,12 @@ public:
     };
 
     ~Proc() {
-      auto Th = InputDispatcher.native_handle();
-      pthread_cancel(Th);
-      InputDispatcher.join();
+      if (WaitWorker) {
+        auto Th = InputDispatcher.native_handle();
+        pthread_cancel(Th);
+        InputDispatcher.join();
+      } else
+        InputDispatcher.detach();
     }
   };
 
@@ -82,12 +89,15 @@ private:
 
   WorkspaceVersionTy WorkspaceVersion = 1;
 
-  std::deque<std::unique_ptr<Proc>> EvalWorkers;
+  std::mutex EvalWorkerLock;
+  std::deque<std::unique_ptr<Proc>> EvalWorkers; // GUARDED_BY(EvalWorkerLock)
 
   // Evaluator notify us "evaluation done" by incresing this semaphore.
   std::counting_semaphore<> EvalDoneSmp = std::counting_semaphore(0);
 
-  std::deque<std::unique_ptr<Proc>> OptionWorkers;
+  std::mutex OptionWorkerLock;
+  std::deque<std::unique_ptr<Proc>>
+      OptionWorkers; // GUARDED_BY(OptionWorkerLock)
 
   EvalDraftStore DraftMgr;
 
@@ -146,11 +156,14 @@ public:
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
   ~Server() override {
-    Pool.join();
-    auto EvalWorkerSize = EvalWorkers.size();
-    // Ensure that all workers are finished eval, or being killed
-    for (decltype(EvalWorkerSize) I = 0; I < EvalWorkerSize; I++) {
-      EvalDoneSmp.acquire();
+    if (WaitWorker) {
+      Pool.join();
+      std::lock_guard Guard(EvalWorkerLock);
+      auto EvalWorkerSize = EvalWorkers.size();
+      // Ensure that all workers are finished eval, or being killed
+      for (decltype(EvalWorkerSize) I = 0; I < EvalWorkerSize; I++) {
+        EvalDoneSmp.acquire();
+      }
     }
     for (auto &Worker : EvalWorkers) {
       Worker.reset();
@@ -246,8 +259,8 @@ public:
 
   template <class Arg, class Resp>
   auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-                  llvm::StringRef IPCMethod, const Arg &Params,
-                  unsigned Timeout);
+                  std::mutex &WorkerLock, llvm::StringRef IPCMethod,
+                  const Arg &Params, unsigned Timeout);
 
   // Worker
 
@@ -293,40 +306,46 @@ public:
 template <class Arg, class Resp>
 auto Server::askWorkers(
     const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-    llvm::StringRef IPCMethod, const Arg &Params, unsigned Timeout) {
+    std::mutex &WorkerLock, llvm::StringRef IPCMethod, const Arg &Params,
+    unsigned Timeout) {
   // For all active workers, send the completion request
-  std::counting_semaphore Sema(0);
   auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
       Workers.size(), std::nullopt);
+  auto Sema = std::make_shared<std::counting_semaphore<>>(0);
   auto ListStoreLock = std::make_shared<std::mutex>();
 
   size_t I = 0;
-  for (const auto &Worker : Workers) {
-    auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
-    Request(Params, [I, ListStoreOptional, ListStoreLock,
-                     &Sema](llvm::Expected<Resp> Result) {
-      // The worker answered our request, fill the completion lists then.
-      if (Result) {
-        std::lock_guard Guard(*ListStoreLock);
-        (*ListStoreOptional)[I] = Result.get();
-      } else {
-        lspserver::vlog("worker {0} reported error: {1}", I,
-                        Result.takeError());
-      }
-      Sema.release();
-    });
-    I++;
+  {
+    std::lock_guard _(WorkerLock);
+    for (const auto &Worker : Workers) {
+      auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
+      Request(Params, [I, ListStoreOptional, ListStoreLock,
+                       Sema](llvm::Expected<Resp> Result) {
+        // The worker answered our request, fill the completion lists then.
+        if (Result) {
+          std::lock_guard Guard(*ListStoreLock);
+          (*ListStoreOptional)[I] = Result.get();
+        } else {
+          lspserver::vlog("worker {0} reported error: {1}", I,
+                          Result.takeError());
+        }
+        Sema->release();
+      });
+      I++;
+    }
   }
 
-  std::future<void> F = std::async([&Sema, Size = I]() {
-    for (size_t I = 0; I < Size; I++)
-      Sema.acquire();
-  });
+  std::future<void> F =
+      std::async([Sema, Size = I, Timeout, WaitWorker = this->WaitWorker]() {
+        for (size_t I = 0; I < Size; I++) {
+          if (WaitWorker)
+            Sema->acquire();
+          else
+            Sema->try_acquire_for(std::chrono::microseconds(Timeout));
+        }
+      });
 
-  if (WaitWorker)
-    F.wait();
-  else
-    F.wait_for(std::chrono::microseconds(Timeout));
+  F.wait();
 
   std::lock_guard Guard(*ListStoreLock);
   std::vector<Resp> AnsweredResp;
