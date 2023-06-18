@@ -31,6 +31,9 @@ bool fromJSON(const llvm::json::Value &Params, Location &R, llvm::json::Path P);
 bool fromJSON(const llvm::json::Value &Params, DocumentLink &R,
               llvm::json::Path P);
 
+bool fromJSON(const llvm::json::Value &Params, DocumentSymbol &R,
+              llvm::json::Path P);
+
 } // namespace lspserver
 
 namespace nixd {
