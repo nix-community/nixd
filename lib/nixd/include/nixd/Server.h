@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nixd/Diagnostic.h"
 #include "nixd/EvalDraftStore.h"
 #include "nixd/JSONSerialization.h"
 
@@ -367,7 +368,13 @@ void Server::withAST(
         Action) {
   try {
     auto AST = IER->Forest.at(RequestedFile);
-    Action(AST, std::move(RR));
+    try {
+      Action(AST, std::move(RR));
+    } catch (std::exception &E) {
+      RR.Response =
+          lspserver::error("something uncaught in the AST action, reason {0}",
+                           stripANSI(E.what()));
+    }
   } catch (std::out_of_range &E) {
     RR.Response = lspserver::error("no AST available on requested file {0}",
                                    RequestedFile);
