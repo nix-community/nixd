@@ -171,13 +171,10 @@ void Server::onEvalDefinition(
 
         // Otherwise, we try to find the location binds to the variable.
         if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
-          if (EVar->fromWith)
-            return;
-          auto PIdx = AST->definition(EVar);
-          if (PIdx == nix::noPos)
-            return;
-
-          RR.Response = Location{Params.textDocument.uri, AST->nPair(PIdx)};
+          auto Def = AST->def(EVar);
+          if (Def.has_value())
+            RR.Response =
+                Location{Params.textDocument.uri, AST->defRange(Def.value())};
           return;
         }
         RR.Response = error("requested expression is not an ExprVar.");

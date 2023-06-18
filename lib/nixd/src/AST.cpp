@@ -184,4 +184,21 @@ ParseAST::lookupStart(lspserver::Position Desired) const {
   return V.R;
 }
 
+void ParseAST::prepareDefRef() {
+  struct VTy : RecursiveASTVisitor<VTy> {
+    ParseAST &This;
+    bool visitExprVar(const nix::ExprVar *E) {
+      if (E->fromWith)
+        return true;
+      auto Def = This.searchDef(E);
+      if (Def) {
+        This.Definitions[E] = Def.value();
+        This.References[Def.value()].emplace_back(E);
+      }
+      return true;
+    }
+  } V{.This = *this};
+  V.traverseExpr(root());
+}
+
 } // namespace nixd

@@ -30,13 +30,23 @@ namespace nixd {
 
 // Static Analysis (without any eval stuff)
 class ParseAST {
+public:
+  using Definition = std::pair<const nix::Expr *, nix::Displacement>;
+
 protected:
   std::unique_ptr<ParseData> Data;
   std::map<const nix::Expr *, const nix::Expr *> ParentMap;
+  std::map<Definition, std::vector<const nix::ExprVar *>> References;
+  std::map<const nix::ExprVar *, Definition> Definitions;
 
 public:
-  ParseAST(decltype(Data) D) : Data(std::move(D)) {
+  void staticAnalysis() {
     ParentMap = getParentMap(root());
+    prepareDefRef();
+  }
+  ParseAST(decltype(Data) D, bool DoSA = false) : Data(std::move(D)) {
+    if (DoSA)
+      staticAnalysis();
   }
 
   virtual ~ParseAST() = default;
@@ -65,8 +75,30 @@ public:
 
   [[nodiscard]] RangeIdx nPairIdx(nix::PosIdx P) const { return {P, end(P)}; }
 
-  nix::PosIdx definition(const nix::ExprVar *Var) const {
-    return searchDefinition(Var, ParentMap);
+  void prepareDefRef();
+
+  std::optional<Definition> searchDef(const nix::ExprVar *Var) const {
+    if (Var->fromWith)
+      return std::nullopt;
+    const auto *EnvExpr = envExpr(Var);
+    if (EnvExpr)
+      return Definition{EnvExpr, Var->displ};
+    return std::nullopt;
+  }
+
+  std::vector<const nix::ExprVar *> ref(Definition D) {
+    return References.at(D);
+  }
+
+  std::optional<Definition> def(const nix::ExprVar *Var) const {
+    if (Definitions.contains(Var))
+      return Definitions.at(Var);
+    return std::nullopt;
+  }
+
+  [[nodiscard]] Range defRange(Definition Def) const {
+    auto [E, Displ] = Def;
+    return nPair(getDisplOf(E, Displ));
   }
 
   std::optional<lspserver::Range> lRange(const void *Ptr) const {
@@ -116,9 +148,9 @@ class EvalAST : public ParseAST {
   void rewriteAST();
 
 public:
-  EvalAST(decltype(Data) D) : ParseAST(std::move(D)) {
+  EvalAST(decltype(Data) D) : ParseAST(std::move(D), false) {
     rewriteAST();
-    ParentMap = getParentMap(root());
+    staticAnalysis();
   }
 
   [[nodiscard]] nix::PosIdx getPos(const void *Ptr) const override {
