@@ -247,6 +247,7 @@ void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
         try {
           auto Value = AST->getValue(Node);
           std::stringstream Res{};
+          nix::nixd::PrintDepth = 3;
           Value.print(IER->Session->getState()->symbols, Res);
           HoverText =
               llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());

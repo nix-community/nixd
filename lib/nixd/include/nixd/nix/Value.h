@@ -12,4 +12,6 @@ bool isDerivation(EvalState &State, Value &V);
 std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
                                        const std::string &AttrPath) noexcept;
 
+extern int PrintDepth;
+
 } // namespace nix::nixd
