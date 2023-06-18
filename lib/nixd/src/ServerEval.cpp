@@ -10,9 +10,9 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
-#include "nixexpr.hh"
 
 #include <nix/eval.hh>
+#include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 
 #include <llvm/ADT/StringRef.h>
