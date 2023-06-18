@@ -23,6 +23,7 @@
 #include <mutex>
 #include <optional>
 #include <semaphore>
+#include <shared_mutex>
 #include <stdexcept>
 #include <thread>
 
@@ -89,13 +90,13 @@ private:
 
   WorkspaceVersionTy WorkspaceVersion = 1;
 
-  std::mutex EvalWorkerLock;
+  std::shared_mutex EvalWorkerLock;
   std::deque<std::unique_ptr<Proc>> EvalWorkers; // GUARDED_BY(EvalWorkerLock)
 
   // Evaluator notify us "evaluation done" by incresing this semaphore.
   std::counting_semaphore<> EvalDoneSmp = std::counting_semaphore(0);
 
-  std::mutex OptionWorkerLock;
+  std::shared_mutex OptionWorkerLock;
   std::deque<std::unique_ptr<Proc>>
       OptionWorkers; // GUARDED_BY(OptionWorkerLock)
 
@@ -259,7 +260,7 @@ public:
 
   template <class Arg, class Resp>
   auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-                  std::mutex &WorkerLock, llvm::StringRef IPCMethod,
+                  std::shared_mutex &WorkerLock, llvm::StringRef IPCMethod,
                   const Arg &Params, unsigned Timeout);
 
   // Worker
@@ -306,7 +307,7 @@ public:
 template <class Arg, class Resp>
 auto Server::askWorkers(
     const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-    std::mutex &WorkerLock, llvm::StringRef IPCMethod, const Arg &Params,
+    std::shared_mutex &WorkerLock, llvm::StringRef IPCMethod, const Arg &Params,
     unsigned Timeout) {
   // For all active workers, send the completion request
   auto ListStoreOptional = std::make_shared<std::vector<std::optional<Resp>>>(
@@ -316,7 +317,7 @@ auto Server::askWorkers(
 
   size_t I = 0;
   {
-    std::lock_guard _(WorkerLock);
+    std::shared_lock RLock(WorkerLock);
     for (const auto &Worker : Workers) {
       auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
       Request(Params, [I, ListStoreOptional, ListStoreLock,
