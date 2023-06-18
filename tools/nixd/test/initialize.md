@@ -36,6 +36,7 @@ CHECK-NEXT:       "declarationProvider": true,
 CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "documentFormattingProvider": true,
 CHECK-NEXT:       "documentLinkProvider": true,
+CHECK-NEXT:       "documentSymbolProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
