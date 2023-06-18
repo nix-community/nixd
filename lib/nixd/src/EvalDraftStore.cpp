@@ -1,8 +1,8 @@
 #include "nixd/EvalDraftStore.h"
 
-#include "canon-path.hh"
 #include "lspserver/Logger.h"
 
+#include <nix/canon-path.hh>
 #include <nix/command-installable-value.hh>
 #include <nix/eval.hh>
 #include <nix/installable-value.hh>
