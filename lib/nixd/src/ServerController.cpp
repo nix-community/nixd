@@ -444,7 +444,7 @@ void Server::onCompletion(
     auto Responses =
         askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
             EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/completion",
-            Params, 5e4);
+            Params, 1e6);
 
     if (EnableOption) {
       ipc::AttrPathParams APParams;
