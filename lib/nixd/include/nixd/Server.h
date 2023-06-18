@@ -202,14 +202,6 @@ public:
 
   void clearDiagnostic(const lspserver::URIForFile &FileUri);
 
-  static lspserver::PublishDiagnosticsParams
-  diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
-               std::optional<int64_t> Version);
-
-  void publishStandaloneDiagnostic(lspserver::URIForFile Uri,
-                                   std::string Content,
-                                   std::optional<int64_t> LSPVersion);
-
   void onDecalration(const lspserver::TextDocumentPositionParams &,
                      lspserver::Callback<llvm::json::Value>);
 

@@ -80,19 +80,6 @@ void Server::switchToEvaluator(lspserver::PathRef File) {
       ipc::WorkerMessage{WorkspaceVersion});
 }
 
-lspserver::PublishDiagnosticsParams
-Server::diagNixError(lspserver::PathRef Path, const nix::BaseError &NixErr,
-                     std::optional<int64_t> Version) {
-  using namespace lspserver;
-  auto DiagVec = mkDiagnostics(NixErr);
-  URIForFile Uri = URIForFile::canonicalize(Path, Path);
-  PublishDiagnosticsParams Notification;
-  Notification.uri = Uri;
-  Notification.diagnostics = DiagVec;
-  Notification.version = Version;
-  return Notification;
-}
-
 void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
   assert(Role != ServerRole::Controller && "must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
@@ -113,9 +100,8 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
 
   ipc::Diagnostics Diagnostics;
   for (const auto &[ErrObject, ErrInfo] : ILR.InjectionErrors) {
-    Diagnostics.Params.emplace_back(
-        diagNixError(ErrInfo.ActiveFile, *ErrObject,
-                     decltype(DraftMgr)::decodeVersion(ErrInfo.Version)));
+    insertDiagnostic(*ErrObject, Diagnostics.Params,
+                     decltype(DraftMgr)::decodeVersion(ErrInfo.Version));
   }
   Diagnostics.WorkspaceVersion = WorkspaceVersion;
   EvalDiagnostic(Diagnostics);
@@ -126,7 +112,7 @@ void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
                      WorkspaceVersion);
     }
   } catch (nix::BaseError &BE) {
-    Diagnostics.Params.emplace_back(diagNixError(File, BE, std::nullopt));
+    insertDiagnostic(BE, Diagnostics.Params);
   } catch (...) {
   }
   EvalDiagnostic(Diagnostics);

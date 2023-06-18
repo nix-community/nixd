@@ -1,9 +1,13 @@
 #include "nixd/Diagnostic.h"
 #include "nixd/Position.h"
+#include "nixd/nix/PosAdapter.h"
 
+#include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 
+#include <exception>
 #include <nix/ansicolor.hh>
+#include <optional>
 
 #define FOREACH_ANSI_COLOR(FUNC)                                               \
   FUNC(ANSI_NORMAL)                                                            \
@@ -34,16 +38,40 @@ std::string stripANSI(std::string Msg) {
   return Msg;
 }
 
-std::vector<lspserver::Diagnostic> mkDiagnostics(const nix::BaseError &Err) {
-  std::vector<lspserver::Diagnostic> Ret;
+using namespace lspserver;
+
+std::map<std::string, std::vector<lspserver::Diagnostic>>
+mkDiagnostics(const nix::BaseError &Err) {
+  std::map<std::string, std::vector<lspserver::Diagnostic>> Result;
   auto ErrPos = Err.info().errPos;
-  lspserver::Position ErrLoc =
-      ErrPos ? toLSPPos(*ErrPos) : lspserver::Position{};
-  Ret.push_back(
-      lspserver::Diagnostic{.range = {.start = ErrLoc, .end = ErrLoc},
-                            .severity = /* Error */ 1,
-                            .message = stripANSI(Err.info().msg.str())});
-  return Ret;
+  Result[pathOf(ErrPos.get())].emplace_back(
+      mkDiagnosic(ErrPos.get(), Err.info().msg.str()));
+
+  if (Err.hasTrace()) {
+    for (const auto &T : Err.info().traces) {
+      Result[pathOf(T.pos.get())].emplace_back(
+          mkDiagnosic(T.pos.get(), T.hint.str(), /* Info */ 3));
+    }
+  }
+
+  return Result;
 }
 
+void insertDiagnostic(const nix::BaseError &E,
+                      std::vector<lspserver::PublishDiagnosticsParams> &R,
+                      std::optional<uint64_t> Version) {
+  auto ErrMap = mkDiagnostics(E);
+  for (const auto &[Path, DiagVec] : ErrMap) {
+    try {
+      lspserver::PublishDiagnosticsParams Params;
+      Params.uri = lspserver::URIForFile::canonicalize(Path, Path);
+      Params.diagnostics = DiagVec;
+      Params.version = Version;
+      R.emplace_back(std::move(Params));
+    } catch (std::exception &E) {
+      lspserver::log("{0} while inserting it's diagnostic",
+                     stripANSI(E.what()));
+    }
+  }
+}
 } // namespace nixd

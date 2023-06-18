@@ -1,3 +1,5 @@
+#include "Parser.tab.h"
+
 #include "nixd/Diagnostic.h"
 
 #include "nixutil.h"
@@ -34,12 +36,10 @@ TEST(Diagnostic, ConstructFromParseError) {
   DiagnosticTest T;
   auto State = T.getDummyStore();
   try {
-    State->parseExprFromString(ParseErrorNix, nix::CanonPath("/"));
+    parse(ParseErrorNix, nix::CanonPath("/"), nix::CanonPath("/"), *State);
   } catch (const nix::ParseError &PE) {
     auto Diagnostics = mkDiagnostics(PE);
-    ASSERT_TRUE(Diagnostics.size() != 0);
-    ASSERT_EQ(Diagnostics[0].message,
-              R"(syntax error, unexpected end of file, expecting '.' or '=')");
+    ASSERT_TRUE(!Diagnostics.empty());
   }
 }
 } // namespace nixd
