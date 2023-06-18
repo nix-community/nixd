@@ -290,6 +290,42 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
         return;
       }
     } else {
+
+      const auto *Node = AST->lookupContainMin(Params.position);
+      if (!Node)
+        return;
+
+      auto FromLambdaFormals = [&]() {
+        // Firstly, we check that if we are in "ExprAttrs", consider this
+        // is a
+        // special case for completion lambda formals
+        if (!dynamic_cast<const nix::ExprAttrs *>(Node))
+          return;
+        // Then, check that if the parent of evaluates to a "<LAMBDA>"
+        try {
+          const auto *Parent = AST->parent(Node);
+          if (const auto *SomeExprCall =
+                  dynamic_cast<const nix::ExprCall *>(Parent)) {
+            auto Value = AST->getValue(SomeExprCall->fun);
+            if (!Value.isLambda())
+              return;
+            // Then, filling the completion list using that lambda
+            // formals.
+            auto *Fun = Value.lambda.fun;
+            if (!Fun->hasFormals())
+              return;
+            for (auto Formal : Fun->formals->formals) {
+              CompletionItem Item;
+              Item.label = State->symbols[Formal.name];
+              Item.kind = CompletionItemKind::Constructor;
+              Items.emplace_back(std::move(Item));
+            }
+          }
+
+        } catch (...) {
+        }
+      };
+      FromLambdaFormals();
       try {
         const auto *Node = AST->lookupContainMin(Params.position);
         if (!Node)
