@@ -38,6 +38,7 @@ CHECK-NEXT:       "documentFormattingProvider": true,
 CHECK-NEXT:       "documentLinkProvider": true,
 CHECK-NEXT:       "documentSymbolProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
+CHECK-NEXT:       "renameProvider": true,
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,

@@ -409,4 +409,67 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
                           std::move(Action));
 }
 
+void Server::onEvalRename(
+    const lspserver::RenameParams &Params,
+    lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
+  using namespace lspserver;
+  using TextEdits = std::vector<lspserver::TextEdit>;
+  auto Action = [&Params](const nix::ref<EvalAST> &AST,
+                          ReplyRAII<TextEdits> &&RR) {
+    RR.Response = error("no suitable renaming action available");
+    std::optional<EvalAST::Definition> D;
+    std::vector<const nix::ExprVar *> Refs;
+    auto CheckVar = [&]() -> bool {
+      const auto *E = AST->lookupContainMin(Params.position);
+
+      if (!E)
+        return false;
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {
+        // Find it's definition, and all references.
+        auto OpDef = AST->def(EVar);
+        if (OpDef.has_value()) {
+          D = OpDef.value();
+          Refs = AST->ref(D.value());
+        } else {
+          RR.Response = error("no definition associated on this variable");
+        }
+        return true;
+      }
+      return false;
+    };
+
+    if (!CheckVar()) {
+      // This must be a "definiton".
+      RR.Response = error("NYI");
+      return;
+    }
+
+    if (!D.has_value())
+      return;
+
+    TextEdits Edits;
+
+    // TextEdit for definition
+    TextEdit DefEdit;
+    DefEdit.range = AST->defRange(D.value());
+    DefEdit.newText = Params.newName;
+    Edits.emplace_back(std::move(DefEdit));
+
+    // Referenced variables:
+    for (const auto *ERef : Refs) {
+      try {
+        TextEdit RefEdit;
+        RefEdit.range = AST->nRange(ERef);
+        RefEdit.newText = Params.newName;
+        Edits.emplace_back(std::move(RefEdit));
+      } catch (std::out_of_range &) {
+      }
+    }
+
+    RR.Response = std::move(Edits);
+  };
+  withAST<TextEdits>(Params.textDocument.uri.file().str(),
+                     ReplyRAII<TextEdits>(std::move(Reply)), std::move(Action));
+}
+
 } // namespace nixd

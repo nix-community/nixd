@@ -222,6 +222,7 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/declaration", this, &Server::onDecalration);
   Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
   Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
+  Registry.addMethod("textDocument/rename", this, &Server::onRename);
 
   PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
       "textDocument/publishDiagnostics");
@@ -249,6 +250,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onEvalDefinition);
+
+  Registry.addMethod("nixd/ipc/textDocument/rename", this,
+                     &Server::onEvalRename);
 
   Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
                      &Server::onOptionDeclaration);
@@ -278,7 +282,11 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
       {"documentSymbolProvider", true},
       {"hoverProvider", true},
       {"documentFormattingProvider", true},
-      {"completionProvider", llvm::json::Object{{"triggerCharacters", {"."}}}}};
+      {
+          "completionProvider",
+          llvm::json::Object{{"triggerCharacters", {"."}}},
+      },
+      {"renameProvider", true}};
 
   llvm::json::Object Result{
       {{"serverInfo",
@@ -497,6 +505,25 @@ void Server::onCompletion(
         Responses,
         [](const lspserver::CompletionList &L) -> bool { return true; }));
   };
+  boost::asio::post(Pool, std::move(Task));
+}
+
+void Server::onRename(const lspserver::RenameParams &Params,
+                      lspserver::Callback<lspserver::WorkspaceEdit> Reply) {
+
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
+    auto Responses =
+        askWorkers<lspserver::RenameParams, std::vector<lspserver::TextEdit>>(
+            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/rename", Params,
+            1e6);
+    auto Edits = latestMatchOr<std::vector<lspserver::TextEdit>>(
+        Responses,
+        [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
+    std::map<std::string, std::vector<lspserver::TextEdit>> Changes;
+    Changes[Params.textDocument.uri.file().str()] = std::move(Edits);
+    Reply(lspserver::WorkspaceEdit{.changes = std::move(Changes)});
+  };
+
   boost::asio::post(Pool, std::move(Task));
 }
 
