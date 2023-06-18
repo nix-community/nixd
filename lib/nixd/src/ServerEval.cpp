@@ -1,4 +1,3 @@
-#include "eval.hh"
 #include "nixd/AST.h"
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
@@ -13,6 +12,7 @@
 #include "lspserver/SourceCode.h"
 #include "nixexpr.hh"
 
+#include <nix/eval.hh>
 #include <nix/shared.hh>
 
 #include <llvm/ADT/StringRef.h>
