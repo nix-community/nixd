@@ -266,7 +266,8 @@ void Server::onEvalDocumentSymbol(
                        }
 
                        bool traverseExprAttrs(const nix::ExprAttrs *E) {
-                         Symbols AttrSymbols;
+                         Symbols AttrSymbols = CurrentSymbols;
+                         CurrentSymbols = {};
                          for (const auto &[Symbol, Def] : E->attrs) {
                            DocumentSymbol S;
                            S.name = State.symbols[Symbol];
