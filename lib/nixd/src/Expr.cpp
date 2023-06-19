@@ -1,5 +1,7 @@
 #include "nixd/Expr.h"
 
+#include <algorithm>
+#include <iterator>
 #include <nix/nixexpr.hh>
 
 namespace nixd {
@@ -158,6 +160,34 @@ nix::PosIdx searchDefinition(
     return nix::noPos;
 
   return getDisplOf(EnvExpr, E->displ);
+}
+
+void collectSymbols(const nix::Expr *E,
+                    const decltype(getParentMap(nullptr)) &ParentMap,
+                    std::vector<nix::Symbol> &R) {
+  if (!E)
+    return;
+  if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
+    if (EA->recursive) {
+      // Recursive attrset has local bindings available
+      std::transform(EA->attrs.begin(), EA->attrs.end(), std::back_inserter(R),
+                     [](const auto &V) { return V.first; });
+    }
+  } else if (const auto *EL = dynamic_cast<const nix::ExprLet *>(E)) {
+    std::transform(EL->attrs->attrs.begin(), EL->attrs->attrs.end(),
+                   std::back_inserter(R),
+                   [](const auto &V) { return V.first; });
+  } else if (const auto *EF = dynamic_cast<const nix::ExprLambda *>(E)) {
+    if (EF->arg)
+      R.emplace_back(EF->arg);
+    if (EF->hasFormals()) {
+      std::transform(EF->formals->formals.begin(), EF->formals->formals.end(),
+                     std::back_inserter(R),
+                     [](const auto &V) { return V.name; });
+    }
+  }
+  if (ParentMap.contains(E) && ParentMap.at(E) != E)
+    collectSymbols(ParentMap.at(E), ParentMap, R);
 }
 
 } // namespace nixd
