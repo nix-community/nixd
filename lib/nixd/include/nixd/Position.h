@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nixd/Parser.h"
+#include "nixd/nix/PosAdapter.h"
 
 #include "lspserver/Protocol.h"
 
@@ -43,16 +44,30 @@ struct Range {
 };
 
 inline lspserver::Position toLSPPos(const nix::AbstractPos &P) {
-  return {.line = static_cast<int>(P.line - 1),
-          .character = static_cast<int>(P.column - 1)};
+  return {static_cast<int>(std::max(1U, P.line) - 1),
+          static_cast<int>(std::max(1U, P.column) - 1)};
 }
 
-inline lspserver::Position toLSPPos(const nix::Pos &Pos) {
-  return {static_cast<int>(Pos.line - 1), static_cast<int>(Pos.column - 1)};
+inline lspserver::Position toLSPPos(const nix::Pos &P) {
+  return {static_cast<int>(std::max(1U, P.line) - 1),
+          static_cast<int>(std::max(1U, P.column) - 1)};
 }
 
 inline lspserver::Range toLSPRange(const Range &R) {
   return {toLSPPos(R.Begin), toLSPPos(R.End)};
+}
+
+inline std::string pathOf(const nix::PosAdapter &Pos) {
+  if (const auto &Path = std::get_if<nix::SourcePath>(&Pos.origin)) {
+    return Path->to_string();
+  }
+  return "/position-is-not-path";
+}
+
+inline std::string pathOf(const nix::AbstractPos *Pos) {
+  if (const auto *PAPos = dynamic_cast<const nix::PosAdapter *>(Pos))
+    return pathOf(*PAPos);
+  return "/nix-abstract-position";
 }
 
 }; // namespace nixd

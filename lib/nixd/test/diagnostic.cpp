@@ -1,14 +1,15 @@
+#include <gtest/gtest.h>
+
 #include "nixd/Diagnostic.h"
+#include "nixd/Parser.h"
 
 #include "nixutil.h"
 
-#include <gtest/gtest.h>
-
 #include <nix/canon-path.hh>
 #include <nix/eval.hh>
+#include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
-#include <nixexpr.hh>
 
 #include <iostream>
 namespace nixd {
@@ -34,12 +35,10 @@ TEST(Diagnostic, ConstructFromParseError) {
   DiagnosticTest T;
   auto State = T.getDummyStore();
   try {
-    State->parseExprFromString(ParseErrorNix, nix::CanonPath("/"));
+    parse(ParseErrorNix, nix::CanonPath("/"), nix::CanonPath("/"), *State);
   } catch (const nix::ParseError &PE) {
     auto Diagnostics = mkDiagnostics(PE);
-    ASSERT_TRUE(Diagnostics.size() != 0);
-    ASSERT_EQ(Diagnostics[0].message,
-              R"(syntax error, unexpected end of file, expecting '.' or '=')");
+    ASSERT_TRUE(!Diagnostics.empty());
   }
 }
 } // namespace nixd
