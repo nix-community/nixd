@@ -64,305 +64,303 @@ let
 ```
 
 ```
-     CHECK: "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "children": [
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 8,
-CHECK-NEXT:           "name": "bar",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 9,
-CHECK-NEXT:               "line": 1
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 2,
-CHECK-NEXT:               "line": 1
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 5,
-CHECK-NEXT:               "line": 1
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 2,
-CHECK-NEXT:               "line": 1
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         },
-CHECK-NEXT:         {
-CHECK-NEXT:           "children": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "kind": 8,
-CHECK-NEXT:               "name": "z",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 15,
-CHECK-NEXT:                   "line": 2
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 10,
-CHECK-NEXT:                   "line": 2
-CHECK-NEXT:                 }
-CHECK-NEXT:               },
-CHECK-NEXT:               "selectionRange": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 11,
-CHECK-NEXT:                   "line": 2
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 10,
-CHECK-NEXT:                   "line": 2
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ],
-CHECK-NEXT:           "kind": 8,
-CHECK-NEXT:           "name": "foo",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 18,
-CHECK-NEXT:               "line": 2
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 2,
-CHECK-NEXT:               "line": 2
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 5,
-CHECK-NEXT:               "line": 2
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 2,
-CHECK-NEXT:               "line": 2
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         },
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 13,
-CHECK-NEXT:           "name": "bar",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 9,
-CHECK-NEXT:               "line": 5
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 6,
-CHECK-NEXT:               "line": 5
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 9,
-CHECK-NEXT:               "line": 5
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 6,
-CHECK-NEXT:               "line": 5
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         }
-CHECK-NEXT:       ],
-CHECK-NEXT:       "kind": 8,
-CHECK-NEXT:       "name": "x",
-CHECK-NEXT:       "range": {
-CHECK-NEXT:         "end": {
-CHECK-NEXT:           "character": 9,
-CHECK-NEXT:           "line": 5
-CHECK-NEXT:         },
-CHECK-NEXT:         "start": {
-CHECK-NEXT:           "character": 2,
-CHECK-NEXT:           "line": 5
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "selectionRange": {
-CHECK-NEXT:         "end": {
-CHECK-NEXT:           "character": 3,
-CHECK-NEXT:           "line": 5
-CHECK-NEXT:         },
-CHECK-NEXT:         "start": {
-CHECK-NEXT:           "character": 2,
-CHECK-NEXT:           "line": 5
-CHECK-NEXT:         }
-CHECK-NEXT:       }
-CHECK-NEXT:     },
-CHECK-NEXT:     {
-CHECK-NEXT:       "children": [
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 13,
-CHECK-NEXT:           "name": "foo",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 14,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 11,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 14,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 11,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         },
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 13,
-CHECK-NEXT:           "name": "z",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 17,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 16,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 17,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 16,
-CHECK-NEXT:               "line": 6
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         }
-CHECK-NEXT:       ],
-CHECK-NEXT:       "kind": 8,
-CHECK-NEXT:       "name": "y",
-CHECK-NEXT:       "range": {
-CHECK-NEXT:         "end": {
-CHECK-NEXT:           "character": 17,
-CHECK-NEXT:           "line": 6
-CHECK-NEXT:         },
-CHECK-NEXT:         "start": {
-CHECK-NEXT:           "character": 2,
-CHECK-NEXT:           "line": 6
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "selectionRange": {
-CHECK-NEXT:         "end": {
-CHECK-NEXT:           "character": 3,
-CHECK-NEXT:           "line": 6
-CHECK-NEXT:         },
-CHECK-NEXT:         "start": {
-CHECK-NEXT:           "character": 2,
-CHECK-NEXT:           "line": 6
-CHECK-NEXT:         }
-CHECK-NEXT:       }
-CHECK-NEXT:     },
-CHECK-NEXT:     {
-CHECK-NEXT:       "children": [
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 8,
-CHECK-NEXT:           "name": "n1",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 10,
-CHECK-NEXT:               "line": 8
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 4,
-CHECK-NEXT:               "line": 8
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 6,
-CHECK-NEXT:               "line": 8
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 4,
-CHECK-NEXT:               "line": 8
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         },
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 8,
-CHECK-NEXT:           "name": "n2",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 10,
-CHECK-NEXT:               "line": 9
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 4,
-CHECK-NEXT:               "line": 9
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 6,
-CHECK-NEXT:               "line": 9
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 4,
-CHECK-NEXT:               "line": 9
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         },
-CHECK-NEXT:         {
-CHECK-NEXT:           "kind": 8,
-CHECK-NEXT:           "name": "a",
-CHECK-NEXT:           "range": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 14,
-CHECK-NEXT:               "line": 11
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 2,
-CHECK-NEXT:               "line": 11
-CHECK-NEXT:             }
-CHECK-NEXT:           },
-CHECK-NEXT:           "selectionRange": {
-CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 10,
-CHECK-NEXT:               "line": 11
-CHECK-NEXT:             },
-CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 2,
-CHECK-NEXT:               "line": 11
-CHECK-NEXT:             }
-CHECK-NEXT:           }
-CHECK-NEXT:         }
-CHECK-NEXT:       ],
-CHECK-NEXT:       "kind": 8,
-CHECK-NEXT:       "name": "nested",
-CHECK-NEXT:       "range": {
-CHECK-NEXT:         "end": {
-CHECK-NEXT:           "character": 3,
-CHECK-NEXT:           "line": 10
-CHECK-NEXT:         },
-CHECK-NEXT:         "start": {
-CHECK-NEXT:           "character": 2,
-CHECK-NEXT:           "line": 7
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "selectionRange": {
-CHECK-NEXT:         "end": {
-CHECK-NEXT:           "character": 8,
-CHECK-NEXT:           "line": 7
-CHECK-NEXT:         },
-CHECK-NEXT:         "start": {
-CHECK-NEXT:           "character": 2,
-CHECK-NEXT:           "line": 7
-CHECK-NEXT:         }
-CHECK-NEXT:       }
-CHECK-NEXT:     }
+     CHECK:    "result": [
+CHECK-NEXT:    {
+CHECK-NEXT:      "kind": 8,
+CHECK-NEXT:      "name": "bar",
+CHECK-NEXT:      "range": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 9,
+CHECK-NEXT:          "line": 1
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 1
+CHECK-NEXT:        }
+CHECK-NEXT:      },
+CHECK-NEXT:      "selectionRange": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 5,
+CHECK-NEXT:          "line": 1
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 1
+CHECK-NEXT:        }
+CHECK-NEXT:      }
+CHECK-NEXT:    },
+CHECK-NEXT:    {
+CHECK-NEXT:      "children": [
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 8,
+CHECK-NEXT:          "name": "z",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 15,
+CHECK-NEXT:              "line": 2
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 2
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 11,
+CHECK-NEXT:              "line": 2
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 2
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        }
+CHECK-NEXT:      ],
+CHECK-NEXT:      "kind": 8,
+CHECK-NEXT:      "name": "foo",
+CHECK-NEXT:      "range": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 18,
+CHECK-NEXT:          "line": 2
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 2
+CHECK-NEXT:        }
+CHECK-NEXT:      },
+CHECK-NEXT:      "selectionRange": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 5,
+CHECK-NEXT:          "line": 2
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 2
+CHECK-NEXT:        }
+CHECK-NEXT:      }
+CHECK-NEXT:    },
+CHECK-NEXT:    {
+CHECK-NEXT:      "children": [
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 13,
+CHECK-NEXT:          "name": "bar",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 9,
+CHECK-NEXT:              "line": 5
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 6,
+CHECK-NEXT:              "line": 5
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 9,
+CHECK-NEXT:              "line": 5
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 6,
+CHECK-NEXT:              "line": 5
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        }
+CHECK-NEXT:      ],
+CHECK-NEXT:      "kind": 8,
+CHECK-NEXT:      "name": "x",
+CHECK-NEXT:      "range": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 9,
+CHECK-NEXT:          "line": 5
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 5
+CHECK-NEXT:        }
+CHECK-NEXT:      },
+CHECK-NEXT:      "selectionRange": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 3,
+CHECK-NEXT:          "line": 5
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 5
+CHECK-NEXT:        }
+CHECK-NEXT:      }
+CHECK-NEXT:    },
+CHECK-NEXT:    {
+CHECK-NEXT:      "children": [
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 13,
+CHECK-NEXT:          "name": "foo",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 14,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 11,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 14,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 11,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        },
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 13,
+CHECK-NEXT:          "name": "z",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 17,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 16,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 17,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 16,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        }
+CHECK-NEXT:      ],
+CHECK-NEXT:      "kind": 8,
+CHECK-NEXT:      "name": "y",
+CHECK-NEXT:      "range": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 17,
+CHECK-NEXT:          "line": 6
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 6
+CHECK-NEXT:        }
+CHECK-NEXT:      },
+CHECK-NEXT:      "selectionRange": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 3,
+CHECK-NEXT:          "line": 6
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 6
+CHECK-NEXT:        }
+CHECK-NEXT:      }
+CHECK-NEXT:    },
+CHECK-NEXT:    {
+CHECK-NEXT:      "children": [
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 8,
+CHECK-NEXT:          "name": "n1",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 8
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 4,
+CHECK-NEXT:              "line": 8
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 6,
+CHECK-NEXT:              "line": 8
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 4,
+CHECK-NEXT:              "line": 8
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        },
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 8,
+CHECK-NEXT:          "name": "n2",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 9
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 4,
+CHECK-NEXT:              "line": 9
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 6,
+CHECK-NEXT:              "line": 9
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 4,
+CHECK-NEXT:              "line": 9
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        },
+CHECK-NEXT:        {
+CHECK-NEXT:          "kind": 8,
+CHECK-NEXT:          "name": "a",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 14,
+CHECK-NEXT:              "line": 11
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 2,
+CHECK-NEXT:              "line": 11
+CHECK-NEXT:            }
+CHECK-NEXT:          },
+CHECK-NEXT:          "selectionRange": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 11
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 2,
+CHECK-NEXT:              "line": 11
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        }
+CHECK-NEXT:      ],
+CHECK-NEXT:      "kind": 8,
+CHECK-NEXT:      "name": "nested",
+CHECK-NEXT:      "range": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 3,
+CHECK-NEXT:          "line": 10
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 7
+CHECK-NEXT:        }
+CHECK-NEXT:      },
+CHECK-NEXT:      "selectionRange": {
+CHECK-NEXT:        "end": {
+CHECK-NEXT:          "character": 8,
+CHECK-NEXT:          "line": 7
+CHECK-NEXT:        },
+CHECK-NEXT:        "start": {
+CHECK-NEXT:          "character": 2,
+CHECK-NEXT:          "line": 7
+CHECK-NEXT:        }
+CHECK-NEXT:      }
+CHECK-NEXT:    }
 ```
 
 ```json
