@@ -228,6 +228,9 @@ public:
   void onRename(const lspserver::RenameParams &,
                 lspserver::Callback<lspserver::WorkspaceEdit>);
 
+  void onPrepareRename(const lspserver::TextDocumentPositionParams &,
+                       lspserver::Callback<llvm::json::Value>);
+
   //---------------------------------------------------------------------------/
   // Workspace Features
 

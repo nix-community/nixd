@@ -223,6 +223,8 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
   Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
   Registry.addMethod("textDocument/rename", this, &Server::onRename);
+  Registry.addMethod("textDocument/prepareRename", this,
+                     &Server::onPrepareRename);
 
   PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
       "textDocument/publishDiagnostics");
@@ -286,7 +288,7 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
           "completionProvider",
           llvm::json::Object{{"triggerCharacters", {"."}}},
       },
-      {"renameProvider", true}};
+      {"renameProvider", llvm::json::Object{{"prepareProvider", true}}}};
 
   llvm::json::Object Result{
       {{"serverInfo",
@@ -522,6 +524,33 @@ void Server::onRename(const lspserver::RenameParams &Params,
     std::map<std::string, std::vector<lspserver::TextEdit>> Changes;
     Changes[Params.textDocument.uri.uri()] = std::move(Edits);
     Reply(lspserver::WorkspaceEdit{.changes = std::move(Changes)});
+  };
+
+  boost::asio::post(Pool, std::move(Task));
+}
+
+void Server::onPrepareRename(
+    const lspserver::TextDocumentPositionParams &Params,
+    lspserver::Callback<llvm::json::Value> Reply) {
+  auto Task = [=, Reply = std::move(Reply), this]() mutable {
+    auto Responses =
+        askWorkers<lspserver::RenameParams, std::vector<lspserver::TextEdit>>(
+            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/rename",
+            lspserver::RenameParams{
+                .textDocument = Params.textDocument,
+                .position = Params.position,
+            },
+            1e6);
+    auto Edits = latestMatchOr<std::vector<lspserver::TextEdit>>(
+        Responses,
+        [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
+    for (const auto &Edit : Edits) {
+      if (Edit.range.contains(Params.position)) {
+        Reply(Edit.range);
+        return;
+      }
+    }
+    Reply(lspserver::error("no rename edits available"));
   };
 
   boost::asio::post(Pool, std::move(Task));
