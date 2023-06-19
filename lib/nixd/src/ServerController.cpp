@@ -520,7 +520,7 @@ void Server::onRename(const lspserver::RenameParams &Params,
         Responses,
         [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
     std::map<std::string, std::vector<lspserver::TextEdit>> Changes;
-    Changes[Params.textDocument.uri.file().str()] = std::move(Edits);
+    Changes[Params.textDocument.uri.uri()] = std::move(Edits);
     Reply(lspserver::WorkspaceEdit{.changes = std::move(Changes)});
   };
 
