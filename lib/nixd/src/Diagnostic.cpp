@@ -49,8 +49,7 @@ mkDiagnostics(const nix::BaseError &Err) {
 
   if (Err.hasTrace()) {
     for (const auto &T : Err.info().traces) {
-      Result[pathOf(T.pos.get())].emplace_back(
-          mkDiagnosic(T.pos.get(), T.hint.str(), /* Info */ 3));
+      Result[pathOf(T.pos.get())].emplace_back(mkDiagnosic(T, /* Info */ 3));
     }
   }
 
@@ -73,5 +72,19 @@ void insertDiagnostic(const nix::BaseError &E,
                      stripANSI(E.what()));
     }
   }
+}
+
+lspserver::Diagnostic mkDiagnosic(const nix::AbstractPos *Pos, std::string Msg,
+                                  int Serverity) {
+  lspserver::Diagnostic Diag;
+  lspserver::Position LPos;
+  if (Pos)
+    LPos = toLSPPos(*Pos);
+  else
+    LPos = {0, 0};
+  Diag.message = stripANSI(std::move(Msg));
+  Diag.range = {LPos, LPos};
+  Diag.severity = Serverity;
+  return Diag;
 }
 } // namespace nixd

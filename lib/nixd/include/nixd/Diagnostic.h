@@ -7,27 +7,12 @@
 #include <nix/error.hh>
 #include <nix/nixexpr.hh>
 
-#include <optional>
-#include <utility>
-
 namespace nixd {
 
 std::string stripANSI(std::string Msg);
 
-inline lspserver::Diagnostic mkDiagnosic(const nix::AbstractPos *Pos,
-                                         std::string Msg,
-                                         int Serverity = /*Error*/ 1) {
-  lspserver::Diagnostic Diag;
-  lspserver::Position LPos;
-  if (Pos)
-    LPos = toLSPPos(*Pos);
-  else
-    LPos = {0, 0};
-  Diag.message = stripANSI(std::move(Msg));
-  Diag.range = {LPos, LPos};
-  Diag.severity = Serverity;
-  return Diag;
-}
+lspserver::Diagnostic mkDiagnosic(const nix::AbstractPos *Pos, std::string Msg,
+                                  int Serverity = /*Error*/ 1);
 
 inline lspserver::Diagnostic mkDiagnosic(const nix::Trace &T,
                                          int Serverity = /*Error*/ 1) {
