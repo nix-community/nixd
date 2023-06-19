@@ -6,7 +6,7 @@ on:
 jobs:
   nix-build-develop-gcc:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
