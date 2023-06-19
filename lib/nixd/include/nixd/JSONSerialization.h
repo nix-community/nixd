@@ -15,6 +15,8 @@ llvm::json::Value toJSON(const TextDocumentPositionParams &R);
 
 llvm::json::Value toJSON(const CompletionParams &R);
 
+llvm::json::Value toJSON(const RenameParams &);
+
 bool fromJSON(const llvm::json::Value &Params, CompletionItem &R,
               llvm::json::Path P);
 

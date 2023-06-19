@@ -225,6 +225,12 @@ public:
   void onFormat(const lspserver::DocumentFormattingParams &,
                 lspserver::Callback<std::vector<lspserver::TextEdit>>);
 
+  void onRename(const lspserver::RenameParams &,
+                lspserver::Callback<lspserver::WorkspaceEdit>);
+
+  void onPrepareRename(const lspserver::TextDocumentPositionParams &,
+                       lspserver::Callback<llvm::json::Value>);
+
   //---------------------------------------------------------------------------/
   // Workspace Features
 
@@ -304,6 +310,9 @@ public:
 
   void onEvalCompletion(const lspserver::CompletionParams &,
                         lspserver::Callback<llvm::json::Value>);
+
+  void onEvalRename(const lspserver::RenameParams &,
+                    lspserver::Callback<std::vector<lspserver::TextEdit>>);
 };
 
 template <class Arg, class Resp>

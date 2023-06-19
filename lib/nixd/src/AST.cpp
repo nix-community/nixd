@@ -81,6 +81,18 @@ const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
   throw std::out_of_range("No such env associated to ancestors");
 }
 
+std::optional<ParseAST::Definition>
+ParseAST::lookupDef(lspserver::Position Desired) const {
+  for (const auto &[Def, _] : References) {
+    try {
+      if (lspserver::Range(defRange(Def)).contains(Desired))
+        return Def;
+    } catch (std::out_of_range &) {
+    }
+  }
+  return std::nullopt;
+}
+
 [[nodiscard]] const nix::Expr *
 ParseAST::lookupEnd(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
@@ -182,6 +194,33 @@ ParseAST::lookupStart(lspserver::Position Desired) const {
 
   V.traverseExpr(root());
   return V.R;
+}
+
+void ParseAST::prepareDefRef() {
+  struct VTy : RecursiveASTVisitor<VTy> {
+    ParseAST &This;
+    bool visitExprVar(const nix::ExprVar *E) {
+      if (E->fromWith)
+        return true;
+      auto Def = This.searchDef(E);
+      if (Def) {
+        This.Definitions[E] = *Def;
+        This.References[*Def].emplace_back(E);
+      }
+      return true;
+    }
+  } V{.This = *this};
+  V.traverseExpr(root());
+}
+
+std::optional<ParseAST::Definition>
+ParseAST::searchDef(const nix::ExprVar *Var) const {
+  if (Var->fromWith)
+    return std::nullopt;
+  const auto *EnvExpr = envExpr(Var);
+  if (EnvExpr)
+    return Definition{EnvExpr, Var->displ};
+  return std::nullopt;
 }
 
 } // namespace nixd

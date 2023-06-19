@@ -119,6 +119,12 @@ Value toJSON(const CompletionParams &R) {
   return Base;
 }
 
+llvm::json::Value toJSON(const RenameParams &R) {
+  return Object{{"newName", R.newName},
+                {"position", R.position},
+                {"textDocument", R.textDocument}};
+}
+
 bool fromJSON(const Value &Params, CompletionItem &R, llvm::json::Path P) {
   ObjectMapper O(Params, P);
   return O && O.map("label", R.label) && O.map("kind", R.kind) &&

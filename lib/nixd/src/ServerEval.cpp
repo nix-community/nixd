@@ -171,13 +171,12 @@ void Server::onEvalDefinition(
 
         // Otherwise, we try to find the location binds to the variable.
         if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
-          if (EVar->fromWith)
-            return;
-          auto PIdx = AST->definition(EVar);
-          if (PIdx == nix::noPos)
-            return;
-
-          RR.Response = Location{Params.textDocument.uri, AST->nPair(PIdx)};
+          try {
+            RR.Response = Location{Params.textDocument.uri,
+                                   AST->defRange(AST->def(EVar))};
+          } catch (std::out_of_range &) {
+            RR.Response = error("location not available");
+          }
           return;
         }
         RR.Response = error("requested expression is not an ExprVar.");
@@ -410,6 +409,71 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
   withAST<CompletionList>(Params.textDocument.uri.file().str(),
                           ReplyRAII<CompletionList>(std::move(Reply)),
                           std::move(Action));
+}
+
+void Server::onEvalRename(
+    const lspserver::RenameParams &Params,
+    lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
+  using namespace lspserver;
+  using TextEdits = std::vector<lspserver::TextEdit>;
+  auto Action = [&Params](const nix::ref<EvalAST> &AST,
+                          ReplyRAII<TextEdits> &&RR) {
+    RR.Response = error("no suitable renaming action available");
+    std::optional<EvalAST::Definition> D;
+    std::vector<const nix::ExprVar *> Refs;
+    auto CheckVar = [&]() -> bool {
+      const auto *E = AST->lookupContainMin(Params.position);
+
+      if (!E)
+        return false;
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {
+        // Find it's definition, and all references.
+        try {
+          D = AST->def(EVar);
+        } catch (std::out_of_range &) {
+          RR.Response = error("no definition associated on this variable");
+        }
+        return true;
+      }
+      return false;
+    };
+
+    if (!CheckVar()) {
+      // This must be a "definiton".
+      auto OptDef = AST->lookupDef(Params.position);
+      if (!OptDef.has_value())
+        return;
+      D = OptDef.value();
+    }
+
+    if (!D.has_value())
+      return;
+
+    Refs = AST->ref(D.value());
+
+    TextEdits Edits;
+
+    // Definition
+    TextEdit DefEdit;
+    DefEdit.range = AST->defRange(D.value());
+    DefEdit.newText = Params.newName;
+    Edits.emplace_back(std::move(DefEdit));
+
+    // Referenced variables
+    for (const auto *ERef : Refs) {
+      try {
+        TextEdit RefEdit;
+        RefEdit.range = AST->nRange(ERef);
+        RefEdit.newText = Params.newName;
+        Edits.emplace_back(std::move(RefEdit));
+      } catch (std::out_of_range &) {
+      }
+    }
+
+    RR.Response = std::move(Edits);
+  };
+  withAST<TextEdits>(Params.textDocument.uri.file().str(),
+                     ReplyRAII<TextEdits>(std::move(Reply)), std::move(Action));
 }
 
 } // namespace nixd
