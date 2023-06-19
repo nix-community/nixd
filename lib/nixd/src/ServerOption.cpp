@@ -18,9 +18,7 @@ void Server::forkOptionWorker() {
           W->Pid.release();
         }
       },
-      OptionWorkers);
-  if (OptionWorkers.size() > 1)
-    OptionWorkers.pop_front();
+      OptionWorkers, 1);
 }
 
 void Server::onOptionDeclaration(

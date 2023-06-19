@@ -42,7 +42,10 @@
 namespace nixd {
 
 void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
-                        std::deque<std::unique_ptr<Proc>> &WorkerPool) {
+                        std::deque<std::unique_ptr<Proc>> &WorkerPool,
+                        size_t Size) {
+  if (Role != ServerRole::Controller)
+    return;
   auto To = std::make_unique<nix::Pipe>();
   auto From = std::make_unique<nix::Pipe>();
 
@@ -66,6 +69,9 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
     dup2(From->writeSide.get(), 1);
 
     WorkerAction();
+
+    // Communicate the controller in stadnard mode, instead of lit testing
+    switchStreamStyle(lspserver::JSONStreamStyle::Standard);
 
   } else {
 
@@ -93,10 +99,12 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
                  .Pid = ForkPID,
                  .WorkspaceVersion = WorkspaceVersion,
                  .InputDispatcher = std::move(WorkerInputDispatcher),
-                 .EvalDoneSmp = std::ref(EvalDoneSmp),
+                 .Smp = std::ref(FinishSmp),
                  .WaitWorker = WaitWorker});
 
     WorkerPool.emplace_back(std::move(WorkerProc));
+    if (WorkerPool.size() > Size && !WaitWorker)
+      WorkerPool.pop_front();
   }
 }
 
@@ -104,19 +112,20 @@ void Server::updateWorkspaceVersion(lspserver::PathRef File) {
   assert(Role == ServerRole::Controller &&
          "Workspace updates must happen in the Controller.");
   WorkspaceVersion++;
-  std::lock_guard Guard(EvalWorkerLock);
+  std::lock_guard EvalGuard(EvalWorkerLock);
+  std::lock_guard StaticGuard(StaticWorkerLock);
+
+  // For a static worker that do not perform heavy eval.
   forkWorker(
       [File, this]() {
-        switchToEvaluator(File);
-        // unregister "Procs" in worker process, they are managed by controller
-        for (auto &Worker : EvalWorkers)
-          Worker->Pid.release();
+        Config.eval = std::nullopt;
+        switchToStatic(File);
       },
-      EvalWorkers);
-  if (EvalWorkers.size() >
-          static_cast<decltype(EvalWorkers.size())>(Config.getNumWorkers()) &&
-      !WaitWorker)
-    EvalWorkers.pop_front();
+      StaticWorkers, Config.getNumWorkers());
+
+  // The eval worker
+  forkWorker([File, this]() { switchToEvaluator(File); }, EvalWorkers,
+             Config.getNumWorkers());
 }
 
 void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
@@ -240,27 +249,12 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Server::onEvalDiagnostic);
 
-  Registry.addMethod("nixd/ipc/textDocument/completion", this,
-                     &Server::onEvalCompletion);
-
-  Registry.addMethod("nixd/ipc/textDocument/documentLink", this,
-                     &Server::onEvalDocumentLink);
-  Registry.addMethod("nixd/ipc/textDocument/documentSymbol", this,
-                     &Server::onEvalDocumentSymbol);
-
   Registry.addMethod("nixd/ipc/textDocument/hover", this, &Server::onEvalHover);
-
-  Registry.addMethod("nixd/ipc/textDocument/definition", this,
-                     &Server::onEvalDefinition);
-
-  Registry.addMethod("nixd/ipc/textDocument/rename", this,
-                     &Server::onEvalRename);
 
   Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
                      &Server::onOptionDeclaration);
 
-  Registry.addNotification("nixd/ipc/eval/finished", this,
-                           &Server::onEvalFinished);
+  Registry.addNotification("nixd/ipc/finished", this, &Server::onFinished);
 
   readJSONConfig();
 }
@@ -384,9 +378,9 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
     APParams.Path = Code.substr(From, To - From).trim(Punc);
     lspserver::log("requesting path: {0}", APParams.Path);
 
-    auto Responses = askWorkers<ipc::AttrPathParams, lspserver::Location>(
-        OptionWorkers, OptionWorkerLock,
-        "nixd/ipc/option/textDocument/declaration", APParams, 2e4);
+    auto Responses = askWC<lspserver::Location>(
+        "nixd/ipc/option/textDocument/declaration", APParams,
+        {OptionWorkers, OptionWorkerLock, 2e4});
 
     if (Responses.empty())
       return;
@@ -399,15 +393,14 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
 
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
+  using RTy = lspserver::Location;
+  constexpr auto Method = "nixd/ipc/textDocument/definition";
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::TextDocumentPositionParams, lspserver::Location>(
-            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/definition",
-            Params, 2e4);
-
-    Reply(latestMatchOr<lspserver::Location, llvm::json::Value>(
-        Responses,
-        [](const lspserver::Location &Location) -> bool {
+    auto Resp = askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 1e6},
+                           WC{StaticWorkers, StaticWorkerLock, 2e4});
+    Reply(latestMatchOr<RTy, llvm::json::Value>(
+        Resp,
+        [](const RTy &Location) -> bool {
           return Location.range.start.line != -1;
         },
         llvm::json::Object{}));
@@ -420,10 +413,9 @@ void Server::onDocumentLink(
     const lspserver::DocumentLinkParams &Params,
     lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWorkers<lspserver::TextDocumentIdentifier,
-                                std::vector<lspserver::DocumentLink>>(
-        EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/documentLink",
-        Params.textDocument, 2e4);
+    auto Responses = askWC<std::vector<lspserver::DocumentLink>>(
+        "nixd/ipc/textDocument/documentLink", Params.textDocument,
+        {StaticWorkers, StaticWorkerLock, 2e4});
 
     Reply(latestMatchOr<std::vector<lspserver::DocumentLink>>(
         Responses, [](const std::vector<lspserver::DocumentLink> &) -> bool {
@@ -439,10 +431,9 @@ void Server::onDocumentSymbol(
     lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
 
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWorkers<lspserver::TextDocumentIdentifier,
-                                std::vector<lspserver::DocumentSymbol>>(
-        EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/documentSymbol",
-        Params.textDocument, 1e6);
+    auto Responses = askWC<std::vector<lspserver::DocumentSymbol>>(
+        "nixd/ipc/textDocument/documentSymbol", Params.textDocument,
+        {StaticWorkers, StaticWorkerLock, 1e6});
 
     Reply(latestMatchOr<std::vector<lspserver::DocumentSymbol>>(
         Responses, [](const std::vector<lspserver::DocumentSymbol> &) -> bool {
@@ -455,15 +446,14 @@ void Server::onDocumentSymbol(
 
 void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
                      lspserver::Callback<lspserver::Hover> Reply) {
+  using RTy = lspserver::Hover;
+  constexpr auto Method = "nixd/ipc/textDocument/hover";
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::TextDocumentPositionParams, lspserver::Hover>(
-            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/hover", Params,
-            2e4);
-    Reply(latestMatchOr<lspserver::Hover>(
-        Responses, [](const lspserver::Hover &H) {
-          return H.contents.value.length() != 0;
-        }));
+    auto Resp = askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 2e6},
+                           WC{StaticWorkers, StaticWorkerLock, 1e4});
+    Reply(latestMatchOr<lspserver::Hover>(Resp, [](const lspserver::Hover &H) {
+      return H.contents.value.length() != 0;
+    }));
   };
 
   boost::asio::post(Pool, std::move(Task));
@@ -474,11 +464,15 @@ void Server::onCompletion(
     lspserver::Callback<lspserver::CompletionList> Reply) {
   auto EnableOption =
       bool(Config.options) && Config.options->enable.value_or(false);
+  using RTy = lspserver::CompletionList;
+  constexpr auto Method = "nixd/ipc/textDocument/completion";
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::CompletionParams, lspserver::CompletionList>(
-            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/completion",
-            Params, 1e6);
+    auto Resp = askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 2e6},
+                           WC{StaticWorkers, StaticWorkerLock, 1e5});
+
+    std::optional<RTy> R;
+    if (!Resp.empty())
+      R = std::move(Resp.back());
 
     if (EnableOption) {
       ipc::AttrPathParams APParams;
@@ -496,16 +490,23 @@ void Server::onCompletion(
         APParams.Path = AttrPath.str();
       }
 
-      auto RespOption =
-          askWorkers<ipc::AttrPathParams, lspserver::CompletionList>(
-              OptionWorkers, OptionWorkerLock,
-              "nixd/ipc/textDocument/completion/options", APParams, 5e4);
-
-      Responses.insert(Responses.end(), RespOption.begin(), RespOption.end());
+      auto RespOption = askWC<lspserver::CompletionList>(
+          "nixd/ipc/textDocument/completion/options", APParams,
+          {OptionWorkers, OptionWorkerLock, 1e5});
+      if (!RespOption.empty()) {
+        if (R) {
+          // Merge response and option response.
+          auto O = RespOption.back().items;
+          R->items.insert(R->items.end(), O.begin(), O.end());
+        } else {
+          R = std::move(Resp.back());
+        }
+      }
     }
-    Reply(latestMatchOr<lspserver::CompletionList>(
-        Responses,
-        [](const lspserver::CompletionList &L) -> bool { return true; }));
+    if (R)
+      Reply(std::move(*R));
+    else
+      Reply(RTy{});
   };
   boost::asio::post(Pool, std::move(Task));
 }
@@ -514,10 +515,9 @@ void Server::onRename(const lspserver::RenameParams &Params,
                       lspserver::Callback<lspserver::WorkspaceEdit> Reply) {
 
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::RenameParams, std::vector<lspserver::TextEdit>>(
-            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/rename", Params,
-            1e6);
+    auto Responses = askWC<std::vector<lspserver::TextEdit>>(
+        "nixd/ipc/textDocument/rename", Params,
+        {StaticWorkers, StaticWorkerLock, 1e5});
     auto Edits = latestMatchOr<std::vector<lspserver::TextEdit>>(
         Responses,
         [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
@@ -533,14 +533,13 @@ void Server::onPrepareRename(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<llvm::json::Value> Reply) {
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses =
-        askWorkers<lspserver::RenameParams, std::vector<lspserver::TextEdit>>(
-            EvalWorkers, EvalWorkerLock, "nixd/ipc/textDocument/rename",
-            lspserver::RenameParams{
-                .textDocument = Params.textDocument,
-                .position = Params.position,
-            },
-            1e6);
+    auto Responses = askWC<std::vector<lspserver::TextEdit>>(
+        "nixd/ipc/textDocument/rename",
+        lspserver::RenameParams{
+            .textDocument = Params.textDocument,
+            .position = Params.position,
+        },
+        {StaticWorkers, StaticWorkerLock, 1e5});
     auto Edits = latestMatchOr<std::vector<lspserver::TextEdit>>(
         Responses,
         [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
@@ -592,9 +591,7 @@ void Server::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
   }
 }
 
-void Server::onEvalFinished(const ipc::WorkerMessage &) {
-  EvalDoneSmp.release();
-}
+void Server::onFinished(const ipc::WorkerMessage &) { FinishSmp.release(); }
 
 void Server::onFormat(
     const lspserver::DocumentFormattingParams &Params,

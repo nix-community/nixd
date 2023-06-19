@@ -27,58 +27,19 @@
 
 namespace nixd {
 
-struct CompletionHelper {
-  using Items = std::vector<lspserver::CompletionItem>;
-  static void fromEnvRecursive(const nix::SymbolTable &STable,
-                               const nix::StaticEnv &SEnv,
-                               const nix::Env &NixEnv, Items &Items);
-  static void fromEnvWith(const nix::SymbolTable &STable,
-                          const nix::Env &NixEnv, Items &Items);
-  static void fromStaticEnv(const nix::SymbolTable &STable,
-                            const nix::StaticEnv &SEnv, Items &Items);
-};
-
-void CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
-                                     const nix::StaticEnv &SEnv, Items &Items) {
-  for (auto [Symbol, Displ] : SEnv.vars) {
-    std::string Name = STable[Symbol];
-    if (Name.starts_with("__"))
-      continue;
-
-    // Variables in static envs, let's mark it as "Constant".
-    Items.emplace_back(lspserver::CompletionItem{
-        .label = Name, .kind = lspserver::CompletionItemKind::Constant});
-  }
-}
-
-void CompletionHelper::fromEnvWith(const nix::SymbolTable &STable,
-                                   const nix::Env &NixEnv, Items &Items) {
-  if (NixEnv.type == nix::Env::HasWithAttrs) {
-    for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
-      std::string Name = STable[SomeAttr.name];
-      Items.emplace_back(lspserver::CompletionItem{
-          .label = Name, .kind = lspserver::CompletionItemKind::Variable});
-    }
-  }
-}
-
-void CompletionHelper::fromEnvRecursive(const nix::SymbolTable &STable,
-                                        const nix::StaticEnv &SEnv,
-                                        const nix::Env &NixEnv, Items &Items) {
-
-  if ((SEnv.up != nullptr) && (NixEnv.up != nullptr))
-    fromEnvRecursive(STable, *SEnv.up, *NixEnv.up, Items);
-
-  fromStaticEnv(STable, SEnv, Items);
-  fromEnvWith(STable, NixEnv, Items);
-}
-
 void Server::switchToEvaluator(lspserver::PathRef File) {
   initWorker();
   Role = ServerRole::Evaluator;
   EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
+
+  Registry.addMethod("nixd/ipc/textDocument/completion", this,
+                     &Server::onEvalCompletion);
+
+  Registry.addMethod("nixd/ipc/textDocument/definition", this,
+                     &Server::onEvalDefinition);
+
   evalInstallable(File, Config.getEvalDepth());
-  mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/eval/finished")(
+  mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
 }
 
@@ -170,129 +131,7 @@ void Server::onEvalDefinition(
         } catch (...) {
           lspserver::vlog("no associated value on this expression");
         }
-
-        // Otherwise, we try to find the location binds to the variable.
-        if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
-          try {
-            RR.Response = Location{Params.textDocument.uri,
-                                   AST->defRange(AST->def(EVar))};
-          } catch (std::out_of_range &) {
-            RR.Response = error("location not available");
-          }
-          return;
-        }
-        RR.Response = error("requested expression is not an ExprVar.");
-        return;
       });
-}
-
-void Server::onEvalDocumentLink(
-    const lspserver::TextDocumentIdentifier &Params,
-    lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
-  using Links = std::vector<lspserver::DocumentLink>;
-  using namespace lspserver;
-  withAST<Links>(
-      Params.uri.file().str(), ReplyRAII<Links>(std::move(Reply)),
-      [Params, File = Params.uri.file().str()](const nix::ref<EvalAST> &AST,
-                                               ReplyRAII<Links> &&RR) {
-        struct LinkFinder : RecursiveASTVisitor<LinkFinder> {
-          decltype(AST) &LinkAST;
-          const std::string &File;
-          Links Result;
-          bool visitExprPath(const nix::ExprPath *EP) {
-            auto Range = LinkAST->lRange(EP);
-            if (Range.has_value()) {
-              try {
-                std::string Path =
-                    nix::resolveExprPath(CanonPath(EP->s)).to_string();
-
-                Result.emplace_back(DocumentLink{
-                    .range = Range.value(),
-                    .target = URIForFile::canonicalize(Path, Path)});
-              } catch (...) {
-              }
-            }
-            return true;
-          }
-        } Finder{.LinkAST = AST, .File = File};
-        Finder.traverseExpr(AST->root());
-        RR.Response = Finder.Result;
-      });
-}
-
-void Server::onEvalDocumentSymbol(
-    const lspserver::TextDocumentIdentifier &Params,
-    lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
-  using Symbols = std::vector<lspserver::DocumentSymbol>;
-  using namespace lspserver;
-  withAST<Symbols>(Params.uri.file().str(),
-                   ReplyRAII<Symbols>(std::move(Reply)),
-                   [Params, File = Params.uri.file().str(),
-                    State = IER->Session->getState()](
-                       const nix::ref<EvalAST> &AST, ReplyRAII<Symbols> &&RR) {
-                     struct VTy : RecursiveASTVisitor<VTy> {
-                       decltype(AST) &VAST;
-                       nix::EvalState &State;
-
-                       std::set<const nix::Expr *> Visited;
-
-                       // Per-node symbols should be collected here
-                       Symbols CurrentSymbols;
-
-                       bool traverseExprVar(const nix::ExprVar *E) {
-                         try {
-                           DocumentSymbol S;
-                           S.name = State.symbols[E->name];
-                           S.kind = SymbolKind::Variable;
-                           S.selectionRange = VAST->nPair(VAST->getPos(E));
-                           S.range = S.selectionRange;
-                           CurrentSymbols.emplace_back(std::move(S));
-                         } catch (...) {
-                         }
-                         return true;
-                       }
-
-                       bool traverseExprLambda(const nix::ExprLambda *E) {
-                         if (!E->hasFormals())
-                           return true;
-                         for (const auto &Formal : E->formals->formals) {
-                           DocumentSymbol S;
-                           S.name = State.symbols[Formal.name];
-                           S.kind = SymbolKind::Module;
-                           S.selectionRange = VAST->nPair(Formal.pos);
-                           S.range = S.selectionRange;
-                           CurrentSymbols.emplace_back(std::move(S));
-                         }
-                         RecursiveASTVisitor<VTy>::traverseExprLambda(E);
-                         return true;
-                       }
-
-                       bool traverseExprAttrs(const nix::ExprAttrs *E) {
-                         Symbols AttrSymbols = CurrentSymbols;
-                         CurrentSymbols = {};
-                         for (const auto &[Symbol, Def] : E->attrs) {
-                           DocumentSymbol S;
-                           S.name = State.symbols[Symbol];
-                           traverseExpr(Def.e);
-                           S.children = std::move(CurrentSymbols);
-                           S.kind = SymbolKind::Field;
-                           try {
-                             S.range = VAST->nPair(VAST->getPos(Def.e));
-                           } catch (std::out_of_range &) {
-                             S.range = VAST->nPair(Def.pos);
-                           }
-                           S.selectionRange = VAST->nPair(Def.pos);
-                           S.range = S.range / S.selectionRange;
-                           AttrSymbols.emplace_back(std::move(S));
-                         }
-                         CurrentSymbols = std::move(AttrSymbols);
-                         return true;
-                       }
-
-                     } V{.VAST = AST, .State = *State};
-                     V.traverseExpr(AST->root());
-                     RR.Response = V.CurrentSymbols;
-                   });
 }
 
 void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
@@ -357,6 +196,7 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
 
       const auto *Node = AST->lookupContainMin(Params.position);
 
+      // TODO: share the same code with static worker
       std::vector<Symbol> Symbols;
       AST->collectSymbols(Node, Symbols);
       // Insert symbols to our completion list.
@@ -420,71 +260,6 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
   withAST<CompletionList>(Params.textDocument.uri.file().str(),
                           ReplyRAII<CompletionList>(std::move(Reply)),
                           std::move(Action));
-}
-
-void Server::onEvalRename(
-    const lspserver::RenameParams &Params,
-    lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
-  using namespace lspserver;
-  using TextEdits = std::vector<lspserver::TextEdit>;
-  auto Action = [&Params](const nix::ref<EvalAST> &AST,
-                          ReplyRAII<TextEdits> &&RR) {
-    RR.Response = error("no suitable renaming action available");
-    std::optional<EvalAST::Definition> D;
-    std::vector<const nix::ExprVar *> Refs;
-    auto CheckVar = [&]() -> bool {
-      const auto *E = AST->lookupContainMin(Params.position);
-
-      if (!E)
-        return false;
-      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {
-        // Find it's definition, and all references.
-        try {
-          D = AST->def(EVar);
-        } catch (std::out_of_range &) {
-          RR.Response = error("no definition associated on this variable");
-        }
-        return true;
-      }
-      return false;
-    };
-
-    if (!CheckVar()) {
-      // This must be a "definiton".
-      auto OptDef = AST->lookupDef(Params.position);
-      if (!OptDef.has_value())
-        return;
-      D = OptDef.value();
-    }
-
-    if (!D.has_value())
-      return;
-
-    Refs = AST->ref(D.value());
-
-    TextEdits Edits;
-
-    // Definition
-    TextEdit DefEdit;
-    DefEdit.range = AST->defRange(D.value());
-    DefEdit.newText = Params.newName;
-    Edits.emplace_back(std::move(DefEdit));
-
-    // Referenced variables
-    for (const auto *ERef : Refs) {
-      try {
-        TextEdit RefEdit;
-        RefEdit.range = AST->nRange(ERef);
-        RefEdit.newText = Params.newName;
-        Edits.emplace_back(std::move(RefEdit));
-      } catch (std::out_of_range &) {
-      }
-    }
-
-    RR.Response = std::move(Edits);
-  };
-  withAST<TextEdits>(Params.textDocument.uri.file().str(),
-                     ReplyRAII<TextEdits>(std::move(Reply)), std::move(Action));
 }
 
 } // namespace nixd
