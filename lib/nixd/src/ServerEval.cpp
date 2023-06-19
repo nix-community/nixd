@@ -429,7 +429,6 @@ void Server::onEvalRename(
         auto OpDef = AST->def(EVar);
         if (OpDef.has_value()) {
           D = OpDef.value();
-          Refs = AST->ref(D.value());
         } else {
           RR.Response = error("no definition associated on this variable");
         }
@@ -440,12 +439,16 @@ void Server::onEvalRename(
 
     if (!CheckVar()) {
       // This must be a "definiton".
-      RR.Response = error("NYI");
-      return;
+      auto OptDef = AST->lookupDef(Params.position);
+      if (!OptDef.has_value())
+        return;
+      D = OptDef.value();
     }
 
     if (!D.has_value())
       return;
+
+    Refs = AST->ref(D.value());
 
     TextEdits Edits;
 

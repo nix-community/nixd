@@ -81,6 +81,15 @@ const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
   throw std::out_of_range("No such env associated to ancestors");
 }
 
+std::optional<ParseAST::Definition>
+ParseAST::lookupDef(lspserver::Position Desired) const {
+  for (const auto &[Def, _] : References) {
+    if (lspserver::Range(defRange(Def)).contains(Desired))
+      return Def;
+  }
+  return std::nullopt;
+}
+
 [[nodiscard]] const nix::Expr *
 ParseAST::lookupEnd(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
@@ -200,5 +209,4 @@ void ParseAST::prepareDefRef() {
   } V{.This = *this};
   V.traverseExpr(root());
 }
-
 } // namespace nixd

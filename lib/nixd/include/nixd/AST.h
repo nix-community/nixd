@@ -115,6 +115,9 @@ public:
 
   RangeIdx nRangeIdx(const void *Ptr) const { return {getPos(Ptr), Data->end}; }
 
+  [[nodiscard]] std::optional<Definition>
+  lookupDef(lspserver::Position Desired) const;
+
   /// Lookup an AST node that ends before or on the cursor.
   /// { }  |
   ///   ^
