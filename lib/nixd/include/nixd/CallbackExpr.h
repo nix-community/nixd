@@ -8,9 +8,8 @@
 
 namespace nixd {
 
-using ExprCallback =
-    std::function<void(const nix::Expr *, const nix::EvalState &,
-                       const nix::Env &, const nix::Value &)>;
+using ExprCallback = std::function<void(nix::Expr *, nix::EvalState &,
+                                        nix::Env &, nix::Value &)>;
 
 // Nix expression subclass, that will call a readonly callback for analysis.
 #define NIX_EXPR(EXPR)                                                         \
