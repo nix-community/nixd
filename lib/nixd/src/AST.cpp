@@ -84,8 +84,12 @@ const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
 std::optional<ParseAST::Definition>
 ParseAST::lookupDef(lspserver::Position Desired) const {
   for (const auto &[Def, _] : References) {
-    if (lspserver::Range(defRange(Def)).contains(Desired))
-      return Def;
+    try {
+      auto OpRange = defRange(Def);
+      if (lspserver::Range(OpRange).contains(Desired))
+        return Def;
+    } catch (std::out_of_range &) {
+    }
   }
   return std::nullopt;
 }
