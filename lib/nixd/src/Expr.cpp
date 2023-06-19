@@ -136,7 +136,7 @@ searchEnvExpr(const nix::ExprVar *E,
     const auto *ParentExpr = ParentMap.at(EnvExpr);
 
     // Might be "builtin" variable
-    if (ParentExpr == E)
+    if (ParentExpr == EnvExpr)
       return nullptr;
 
     if (isEnvCreated(ParentExpr, EnvExpr))
