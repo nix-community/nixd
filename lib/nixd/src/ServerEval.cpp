@@ -171,10 +171,12 @@ void Server::onEvalDefinition(
 
         // Otherwise, we try to find the location binds to the variable.
         if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
-          auto Def = AST->def(EVar);
-          if (Def.has_value())
-            RR.Response =
-                Location{Params.textDocument.uri, AST->defRange(Def.value())};
+          try {
+            RR.Response = Location{Params.textDocument.uri,
+                                   AST->defRange(AST->def(EVar))};
+          } catch (std::out_of_range &) {
+            RR.Response = error("location not available");
+          }
           return;
         }
         RR.Response = error("requested expression is not an ExprVar.");
@@ -426,10 +428,9 @@ void Server::onEvalRename(
         return false;
       if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {
         // Find it's definition, and all references.
-        auto OpDef = AST->def(EVar);
-        if (OpDef.has_value()) {
-          D = OpDef.value();
-        } else {
+        try {
+          D = AST->def(EVar);
+        } catch (std::out_of_range &) {
           RR.Response = error("no definition associated on this variable");
         }
         return true;
@@ -452,13 +453,13 @@ void Server::onEvalRename(
 
     TextEdits Edits;
 
-    // TextEdit for definition
+    // Definition
     TextEdit DefEdit;
     DefEdit.range = AST->defRange(D.value());
     DefEdit.newText = Params.newName;
     Edits.emplace_back(std::move(DefEdit));
 
-    // Referenced variables:
+    // Referenced variables
     for (const auto *ERef : Refs) {
       try {
         TextEdit RefEdit;

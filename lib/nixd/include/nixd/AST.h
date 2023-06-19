@@ -44,7 +44,7 @@ public:
     ParentMap = getParentMap(root());
     prepareDefRef();
   }
-  ParseAST(decltype(Data) D, bool DoSA = false) : Data(std::move(D)) {
+  ParseAST(decltype(Data) D, bool DoSA = true) : Data(std::move(D)) {
     if (DoSA)
       staticAnalysis();
   }
@@ -77,24 +77,13 @@ public:
 
   void prepareDefRef();
 
-  std::optional<Definition> searchDef(const nix::ExprVar *Var) const {
-    if (Var->fromWith)
-      return std::nullopt;
-    const auto *EnvExpr = envExpr(Var);
-    if (EnvExpr)
-      return Definition{EnvExpr, Var->displ};
-    return std::nullopt;
-  }
+  std::optional<Definition> searchDef(const nix::ExprVar *Var) const;
 
-  std::vector<const nix::ExprVar *> ref(Definition D) {
+  [[nodiscard]] std::vector<const nix::ExprVar *> ref(Definition D) const {
     return References.at(D);
   }
 
-  std::optional<Definition> def(const nix::ExprVar *Var) const {
-    if (Definitions.contains(Var))
-      return Definitions.at(Var);
-    return std::nullopt;
-  }
+  Definition def(const nix::ExprVar *Var) const { return Definitions.at(Var); }
 
   [[nodiscard]] Range defRange(Definition Def) const {
     auto [E, Displ] = Def;

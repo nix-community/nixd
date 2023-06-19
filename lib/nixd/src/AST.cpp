@@ -213,4 +213,15 @@ void ParseAST::prepareDefRef() {
   } V{.This = *this};
   V.traverseExpr(root());
 }
+
+std::optional<ParseAST::Definition>
+ParseAST::searchDef(const nix::ExprVar *Var) const {
+  if (Var->fromWith)
+    return std::nullopt;
+  const auto *EnvExpr = envExpr(Var);
+  if (EnvExpr)
+    return Definition{EnvExpr, Var->displ};
+  return std::nullopt;
+}
+
 } // namespace nixd
