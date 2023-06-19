@@ -85,8 +85,7 @@ std::optional<ParseAST::Definition>
 ParseAST::lookupDef(lspserver::Position Desired) const {
   for (const auto &[Def, _] : References) {
     try {
-      auto OpRange = defRange(Def);
-      if (lspserver::Range(OpRange).contains(Desired))
+      if (lspserver::Range(defRange(Def)).contains(Desired))
         return Def;
     } catch (std::out_of_range &) {
     }
@@ -205,8 +204,8 @@ void ParseAST::prepareDefRef() {
         return true;
       auto Def = This.searchDef(E);
       if (Def) {
-        This.Definitions[E] = Def.value();
-        This.References[Def.value()].emplace_back(E);
+        This.Definitions[E] = *Def;
+        This.References[*Def].emplace_back(E);
       }
       return true;
     }
