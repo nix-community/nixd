@@ -1,16 +1,15 @@
-#include "Parser.tab.h"
+#include <gtest/gtest.h>
 
 #include "nixd/Diagnostic.h"
+#include "nixd/Parser.h"
 
 #include "nixutil.h"
 
-#include <gtest/gtest.h>
-
 #include <nix/canon-path.hh>
 #include <nix/eval.hh>
+#include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 #include <nix/store-api.hh>
-#include <nixexpr.hh>
 
 #include <iostream>
 namespace nixd {

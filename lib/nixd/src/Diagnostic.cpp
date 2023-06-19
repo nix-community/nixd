@@ -5,8 +5,9 @@
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 
-#include <exception>
 #include <nix/ansicolor.hh>
+
+#include <exception>
 #include <optional>
 
 #define FOREACH_ANSI_COLOR(FUNC)                                               \
