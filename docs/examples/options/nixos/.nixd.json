@@ -1,0 +1,12 @@
+{
+    "options": {
+        "enable": true,
+        "target": {
+            "args": [
+                "--expr",
+                "(import <nixpkgs/nixos> { configuration = ./module.nix; }).options"
+            ],
+            "installable": ""
+        }
+    }
+}
