@@ -28,8 +28,9 @@ bool isDerivation(EvalState &State, Value &V) {
 std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
                                        const std::string &AttrPath) noexcept {
   try {
-    auto [VPath, _] =
+    auto [VPath, Pos] =
         findAlongAttrPath(State, AttrPath, *State.allocBindings(0), V);
+    State.forceValue(*VPath, Pos);
     if (VPath->type() == nix::ValueType::nString)
       return std::string(State.forceStringNoCtx(*VPath, nix::noPos, ""));
   } catch (std::exception &E) {
