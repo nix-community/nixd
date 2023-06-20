@@ -231,7 +231,7 @@ nix::Value EvalAST::getValueEval(const nix::Expr *Expr,
     // It is not evaluated.
     // Let's find evaluated parent, and try to eval it then.
     auto V = searchUpValue(Expr);
-    forceValueDepth(State, V, 5);
+    forceValueDepth(State, V, 2);
     return getValue(Expr);
   }
 }
