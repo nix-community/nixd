@@ -168,9 +168,11 @@ public:
   /// Get the evaluation result (fixed point) of the expression.
   nix::Value getValue(const nix::Expr *Expr) const;
 
+  nix::Value getValueEval(const nix::Expr *Expr, nix::EvalState &State) const;
+
   /// Get the corresponding 'Env' while evaluating the expression.
-  /// nix 'Env's contains dynamic variable name bindings at evaluation, might be
-  /// used for completion.
+  /// nix 'Env's contains dynamic variable name bindings at evaluation, might
+  /// be used for completion.
   nix::Env *getEnv(const nix::Expr *Expr) const { return EnvMap.at(Expr); }
 };
 

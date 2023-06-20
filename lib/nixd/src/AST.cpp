@@ -3,6 +3,7 @@
 #include "nixd/Diagnostic.h"
 #include "nixd/Expr.h"
 #include "nixd/Position.h"
+#include "nixd/nix/EvalState.h"
 
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
@@ -220,6 +221,19 @@ ParseAST::searchDef(const nix::ExprVar *Var) const {
   if (EnvExpr)
     return Definition{EnvExpr, Var->displ};
   return std::nullopt;
+}
+
+nix::Value EvalAST::getValueEval(const nix::Expr *Expr,
+                                 nix::EvalState &State) const {
+  try {
+    return getValue(Expr);
+  } catch (std::out_of_range &) {
+    // It is not evaluated.
+    // Let's find evaluated parent, and try to eval it then.
+    auto V = searchUpValue(Expr);
+    forceValueDepth(State, V, 5);
+    return getValue(Expr);
+  }
 }
 
 } // namespace nixd
