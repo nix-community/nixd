@@ -17,7 +17,9 @@
 
 #include <llvm/ADT/StringRef.h>
 
+#include <algorithm>
 #include <exception>
+#include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -354,8 +356,17 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
     } else {
 
       const auto *Node = AST->lookupContainMin(Params.position);
-      if (!Node)
-        return;
+
+      std::vector<Symbol> Symbols;
+      AST->collectSymbols(Node, Symbols);
+      // Insert symbols to our completion list.
+      std::transform(Symbols.begin(), Symbols.end(), std::back_inserter(Items),
+                     [&](const Symbol &V) -> decltype(Items)::value_type {
+                       decltype(Items)::value_type R;
+                       R.kind = CompletionItemKind::Interface;
+                       R.label = State->symbols[V];
+                       return R;
+                     });
 
       auto FromLambdaFormals = [&]() {
         // Firstly, we check that if we are in "ExprAttrs", consider this
@@ -389,7 +400,6 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
       };
       FromLambdaFormals();
       try {
-        const auto *Node = AST->lookupContainMin(Params.position);
         if (!Node)
           return;
         const auto *ExprEnv = AST->getEnv(Node);

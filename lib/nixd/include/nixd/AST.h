@@ -125,6 +125,10 @@ public:
   /// |  { }
   ///    ^
   [[nodiscard]] const nix::Expr *lookupStart(lspserver::Position Desired) const;
+
+  void collectSymbols(const nix::Expr *E, std::vector<Symbol> &R) const {
+    return ::nixd::collectSymbols(E, ParentMap, R);
+  }
 };
 
 /// A Nix language AST wrapper that support language features for LSP.

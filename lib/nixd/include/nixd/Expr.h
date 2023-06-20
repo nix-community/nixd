@@ -2,6 +2,7 @@
 #pragma once
 
 #include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
 
 namespace nixd {
 
@@ -123,5 +124,11 @@ bool isEnvCreated(const nix::Expr *, const nix::Expr *);
 bool isEnvCreated(const nix::ExprAttrs *, const nix::Expr *);
 
 bool isEnvCreated(const nix::ExprWith *, const nix::Expr *);
+
+//-----------------------------------------------------------------------------/
+
+/// Statically collect available symbols in expression's scope.
+void collectSymbols(const nix::Expr *, const decltype(getParentMap(nullptr)) &,
+                    std::vector<nix::Symbol> &);
 
 } // namespace nixd
