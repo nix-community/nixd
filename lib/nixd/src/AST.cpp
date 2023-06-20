@@ -19,8 +19,7 @@ namespace nixd {
 
 void EvalAST::rewriteAST() {
   auto EvalCallback = [this](const nix::Expr *Expr, const nix::EvalState &,
-                             const nix::Env &ExprEnv,
-                             const nix::Value &ExprValue) {
+                             nix::Env &ExprEnv, nix::Value &ExprValue) {
     ValueMap[Expr] = ExprValue;
     EnvMap[Expr] = &ExprEnv;
   };
@@ -69,7 +68,7 @@ nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {
   throw std::out_of_range("No such value associated to ancestors");
 }
 
-const nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
+nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
   for (;;) {
     if (EnvMap.contains(Expr))
       return EnvMap.at(Expr);

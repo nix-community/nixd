@@ -242,13 +242,12 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
       try {
         if (!Node)
           return;
-        const auto *ExprEnv = AST->getEnv(Node);
-        CompletionHelper::fromEnvRecursive(
-            State->symbols, *State->staticBaseEnv, *ExprEnv, Items);
+        auto *ExprEnv = AST->searchUpEnv(Node);
+        CompletionHelper::fromEnv(*State, *ExprEnv, Items);
       } catch (std::out_of_range &) {
-        CompletionHelper::fromStaticEnv(State->symbols, *State->staticBaseEnv,
-                                        Items);
       }
+      CompletionHelper::fromStaticEnv(State->symbols, *State->staticBaseEnv,
+                                      Items);
     }
     // Make the response.
     CompletionList List;
