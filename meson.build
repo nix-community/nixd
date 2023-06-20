@@ -1,7 +1,7 @@
 project( 'nixd'
        , ['c', 'cpp']
        , default_options : ['cpp_std=gnu++20']
-       , version: 'nightly'
+       , version: '1.1.0'
        )
 
 config_h = configuration_data()

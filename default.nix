@@ -20,7 +20,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "nixd";
-  version = "nightly";
+  version = "1.1.0";
 
   src = ./.;
 
@@ -76,7 +76,7 @@ stdenv.mkDerivation {
     description = "Nix language server";
     homepage = "https://github.com/nix-community/nixd";
     license = lib.licenses.lgpl3Plus;
-    maintainers = with lib.maintainers; [ inclyc ];
+    maintainers = with lib.maintainers; [ inclyc Ruixi-rebirth ];
     platforms = lib.platforms.unix;
     # Tracking issue: https://github.com/nix-community/nixd/issues/107
     broken = stdenv.isDarwin;
