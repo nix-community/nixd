@@ -129,7 +129,7 @@ private:
 
   void removeDocument(lspserver::PathRef File) {
     DraftMgr.removeDraft(File);
-    updateWorkspaceVersion(File);
+    updateWorkspaceVersion();
   }
 
   /// LSP defines file versions as numbers that increase.
@@ -199,7 +199,7 @@ public:
   //---------------------------------------------------------------------------/
   // Text Document Synchronization
 
-  void updateWorkspaceVersion(lspserver::PathRef File);
+  void updateWorkspaceVersion();
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
@@ -314,7 +314,7 @@ public:
 
   // Worker::Nix::Static
 
-  void switchToStatic(lspserver::PathRef File);
+  void switchToStatic();
 
   void onStaticCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
@@ -335,14 +335,14 @@ public:
 
   // Worker::Nix::Eval
 
-  void switchToEvaluator(lspserver::PathRef File);
+  void switchToEvaluator();
 
   template <class ReplyTy>
   void withAST(
       const std::string &, ReplyRAII<ReplyTy>,
       llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
 
-  void evalInstallable(lspserver::PathRef File, int Depth);
+  void evalInstallable(int Depth);
 
   void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
                         lspserver::Callback<lspserver::Location>);

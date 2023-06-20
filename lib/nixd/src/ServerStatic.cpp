@@ -2,7 +2,7 @@
 
 namespace nixd {
 
-void Server::switchToStatic(lspserver::PathRef File) {
+void Server::switchToStatic() {
   initWorker();
   Role = ServerRole::Static;
   EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
@@ -21,7 +21,7 @@ void Server::switchToStatic(lspserver::PathRef File) {
   Registry.addMethod("nixd/ipc/textDocument/rename", this,
                      &Server::onStaticRename);
 
-  evalInstallable(File, Config.getEvalDepth());
+  evalInstallable(Config.getEvalDepth());
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
 }
