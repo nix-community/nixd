@@ -33,6 +33,17 @@
 
 namespace nixd {
 
+struct CompletionHelper {
+  using Items = std::vector<lspserver::CompletionItem>;
+  static void fromEnvRecursive(const nix::SymbolTable &STable,
+                               const nix::StaticEnv &SEnv,
+                               const nix::Env &NixEnv, Items &Items);
+  static void fromEnvWith(const nix::SymbolTable &STable,
+                          const nix::Env &NixEnv, Items &Items);
+  static void fromStaticEnv(const nix::SymbolTable &STable,
+                            const nix::StaticEnv &SEnv, Items &Items);
+};
+
 /// The server instance, nix-related language features goes here
 class Server : public lspserver::LSPServer {
 public:
@@ -48,7 +59,7 @@ public:
     WorkspaceVersionTy WorkspaceVersion;
     std::thread InputDispatcher;
 
-    std::counting_semaphore<> &EvalDoneSmp;
+    std::counting_semaphore<> &Smp;
 
     bool WaitWorker;
 
@@ -73,8 +84,9 @@ public:
     /// Parent process of the server
     Controller,
     /// Child process
+    Static,
     Evaluator,
-    OptionProvider
+    OptionProvider,
   };
 
   template <class ReplyTy> struct ReplyRAII {
@@ -90,17 +102,23 @@ private:
 
   ServerRole Role = ServerRole::Controller;
 
+  using WorkerContainer = std::deque<std::unique_ptr<Proc>>;
+
+  using WC = std::tuple<const WorkerContainer &, std::shared_mutex &, size_t>;
+
   WorkspaceVersionTy WorkspaceVersion = 1;
 
   std::shared_mutex EvalWorkerLock;
-  std::deque<std::unique_ptr<Proc>> EvalWorkers; // GUARDED_BY(EvalWorkerLock)
+  WorkerContainer EvalWorkers; // GUARDED_BY(EvalWorkerLock)
 
-  // Evaluator notify us "evaluation done" by incresing this semaphore.
-  std::counting_semaphore<> EvalDoneSmp = std::counting_semaphore(0);
+  std::shared_mutex StaticWorkerLock;
+  WorkerContainer StaticWorkers; // GUARDED_BY(EvalWorkerLock)
+
+  // Used for lit tests, ensure that workers have finished their job.
+  std::counting_semaphore<> FinishSmp = std::counting_semaphore(0);
 
   std::shared_mutex OptionWorkerLock;
-  std::deque<std::unique_ptr<Proc>>
-      OptionWorkers; // GUARDED_BY(OptionWorkerLock)
+  WorkerContainer OptionWorkers; // GUARDED_BY(OptionWorkerLock)
 
   EvalDraftStore DraftMgr;
 
@@ -162,10 +180,9 @@ public:
     if (WaitWorker) {
       Pool.join();
       std::lock_guard Guard(EvalWorkerLock);
-      auto EvalWorkerSize = EvalWorkers.size();
       // Ensure that all workers are finished eval, or being killed
-      for (decltype(EvalWorkerSize) I = 0; I < EvalWorkerSize; I++) {
-        EvalDoneSmp.acquire();
+      for (size_t I = 0; I < EvalWorkers.size() + StaticWorkers.size(); I++) {
+        FinishSmp.acquire();
       }
     }
     for (auto &Worker : EvalWorkers) {
@@ -256,16 +273,32 @@ public:
   // Controller
 
   void forkWorker(llvm::unique_function<void()> WorkerAction,
-                  std::deque<std::unique_ptr<Proc>> &WorkerPool);
+                  std::deque<std::unique_ptr<Proc>> &WorkerPool, size_t Size);
 
   void onEvalDiagnostic(const ipc::Diagnostics &);
 
-  void onEvalFinished(const ipc::WorkerMessage &);
+  void onFinished(const ipc::WorkerMessage &);
 
-  template <class Arg, class Resp>
-  auto askWorkers(const std::deque<std::unique_ptr<Server::Proc>> &Workers,
-                  std::shared_mutex &WorkerLock, llvm::StringRef IPCMethod,
-                  const Arg &Params, unsigned Timeout);
+  template <class Resp, class Arg>
+  auto askWorkers(const WorkerContainer &Workers, std::shared_mutex &WorkerLock,
+                  llvm::StringRef IPCMethod, const Arg &Params,
+                  unsigned Timeout);
+
+  template <class Resp, class Arg>
+  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL)
+      -> std::vector<Resp> {
+    auto &[W, L, T] = CL;
+    return askWorkers<Resp>(W, L, IPCMethod, Params, T);
+  }
+
+  template <class Resp, class Arg, class... A>
+  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL, A... Rest)
+      -> std::vector<Resp> {
+    auto Vec = askWC<Resp>(IPCMethod, Params, CL);
+    if (Vec.empty())
+      return askWC<Resp>(IPCMethod, Params, Rest...);
+    return Vec;
+  }
 
   // Worker
 
@@ -283,6 +316,27 @@ public:
   void onOptionCompletion(const ipc::AttrPathParams &,
                           lspserver::Callback<llvm::json::Value>);
 
+  // Worker::Nix::Static
+
+  void switchToStatic(lspserver::PathRef File);
+
+  void onStaticCompletion(const lspserver::CompletionParams &,
+                          lspserver::Callback<llvm::json::Value>);
+
+  void onStaticDefinition(const lspserver::TextDocumentPositionParams &,
+                          lspserver::Callback<lspserver::Location>);
+
+  void onStaticDocumentLink(
+      const lspserver::TextDocumentIdentifier &,
+      lspserver::Callback<std::vector<lspserver::DocumentLink>>);
+
+  void onStaticDocumentSymbol(
+      const lspserver::TextDocumentIdentifier &,
+      lspserver::Callback<std::vector<lspserver::DocumentSymbol>>);
+
+  void onStaticRename(const lspserver::RenameParams &,
+                      lspserver::Callback<std::vector<lspserver::TextEdit>>);
+
   // Worker::Nix::Eval
 
   void switchToEvaluator(lspserver::PathRef File);
@@ -297,25 +351,14 @@ public:
   void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
                         lspserver::Callback<lspserver::Location>);
 
-  void
-  onEvalDocumentLink(const lspserver::TextDocumentIdentifier &,
-                     lspserver::Callback<std::vector<lspserver::DocumentLink>>);
-
-  void onEvalDocumentSymbol(
-      const lspserver::TextDocumentIdentifier &,
-      lspserver::Callback<std::vector<lspserver::DocumentSymbol>>);
-
   void onEvalHover(const lspserver::TextDocumentPositionParams &,
                    lspserver::Callback<llvm::json::Value>);
 
   void onEvalCompletion(const lspserver::CompletionParams &,
                         lspserver::Callback<llvm::json::Value>);
-
-  void onEvalRename(const lspserver::RenameParams &,
-                    lspserver::Callback<std::vector<lspserver::TextEdit>>);
 };
 
-template <class Arg, class Resp>
+template <class Resp, class Arg>
 auto Server::askWorkers(
     const std::deque<std::unique_ptr<Server::Proc>> &Workers,
     std::shared_mutex &WorkerLock, llvm::StringRef IPCMethod, const Arg &Params,
@@ -353,7 +396,7 @@ auto Server::askWorkers(
           if (WaitWorker)
             Sema->acquire();
           else
-            Sema->try_acquire_for(std::chrono::microseconds(Timeout));
+            Sema->try_acquire_for(std::chrono::microseconds(Timeout / Size));
         }
       });
 
