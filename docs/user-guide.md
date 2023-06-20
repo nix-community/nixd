@@ -199,7 +199,7 @@ This is much similar to `compile_commands.json` in C/C++ world.
 
 Here is the demo video that I used the above installable in my workspace:
 
-![package](/docs/images/8d106acc-6b1a-4062-9dc7-175b09751fd0.gif)
+![write-package](https://github.com/nix-community/nixd/assets/36667224/a974c60e-096e-4964-a5d4-fc926963d577)
 
 ##### Depth
 
