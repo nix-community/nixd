@@ -27,7 +27,7 @@
 
 namespace nixd {
 
-void Server::switchToEvaluator(lspserver::PathRef File) {
+void Server::switchToEvaluator() {
   initWorker();
   Role = ServerRole::Evaluator;
   EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
@@ -38,12 +38,12 @@ void Server::switchToEvaluator(lspserver::PathRef File) {
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onEvalDefinition);
 
-  evalInstallable(File, Config.getEvalDepth());
+  evalInstallable(Config.getEvalDepth());
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
 }
 
-void Server::evalInstallable(lspserver::PathRef File, int Depth = 0) {
+void Server::evalInstallable(int Depth = 0) {
   assert(Role != ServerRole::Controller && "must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
 

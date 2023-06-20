@@ -108,23 +108,23 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
   }
 }
 
-void Server::updateWorkspaceVersion(lspserver::PathRef File) {
-  assert(Role == ServerRole::Controller &&
-         "Workspace updates must happen in the Controller.");
+void Server::updateWorkspaceVersion() {
+  if (Role != ServerRole::Controller)
+    return;
   WorkspaceVersion++;
   std::lock_guard EvalGuard(EvalWorkerLock);
   std::lock_guard StaticGuard(StaticWorkerLock);
 
   // For a static worker that do not perform heavy eval.
   forkWorker(
-      [File, this]() {
+      [this]() {
         Config.eval = std::nullopt;
-        switchToStatic(File);
+        switchToStatic();
       },
       StaticWorkers, Config.getNumWorkers());
 
   // The eval worker
-  forkWorker([File, this]() { switchToEvaluator(File); }, EvalWorkers,
+  forkWorker([this]() { switchToEvaluator(); }, EvalWorkers,
              Config.getNumWorkers());
 }
 
@@ -140,12 +140,13 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
   PublishDiagnostic(Notification);
 
   DraftMgr.addDraft(File, Version, Contents);
-  updateWorkspaceVersion(File);
+  updateWorkspaceVersion();
 }
 
 void Server::updateConfig(configuration::TopLevel &&NewConfig) {
   Config = std::move(NewConfig);
   forkOptionWorker();
+  updateWorkspaceVersion();
 }
 
 void Server::fetchConfig() {
