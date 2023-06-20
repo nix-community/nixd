@@ -294,21 +294,6 @@ In our option system, you need to specify which option set you'd like to use.
 
 ### FAQ
 
-
-#### Why it shows incorrect hover message on my NixOS configuration?
-
-Because nix itself does not preserve enough source locations.
-We can only know about where is the start point of an `AttrDef`, but we cannot even know where is the `=`, or where is the expression.
-
-So hover information may only works on limited nix AST nodes, that nix does not discard it.
-
-#### Why there is no rename & code action now?
-
-Actually we do not know anything about the **ranges**.
-Because nix itself has only one `PosIdx` for each expression, and that is the "range.begin", but how about the "range.end"?
-
-We do not know.
-
 #### How to use nixd in my *flake*?
 
 Nix flakes are now hardcoded being evaluated in your store, e.g. `/nix/store`.
