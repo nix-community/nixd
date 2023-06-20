@@ -199,7 +199,7 @@ This is much similar to `compile_commands.json` in C/C++ world.
 
 Here is the demo video that I used the above installable in my workspace:
 
-![package](/docs/images/8d106acc-6b1a-4062-9dc7-175b09751fd0.gif)
+![write-package](https://github.com/nix-community/nixd/assets/36667224/a974c60e-096e-4964-a5d4-fc926963d577)
 
 ##### Depth
 
@@ -293,21 +293,6 @@ In our option system, you need to specify which option set you'd like to use.
 
 
 ### FAQ
-
-
-#### Why it shows incorrect hover message on my NixOS configuration?
-
-Because nix itself does not preserve enough source locations.
-We can only know about where is the start point of an `AttrDef`, but we cannot even know where is the `=`, or where is the expression.
-
-So hover information may only works on limited nix AST nodes, that nix does not discard it.
-
-#### Why there is no rename & code action now?
-
-Actually we do not know anything about the **ranges**.
-Because nix itself has only one `PosIdx` for each expression, and that is the "range.begin", but how about the "range.end"?
-
-We do not know.
 
 #### How to use nixd in my *flake*?
 
