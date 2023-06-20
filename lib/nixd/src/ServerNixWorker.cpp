@@ -51,6 +51,8 @@ void CompletionHelper::fromEnv(nix::EvalState &State, nix::Env &NixEnv,
   if (NixEnv.type == nix::Env::HasWithAttrs) {
     for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
       std::string Name = State.symbols[SomeAttr.name];
+      if (Items.size() > 5000)
+        break;
       Items.emplace_back(lspserver::CompletionItem{
           .label = Name, .kind = lspserver::CompletionItemKind::Variable});
     }
