@@ -499,7 +499,7 @@ void Server::onCompletion(
           auto O = RespOption.back().items;
           R->items.insert(R->items.end(), O.begin(), O.end());
         } else {
-          R = std::move(Resp.back());
+          R = std::move(RespOption.back());
         }
       }
     }
