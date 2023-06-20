@@ -100,7 +100,7 @@ void Server::onEvalDefinition(
         // If the expression evaluates to a "derivation", try to bring our user
         // to the location which defines the package.
         try {
-          auto V = AST->getValue(Node);
+          auto V = AST->getValueEval(Node, *State);
           if (nix::nixd::isDerivation(*State, V)) {
             if (auto S = nix::nixd::attrPathStr(*State, V, "meta.position")) {
               llvm::StringRef PositionStr = S.value();
@@ -147,7 +147,7 @@ void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
         RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
         auto &HoverText = RR.Response->contents.value;
         try {
-          auto Value = AST->getValue(Node);
+          auto Value = AST->getValueEval(Node, *IER->Session->getState());
           std::stringstream Res{};
           nix::nixd::PrintDepth = 3;
           Value.print(IER->Session->getState()->symbols, Res);
@@ -179,7 +179,7 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
       if (!Node)
         return;
       try {
-        auto Value = AST->getValue(Node);
+        auto Value = AST->getValueEval(Node, *IER->Session->getState());
         if (Value.type() == nix::ValueType::nAttrs) {
           // Traverse attribute bindings
           for (auto Binding : *Value.attrs) {
