@@ -11,15 +11,15 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
-#include <algorithm>
-#include <iterator>
 #include <nix/eval.hh>
 #include <nix/nixexpr.hh>
 #include <nix/shared.hh>
 
 #include <llvm/ADT/StringRef.h>
 
+#include <algorithm>
 #include <exception>
+#include <iterator>
 #include <optional>
 #include <stdexcept>
 #include <string>

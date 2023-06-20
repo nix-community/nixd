@@ -1,9 +1,9 @@
 #include "nixd/Expr.h"
 
-#include <algorithm>
-#include <iterator>
 #include <nix/nixexpr.hh>
 
+#include <algorithm>
+#include <iterator>
 namespace nixd {
 
 std::map<const nix::Expr *, const nix::Expr *>
