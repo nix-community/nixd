@@ -298,7 +298,10 @@ In our option system, you need to specify which option set you'd like to use.
 
 #### How to use nixd in my *flake*?
 
-Nix flakes are now hardcoded being evaluated in your store, e.g. `/nix/store`.
+The *eval* subsystems requires flakes evaluating **in-place** to get language callbacks.
+The *options* subsystem does not need to eval flakes in-place.
+
+However, nix flakes are now hardcoded being evaluated in your store, e.g. `/nix/store`.
 That is, we cannot hack caches by injecting our own data structre.
 So basically language callbacks (i.e. dynamic bindings & values) are not available.
 
@@ -306,27 +309,13 @@ Actually we are waiting for [Source tree abstraction (by edolstra)](https://gith
 
 If you would like to use `nixd` in your personal flake, you can use `flake-compat` to turn your project in a "non-flake" installable.
 
-Note that `flake-compat` by edolstra will fetch a git project in nix store, that will break everything just as the same case as normal flakes.
+Note that `flake-compat` by edolstra will fetch a git project in nix store, that will break everything just as the same case as normal flakes (i.e. not being evaluated in-pllace).
+Here we have a fork of `flake-compat`, won't fetch git repositories at `github:inclyc/flake-compat`.
 
 So tldr, to use `nixd` in your flake project, you have to:
 
 1. Turn your project into a legacy one, by using `flake-compat`
-2. Do not use git repository, if you fetched `edolstra/flake-compat`.
-   Also, you can fork `flake-compat` to make git working though.
+2. Use `inclyc/flake-compat` which will not fetch git repository in nix store
 
-Example:
+We have a working example [here](/docs/examples/flake/)
 
-```jsonc
-{
-  "eval": {
-    "target": {
-      "args": [
-        "-f",
-        "default.nix"
-      ],
-      "installable": "devShells.x86_64-linux.llvm"
-    },
-    "depth": 3
-  }
-}
-```
