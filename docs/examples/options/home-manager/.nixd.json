@@ -1,0 +1,9 @@
+{
+    "options": {
+        "enable": true,
+        "target": {
+            "args": [],
+            "installable": ".#foo.options"
+        }
+    }
+}

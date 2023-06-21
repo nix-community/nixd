@@ -65,6 +65,8 @@ nix build -L .#
 ### Configuration
 
 
+- [Configuration Examples](/docs/examples)
+
 We support LSP standard `workspace/configuration` for server configurations.
 
 Configuration overview:
