@@ -50,6 +50,14 @@ Please file a bug if you encountered some trouble using the extension.
    }
 }
 ```
+We provide a test environment with the *vscode-nix-ide* plugin, and the repository has some [configuration examples](/docs/examples) that you can try.
+
+Start up the test environment:
+```console
+$ nix develop github:nix-community/nixd#vscodium
+
+$ codium-test
+```
 
 ### Neovim
 
