@@ -1,5 +1,9 @@
-<div align="center">
-  <h1>nixd</code></h1>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300&display=swap" rel="stylesheet">
+
+<div align="center" style="font-family: 'Overpass', sans-serif;">
+  <h1 style="color: #6586c8;">nixd</code></h1>
 
   <p>
     <strong>Nix language server</strong>
