@@ -47,6 +47,13 @@
             (import ./editors/nvim-lsp.nix { inherit pkgs; })
           ];
         };
+        devShells.vscodium = pkgs.mkShell {
+          nativeBuildInputs = [
+            nixd
+            pkgs.nixpkgs-fmt
+            (import ./editors/vscodium.nix { inherit pkgs; })
+          ];
+        };
       };
     systems = nixpkgs.lib.systems.flakeExposed;
   };
