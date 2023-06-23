@@ -30,10 +30,14 @@ namespace nixd {
 
 using namespace nix;
 
+    struct ParseState {
+      SymbolTable &symbols;
+      PosTable &positions;
+    };
+
     struct ParseData
     {
-        EvalState & state;
-        SymbolTable & symbols;
+        ParseState state;
         Expr * result;
         SourcePath basePath;
         PosTable::Origin origin;
@@ -72,15 +76,12 @@ struct StringToken {
 
 YY_DECL;
 
-using namespace nix;
-using nixd::ParseData;
-using nixd::ParserFormals;
 
 
-namespace nix {
+namespace nixd {
 
 
-static void dupAttr(const EvalState & state, const AttrPath & attrPath, const PosIdx pos, const PosIdx prevPos)
+static void dupAttr(const ParseState & state, const AttrPath & attrPath, const PosIdx pos, const PosIdx prevPos)
 {
     throw ParseError({
          .msg = hintfmt("attribute '%1%' already defined at %2%",
@@ -89,7 +90,7 @@ static void dupAttr(const EvalState & state, const AttrPath & attrPath, const Po
     });
 }
 
-static void dupAttr(const EvalState & state, Symbol attr, const PosIdx pos, const PosIdx prevPos)
+static void dupAttr(const ParseState & state, Symbol attr, const PosIdx pos, const PosIdx prevPos)
 {
     throw ParseError({
         .msg = hintfmt("attribute '%1%' already defined at %2%", state.symbols[attr], state.positions[prevPos]),
@@ -99,7 +100,7 @@ static void dupAttr(const EvalState & state, Symbol attr, const PosIdx pos, cons
 
 
 static void addAttr(ExprAttrs * attrs, AttrPath && attrPath,
-    Expr * e, const PosIdx pos, const nix::EvalState & state)
+    Expr * e, const PosIdx pos, const ParseState & state)
 {
     AttrPath::iterator i;
     // All attrpaths have at least one attr
@@ -176,7 +177,7 @@ static Formals * toFormals(ParseData & data, ParserFormals * formals,
     }
     if (duplicate)
         throw ParseError({
-            .msg = hintfmt("duplicate formal function argument '%1%'", data.symbols[duplicate->first]),
+            .msg = hintfmt("duplicate formal function argument '%1%'", data.state.symbols[duplicate->first]),
             .errPos = data.state.positions[duplicate->second]
         });
 
@@ -186,7 +187,7 @@ static Formals * toFormals(ParseData & data, ParserFormals * formals,
 
     if (arg && result.has(arg))
         throw ParseError({
-            .msg = hintfmt("duplicate formal function argument '%1%'", data.symbols[arg]),
+            .msg = hintfmt("duplicate formal function argument '%1%'", data.state.symbols[arg]),
             .errPos = data.state.positions[pos]
         });
 
@@ -297,7 +298,9 @@ static inline PosIdx makeCurPos(const YYLTYPE & loc, ParseData * data)
 #define CUR_POS makeCurPos(*yylocp, data)
 
 
-}
+} // namespace nixd
+
+using namespace nixd;
 
 
 void yyerror(YYLTYPE * loc, yyscan_t scanner, ParseData * data, const char * error)
@@ -372,17 +375,17 @@ expr: expr_function;
 
 expr_function
   : ID ':' expr_function
-    { { $$ = new ExprLambda(CUR_POS, data->symbols.create($1), 0, $3);  data->locations[$$] = CUR_POS; } }
+    { { $$ = new ExprLambda(CUR_POS, data->state.symbols.create($1), 0, $3);  data->locations[$$] = CUR_POS; } }
   | '{' formals '}' ':' expr_function
     { { $$ = new ExprLambda(CUR_POS, toFormals(*data, $2), $5);  data->locations[$$] = CUR_POS; } }
   | '{' formals '}' '@' ID ':' expr_function
     {
-      auto arg = data->symbols.create($5);
+      auto arg = data->state.symbols.create($5);
       { $$ = new ExprLambda(CUR_POS, arg, toFormals(*data, $2, CUR_POS, arg), $7);  data->locations[$$] = CUR_POS; }
     }
   | ID '@' '{' formals '}' ':' expr_function
     {
-      auto arg = data->symbols.create($1);
+      auto arg = data->state.symbols.create($1);
       { $$ = new ExprLambda(CUR_POS, arg, toFormals(*data, $4, CUR_POS, arg), $7);  data->locations[$$] = CUR_POS; }
     }
   | ASSERT expr ';' expr_function
@@ -407,13 +410,13 @@ expr_if
 
 expr_op
   : '!' expr_op %prec NOT { { $$ = new ExprOpNot($2);  data->locations[$$] = CUR_POS; } }
-  | '-' expr_op %prec NEGATE { { $$ = new ExprCall(CUR_POS, new ExprVar(data->symbols.create("__sub")), {new ExprInt(0), $2});  data->locations[$$] = CUR_POS; } }
+  | '-' expr_op %prec NEGATE { { $$ = new ExprCall(CUR_POS, new ExprVar(data->state.symbols.create("__sub")), {new ExprInt(0), $2});  data->locations[$$] = CUR_POS; } }
   | expr_op EQ expr_op { { $$ = new ExprOpEq($1, $3);  data->locations[$$] = CUR_POS; } }
   | expr_op NEQ expr_op { { $$ = new ExprOpNEq($1, $3);  data->locations[$$] = CUR_POS; } }
-  | expr_op '<' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$1, $3});  data->locations[$$] = CUR_POS; } }
-  | expr_op LEQ expr_op { { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$3, $1}));  data->locations[$$] = CUR_POS; } }
-  | expr_op '>' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$3, $1});  data->locations[$$] = CUR_POS; } }
-  | expr_op GEQ expr_op { { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__lessThan")), {$1, $3}));  data->locations[$$] = CUR_POS; } }
+  | expr_op '<' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__lessThan")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op LEQ expr_op { { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__lessThan")), {$3, $1}));  data->locations[$$] = CUR_POS; } }
+  | expr_op '>' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__lessThan")), {$3, $1});  data->locations[$$] = CUR_POS; } }
+  | expr_op GEQ expr_op { { $$ = new ExprOpNot(new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__lessThan")), {$1, $3}));  data->locations[$$] = CUR_POS; } }
   | expr_op AND expr_op { { $$ = new ExprOpAnd(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
   | expr_op OR expr_op { { $$ = new ExprOpOr(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
   | expr_op IMPL expr_op { { $$ = new ExprOpImpl(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
@@ -421,9 +424,9 @@ expr_op
   | expr_op '?' attrpath { { $$ = new ExprOpHasAttr($1, std::move(*$3)); delete $3;  data->locations[$$] = CUR_POS; } }
   | expr_op '+' expr_op
     { { $$ = new ExprConcatStrings(makeCurPos(@2, data), false, new std::vector<std::pair<PosIdx, Expr *> >({{makeCurPos(@1, data), $1}, {makeCurPos(@3, data), $3}}));  data->locations[$$] = CUR_POS; } }
-  | expr_op '-' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__sub")), {$1, $3});  data->locations[$$] = CUR_POS; } }
-  | expr_op '*' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__mul")), {$1, $3});  data->locations[$$] = CUR_POS; } }
-  | expr_op '/' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->symbols.create("__div")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op '-' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__sub")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op '*' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__mul")), {$1, $3});  data->locations[$$] = CUR_POS; } }
+  | expr_op '/' expr_op { { $$ = new ExprCall(makeCurPos(@2, data), new ExprVar(data->state.symbols.create("__div")), {$1, $3});  data->locations[$$] = CUR_POS; } }
   | expr_op CONCAT expr_op { { $$ = new ExprOpConcatLists(makeCurPos(@2, data), $1, $3);  data->locations[$$] = CUR_POS; } }
   | expr_app
   ;
@@ -447,7 +450,7 @@ expr_select
   | /* Backwards compatibility: because Nixpkgs has a rarely used
        function named ‘or’, allow stuff like ‘map or [...]’. */
     expr_simple OR_KW
-    { { $$ = new ExprCall(CUR_POS, $1, {new ExprVar(CUR_POS, data->symbols.create("or"))});  data->locations[$$] = CUR_POS; } }
+    { { $$ = new ExprCall(CUR_POS, $1, {new ExprVar(CUR_POS, data->state.symbols.create("or"))});  data->locations[$$] = CUR_POS; } }
   | expr_simple
   ;
 
@@ -457,13 +460,13 @@ expr_simple
       if ($1.l == s.size() && strncmp($1.p, s.data(), s.size()) == 0)
           { $$ = new ExprPos(CUR_POS);  data->locations[$$] = CUR_POS; }
       else
-          { $$ = new ExprVar(CUR_POS, data->symbols.create($1));  data->locations[$$] = CUR_POS; }
+          { $$ = new ExprVar(CUR_POS, data->state.symbols.create($1));  data->locations[$$] = CUR_POS; }
   }
   | INT { { $$ = new ExprInt($1);  data->locations[$$] = CUR_POS; } }
   | FLOAT { { $$ = new ExprFloat($1);  data->locations[$$] = CUR_POS; } }
   | '"' string_parts '"' { { $$ = $2;  data->locations[$$] = CUR_POS; } }
   | IND_STRING_OPEN ind_string_parts IND_STRING_CLOSE {
-      { $$ = stripIndentation(CUR_POS, data->symbols, std::move(*$2));  data->locations[$$] = CUR_POS; }
+      { $$ = stripIndentation(CUR_POS, data->state.symbols, std::move(*$2));  data->locations[$$] = CUR_POS; }
       delete $2;
   }
   | path_start PATH_END
@@ -474,8 +477,8 @@ expr_simple
   | SPATH {
       std::string path($1.p + 1, $1.l - 2);
       $$ = new ExprCall(CUR_POS,
-          new ExprVar(data->symbols.create("__findFile")),
-          {new ExprVar(data->symbols.create("__nixPath")),
+          new ExprVar(data->state.symbols.create("__findFile")),
+          {new ExprVar(data->state.symbols.create("__nixPath")),
            new ExprString(std::move(path))});
   }
   | URI {
@@ -491,7 +494,7 @@ expr_simple
   /* Let expressions `let {..., body = ...}' are just desugared
      into `(rec {..., body = ...}).body'. */
   | LET '{' binds '}'
-    { $3->recursive = true; { $$ = new ExprSelect(noPos, $3, data->symbols.create("body"));  data->locations[$$] = CUR_POS; } }
+    { $3->recursive = true; { $$ = new ExprSelect(noPos, $3, data->state.symbols.create("body"));  data->locations[$$] = CUR_POS; } }
   | REC '{' binds '}'
     { $3->recursive = true; { $$ = $3;  data->locations[$$] = CUR_POS; } }
   | '{' binds '}'
@@ -569,12 +572,12 @@ binds
   ;
 
 attrs
-  : attrs attr { { $$ = $1; $1->push_back(AttrName(data->symbols.create($2)));  data->locations[$$] = CUR_POS; } }
+  : attrs attr { { $$ = $1; $1->push_back(AttrName(data->state.symbols.create($2)));  data->locations[$$] = CUR_POS; } }
   | attrs string_attr
     { { $$ = $1;  data->locations[$$] = CUR_POS; }
       ExprString * str = dynamic_cast<ExprString *>($2);
       if (str) {
-          $$->push_back(AttrName(data->symbols.create(str->s)));
+          $$->push_back(AttrName(data->state.symbols.create(str->s)));
           delete str;
       } else
           throw ParseError({
@@ -586,22 +589,22 @@ attrs
   ;
 
 attrpath
-  : attrpath '.' attr { { $$ = $1; $1->push_back(AttrName(data->symbols.create($3)));  data->locations[$$] = CUR_POS; } }
+  : attrpath '.' attr { { $$ = $1; $1->push_back(AttrName(data->state.symbols.create($3)));  data->locations[$$] = CUR_POS; } }
   | attrpath '.' string_attr
     { { $$ = $1;  data->locations[$$] = CUR_POS; }
       ExprString * str = dynamic_cast<ExprString *>($3);
       if (str) {
-          $$->push_back(AttrName(data->symbols.create(str->s)));
+          $$->push_back(AttrName(data->state.symbols.create(str->s)));
           delete str;
       } else
           $$->push_back(AttrName($3));
     }
-  | attr { { $$ = new std::vector<AttrName>; $$->push_back(AttrName(data->symbols.create($1)));  data->locations[$$] = CUR_POS; } }
+  | attr { { $$ = new std::vector<AttrName>; $$->push_back(AttrName(data->state.symbols.create($1)));  data->locations[$$] = CUR_POS; } }
   | string_attr
     { { $$ = new std::vector<AttrName>;  data->locations[$$] = CUR_POS; }
       ExprString *str = dynamic_cast<ExprString *>($1);
       if (str) {
-          $$->push_back(AttrName(data->symbols.create(str->s)));
+          $$->push_back(AttrName(data->state.symbols.create(str->s)));
           delete str;
       } else
           $$->push_back(AttrName($1));
@@ -635,8 +638,8 @@ formals
   ;
 
 formal
-  : ID { { $$ = new Formal{CUR_POS, data->symbols.create($1), 0};  data->locations[$$] = CUR_POS; } }
-  | ID '?' expr { { $$ = new Formal{CUR_POS, data->symbols.create($1), $3};  data->locations[$$] = CUR_POS; } }
+  : ID { { $$ = new Formal{CUR_POS, data->state.symbols.create($1), 0};  data->locations[$$] = CUR_POS; } }
+  | ID '?' expr { { $$ = new Formal{CUR_POS, data->state.symbols.create($1), $3};  data->locations[$$] = CUR_POS; } }
   ;
 
 %%
@@ -659,13 +662,14 @@ namespace nixd {
 using namespace nix;
 
 std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
-                                 const SourcePath &basePath, EvalState &state,
-                                 std::shared_ptr<StaticEnv> env)
+                                 const SourcePath &basePath, ParseState state)
 {
     yyscan_t scanner;
     std::unique_ptr<ParseData> data = std::unique_ptr<ParseData>(new ParseData{
-        .state = state,
-        .symbols = state.symbols,
+        .state = {
+          .symbols = state.symbols,
+          .positions = state.positions,
+        },
         .basePath = std::move(basePath),
         .origin = {origin},
     });
@@ -676,8 +680,6 @@ std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
     yylex_destroy(scanner);
 
     if (res) throw ParseError(data->error.value());
-
-    data->result->bindVars(state, env);
 
     return data; // NRVO
 }
