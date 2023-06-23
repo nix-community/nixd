@@ -101,7 +101,9 @@ StreamLogger::StreamLogger(llvm::raw_ostream &Logs, Logger::Level MinLevel)
   pthread_mutexattr_t Attr;
   pthread_mutexattr_init(&Attr);
   pthread_mutexattr_setpshared(&Attr, PTHREAD_PROCESS_SHARED);
+#ifndef __APPLE__
   pthread_mutexattr_setrobust(&Attr, PTHREAD_MUTEX_ROBUST);
+#endif
   pthread_mutex_init(ShmLock, &Attr);
   pthread_mutexattr_destroy(&Attr);
 }

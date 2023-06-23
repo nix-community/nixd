@@ -79,6 +79,6 @@ stdenv.mkDerivation {
     maintainers = with lib.maintainers; [ inclyc ];
     platforms = lib.platforms.unix;
     # Tracking issue: https://github.com/nix-community/nixd/issues/107
-    broken = stdenv.isDarwin;
+    # broken = stdenv.isDarwin;
   };
 }
