@@ -46,9 +46,9 @@ jobs:
     - uses: cachix/install-nix-action@v20
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
-    - run: nix develop --command env CXX=clang++ meson setup build/ --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
-    - run: nix develop --command meson compile -C build
-    - run: nix develop --command meson test -C build
+    - run: nix develop .#llvm --command env CXX=clang++ meson setup build/ --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
+    - run: nix develop .#llvm --command meson compile -C build
+    - run: nix develop .#llvm --command meson test -C build
     - uses: actions/upload-artifact@v3
       if: failure()
       with:

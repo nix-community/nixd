@@ -13,6 +13,9 @@
       with pkgs;
       let
         nixd = callPackage ./default.nix { };
+        nixdLLVM = nixd.override {
+          stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv;
+        };
       in
       {
         packages.default = nixd;
@@ -20,6 +23,8 @@
           inherit (config.packages) nixd;
         };
         packages.nixd = nixd;
+
+        devShells.llvm = nixdLLVM;
 
         devShells.default = nixd.overrideAttrs (old: {
           nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
