@@ -18,7 +18,7 @@ jobs:
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     steps:
     - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v20
+    - uses: cachix/install-nix-action@v22
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
     - run: nix develop --command meson setup build/ --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
@@ -43,7 +43,7 @@ jobs:
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     steps:
     - uses: actions/checkout@v3
-    - uses: cachix/install-nix-action@v20
+    - uses: cachix/install-nix-action@v22
       with:
         github_access_token: ${{ secrets.GITHUB_TOKEN }}
     - run: nix develop .#llvm --command env CXX=clang++ meson setup build/ --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
