@@ -15,6 +15,7 @@
 #include <nix/eval.hh>
 #include <nix/nixexpr.hh>
 #include <nix/shared.hh>
+#include <nix/value.hh>
 
 #include <llvm/ADT/StringRef.h>
 
@@ -119,21 +120,42 @@ void Server::onEvalDefinition(
                 return;
               }
             }
-          } else {
-            // There is a value avaiable, this might be useful for locations
-            auto P = V.determinePos(nix::noPos);
-            if (P != nix::noPos) {
-              auto Pos = State->positions[P];
-              if (auto *SourcePath =
-                      std::get_if<nix::SourcePath>(&Pos.origin)) {
-                auto Path = SourcePath->to_string();
-                lspserver::Position Position = toLSPPos(State->positions[P]);
-                RR.Response = Location{URIForFile::canonicalize(Path, Path),
-                                       {Position, Position}};
-                return;
+          } else if (const auto *ESelect =
+                         dynamic_cast<const nix::ExprSelect *>(Node)) {
+            // If this is an "ExprSelect", firstly we check if the base
+            // "ExprVar" is an attribute set, if it is, we can use "AttrDef" to
+            // find it's location, it is somehow more accurate by values
+            try {
+              // Drop the last element, use that for def searching
+              if (!ESelect->attrPath.empty() &&
+                  /* ignore: */ /* e.foo or e.bar */ !ESelect->def) {
+                auto AttrPathCopy = ESelect->attrPath;
+                auto Last = AttrPathCopy.back();
+                AttrPathCopy.pop_back();
+                auto VBase = AST->getValueEval(ESelect->e, *State);
+                // Then, find along that attrpath.
+                auto VShort = nix::evalAttrPath(
+                    *State, VBase, *AST->getEnv(ESelect->e), AttrPathCopy);
+                if (VShort.type() == nix::ValueType::nAttrs) {
+                  // So, it is an attribute set, let's do unsafeGetAttrPos.
+                  auto Name = getName(Last, *State, *AST->getEnv(ESelect->e));
+                  auto P = VShort.attrs->find(Name)->pos;
+                  RR.Response = toLSPLocation(P, State->positions);
+                  return;
+                }
               }
+            } catch (std::exception &E) {
+              lspserver::vlog("eval defintion (field): {0}",
+                              stripANSI(E.what()));
             }
           }
+          // There is a value avaiable, this might be useful for locations
+          auto P = V.determinePos(nix::noPos);
+          RR.Response = toLSPLocation(P, State->positions);
+          return;
+
+        } catch (std::exception &E) {
+          lspserver::vlog("eval defintion: {0}", stripANSI(E.what()));
         } catch (...) {
           lspserver::vlog("no associated value on this expression");
         }

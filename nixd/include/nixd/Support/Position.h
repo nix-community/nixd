@@ -6,6 +6,7 @@
 #include "lspserver/Protocol.h"
 
 #include <nix/nixexpr.hh>
+#include <stdexcept>
 
 namespace nixd {
 
@@ -68,6 +69,23 @@ inline std::string pathOf(const nix::AbstractPos *Pos) {
   if (const auto *PAPos = dynamic_cast<const nix::PosAdapter *>(Pos))
     return pathOf(*PAPos);
   return "/nix-abstract-position";
+}
+
+inline lspserver::Location toLSPLocation(const nix::Pos &Pos) {
+  if (const auto *SourcePath = std::get_if<nix::SourcePath>(&Pos.origin)) {
+    auto Path = SourcePath->to_string();
+    lspserver::Position Position = toLSPPos(Pos);
+    return lspserver::Location{lspserver::URIForFile::canonicalize(Path, Path),
+                               {Position, Position}};
+  }
+  throw std::out_of_range("toLSPLocation: no source path");
+}
+
+inline lspserver::Location toLSPLocation(nix::PosIdx &Pos,
+                                         const nix::PosTable &Positions) {
+  if (Pos == nix::noPos)
+    throw std::out_of_range("toLSPLocation: nix::noPos");
+  return toLSPLocation(Positions[Pos]);
 }
 
 }; // namespace nixd
