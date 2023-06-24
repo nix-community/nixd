@@ -30,7 +30,6 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <ranges>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -368,7 +367,11 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
     std::string Punc = "\r\n\t ;";
 
     auto IsPunc = [&Punc](char C) {
-      return std::ranges::any_of(Punc, [C](char Ck) { return Ck == C; });
+      for (const auto Char : Punc) {
+        if (Char == C)
+          return true;
+      }
+      return false;
     };
 
     for (; From >= 0 && !IsPunc(Code[From]);)
