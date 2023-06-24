@@ -28,6 +28,8 @@ void Server::onOptionDeclaration(
          "option declaration should be calculated in option worker!");
   using namespace lspserver;
   ReplyRAII<Location> RR(std::move(Reply));
+  if (!OptionAttrSet)
+    return;
   if (OptionAttrSet->type() != nix::ValueType::nAttrs)
     return;
 
@@ -92,6 +94,8 @@ void Server::switchToOptionProvider() {
   } catch (std::exception &E) {
     lspserver::elog("exception {0} encountered while evaluating options",
                     stripANSI(E.what()));
+    OptionIES = nullptr;
+    OptionAttrSet = nullptr;
   }
 }
 
@@ -100,6 +104,9 @@ void Server::onOptionCompletion(const ipc::AttrPathParams &Params,
   using namespace lspserver;
   using namespace nix::nixd;
   ReplyRAII<CompletionList> RR(std::move(Reply));
+
+  if (!OptionAttrSet)
+    return;
 
   try {
     CompletionList List;
