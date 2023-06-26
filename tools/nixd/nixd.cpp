@@ -32,8 +32,6 @@ using lspserver::Logger;
 
 namespace nixd {
 
-constexpr const char *StackDumpFile = "nixd-backtrace.dump";
-
 void printReportInfo() {
   std::cerr
       << "Please file an issue at https://github.com/nix-community/nixd/issues/"
@@ -47,29 +45,10 @@ void printReportInfo() {
 
 void sigHandler(int Signum) {
   ::signal(Signum, SIG_DFL);
-  boost::stacktrace::safe_dump_to(StackDumpFile);
-
   // POSIX say we can use `read` and `write` syscall, this is async-signal-safe
   printReportInfo();
   std::cerr << boost::stacktrace::stacktrace() << "\n";
   ::raise(SIGABRT);
-}
-
-void checkStackDump() {
-  if (std::filesystem::exists(StackDumpFile)) {
-    // there is a backtrace
-    std::ifstream IFS(StackDumpFile);
-
-    boost::stacktrace::stacktrace ST =
-        boost::stacktrace::stacktrace::from_dump(IFS);
-
-    printReportInfo();
-    std::cerr << "Previous run crashed:\n" << ST << std::endl;
-
-    // cleaning up
-    IFS.close();
-    std::filesystem::remove(StackDumpFile);
-  }
 }
 
 void registerSigHanlder() {
@@ -121,7 +100,6 @@ opt<bool> WaitWorker{"wait-worker",
 int main(int argc, char *argv[]) {
   using namespace lspserver;
   nixd::registerSigHanlder();
-  nixd::checkStackDump();
   const char *FlagsEnvVar = "NIXD_FLAGS";
   HideUnrelatedOptions(NixdCatogories);
   ParseCommandLineOptions(argc, argv, "nixd language server", nullptr,
