@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Parser.tab.h"
+#include "nixexpr.hh"
+#include "symbol-table.hh"
 
 #include <utility>
 
@@ -18,12 +20,29 @@ inline std::unique_ptr<ParseData> parse(std::string Text, Pos::Origin Origin,
   return parse(Text.data(), Text.length(), std::move(Origin), BasePath, State);
 }
 
+inline std::tuple<nix::SymbolTable, nix::PosTable, std::unique_ptr<ParseData>>
+parse(char *Text, size_t Length, Pos::Origin Origin,
+      const SourcePath &BasePath) {
+  nix::SymbolTable Symbols;
+  nix::PosTable Positions;
+  ParseState State{Symbols, Positions};
+  auto Data = parse(Text, Length, std::move(Origin), BasePath, State);
+  return {std::move(Symbols), std::move(Positions), std::move(Data)};
+}
+
+inline std::tuple<nix::SymbolTable, nix::PosTable, std::unique_ptr<ParseData>>
+parse(std::string Text, Pos::Origin Origin, const SourcePath &BasePath) {
+  Text.append("\0\0", 2);
+  return parse(Text.data(), Text.length(), std::move(Origin), BasePath);
+}
+
 inline std::unique_ptr<ParseData>
 parse(char *Text, size_t Length, Pos::Origin Origin, const SourcePath &BasePath,
       EvalState &State, std::shared_ptr<StaticEnv> Env) {
   auto Data = parse(Text, Length, std::move(Origin), BasePath,
                     ParseState{State.symbols, State.positions});
-  Data->result->bindVars(State, Env);
+  if (Data->result && Data->error.empty())
+    Data->result->bindVars(State, Env);
   return Data;
 }
 

@@ -4,6 +4,7 @@
 
 #include <nix/canon-path.hh>
 #include <nix/command-installable-value.hh>
+#include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/installable-value.hh>
 #include <nix/nixexpr.hh>
@@ -28,11 +29,18 @@ EvalDraftStore::injectFiles(const nix::ref<nix::EvalState> &State) noexcept {
       auto SourcePath = nix::CanonPath(AFPath.string());
       auto BasePath = nix::CanonPath(AFPath.remove_filename().string());
       auto ParseData = parse(*Draft.Contents, SourcePath, BasePath, *State);
+      if (!ParseData->error.empty()) {
+        for (const auto &ErrInfo : ParseData->error) {
+          auto ParseError = std::make_unique<nix::ParseError>(ErrInfo);
+          ILR.InjectionErrors.emplace_back(
+              InjectionError{std::move(ParseError), ActiveFile, Draft.Version});
+        }
+      }
       EAF.insert({ActiveFile, nix::make_ref<EvalAST>(std::move(ParseData))});
       EAF.at(ActiveFile)->injectAST(*State, ActiveFile);
     } catch (nix::BaseError &Err) {
-      std::exception_ptr Ptr = std::current_exception();
-      ILR.InjectionErrors.insert({&Err, {Ptr, ActiveFile, Draft.Version}});
+      ILR.InjectionErrors.emplace_back(InjectionError{
+          std::make_unique<nix::BaseError>(Err), ActiveFile, Draft.Version});
     } catch (...) {
       // Catch all exceptions while parsing & evaluation on single file.
     }

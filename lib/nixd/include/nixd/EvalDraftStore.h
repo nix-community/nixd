@@ -8,6 +8,7 @@
 #include "lspserver/Logger.h"
 
 #include <nix/command-installable-value.hh>
+#include <nix/error.hh>
 #include <nix/installable-value.hh>
 
 #include <llvm/ADT/FunctionExtras.h>
@@ -16,15 +17,16 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <variant>
 
 namespace nixd {
 
 using EvalASTForest = std::map<std::string, nix::ref<EvalAST>>;
 
-struct InjectionErrorInfo {
+struct InjectionError {
   /// Holds the lifetime of associated error.
-  std::exception_ptr Ptr;
+  std::unique_ptr<nix::BaseError> Err;
 
   /// Which active file caused the error?
   std::string ActiveFile;
@@ -42,7 +44,7 @@ struct InjectionLogicalResult {
   /// Injection errors are ignored because opened textDocument might be in
   /// complete, and we don't want to fail early for evaluation. There may be
   /// more than one exceptions on a file.
-  std::map<nix::BaseError *, InjectionErrorInfo> InjectionErrors;
+  std::vector<InjectionError> InjectionErrors;
 
   /// Holds EvalASTs
   EvalASTForest Forest;

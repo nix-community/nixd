@@ -6,6 +6,7 @@
 #include "lspserver/Protocol.h"
 
 #include <nix/ansicolor.hh>
+#include <nix/error.hh>
 
 #include <exception>
 #include <optional>
