@@ -11,6 +11,7 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
+#include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/nixexpr.hh>
 #include <nix/shared.hh>
@@ -20,6 +21,7 @@
 #include <algorithm>
 #include <exception>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -63,8 +65,8 @@ void Server::evalInstallable(int Depth = 0) {
 
   ipc::Diagnostics Diagnostics;
   std::map<std::string, lspserver::PublishDiagnosticsParams> DiagMap;
-  for (const auto &[ErrObject, ErrInfo] : ILR.InjectionErrors) {
-    insertDiagnostic(*ErrObject, DiagMap,
+  for (const auto &ErrInfo : ILR.InjectionErrors) {
+    insertDiagnostic(*ErrInfo.Err, DiagMap,
                      decltype(DraftMgr)::decodeVersion(ErrInfo.Version));
   }
   Diagnostics.WorkspaceVersion = WorkspaceVersion;

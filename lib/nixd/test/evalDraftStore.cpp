@@ -78,8 +78,8 @@ TEST(EvalDraftStore, TransferInjectionError) {
 
   const auto &IErrs = ILR.InjectionErrors;
   ASSERT_EQ(IErrs.size(), 2);
-  for (const auto &[Err, ErrInfo] : IErrs) {
-    llvm::StringRef ErrWhat = Err->what();
+  for (const auto &ErrInfo : IErrs) {
+    llvm::StringRef ErrWhat = ErrInfo.Err->what();
     if (ErrInfo.ActiveFile == "/foo") {
       ASSERT_TRUE(ErrWhat.contains("syntax error"));
     } else if (ErrInfo.ActiveFile == "/barr") {

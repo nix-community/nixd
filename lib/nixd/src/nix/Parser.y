@@ -679,8 +679,6 @@ std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
     int res = yyparse(scanner, data.get());
     yylex_destroy(scanner);
 
-    if (res) throw ParseError(data->error[0]);
-
     return data; // NRVO
 }
 } // namespace nixd

@@ -52,6 +52,8 @@ nix::Value EvalAST::getValue(const nix::Expr *Expr) const {
 }
 
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) const {
+  if (!Data->error.empty())
+    return;
   nix::Value DummyValue{};
   State.cacheFile(nix::CanonPath(Path.str()), nix::CanonPath(Path.str()), Root,
                   DummyValue);
