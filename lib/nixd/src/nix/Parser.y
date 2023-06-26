@@ -81,26 +81,26 @@ YY_DECL;
 namespace nixd {
 
 
-static void dupAttr(const ParseState & state, const AttrPath & attrPath, const PosIdx pos, const PosIdx prevPos)
+static void dupAttr(ParseData & data, const AttrPath & attrPath, const PosIdx pos, const PosIdx prevPos)
 {
-    throw ParseError({
-         .msg = hintfmt("attribute '%1%' already defined at %2%",
-             showAttrPath(state.symbols, attrPath), state.positions[prevPos]),
-         .errPos = state.positions[pos]
+    data.error.emplace_back(nix::ErrorInfo{
+        .msg = hintfmt("attribute '%1%' already defined at %2%",
+               showAttrPath(data.state.symbols, attrPath), data.state.positions[prevPos]),
+        .errPos = data.state.positions[pos]
     });
 }
 
-static void dupAttr(const ParseState & state, Symbol attr, const PosIdx pos, const PosIdx prevPos)
+static void dupAttr(ParseData & data, Symbol attr, const PosIdx pos, const PosIdx prevPos)
 {
-    throw ParseError({
-        .msg = hintfmt("attribute '%1%' already defined at %2%", state.symbols[attr], state.positions[prevPos]),
-        .errPos = state.positions[pos]
+    data.error.emplace_back(nix::ErrorInfo{
+        .msg = hintfmt("attribute '%1%' already defined at %2%", data.state.symbols[attr], data.state.positions[prevPos]),
+        .errPos = data.state.positions[pos]
     });
 }
 
 
 static void addAttr(ExprAttrs * attrs, AttrPath && attrPath,
-    Expr * e, const PosIdx pos, const ParseState & state)
+    Expr * e, const PosIdx pos, ParseData & data)
 {
     AttrPath::iterator i;
     // All attrpaths have at least one attr
@@ -113,10 +113,10 @@ static void addAttr(ExprAttrs * attrs, AttrPath && attrPath,
             if (j != attrs->attrs.end()) {
                 if (!j->second.inherited) {
                     ExprAttrs * attrs2 = dynamic_cast<ExprAttrs *>(j->second.e);
-                    if (!attrs2) dupAttr(state, attrPath, pos, j->second.pos);
+                    if (!attrs2) dupAttr(data, attrPath, pos, j->second.pos);
                     attrs = attrs2;
                 } else
-                    dupAttr(state, attrPath, pos, j->second.pos);
+                    dupAttr(data, attrPath, pos, j->second.pos);
             } else {
                 ExprAttrs * nested = new ExprAttrs;
                 attrs->attrs[i->symbol] = ExprAttrs::AttrDef(nested, pos);
@@ -143,11 +143,11 @@ static void addAttr(ExprAttrs * attrs, AttrPath && attrPath,
                 for (auto & ad : ae->attrs) {
                     auto j2 = jAttrs->attrs.find(ad.first);
                     if (j2 != jAttrs->attrs.end()) // Attr already defined in iAttrs, error.
-                        dupAttr(state, ad.first, j2->second.pos, ad.second.pos);
+                        dupAttr(data, ad.first, j2->second.pos, ad.second.pos);
                     jAttrs->attrs.emplace(ad.first, ad.second);
                 }
             } else {
-                dupAttr(state, attrPath, pos, j->second.pos);
+                dupAttr(data, attrPath, pos, j->second.pos);
             }
         } else {
             // This attr path is not defined. Let's create it.
@@ -547,12 +547,12 @@ ind_string_parts
   ;
 
 binds
-  : binds attrpath '=' expr ';' { { $$ = $1; addAttr($$, std::move(*$2), $4, makeCurPos(@2, data), data->state); delete $2;  data->locations[$$] = CUR_POS; } }
+  : binds attrpath '=' expr ';' { { $$ = $1; addAttr($$, std::move(*$2), $4, makeCurPos(@2, data), *data); delete $2;  data->locations[$$] = CUR_POS; } }
   | binds INHERIT attrs ';'
     { { $$ = $1;  data->locations[$$] = CUR_POS; }
       for (auto & i : *$3) {
           if ($$->attrs.find(i.symbol) != $$->attrs.end())
-              dupAttr(data->state, i.symbol, makeCurPos(@3, data), $$->attrs[i.symbol].pos);
+              dupAttr(*data, i.symbol, makeCurPos(@3, data), $$->attrs[i.symbol].pos);
           auto pos = makeCurPos(@3, data);
           $$->attrs.emplace(i.symbol, ExprAttrs::AttrDef(new ExprVar(CUR_POS, i.symbol), pos, true));
       }
@@ -563,7 +563,7 @@ binds
       /* !!! Should ensure sharing of the expression in $4. */
       for (auto & i : *$6) {
           if ($$->attrs.find(i.symbol) != $$->attrs.end())
-              dupAttr(data->state, i.symbol, makeCurPos(@6, data), $$->attrs[i.symbol].pos);
+              dupAttr(*data, i.symbol, makeCurPos(@6, data), $$->attrs[i.symbol].pos);
           $$->attrs.emplace(i.symbol, ExprAttrs::AttrDef(new ExprSelect(CUR_POS, $4, i.symbol), makeCurPos(@6, data)));
       }
       delete $6;
