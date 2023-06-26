@@ -41,7 +41,7 @@ using namespace nix;
         Expr * result;
         SourcePath basePath;
         PosTable::Origin origin;
-        std::optional<ErrorInfo> error;
+        std::vector<ErrorInfo> error;
         std::map<PosIdx, PosIdx> end;
         std::map<const void *, PosIdx> locations;
     };
@@ -305,10 +305,10 @@ using namespace nixd;
 
 void yyerror(YYLTYPE * loc, yyscan_t scanner, ParseData * data, const char * error)
 {
-    data->error = {
+    data->error.push_back({
         .msg = hintfmt(error),
         .errPos = data->state.positions[makeCurPos(*loc, data)]
-    };
+    });
 }
 
 
@@ -679,7 +679,7 @@ std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
     int res = yyparse(scanner, data.get());
     yylex_destroy(scanner);
 
-    if (res) throw ParseError(data->error.value());
+    if (res) throw ParseError(data->error[0]);
 
     return data; // NRVO
 }
