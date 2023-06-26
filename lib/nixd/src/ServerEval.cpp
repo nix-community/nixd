@@ -62,8 +62,9 @@ void Server::evalInstallable(int Depth = 0) {
   auto ILR = DraftMgr.injectFiles(Session->getState());
 
   ipc::Diagnostics Diagnostics;
+  std::map<std::string, lspserver::PublishDiagnosticsParams> DiagMap;
   for (const auto &[ErrObject, ErrInfo] : ILR.InjectionErrors) {
-    insertDiagnostic(*ErrObject, Diagnostics.Params,
+    insertDiagnostic(*ErrObject, DiagMap,
                      decltype(DraftMgr)::decodeVersion(ErrInfo.Version));
   }
   Diagnostics.WorkspaceVersion = WorkspaceVersion;
@@ -75,9 +76,12 @@ void Server::evalInstallable(int Depth = 0) {
                      WorkspaceVersion);
     }
   } catch (nix::BaseError &BE) {
-    insertDiagnostic(BE, Diagnostics.Params);
+    insertDiagnostic(BE, DiagMap);
   } catch (...) {
   }
+  std::transform(DiagMap.begin(), DiagMap.end(),
+                 std::back_inserter(Diagnostics.Params),
+                 [](const auto &V) { return V.second; });
   EvalDiagnostic(Diagnostics);
   IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
                                            std::move(Session));

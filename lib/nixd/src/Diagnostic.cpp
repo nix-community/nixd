@@ -57,17 +57,23 @@ mkDiagnostics(const nix::BaseError &Err) {
   return Result;
 }
 
-void insertDiagnostic(const nix::BaseError &E,
-                      std::vector<lspserver::PublishDiagnosticsParams> &R,
-                      std::optional<uint64_t> Version) {
+void insertDiagnostic(
+    const nix::BaseError &E,
+    std::map<std::string, lspserver::PublishDiagnosticsParams> &R,
+    std::optional<uint64_t> Version) {
   auto ErrMap = mkDiagnostics(E);
   for (const auto &[Path, DiagVec] : ErrMap) {
     try {
-      lspserver::PublishDiagnosticsParams Params;
-      Params.uri = lspserver::URIForFile::canonicalize(Path, Path);
-      Params.diagnostics = DiagVec;
-      Params.version = Version;
-      R.emplace_back(std::move(Params));
+      if (R.contains(Path)) {
+        auto &Diag = R.at(Path).diagnostics;
+        Diag.insert(Diag.end(), DiagVec.begin(), DiagVec.end());
+      } else {
+        lspserver::PublishDiagnosticsParams Params;
+        Params.uri = lspserver::URIForFile::canonicalize(Path, Path);
+        Params.diagnostics = DiagVec;
+        Params.version = Version;
+        R.insert({Path, Params});
+      }
     } catch (std::exception &E) {
       lspserver::log("{0} while inserting it's diagnostic",
                      stripANSI(E.what()));
