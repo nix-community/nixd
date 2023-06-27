@@ -186,7 +186,7 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
             Items.emplace_back(
                 CompletionItem{.label = State->symbols[Binding.name],
                                .kind = CompletionItemKind::Field});
-            if(Items.size() > 5000)
+            if (Items.size() > 5000)
               break;
           }
         }
