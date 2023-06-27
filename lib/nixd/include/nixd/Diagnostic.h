@@ -23,8 +23,15 @@ inline lspserver::Diagnostic mkDiagnosic(const nix::Trace &T,
 std::map<std::string, std::vector<lspserver::Diagnostic>>
 mkDiagnostics(const nix::BaseError &);
 
-void insertDiagnostic(const nix::BaseError &E,
-                      std::vector<lspserver::PublishDiagnosticsParams> &R,
-                      std::optional<uint64_t> Version = std::nullopt);
+void insertDiagnostic(
+    const nix::BaseError &E,
+    std::map<std::string, lspserver::PublishDiagnosticsParams> &R,
+    std::optional<uint64_t> Version = std::nullopt);
 
+inline void
+insertDiagnostic(const nix::ErrorInfo &E,
+                 std::map<std::string, lspserver::PublishDiagnosticsParams> &R,
+                 std::optional<uint64_t> Version = std::nullopt) {
+  return insertDiagnostic(nix::BaseError(E), R, Version);
+}
 } // namespace nixd
