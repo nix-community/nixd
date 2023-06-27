@@ -152,7 +152,8 @@ static void addAttr(ExprAttrs * attrs, AttrPath && attrPath,
         } else {
             // This attr path is not defined. Let's create it.
             attrs->attrs.emplace(i->symbol, ExprAttrs::AttrDef(e, pos));
-            e->setName(i->symbol);
+            if(e)
+              e->setName(i->symbol);
         }
     } else {
         attrs->dynamicAttrs.push_back(ExprAttrs::DynamicAttrDef(i->expr, e, pos));
@@ -176,7 +177,7 @@ static Formals * toFormals(ParseData & data, ParserFormals * formals,
         duplicate = std::min(thisDup, duplicate.value_or(thisDup));
     }
     if (duplicate)
-        throw ParseError({
+        data.error.emplace_back(nix::ErrorInfo{
             .msg = hintfmt("duplicate formal function argument '%1%'", data.state.symbols[duplicate->first]),
             .errPos = data.state.positions[duplicate->second]
         });
@@ -186,7 +187,7 @@ static Formals * toFormals(ParseData & data, ParserFormals * formals,
     result.formals = std::move(formals->formals);
 
     if (arg && result.has(arg))
-        throw ParseError({
+        data.error.emplace_back(nix::ErrorInfo{
             .msg = hintfmt("duplicate formal function argument '%1%'", data.state.symbols[arg]),
             .errPos = data.state.positions[pos]
         });
@@ -394,7 +395,7 @@ expr_function
     { { $$ = new ExprWith(CUR_POS, $2, $4);  data->locations[$$] = CUR_POS; } }
   | LET binds IN expr_function
     { if (!$2->dynamicAttrs.empty())
-        throw ParseError({
+        data->error.emplace_back(nix::ErrorInfo{
             .msg = hintfmt("dynamic attributes not allowed in let"),
             .errPos = data->state.positions[CUR_POS]
         });
@@ -484,7 +485,7 @@ expr_simple
   | URI {
       static bool noURLLiterals = experimentalFeatureSettings.isEnabled(Xp::NoUrlLiterals);
       if (noURLLiterals)
-          throw ParseError({
+          data->error.emplace_back(nix::ErrorInfo{
               .msg = hintfmt("URL literals are disabled"),
               .errPos = data->state.positions[CUR_POS]
           });
@@ -548,6 +549,9 @@ ind_string_parts
 
 binds
   : binds attrpath '=' expr ';' { { $$ = $1; addAttr($$, std::move(*$2), $4, makeCurPos(@2, data), *data); delete $2;  data->locations[$$] = CUR_POS; } }
+  | binds attrpath '=' expr error { { $$ = $1; addAttr($$, std::move(*$2), $4, makeCurPos(@2, data), *data); delete $2;  data->locations[$$] = CUR_POS; } }
+  | binds attrpath '=' error { { $$ = $1; addAttr($$, std::move(*$2), nullptr, makeCurPos(@2, data), *data); delete $2;  data->locations[$$] = CUR_POS; } }
+  | binds attrpath error { { $$ = $1; addAttr($$, std::move(*$2), nullptr, makeCurPos(@2, data), *data); delete $2;  data->locations[$$] = CUR_POS; } }
   | binds INHERIT attrs ';'
     { { $$ = $1;  data->locations[$$] = CUR_POS; }
       for (auto & i : *$3) {
@@ -580,7 +584,7 @@ attrs
           $$->push_back(AttrName(data->state.symbols.create(str->s)));
           delete str;
       } else
-          throw ParseError({
+          data->error.emplace_back(nix::ErrorInfo{
               .msg = hintfmt("dynamic attributes not allowed in inherit"),
               .errPos = data->state.positions[makeCurPos(@2, data)]
           });

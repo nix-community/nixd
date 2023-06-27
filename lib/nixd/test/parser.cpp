@@ -96,4 +96,17 @@ TEST(Parser, parse1) {
                     ParseState{Symbols, Positions});
 }
 
+TEST(Parser, Error1) {
+  auto [_1, _2, Data] = parse(
+      R"({
+        x = 1;
+        foo
+        bar
+  })",
+      CanonPath("/"), CanonPath("/"));
+  ASSERT_EQ(Data->error.size(), 2);
+  auto Root = dynamic_cast<nix::ExprAttrs *>(Data->result);
+  ASSERT_EQ(Root->attrs.size(), 2);
+}
+
 } // namespace nixd
