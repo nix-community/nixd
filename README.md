@@ -23,7 +23,7 @@ Some notable features provided by linking with the Nix library include:
 ## Features Preview
 
 
-<details><summary>Home-manager options auto-complete & goto declaration</summary>
+<details><summary>Home-manager options auto-completion & goto declaration</summary>
 
 ![options-example](https://github.com/nix-community/nixd/assets/36667224/43e00a8e-c2e6-4598-b188-f5e95d708256)
 
