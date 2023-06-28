@@ -54,7 +54,6 @@ nixd_server = declare_dependency( link_with: nixd_server_lib
 
 test_server = executable('test-server'
 , [ 'test/ast.cpp'
-  , 'test/diagnostic.cpp'
   , 'test/evalDraftStore.cpp'
   , 'test/expr.cpp'
   , 'test/parser.cpp'
