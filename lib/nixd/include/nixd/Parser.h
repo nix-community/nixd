@@ -2,13 +2,30 @@
 
 #include "Parser.tab.h"
 
+#include <utility>
+
 namespace nixd {
 
 using namespace nix;
 
 std::unique_ptr<ParseData> parse(char *Text, size_t Length, Pos::Origin Origin,
-                                 const SourcePath &BasePath, EvalState &State,
-                                 std::shared_ptr<StaticEnv> Env);
+                                 const SourcePath &BasePath, ParseState State);
+
+inline std::unique_ptr<ParseData> parse(std::string Text, Pos::Origin Origin,
+                                        const SourcePath &BasePath,
+                                        ParseState State) {
+  Text.append("\0\0", 2);
+  return parse(Text.data(), Text.length(), std::move(Origin), BasePath, State);
+}
+
+inline std::unique_ptr<ParseData>
+parse(char *Text, size_t Length, Pos::Origin Origin, const SourcePath &BasePath,
+      EvalState &State, std::shared_ptr<StaticEnv> Env) {
+  auto Data = parse(Text, Length, std::move(Origin), BasePath,
+                    ParseState{State.symbols, State.positions});
+  Data->result->bindVars(State, Env);
+  return Data;
+}
 
 inline std::unique_ptr<ParseData> parse(char *Text, size_t Length,
                                         Pos::Origin Origin,

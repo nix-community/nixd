@@ -193,7 +193,7 @@ or          { return OR_KW; }
                 /* It is impossible to match strings ending with '$' with one
                    regex because trailing contexts are only valid at the end
                    of a rule. (A sane but undocumented limitation.) */
-                yylval->str = unescapeStr(data->symbols, yytext, yyleng);
+                yylval->str = unescapeStr(data->state.symbols, yytext, yyleng);
                 return STR;
               }
 <STRING>\$\{  { PUSH_STATE(DEFAULT); return DOLLAR_CURLY; }
@@ -221,7 +221,7 @@ or          { return OR_KW; }
                    return IND_STR;
                  }
 <IND_STRING>\'\'\\{ANY} {
-                   yylval->str = unescapeStr(data->symbols, yytext + 2, yyleng - 2);
+                   yylval->str = unescapeStr(data->state.symbols, yytext + 2, yyleng - 2);
                    return IND_STR;
                  }
 <IND_STRING>\$\{ { PUSH_STATE(DEFAULT); return DOLLAR_CURLY; }

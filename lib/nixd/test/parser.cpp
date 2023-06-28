@@ -89,4 +89,11 @@ rec {
   ASSERT_EQ(V.VisitedNodes, 61);
 }
 
+TEST(Parser, parse1) {
+  nix::SymbolTable Symbols;
+  nix::PosTable Positions;
+  auto Data = parse("{ x = 1; }", CanonPath("/"), CanonPath("/"),
+                    ParseState{Symbols, Positions});
+}
+
 } // namespace nixd
