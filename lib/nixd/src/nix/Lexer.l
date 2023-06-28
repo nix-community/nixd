@@ -158,7 +158,7 @@ or          { return OR_KW; }
               try {
                   yylval->n = boost::lexical_cast<int64_t>(yytext);
               } catch (const boost::bad_lexical_cast &) {
-                  throw ParseError({
+                  data->error.emplace_back(nix::ErrorInfo{
                       .msg = hintfmt("invalid integer '%1%'", yytext),
                       .errPos = data->state.positions[CUR_POS],
                   });
@@ -168,7 +168,7 @@ or          { return OR_KW; }
 {FLOAT}     { errno = 0;
               yylval->nf = strtod(yytext, 0);
               if (errno != 0)
-                  throw ParseError({
+                  data->error.emplace_back(nix::ErrorInfo{
                       .msg = hintfmt("invalid float '%1%'", yytext),
                       .errPos = data->state.positions[CUR_POS],
                   });
@@ -297,7 +297,7 @@ or          { return OR_KW; }
 
 <INPATH_SLASH>{ANY} |
 <INPATH_SLASH><<EOF>> {
-  throw ParseError({
+  data->error.emplace_back(nix::ErrorInfo{
       .msg = hintfmt("path has a trailing slash"),
       .errPos = data->state.positions[CUR_POS],
   });
