@@ -1,0 +1,14 @@
+libnixdExprDeps = nix_all
+
+libnixdExpr = library('nixdExpr'
+, 'Expr.cpp'
+, 'CallbackExpr.cpp'
+, include_directories: nixd_inc
+, dependencies: libnixdExprDeps
+, install: true
+)
+
+nixdExpr = declare_dependency( include_directories: nixd_inc
+                             , dependencies: libnixdExprDeps
+                             , link_with: libnixdExpr
+                             )
