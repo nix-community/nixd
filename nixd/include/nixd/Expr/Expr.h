@@ -6,15 +6,21 @@
 
 namespace nixd {
 
-/// Holds AST Nodes.
-class ASTContext {
+/// RAII Pool that holds Nodes.
+template <class T> class Context {
 public:
-  std::vector<std::unique_ptr<nix::Expr>> Nodes;
-  template <class T> T *addNode(std::unique_ptr<T> Node) {
+  std::vector<std::unique_ptr<T>> Nodes;
+  template <class U> U *addNode(std::unique_ptr<U> Node) {
     Nodes.push_back(std::move(Node));
-    return dynamic_cast<T *>(Nodes.back().get());
+    return dynamic_cast<U *>(Nodes.back().get());
+  }
+  template <class U> U *record(U *Node) {
+    Nodes.emplace_back(std::unique_ptr<U>(Node));
+    return Node;
   }
 };
+
+using ASTContext = Context<nix::Expr>;
 
 template <class Derived> struct RecursiveASTVisitor {
 

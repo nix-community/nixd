@@ -6,6 +6,7 @@
 #include "Lexer.tab.h"
 
 #include "Provides.h"
+#include "Require.h"
 
 YY_DECL;
 
@@ -43,18 +44,24 @@ static void addAttr(ExprAttrs *attrs, AttrPath &&attrPath, Expr *e,
       if (j != attrs->attrs.end()) {
         if (!j->second.inherited) {
           ExprAttrs *attrs2 = dynamic_cast<ExprAttrs *>(j->second.e);
-          if (!attrs2)
+          if (!attrs2) {
+
             dupAttr(data, attrPath, pos, j->second.pos);
+            return;
+          }
           attrs = attrs2;
-        } else
+        } else {
+
           dupAttr(data, attrPath, pos, j->second.pos);
+          return;
+        }
       } else {
-        ExprAttrs *nested = new ExprAttrs;
+        ExprAttrs *nested = data.ctx.record(new ExprAttrs);
         attrs->attrs[i->symbol] = ExprAttrs::AttrDef(nested, pos);
         attrs = nested;
       }
     } else {
-      ExprAttrs *nested = new ExprAttrs;
+      ExprAttrs *nested = data.ctx.record(new ExprAttrs);
       attrs->dynamicAttrs.push_back(
           ExprAttrs::DynamicAttrDef(i->expr, nested, pos));
       attrs = nested;
@@ -74,13 +81,18 @@ static void addAttr(ExprAttrs *attrs, AttrPath &&attrPath, Expr *e,
       if (jAttrs && ae) {
         for (auto &ad : ae->attrs) {
           auto j2 = jAttrs->attrs.find(ad.first);
-          if (j2 !=
-              jAttrs->attrs.end()) // Attr already defined in iAttrs, error.
+          if (j2 != jAttrs->attrs.end()) {
+            // Attr already defined in iAttrs, error.
+
             dupAttr(data, ad.first, j2->second.pos, ad.second.pos);
+            return;
+          }
           jAttrs->attrs.emplace(ad.first, ad.second);
         }
       } else {
+
         dupAttr(data, attrPath, pos, j->second.pos);
+        return;
       }
     } else {
       // This attr path is not defined. Let's create it.
@@ -122,15 +134,14 @@ static Formals *toFormals(ParseData &data, ParserFormals *formals,
                        data.state.symbols[arg]),
         .errPos = data.state.positions[pos]});
 
-  delete formals;
-  return new Formals(std::move(result));
+  return data.FsCtx.record(new Formals(std::move(result)));
 }
 
 static Expr *stripIndentation(
-    const PosIdx pos, SymbolTable &symbols,
+    ParseData &data, const PosIdx pos, SymbolTable &symbols,
     std::vector<std::pair<PosIdx, std::variant<Expr *, StringToken>>> &&es) {
   if (es.empty())
-    return new ExprString("");
+    return data.ctx.record(new ExprString(""));
 
   /* Figure out the minimum indentation.  Note that by design
      whitespace-only final lines are not taken into account.  (So
@@ -172,6 +183,7 @@ static Expr *stripIndentation(
 
   /* Strip spaces from each line. */
   auto *es2 = new std::vector<std::pair<PosIdx, Expr *>>;
+  data.SPCtx.record(es2);
   atStartOfLine = true;
   size_t curDropped = 0;
   size_t n = es.size();
@@ -212,7 +224,7 @@ static Expr *stripIndentation(
         s2 = std::string(s2, 0, p + 1);
     }
 
-    es2->emplace_back(i->first, new ExprString(std::move(s2)));
+    es2->emplace_back(i->first, data.ctx.record(new ExprString(std::move(s2))));
   };
   for (; i != es.end(); ++i, --n) {
     std::visit(overloaded{trimExpr, trimString}, i->second);
@@ -221,10 +233,9 @@ static Expr *stripIndentation(
   /* If this is a single string, then don't do a concatenation. */
   if (es2->size() == 1 && dynamic_cast<ExprString *>((*es2)[0].second)) {
     auto *const result = (*es2)[0].second;
-    delete es2;
     return result;
   }
-  return new ExprConcatStrings(pos, true, es2);
+  return data.ctx.record(new ExprConcatStrings(pos, true, es2));
 }
 
 } // namespace nixd
