@@ -16,6 +16,17 @@
         nixdLLVM = nixd.override {
           stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv;
         };
+        regressionDeps = with pkgs; [
+          clang-tools
+          nixpkgs-fmt
+          valgrind
+        ];
+        shellOverride = old: {
+          nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
+          shellHook = ''
+            export PATH="${pkgs.clang-tools}/bin:$PATH"
+          '';
+        };
       in
       {
         packages.default = nixd;
@@ -24,17 +35,9 @@
         };
         packages.nixd = nixd;
 
-        devShells.llvm = nixdLLVM;
+        devShells.llvm = nixdLLVM.overrideAttrs shellOverride;
 
-        devShells.default = nixd.overrideAttrs (old: {
-          nativeBuildInputs = old.nativeBuildInputs ++ (with pkgs; [
-            clang-tools
-            nixpkgs-fmt
-          ]);
-          shellHook = ''
-            export PATH="${pkgs.clang-tools}/bin:$PATH"
-          '';
-        });
+        devShells.default = nixd.overrideAttrs shellOverride;
 
         devShells.nvim = pkgs.mkShell {
           nativeBuildInputs = [
