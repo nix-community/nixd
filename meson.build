@@ -44,23 +44,8 @@ nix_all = [ dependency('nix-expr')
           ]
 
 subdir('lspserver')
-
-nixd = executable('nixd', ['tools/nixd/nixd.cpp']
-, dependencies: [ backtrace
-                , boost
-                , llvm
-                , nixd_lsp_server
-                , nixd_server
-                ] + nix_all
-, install: true
-)
-
-nix_ast_dump = executable('nix-ast-dump', ['tools/nix-ast-dump/nix-ast-dump.cpp']
-, dependencies: [ boost
-                , nixd_server
-                ] + nix_all
-)
-
+subdir('nixd')
+subdir('tools')
 
 lit = find_program('lit')
 
