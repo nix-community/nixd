@@ -24,6 +24,7 @@ struct ParseData {
   std::vector<ErrorInfo> error;
   std::map<PosIdx, PosIdx> end;
   std::map<const void *, PosIdx> locations;
+  ~ParseData();
 };
 
 struct ParserFormals {
