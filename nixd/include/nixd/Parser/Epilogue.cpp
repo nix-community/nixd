@@ -65,7 +65,7 @@ void destroyAST(auto *&Root, std::set<void *> &Freed) {
   if (auto *T = dynamic_cast<nix::TYPE *>(Root)) {                             \
     { CODE; }                                                                  \
   }
-#include "nixd/Expr/NixASTTraverse.inc"
+#include "nixd/Expr/Traverse.inc"
 #undef TRY_TO_TRAVERSE
 #undef DEF_TRAVERSE_TYPE
   if (auto *E = dynamic_cast<nix::ExprConcatStrings *>(Root)) {

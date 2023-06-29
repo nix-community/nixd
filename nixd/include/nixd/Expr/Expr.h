@@ -23,12 +23,12 @@ template <class Derived> struct RecursiveASTVisitor {
   bool visitExpr(const nix::Expr *) { return true; }
 
 #define NIX_EXPR(EXPR) bool traverse##EXPR(const nix::EXPR *E);
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
 #undef NIX_EXPR
 
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) { return getDerived().visitExpr(E); }
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
 #undef NIX_EXPR
 
   Derived &getDerived() { return *static_cast<Derived *>(this); }
@@ -40,7 +40,7 @@ template <class Derived> struct RecursiveASTVisitor {
   if (auto CE = dynamic_cast<const nix::EXPR *>(E)) {                          \
     return getDerived().traverse##EXPR(CE);                                    \
   }
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
     assert(false && "We are missing some nix AST Nodes!");
     return true;
 #undef NIX_EXPR
@@ -65,7 +65,7 @@ template <class Derived> struct RecursiveASTVisitor {
       TRY_TO(visit##TYPE(T));                                                  \
     return true;                                                               \
   }
-#include "NixASTTraverse.inc"
+#include "Traverse.inc"
 #undef DEF_TRAVERSE_TYPE
 #undef TRY_TO_TRAVERSE
 #undef TRY_TO
@@ -75,10 +75,9 @@ inline const char *getExprName(const nix::Expr *E) {
   if (dynamic_cast<const nix::EXPR *>(E)) {                                    \
     return #EXPR;                                                              \
   }
-#include "NixASTNodes.inc"
-  assert(
-      false &&
-      "Cannot dynamic-cast to nix::Expr*, missing entries in NixASTNodes.inc?");
+#include "Nodes.inc"
+  assert(false &&
+         "Cannot dynamic-cast to nix::Expr*, missing entries in Nodes.inc?");
   return nullptr;
 #undef NIX_EXPR
 }
