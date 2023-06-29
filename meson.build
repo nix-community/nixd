@@ -34,14 +34,6 @@ boost = dependency('boost')
 
 cpp = meson.get_compiler('cpp')
 backtrace = cpp.find_library('backtrace')
-nixfetchers = cpp.find_library('nixfetchers')
-
-nix_all = [ dependency('nix-expr')
-          , dependency('nix-cmd')
-          , dependency('nix-store')
-          , dependency('nix-main')
-          , nixfetchers
-          ]
 
 lit = find_program('lit')
 

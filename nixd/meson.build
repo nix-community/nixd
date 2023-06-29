@@ -1,3 +1,12 @@
+nixfetchers = cpp.find_library('nixfetchers')
+
+nix_all = [ dependency('nix-expr')
+          , dependency('nix-cmd')
+          , dependency('nix-store')
+          , dependency('nix-main')
+          , nixfetchers
+          ]
+
 nixd_inc = include_directories('include')
 
 subdir('lib')
