@@ -43,7 +43,7 @@ nix_all = [ dependency('nix-expr')
           , nixfetchers
           ]
 
-subdir('lib')
+subdir('lspserver')
 
 nixd = executable('nixd', ['tools/nixd/nixd.cpp']
 , dependencies: [ backtrace
