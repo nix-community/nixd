@@ -8,7 +8,7 @@
 
 #include "Parser.tab.h"
 
-#include "ParserProvides.h"
+#include "nixd/Parser/Provides.h"
 
 #include <nix/nixexpr.hh>
 

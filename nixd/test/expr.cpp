@@ -2,8 +2,8 @@
 
 #include "nixutil.h"
 
-#include "nixd/CallbackExpr.h"
-#include "nixd/Expr.h"
+#include "nixd/Expr/CallbackExpr.h"
+#include "nixd/Expr/Expr.h"
 
 #include <nix/canon-path.hh>
 #include <nix/eval.hh>
@@ -75,7 +75,7 @@ rec {
   InitNix N;
   struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
 #define NIX_EXPR(EXPR) bool Visited##EXPR = false;
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
 
 #define NIX_EXPR(EXPR)                                                         \
@@ -83,7 +83,7 @@ rec {
     Visited##EXPR = true;                                                      \
     return true;                                                               \
   }
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
 
   } Visitor;
@@ -92,7 +92,7 @@ rec {
   auto *ASTRoot = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
   ASSERT_TRUE(Visitor.traverseExpr(ASTRoot));
 #define NIX_EXPR(EXPR) ASSERT_TRUE(Visitor.Visited##EXPR);
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
 }
 
@@ -106,7 +106,7 @@ TEST(Expr, CallbackRewrite) {
            "Must be a callback?");                                             \
     return true;                                                               \
   }
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
                               } Visitor;
 

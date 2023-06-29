@@ -15,7 +15,7 @@
 
 
 %{
-#include "nixd/nix/LexerPrologue.h"
+#include "nixd/Lexer/Prologue.h"
 %}
 
 

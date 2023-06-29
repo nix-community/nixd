@@ -1,8 +1,9 @@
 #pragma once
 
-#include "nixd/Diagnostic.h"
-#include "nixd/EvalDraftStore.h"
-#include "nixd/JSONSerialization.h"
+#include "EvalDraftStore.h"
+
+#include "nixd/Support/Diagnostic.h"
+#include "nixd/Support/JSONSerialization.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"

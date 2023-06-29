@@ -1,4 +1,4 @@
-#include "nixd/nix/EvalState.h"
+#include "nixd/Nix/EvalState.h"
 
 namespace nix {
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "nixd/Parser.h"
-#include "nixd/nix/PosAdapter.h"
+#include "nixd/Nix/PosAdapter.h"
+#include "nixd/Parser/Parser.h"
 
 #include "lspserver/Protocol.h"
 

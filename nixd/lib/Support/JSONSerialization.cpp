@@ -1,4 +1,4 @@
-#include "nixd/JSONSerialization.h"
+#include "nixd/Support/JSONSerialization.h"
 
 #include "lspserver/Logger.h"
 

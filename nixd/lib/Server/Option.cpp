@@ -1,7 +1,7 @@
-#include "nixd/Diagnostic.h"
-#include "nixd/Server.h"
-#include "nixd/nix/Option.h"
-#include "nixd/nix/Value.h"
+#include "nixd/Nix/Option.h"
+#include "nixd/Nix/Value.h"
+#include "nixd/Server/Server.h"
+#include "nixd/Support/Diagnostic.h"
 
 #include <mutex>
 

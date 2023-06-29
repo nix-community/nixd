@@ -1,4 +1,4 @@
-#include "nixd/Server.h"
+#include "nixd/Server/Server.h"
 
 namespace nixd {
 

@@ -1,6 +1,6 @@
-#include "nixd/nix/Option.h"
-#include "nixd/nix/EvalState.h"
-#include "nixd/nix/Value.h"
+#include "nixd/Nix/Option.h"
+#include "nixd/Nix/EvalState.h"
+#include "nixd/Nix/Value.h"
 
 #include <nix/eval.hh>
 

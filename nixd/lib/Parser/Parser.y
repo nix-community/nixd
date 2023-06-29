@@ -14,11 +14,11 @@
 %expect-rr 1
 
 %code requires {
-#include "nixd/nix/ParserRequire.h"
+#include "nixd/Parser/Require.h"
 }
 
 %{
-#include "nixd/nix/ParserPrologue.h"
+#include "nixd/Parser/Prologue.h"
 %}
 
 %union {
@@ -351,4 +351,4 @@ formal
 
 %%
 
-#include "nixd/nix/ParserEpilogue.cpp"
+#include "nixd/Parser/Epilogue.cpp"

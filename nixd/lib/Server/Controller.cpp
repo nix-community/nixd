@@ -1,10 +1,10 @@
 #include "nixd-config.h"
 
-#include "nixd/Diagnostic.h"
-#include "nixd/EvalDraftStore.h"
-#include "nixd/Expr.h"
-#include "nixd/Server.h"
-#include "nixd/Support.h"
+#include "nixd/Expr/Expr.h"
+#include "nixd/Server/EvalDraftStore.h"
+#include "nixd/Server/Server.h"
+#include "nixd/Support/Diagnostic.h"
+#include "nixd/Support/Support.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"

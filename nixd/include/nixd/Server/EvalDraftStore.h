@@ -1,8 +1,8 @@
 #pragma once
 
-#include "nixd/AST.h"
-#include "nixd/CallbackExpr.h"
-#include "nixd/nix/EvalState.h"
+#include "nixd/AST/AST.h"
+#include "nixd/Expr/CallbackExpr.h"
+#include "nixd/Nix/EvalState.h"
 
 #include "lspserver/DraftStore.h"
 #include "lspserver/Logger.h"

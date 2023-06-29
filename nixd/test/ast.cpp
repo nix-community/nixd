@@ -2,7 +2,7 @@
 
 #include "lspserver/Protocol.h"
 
-#include "nixd/AST.h"
+#include "nixd/AST/AST.h"
 
 #include "nixutil.h"
 

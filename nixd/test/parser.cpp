@@ -4,8 +4,8 @@
 
 #include "Parser.tab.h"
 
-#include "nixd/Expr.h"
-#include "nixd/Parser.h"
+#include "nixd/Expr/Expr.h"
+#include "nixd/Parser/Parser.h"
 
 #include <memory>
 

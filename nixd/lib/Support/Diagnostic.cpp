@@ -1,6 +1,6 @@
-#include "nixd/Diagnostic.h"
-#include "nixd/Position.h"
-#include "nixd/nix/PosAdapter.h"
+#include "nixd/Support/Diagnostic.h"
+#include "nixd/Nix/PosAdapter.h"
+#include "nixd/Support/Position.h"
 
 #include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"

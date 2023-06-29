@@ -1,5 +1,5 @@
-#include "nixd/CallbackExpr.h"
-#include "nixd/Expr.h"
+#include "nixd/Expr/CallbackExpr.h"
+#include "nixd/Expr/Expr.h"
 
 #include <nix/nixexpr.hh>
 
@@ -14,7 +14,7 @@ namespace nixd {
     return Cxt.addNode<Callback##EXPR>(                                        \
         std::make_unique<Callback##EXPR>(E, ECB));                             \
   }
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
 
 nix::Expr *
@@ -33,7 +33,7 @@ rewriteCallback(ASTContext &Cxt, ExprCallback ECB, const nix::Expr *Root,
     { CODE; }                                                                  \
     return T;                                                                  \
   }
-#include "nixd/NixASTTraverse.inc"
+#include "nixd/Expr/NixASTTraverse.inc"
   return nullptr;
 #undef TRY_TO_TRAVERSE
 #undef DEF_TRAVERSE_TYPE
@@ -44,7 +44,7 @@ rewriteCallback(ASTContext &Cxt, ExprCallback ECB, const nix::Expr *Root,
     nix::EXPR::eval(State, Env, V);                                            \
     ECB(this, State, Env, V);                                                  \
   }
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
 
 } // namespace nixd

@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "nixd/EvalDraftStore.h"
+#include "nixd/Server/EvalDraftStore.h"
 
 #include <nix/command-installable-value.hh>
 #include <nix/installable-value.hh>

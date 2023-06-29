@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nixd/Position.h"
+#include "nixd/Support/Position.h"
 
 #include "lspserver/Protocol.h"
 

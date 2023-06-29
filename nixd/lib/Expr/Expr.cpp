@@ -1,4 +1,4 @@
-#include "nixd/Expr.h"
+#include "nixd/Expr/Expr.h"
 
 #include <nix/nixexpr.hh>
 

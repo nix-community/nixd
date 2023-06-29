@@ -4,7 +4,7 @@
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
 
-#include "nixd/Server.h"
+#include "nixd/Server/Server.h"
 
 #include <nix/eval.hh>
 #include <nix/shared.hh>

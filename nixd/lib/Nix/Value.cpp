@@ -1,4 +1,4 @@
-#include "nixd/nix/Value.h"
+#include "nixd/Nix/Value.h"
 
 #include <nix/eval.hh>
 #include <nix/print.hh>

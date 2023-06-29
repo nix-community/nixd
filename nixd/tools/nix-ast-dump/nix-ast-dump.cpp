@@ -1,4 +1,4 @@
-#include "nixd/Expr.h"
+#include "nixd/Expr/Expr.h"
 
 #include <nix/canon-path.hh>
 #include <nix/eval.hh>
@@ -44,7 +44,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     std::cout << "\n";                                                         \
     return true;                                                               \
   }
-#include "nixd/NixASTNodes.inc"
+#include "nixd/Expr/NixASTNodes.inc"
 #undef NIX_EXPR
 };
 

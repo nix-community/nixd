@@ -1,4 +1,4 @@
-#include "nixd/Server.h"
+#include "nixd/Server/Server.h"
 
 #include <nix/eval-inline.hh>
 #include <nix/shared.hh>

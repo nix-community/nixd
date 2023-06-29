@@ -1,12 +1,12 @@
 #pragma once
 
-#include "nixd/CallbackExpr.h"
-#include "nixd/Expr.h"
-#include "nixd/Parser.h"
+#include "nixd/Expr/CallbackExpr.h"
+#include "nixd/Expr/Expr.h"
+#include "nixd/Parser/Parser.h"
 
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
-#include "nixd/Position.h"
+#include "nixd/Support/Position.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>

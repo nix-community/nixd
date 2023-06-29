@@ -4,7 +4,7 @@
 
 #include "Lexer.tab.h"
 
-#include "nixd/Expr.h"
+#include "nixd/Expr/Expr.h"
 
 #include <nix/eval.hh>
 #include <nix/fetchers.hh>
@@ -65,7 +65,7 @@ void destroyAST(auto *&Root, std::set<void *> &Freed) {
   if (auto *T = dynamic_cast<nix::TYPE *>(Root)) {                             \
     { CODE; }                                                                  \
   }
-#include "nixd/NixASTTraverse.inc"
+#include "nixd/Expr/NixASTTraverse.inc"
 #undef TRY_TO_TRAVERSE
 #undef DEF_TRAVERSE_TYPE
   if (auto *E = dynamic_cast<nix::ExprConcatStrings *>(Root)) {
