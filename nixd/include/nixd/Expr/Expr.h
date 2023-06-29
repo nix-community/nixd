@@ -6,15 +6,21 @@
 
 namespace nixd {
 
-/// Holds AST Nodes.
-class ASTContext {
+/// RAII Pool that holds Nodes.
+template <class T> class Context {
 public:
-  std::vector<std::unique_ptr<nix::Expr>> Nodes;
-  template <class T> T *addNode(std::unique_ptr<T> Node) {
+  std::vector<std::unique_ptr<T>> Nodes;
+  template <class U> U *addNode(std::unique_ptr<U> Node) {
     Nodes.push_back(std::move(Node));
-    return dynamic_cast<T *>(Nodes.back().get());
+    return dynamic_cast<U *>(Nodes.back().get());
+  }
+  template <class U> U *record(U *Node) {
+    Nodes.emplace_back(std::unique_ptr<U>(Node));
+    return Node;
   }
 };
+
+using ASTContext = Context<nix::Expr>;
 
 template <class Derived> struct RecursiveASTVisitor {
 
@@ -23,12 +29,12 @@ template <class Derived> struct RecursiveASTVisitor {
   bool visitExpr(const nix::Expr *) { return true; }
 
 #define NIX_EXPR(EXPR) bool traverse##EXPR(const nix::EXPR *E);
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
 #undef NIX_EXPR
 
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) { return getDerived().visitExpr(E); }
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
 #undef NIX_EXPR
 
   Derived &getDerived() { return *static_cast<Derived *>(this); }
@@ -40,7 +46,7 @@ template <class Derived> struct RecursiveASTVisitor {
   if (auto CE = dynamic_cast<const nix::EXPR *>(E)) {                          \
     return getDerived().traverse##EXPR(CE);                                    \
   }
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
     assert(false && "We are missing some nix AST Nodes!");
     return true;
 #undef NIX_EXPR
@@ -65,7 +71,7 @@ template <class Derived> struct RecursiveASTVisitor {
       TRY_TO(visit##TYPE(T));                                                  \
     return true;                                                               \
   }
-#include "NixASTTraverse.inc"
+#include "Traverse.inc"
 #undef DEF_TRAVERSE_TYPE
 #undef TRY_TO_TRAVERSE
 #undef TRY_TO
@@ -75,10 +81,9 @@ inline const char *getExprName(const nix::Expr *E) {
   if (dynamic_cast<const nix::EXPR *>(E)) {                                    \
     return #EXPR;                                                              \
   }
-#include "NixASTNodes.inc"
-  assert(
-      false &&
-      "Cannot dynamic-cast to nix::Expr*, missing entries in NixASTNodes.inc?");
+#include "Nodes.inc"
+  assert(false &&
+         "Cannot dynamic-cast to nix::Expr*, missing entries in Nodes.inc?");
   return nullptr;
 #undef NIX_EXPR
 }

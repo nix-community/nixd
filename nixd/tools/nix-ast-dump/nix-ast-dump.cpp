@@ -44,7 +44,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     std::cout << "\n";                                                         \
     return true;                                                               \
   }
-#include "nixd/Expr/NixASTNodes.inc"
+#include "nixd/Expr/Nodes.inc"
 #undef NIX_EXPR
 };
 

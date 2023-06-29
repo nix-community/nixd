@@ -22,7 +22,7 @@ using ExprCallback = std::function<void(nix::Expr *, nix::EvalState &,
     void eval(nix::EvalState &State, nix::Env &Env, nix::Value &V) override;   \
     std::string getName();                                                     \
   };
-#include "NixASTNodes.inc"
+#include "Nodes.inc"
 #undef NIX_EXPR
 
 /// Rewrite the AST, rooted at \p Root, \returns the root of the result tree.
