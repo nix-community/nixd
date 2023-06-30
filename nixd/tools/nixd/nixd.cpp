@@ -27,6 +27,10 @@
 #include <csignal>
 #include <unistd.h>
 
+#ifdef __linux__
+#include <sys/prctl.h>
+#endif
+
 using lspserver::JSONStreamStyle;
 using lspserver::Logger;
 
@@ -99,6 +103,9 @@ opt<bool> WaitWorker{"wait-worker",
 
 int main(int argc, char *argv[]) {
   using namespace lspserver;
+#ifdef __linux__
+  prctl(PR_SET_PDEATHSIG, SIGHUP);
+#endif
   nixd::registerSigHanlder();
   const char *FlagsEnvVar = "NIXD_FLAGS";
   HideUnrelatedOptions(NixdCatogories);
