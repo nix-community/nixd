@@ -1,0 +1,7 @@
+BIN_OP(ExprOpEq, "==")
+BIN_OP(ExprOpNEq, "!=")
+BIN_OP(ExprOpAnd, "&&")
+BIN_OP(ExprOpOr, "||")
+BIN_OP(ExprOpImpl, "->")
+BIN_OP(ExprOpUpdate, "//")
+BIN_OP(ExprOpConcatLists, "++")
