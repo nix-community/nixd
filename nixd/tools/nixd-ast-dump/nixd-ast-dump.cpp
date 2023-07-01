@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
       auto *S = dynamic_cast<nixd::nodes::StaticBindable *>(Data->result);
       assert(S && "Custom parser emits static bindable!");
       nix::StaticEnv Env(true, nullptr);
-      S->bindVars(STable, PTable, Env);
+      S->bindVarsStatic(STable, PTable, Env);
     } catch (nix::Error &E) {
       std::cerr << "Exception encountered while performing bindVars: \n";
       std::cerr << E.what();
