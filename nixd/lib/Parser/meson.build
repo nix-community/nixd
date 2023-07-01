@@ -19,13 +19,11 @@ parser = custom_target('parser'
 )
 
 #------------------------------------------------------------------------------#
-libnixdParserDeps = [ nix_all ]
+libnixdParserDeps = [ nix_all, nixdExpr ]
 
 libnixdParser = library('nixdParser'
 , lexer
 , parser
-, link_with: [ libnixdExpr
-             ]
 , include_directories: nixd_inc
 , dependencies: libnixdParserDeps
 , install: true
