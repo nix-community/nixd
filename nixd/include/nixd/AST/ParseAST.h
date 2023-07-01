@@ -111,6 +111,33 @@ public:
   void collectSymbols(const nix::Expr *E, std::vector<Symbol> &R) const {
     return ::nixd::collectSymbols(E, ParentMap, R);
   }
-};
 
+  // Rename
+
+  [[nodiscard]] lspserver::TextEdit edit(Definition D,
+                                         const std::string &NewName) const {
+    return {defRange(D), NewName};
+  };
+
+  [[nodiscard]] TextEdits edit(const std::vector<const nix::ExprVar *> &Refs,
+                               const std::string &NewName) const;
+
+  [[nodiscard]] TextEdits rename(Definition D,
+                                 const std::vector<const nix::ExprVar *> &Refs,
+                                 const std::string &NewName) const {
+    auto Edits = edit(Refs, NewName);
+    Edits.emplace_back(edit(D, NewName));
+    return Edits;
+  }
+
+  [[nodiscard]] TextEdits rename(Definition D,
+                                 const std::string &NewName) const {
+    return rename(D, ref(D), NewName);
+  };
+
+  [[nodiscard]] TextEdits rename(const nix::ExprVar *Var,
+                                 const std::string &NewName) const {
+    return rename(def(Var), NewName);
+  };
+};
 } // namespace nixd

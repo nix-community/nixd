@@ -143,58 +143,15 @@ void Server::onStaticRename(
   auto Action = [&Params](const nix::ref<EvalAST> &AST,
                           ReplyRAII<TextEdits> &&RR) {
     RR.Response = error("no suitable renaming action available");
-    std::optional<EvalAST::Definition> D;
-    std::vector<const nix::ExprVar *> Refs;
-    auto CheckVar = [&]() -> bool {
-      const auto *E = AST->lookupContainMin(Params.position);
-
-      if (!E)
-        return false;
-      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {
-        // Find it's definition, and all references.
-        try {
-          D = AST->def(EVar);
-        } catch (std::out_of_range &) {
-          RR.Response = error("no definition associated on this variable");
-        }
-        return true;
-      }
-      return false;
-    };
-
-    if (!CheckVar()) {
-      // This must be a "definiton".
-      auto OptDef = AST->lookupDef(Params.position);
-      if (!OptDef.has_value())
-        return;
-      D = OptDef.value();
-    }
-
-    if (!D.has_value())
+    if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(
+            AST->lookupContainMin(Params.position))) {
+      RR.Response = AST->rename(EVar, Params.newName);
       return;
-
-    Refs = AST->ref(D.value());
-
-    TextEdits Edits;
-
-    // Definition
-    TextEdit DefEdit;
-    DefEdit.range = AST->defRange(D.value());
-    DefEdit.newText = Params.newName;
-    Edits.emplace_back(std::move(DefEdit));
-
-    // Referenced variables
-    for (const auto *ERef : Refs) {
-      try {
-        TextEdit RefEdit;
-        RefEdit.range = AST->nRange(ERef);
-        RefEdit.newText = Params.newName;
-        Edits.emplace_back(std::move(RefEdit));
-      } catch (std::out_of_range &) {
-      }
     }
-
-    RR.Response = std::move(Edits);
+    if (auto Def = AST->lookupDef(Params.position)) {
+      RR.Response = AST->rename(*Def, Params.newName);
+      return;
+    }
   };
   withAST<TextEdits>(Params.textDocument.uri.file().str(),
                      ReplyRAII<TextEdits>(std::move(Reply)), std::move(Action));

@@ -1,4 +1,5 @@
 #include "nixd/AST/ParseAST.h"
+#include <optional>
 
 namespace nixd {
 
@@ -142,6 +143,22 @@ ParseAST::searchDef(const nix::ExprVar *Var) const {
   if (EnvExpr)
     return Definition{EnvExpr, Var->displ};
   return std::nullopt;
+}
+
+ParseAST::TextEdits
+ParseAST::edit(const std::vector<const nix::ExprVar *> &Refs,
+               const std::string &NewName) const {
+  TextEdits Edits;
+  for (const auto *ERef : Refs) {
+    try {
+      lspserver::TextEdit RefEdit;
+      RefEdit.range = nRange(ERef);
+      RefEdit.newText = NewName;
+      Edits.emplace_back(std::move(RefEdit));
+    } catch (std::out_of_range &) {
+    }
+  }
+  return Edits;
 }
 
 } // namespace nixd
