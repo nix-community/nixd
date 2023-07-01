@@ -28,7 +28,7 @@ TEST(AST, lookupEnd) {
   )";
   InitNix INix;
   auto State = INix.getDummyState();
-  ParseAST A(parse(NixSrc, CanonPath("foo"), CanonPath("/"), *State));
+  ParseAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
   const auto *E = A.lookupEnd({4, 4});
   if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
     auto Pos = State->positions[A.getPos(EA)];
@@ -54,7 +54,7 @@ TEST(AST, lookupContainMin) {
   )";
   InitNix INix;
   auto State = INix.getDummyState();
-  EvalAST A(parse(NixSrc, CanonPath("foo"), CanonPath("/"), *State));
+  EvalAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
   const auto *E = A.lookupContainMin({3, 1});
   if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
     auto Pos = State->positions[A.getPos(EA)];

@@ -18,7 +18,7 @@
 }
 
 %{
-#include "nixd/Parser/Prologue.h"
+#include "nixd/Parser/Prologue.cpp"
 %}
 
 %union {
