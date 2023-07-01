@@ -2,7 +2,8 @@
 
 #include "lspserver/Protocol.h"
 
-#include "nixd/AST/AST.h"
+#include "nixd/AST/EvalAST.h"
+#include "nixd/AST/ParseAST.h"
 
 #include "nixutil.h"
 

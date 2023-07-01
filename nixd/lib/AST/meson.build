@@ -7,7 +7,8 @@ libnixdASTDeps = [ nixd_lsp_server
                  ]
 
 libnixdAST = library('nixdAST'
-, 'AST.cpp'
+, 'EvalAST.cpp'
+, 'ParseAST.cpp'
 , include_directories: nixd_inc
 , dependencies: libnixdASTDeps
 , install: true

@@ -18,10 +18,12 @@
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <boost/asio/thread_pool.hpp>
 #include <boost/thread.hpp>
 
 #include <chrono>
 #include <cstdint>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>

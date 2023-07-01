@@ -1,4 +1,4 @@
-#include "nixd/AST/AST.h"
+#include "nixd/AST/EvalAST.h"
 #include "nixd/Expr/Expr.h"
 #include "nixd/Nix/Option.h"
 #include "nixd/Nix/Value.h"

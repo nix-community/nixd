@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nixd/AST/AST.h"
+#include "nixd/AST/EvalAST.h"
 #include "nixd/Expr/CallbackExpr.h"
 #include "nixd/Nix/EvalState.h"
 
