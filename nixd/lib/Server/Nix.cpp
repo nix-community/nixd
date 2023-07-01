@@ -42,11 +42,11 @@ void CompletionHelper::fromStaticEnv(const nix::SymbolTable &STable,
 void CompletionHelper::fromEnv(nix::EvalState &State, nix::Env &NixEnv,
                                Items &Items) {
   if (NixEnv.type == nix::Env::HasWithExpr) {
-    Value *V = State.allocValue();
-    State.evalAttrs(*NixEnv.up, (nix::Expr *)NixEnv.values[0], *V, noPos,
+    nix::Value *V = State.allocValue();
+    State.evalAttrs(*NixEnv.up, (nix::Expr *)NixEnv.values[0], *V, nix::noPos,
                     "<borked>");
     NixEnv.values[0] = V;
-    NixEnv.type = Env::HasWithAttrs;
+    NixEnv.type = nix::Env::HasWithAttrs;
   }
   if (NixEnv.type == nix::Env::HasWithAttrs) {
     for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {

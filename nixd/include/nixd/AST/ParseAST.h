@@ -111,7 +111,7 @@ public:
   ///    ^
   [[nodiscard]] const nix::Expr *lookupStart(lspserver::Position Desired) const;
 
-  void collectSymbols(const nix::Expr *E, std::vector<Symbol> &R) const {
+  void collectSymbols(const nix::Expr *E, std::vector<nix::Symbol> &R) const {
     return ::nixd::collectSymbols(E, ParentMap, R);
   }
 

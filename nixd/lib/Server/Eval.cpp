@@ -205,11 +205,11 @@ void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
       const auto *Node = AST->lookupContainMin(Params.position);
 
       // TODO: share the same code with static worker
-      std::vector<Symbol> Symbols;
+      std::vector<nix::Symbol> Symbols;
       AST->collectSymbols(Node, Symbols);
       // Insert symbols to our completion list.
       std::transform(Symbols.begin(), Symbols.end(), std::back_inserter(Items),
-                     [&](const Symbol &V) -> decltype(Items)::value_type {
+                     [&](const nix::Symbol &V) -> decltype(Items)::value_type {
                        decltype(Items)::value_type R;
                        R.kind = CompletionItemKind::Interface;
                        R.label = State->symbols[V];
