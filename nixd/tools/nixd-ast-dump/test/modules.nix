@@ -1,4 +1,5 @@
 # RUN: valgrind --leak-check=full --error-exitcode=1 nixd-ast-dump %s | FileCheck %s
+# RUN: nixd-ast-dump -range %s | FileCheck --check-prefix=RANGE %s
 
 # check that we collect all nodes for this large file.
 
@@ -54,7 +55,7 @@ let
   inherit (lib.strings)
     isConvertibleWithToString
     ;
-
+  # RANGE: ExprVar: showOption 60:34 60:44
   showDeclPrefix = loc: decl: prefix:
     " - option(s) with prefix `${showOption (loc ++ [prefix])}' in module `${decl._file}'";
   showRawDecls = loc: decls:
@@ -76,6 +77,8 @@ let
      it is to transparently move a set of modules to be a submodule of another
      config (as the proper arguments need to be replicated at each call to
      evalModules) and the less declarative the module set is. */
+  # RANGE: ExprList: [ ] 85:16 85:19
+  # RANGE: ExprAttrs: { } 90:21 90:24
   evalModules =
     evalModulesArgs@
     { modules
