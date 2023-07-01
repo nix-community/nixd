@@ -20,15 +20,21 @@ using nix::absPath;
 using nix::AttrName;
 using nix::AttrPath;
 using nix::Error;
+using nix::ErrorInfo;
 using nix::evalSettings;
 using nix::experimentalFeatureSettings;
+using nix::Expr;
 using nix::Formal;
 using nix::Formals;
 using nix::getHome;
 using nix::hintfmt;
 using nix::noPos;
 using nix::Path;
+using nix::PosIdx;
+using nix::PosTable;
+using nix::SourcePath;
 using nix::Symbol;
+using nix::SymbolTable;
 using nix::Xp;
 
 using namespace nixd::nodes;
@@ -50,8 +56,8 @@ static void dupAttr(ParseData &data, Symbol attr, const PosIdx pos,
       .errPos = data.state.positions[pos]});
 }
 
-static void addAttr(nix::ExprAttrs *attrs, AttrPath &&attrPath, Expr *e,
-                    const PosIdx pos, ParseData &data) {
+static void addAttr(nix::ExprAttrs *attrs, AttrPath &&attrPath, nix::Expr *e,
+                    const nix::PosIdx pos, ParseData &data) {
   AttrPath::iterator i;
   // All attrpaths have at least one attr
   assert(!attrPath.empty());

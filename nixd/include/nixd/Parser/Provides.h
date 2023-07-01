@@ -6,7 +6,7 @@
 
 namespace nixd {
 
-static inline PosIdx makeCurPos(const YYLTYPE &loc, ParseData *data) {
+static inline nix::PosIdx makeCurPos(const YYLTYPE &loc, ParseData *data) {
   auto Res =
       data->state.positions.add(data->origin, loc.first_line, loc.first_column);
   data->end[Res] =

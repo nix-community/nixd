@@ -25,20 +25,13 @@ struct StringToken {
 
 namespace nixd {
 
-using nix::ErrorInfo;
-using nix::Expr;
-using nix::PosIdx;
-using nix::PosTable;
-using nix::SourcePath;
-using nix::SymbolTable;
-
 struct ParserFormals {
   std::vector<nix::Formal> formals;
   bool ellipsis = false;
 };
 struct ParseState {
-  SymbolTable &symbols;
-  PosTable &positions;
+  nix::SymbolTable &symbols;
+  nix::PosTable &positions;
 };
 
 struct ParseData {
@@ -48,12 +41,12 @@ struct ParseData {
   using AttrNames = std::vector<nix::AttrName>;
 
   ParseState state;
-  Expr *result;
-  SourcePath basePath;
-  PosTable::Origin origin;
-  std::vector<ErrorInfo> error;
-  std::map<PosIdx, PosIdx> end;
-  std::map<const void *, PosIdx> locations;
+  nix::Expr *result;
+  nix::SourcePath basePath;
+  nix::PosTable::Origin origin;
+  std::vector<nix::ErrorInfo> error;
+  std::map<nix::PosIdx, nix::PosIdx> end;
+  std::map<const void *, nix::PosIdx> locations;
 
   ASTContext ctx;
 

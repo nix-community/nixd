@@ -256,7 +256,7 @@ struct DocumentLinkVisitor : RecursiveASTVisitor<DocumentLinkVisitor> {
     try {
       auto Range = AST.lRange(EP);
       if (Range) {
-        auto EPath = CanonPath(EP->s);
+        auto EPath = nix::CanonPath(EP->s);
         std::string ResolvedPath = nix::resolveExprPath(EPath).to_string();
         DocumentLink Link;
         Link.range = *Range;

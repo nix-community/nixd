@@ -13,7 +13,7 @@ class EvalAST : public ParseAST {
   std::map<const nix::Expr *, nix::Value> ValueMap;
   std::map<const nix::Expr *, nix::Env *> EnvMap;
 
-  std::map<const void *, PosIdx> Locations;
+  std::map<const void *, nix::PosIdx> Locations;
 
   /// Rewrite the AST to our own nodes, used for collecting information
   void rewriteAST();
