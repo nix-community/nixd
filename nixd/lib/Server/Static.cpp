@@ -45,33 +45,11 @@ void Server::onStaticDocumentLink(
     lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
   using Links = std::vector<lspserver::DocumentLink>;
   using namespace lspserver;
-  withAST<Links>(
-      Params.uri.file().str(), ReplyRAII<Links>(std::move(Reply)),
-      [Params, File = Params.uri.file().str()](const nix::ref<EvalAST> &AST,
-                                               ReplyRAII<Links> &&RR) {
-        struct LinkFinder : RecursiveASTVisitor<LinkFinder> {
-          decltype(AST) &LinkAST;
-          const std::string &File;
-          Links Result;
-          bool visitExprPath(const nix::ExprPath *EP) {
-            auto Range = LinkAST->lRange(EP);
-            if (Range.has_value()) {
-              try {
-                std::string Path =
-                    nix::resolveExprPath(CanonPath(EP->s)).to_string();
-
-                Result.emplace_back(DocumentLink{
-                    .range = Range.value(),
-                    .target = URIForFile::canonicalize(Path, Path)});
-              } catch (...) {
-              }
-            }
-            return true;
-          }
-        } Finder{.LinkAST = AST, .File = File};
-        Finder.traverseExpr(AST->root());
-        RR.Response = Finder.Result;
-      });
+  withAST<Links>(Params.uri.file().str(), ReplyRAII<Links>(std::move(Reply)),
+                 [Params, File = Params.uri.file().str()](
+                     const nix::ref<EvalAST> &AST, ReplyRAII<Links> &&RR) {
+                   RR.Response = AST->documentLink(File);
+                 });
 }
 
 void Server::onStaticRename(

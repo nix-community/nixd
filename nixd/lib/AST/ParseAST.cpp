@@ -244,4 +244,37 @@ ParseAST::documentSymbol(const nix::SymbolTable &STable) const {
   V.traverseExpr(root());
   return V.CurrentSymbols;
 };
+
+// Document Link
+namespace {
+
+struct DocumentLinkVisitor : RecursiveASTVisitor<DocumentLinkVisitor> {
+  const ParseAST &AST;
+  const std::string &File;
+  ParseAST::Links Result;
+  bool visitExprPath(const nix::ExprPath *EP) {
+    try {
+      auto Range = AST.lRange(EP);
+      if (Range) {
+        auto EPath = CanonPath(EP->s);
+        std::string ResolvedPath = nix::resolveExprPath(EPath).to_string();
+        DocumentLink Link;
+        Link.range = *Range;
+        Link.target = URIForFile::canonicalize(ResolvedPath, ResolvedPath);
+        Result.emplace_back(std::move(Link));
+      }
+    } catch (...) {
+    }
+    return true;
+  }
+};
+
+} // namespace
+
+ParseAST::Links ParseAST::documentLink(const std::string &File) const {
+  auto V = DocumentLinkVisitor{.AST = *this, .File = File};
+  V.traverseExpr(root());
+  return V.Result;
+}
+
 } // namespace nixd

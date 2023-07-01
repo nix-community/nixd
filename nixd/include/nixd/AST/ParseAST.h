@@ -16,6 +16,7 @@ public:
   using Definition = std::pair<const nix::Expr *, nix::Displacement>;
   using TextEdits = std::vector<lspserver::TextEdit>;
   using Symbols = std::vector<lspserver::DocumentSymbol>;
+  using Links = std::vector<lspserver::DocumentLink>;
 
 protected:
   std::unique_ptr<ParseData> Data;
@@ -144,5 +145,7 @@ public:
 
   // Document Symbol
   [[nodiscard]] Symbols documentSymbol(const nix::SymbolTable &STable) const;
+
+  [[nodiscard]] Links documentLink(const std::string &File) const;
 };
 } // namespace nixd
