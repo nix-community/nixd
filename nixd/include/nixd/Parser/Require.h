@@ -1,10 +1,14 @@
 #pragma once
 
 #include "nixd/Expr/Expr.h"
+#include "nixd/Expr/Nodes.h"
 
+#include <nix/error.hh>
 #include <nix/eval.hh>
 #include <nix/globals.hh>
+#include <nix/input-accessor.hh>
 #include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
 #include <nix/types.hh>
 #include <nix/util.hh>
 
@@ -21,7 +25,12 @@ struct StringToken {
 
 namespace nixd {
 
-using namespace nix;
+using nix::ErrorInfo;
+using nix::Expr;
+using nix::PosIdx;
+using nix::PosTable;
+using nix::SourcePath;
+using nix::SymbolTable;
 
 struct ParserFormals {
   std::vector<nix::Formal> formals;

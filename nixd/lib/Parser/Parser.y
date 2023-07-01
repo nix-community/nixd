@@ -19,12 +19,6 @@
 
 %{
 #include "nixd/Parser/Prologue.h"
-
-template<class T>
-T* M(nixd::ParseData *data, T *node) {
-  return data->ctx.addNode(std::unique_ptr<T>(node));
-}
-
 %}
 
 %union {

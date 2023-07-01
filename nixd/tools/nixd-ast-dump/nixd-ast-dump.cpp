@@ -1,10 +1,12 @@
 #include "nixd-config.h"
 
 #include "nixd/Expr/Expr.h"
+#include "nixd/Expr/Nodes.h"
 #include "nixd/Parser/Parser.h"
 #include "nixd/Support/Position.h"
 
 #include <nix/canon-path.hh>
+#include <nix/error.hh>
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 #include <nix/util.hh>
@@ -31,6 +33,8 @@ opt<std::string> Filename(Positional, desc("<input file>"), init("-"),
 opt<bool> ShowRange("range", init(false),
                     desc("Extract range information (nixd extension)"),
                     cat(Misc));
+opt<bool> BindVars("bindv", init(false), desc("Do variables name binding"),
+                   cat(Misc));
 
 struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
   nix::SymbolTable &STable;
@@ -67,6 +71,12 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     std::cout << " ";                                                          \
     if (ShowRange)                                                             \
       showRange(E);                                                            \
+    if (BindVars) {                                                            \
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {          \
+        std::cout << " level: " << EVar->level << " "                          \
+                  << "displ: " << EVar->displ;                                 \
+      }                                                                        \
+    }                                                                          \
     std::cout << "\n";                                                         \
     return true;                                                               \
   }
@@ -109,6 +119,17 @@ int main(int argc, char *argv[]) {
   auto [STable, PTable, Data] =
       nixd::parse(Buffer, std::move(Origin),
                   nix::CanonPath(BasePath.remove_filename().string()));
+  if (BindVars && Data->result) {
+    try {
+      auto *S = dynamic_cast<nixd::nodes::StaticBindable *>(Data->result);
+      assert(S && "Custom parser emits static bindable!");
+      nix::StaticEnv Env(true, nullptr);
+      S->bindVars(STable, PTable, Env);
+    } catch (nix::Error &E) {
+      std::cerr << "Exception encountered while performing bindVars: \n";
+      std::cerr << E.what();
+    }
+  }
   const auto *Root = Data->result;
   if (!Data->error.empty()) {
     fmt(std::cerr, "Note: {0} error{1} encountered:", Data->error.size(),

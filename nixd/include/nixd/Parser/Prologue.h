@@ -8,11 +8,30 @@
 #include "Provides.h"
 #include "Require.h"
 
+#include <nix/config.hh>
+#include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
+
 YY_DECL;
 
 namespace nixd {
 
+using nix::absPath;
+using nix::AttrName;
+using nix::AttrPath;
+using nix::Error;
+using nix::evalSettings;
+using nix::experimentalFeatureSettings;
+using nix::Formal;
+using nix::Formals;
+using nix::getHome;
 using nix::hintfmt;
+using nix::noPos;
+using nix::Path;
+using nix::Symbol;
+using nix::Xp;
+
+using namespace nixd::nodes;
 
 static void dupAttr(ParseData &data, const AttrPath &attrPath, const PosIdx pos,
                     const PosIdx prevPos) {
@@ -31,7 +50,7 @@ static void dupAttr(ParseData &data, Symbol attr, const PosIdx pos,
       .errPos = data.state.positions[pos]});
 }
 
-static void addAttr(ExprAttrs *attrs, AttrPath &&attrPath, Expr *e,
+static void addAttr(nix::ExprAttrs *attrs, AttrPath &&attrPath, Expr *e,
                     const PosIdx pos, ParseData &data) {
   AttrPath::iterator i;
   // All attrpaths have at least one attr
@@ -105,7 +124,7 @@ static void addAttr(ExprAttrs *attrs, AttrPath &&attrPath, Expr *e,
 }
 
 static Formals *toFormals(ParseData &data, ParserFormals *formals,
-                          PosIdx pos = noPos, Symbol arg = {}) {
+                          PosIdx pos = nix::noPos, Symbol arg = {}) {
   std::sort(formals->formals.begin(), formals->formals.end(),
             [](const auto &a, const auto &b) {
               return std::tie(a.name, a.pos) < std::tie(b.name, b.pos);
@@ -227,7 +246,7 @@ static Expr *stripIndentation(
     es2->emplace_back(i->first, data.ctx.record(new ExprString(std::move(s2))));
   };
   for (; i != es.end(); ++i, --n) {
-    std::visit(overloaded{trimExpr, trimString}, i->second);
+    std::visit(nix::overloaded{trimExpr, trimString}, i->second);
   }
 
   /* If this is a single string, then don't do a concatenation. */
@@ -249,4 +268,8 @@ void yyerror(YYLTYPE *loc, yyscan_t scanner, ParseData *data,
   data->error.push_back(
       {.msg = hintfmt(error),
        .errPos = data->state.positions[makeCurPos(*loc, data)]});
+}
+
+template <class T> T *M(nixd::ParseData *data, T *node) {
+  return data->ctx.addNode(std::unique_ptr<T>(node));
 }

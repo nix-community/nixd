@@ -3,6 +3,7 @@ libnixdExprDeps = nix_all
 libnixdExpr = library('nixdExpr'
 , 'Expr.cpp'
 , 'CallbackExpr.cpp'
+, 'Nodes.cpp'
 , include_directories: nixd_inc
 , dependencies: libnixdExprDeps
 , install: true
