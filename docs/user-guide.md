@@ -94,7 +94,7 @@ Configuration overview:
   // This is lazily evaluated.
   "options": {
     // Enable option completion task.
-    // If you are writting a package, disable this
+    // If you are writing a package, disable this
     "enable": true,
     "target": {
       // Accept args as "nix eval"
@@ -115,7 +115,7 @@ Typically, you can write a nix file, and evaluate the result into `.nixd.json`, 
 # .nixd.nix
 {
   eval = {
-    # Example target for writting a package.
+    # Example target for writing a package.
     target = {
       args = [ "--expr" "with import <nixpkgs> { }; callPackage ./somePackage.nix { }" ];
       installable = "";
