@@ -1,5 +1,7 @@
 #include "nixd/Expr/Nodes.h"
-#include "nixexpr.hh"
+
+#include <nix/nixexpr.hh>
+
 #include <cassert>
 #include <optional>
 
