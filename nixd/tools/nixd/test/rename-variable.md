@@ -74,38 +74,38 @@ CHECK-NEXT:        {
 CHECK-NEXT:          "newText": "rr",
 CHECK-NEXT:          "range": {
 CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 5
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 8,
+CHECK-NEXT:              "line": 5
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        },
+CHECK-NEXT:        {
+CHECK-NEXT:          "newText": "rr",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 10,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 8,
+CHECK-NEXT:              "line": 6
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        },
+CHECK-NEXT:        {
+CHECK-NEXT:          "newText": "rr",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
 CHECK-NEXT:              "character": 4,
 CHECK-NEXT:              "line": 1
 CHECK-NEXT:            },
 CHECK-NEXT:            "start": {
 CHECK-NEXT:              "character": 2,
 CHECK-NEXT:              "line": 1
-CHECK-NEXT:            }
-CHECK-NEXT:          }
-CHECK-NEXT:        },
-CHECK-NEXT:        {
-CHECK-NEXT:          "newText": "rr",
-CHECK-NEXT:          "range": {
-CHECK-NEXT:            "end": {
-CHECK-NEXT:              "character": 10,
-CHECK-NEXT:              "line": 5
-CHECK-NEXT:            },
-CHECK-NEXT:            "start": {
-CHECK-NEXT:              "character": 8,
-CHECK-NEXT:              "line": 5
-CHECK-NEXT:            }
-CHECK-NEXT:          }
-CHECK-NEXT:        },
-CHECK-NEXT:        {
-CHECK-NEXT:          "newText": "rr",
-CHECK-NEXT:          "range": {
-CHECK-NEXT:            "end": {
-CHECK-NEXT:              "character": 10,
-CHECK-NEXT:              "line": 6
-CHECK-NEXT:            },
-CHECK-NEXT:            "start": {
-CHECK-NEXT:              "character": 8,
-CHECK-NEXT:              "line": 6
 CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }

@@ -1,5 +1,11 @@
 #include "nixd/AST/ParseAST.h"
 
+#include "lspserver/Protocol.h"
+
+#include <nix/symbol-table.hh>
+
+#include <optional>
+
 namespace nixd {
 
 std::optional<ParseAST::Definition>
@@ -142,6 +148,133 @@ ParseAST::searchDef(const nix::ExprVar *Var) const {
   if (EnvExpr)
     return Definition{EnvExpr, Var->displ};
   return std::nullopt;
+}
+
+ParseAST::TextEdits
+ParseAST::edit(const std::vector<const nix::ExprVar *> &Refs,
+               const std::string &NewName) const {
+  TextEdits Edits;
+  for (const auto *ERef : Refs) {
+    try {
+      lspserver::TextEdit RefEdit;
+      RefEdit.range = nRange(ERef);
+      RefEdit.newText = NewName;
+      Edits.emplace_back(std::move(RefEdit));
+    } catch (std::out_of_range &) {
+    }
+  }
+  return Edits;
+}
+
+// Document Symbol
+
+namespace {
+
+using namespace lspserver;
+struct DocumentSymbolVisitor : RecursiveASTVisitor<DocumentSymbolVisitor> {
+  using Symbols = ParseAST::Symbols;
+
+  const ParseAST &AST;
+  const nix::SymbolTable &STable;
+
+  std::set<const nix::Expr *> Visited;
+
+  // Per-node symbols should be collected here
+  Symbols CurrentSymbols;
+
+  bool traverseExprVar(const nix::ExprVar *E) {
+    try {
+      DocumentSymbol S;
+      S.name = STable[E->name];
+      S.kind = SymbolKind::Variable;
+      S.selectionRange = AST.nPair(AST.getPos(E));
+      S.range = S.selectionRange;
+      CurrentSymbols.emplace_back(std::move(S));
+    } catch (...) {
+    }
+    return true;
+  }
+
+  bool traverseExprLambda(const nix::ExprLambda *E) {
+    if (!E->hasFormals())
+      return true;
+    for (const auto &Formal : E->formals->formals) {
+      DocumentSymbol S;
+      S.name = STable[Formal.name];
+      S.kind = SymbolKind::Module;
+      S.selectionRange = AST.nPair(Formal.pos);
+      S.range = S.selectionRange;
+      CurrentSymbols.emplace_back(std::move(S));
+    }
+    RecursiveASTVisitor<DocumentSymbolVisitor>::traverseExprLambda(E);
+    return true;
+  }
+
+  bool traverseExprAttrs(const nix::ExprAttrs *E) {
+    Symbols AttrSymbols = CurrentSymbols;
+    CurrentSymbols = {};
+    for (const auto &[Symbol, Def] : E->attrs) {
+      DocumentSymbol S;
+      S.name = STable[Symbol];
+      traverseExpr(Def.e);
+      S.children = std::move(CurrentSymbols);
+      S.kind = SymbolKind::Field;
+      try {
+        S.range = AST.nPair(AST.getPos(Def.e));
+      } catch (std::out_of_range &) {
+        S.range = AST.nPair(Def.pos);
+      }
+      S.selectionRange = AST.nPair(Def.pos);
+      S.range = S.range / S.selectionRange;
+      AttrSymbols.emplace_back(std::move(S));
+    }
+    CurrentSymbols = std::move(AttrSymbols);
+    return true;
+  }
+};
+
+} // namespace
+
+ParseAST::Symbols
+ParseAST::documentSymbol(const nix::SymbolTable &STable) const {
+  auto V = DocumentSymbolVisitor{
+      .AST = *this,
+      .STable = STable,
+  };
+  V.traverseExpr(root());
+  return V.CurrentSymbols;
+};
+
+// Document Link
+namespace {
+
+struct DocumentLinkVisitor : RecursiveASTVisitor<DocumentLinkVisitor> {
+  const ParseAST &AST;
+  const std::string &File;
+  ParseAST::Links Result;
+  bool visitExprPath(const nix::ExprPath *EP) {
+    try {
+      auto Range = AST.lRange(EP);
+      if (Range) {
+        auto EPath = CanonPath(EP->s);
+        std::string ResolvedPath = nix::resolveExprPath(EPath).to_string();
+        DocumentLink Link;
+        Link.range = *Range;
+        Link.target = URIForFile::canonicalize(ResolvedPath, ResolvedPath);
+        Result.emplace_back(std::move(Link));
+      }
+    } catch (...) {
+    }
+    return true;
+  }
+};
+
+} // namespace
+
+ParseAST::Links ParseAST::documentLink(const std::string &File) const {
+  auto V = DocumentLinkVisitor{.AST = *this, .File = File};
+  V.traverseExpr(root());
+  return V.Result;
 }
 
 } // namespace nixd

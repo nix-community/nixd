@@ -6,6 +6,7 @@
 #include "nixd/Support/Position.h"
 
 #include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
 
 namespace nixd {
 
@@ -14,6 +15,8 @@ class ParseAST {
 public:
   using Definition = std::pair<const nix::Expr *, nix::Displacement>;
   using TextEdits = std::vector<lspserver::TextEdit>;
+  using Symbols = std::vector<lspserver::DocumentSymbol>;
+  using Links = std::vector<lspserver::DocumentLink>;
 
 protected:
   std::unique_ptr<ParseData> Data;
@@ -111,6 +114,38 @@ public:
   void collectSymbols(const nix::Expr *E, std::vector<Symbol> &R) const {
     return ::nixd::collectSymbols(E, ParentMap, R);
   }
-};
 
+  // Rename
+
+  [[nodiscard]] lspserver::TextEdit edit(Definition D,
+                                         const std::string &NewName) const {
+    return {defRange(D), NewName};
+  };
+
+  [[nodiscard]] TextEdits edit(const std::vector<const nix::ExprVar *> &Refs,
+                               const std::string &NewName) const;
+
+  [[nodiscard]] TextEdits rename(Definition D,
+                                 const std::vector<const nix::ExprVar *> &Refs,
+                                 const std::string &NewName) const {
+    auto Edits = edit(Refs, NewName);
+    Edits.emplace_back(edit(D, NewName));
+    return Edits;
+  }
+
+  [[nodiscard]] TextEdits rename(Definition D,
+                                 const std::string &NewName) const {
+    return rename(D, ref(D), NewName);
+  };
+
+  [[nodiscard]] TextEdits rename(const nix::ExprVar *Var,
+                                 const std::string &NewName) const {
+    return rename(def(Var), NewName);
+  };
+
+  // Document Symbol
+  [[nodiscard]] Symbols documentSymbol(const nix::SymbolTable &STable) const;
+
+  [[nodiscard]] Links documentLink(const std::string &File) const;
+};
 } // namespace nixd
