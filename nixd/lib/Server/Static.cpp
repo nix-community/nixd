@@ -36,68 +36,7 @@ void Server::onStaticDocumentSymbol(
                    [Params, File = Params.uri.file().str(),
                     State = IER->Session->getState()](
                        const nix::ref<EvalAST> &AST, ReplyRAII<Symbols> &&RR) {
-                     struct VTy : RecursiveASTVisitor<VTy> {
-                       decltype(AST) &VAST;
-                       nix::EvalState &State;
-
-                       std::set<const nix::Expr *> Visited;
-
-                       // Per-node symbols should be collected here
-                       Symbols CurrentSymbols;
-
-                       bool traverseExprVar(const nix::ExprVar *E) {
-                         try {
-                           DocumentSymbol S;
-                           S.name = State.symbols[E->name];
-                           S.kind = SymbolKind::Variable;
-                           S.selectionRange = VAST->nPair(VAST->getPos(E));
-                           S.range = S.selectionRange;
-                           CurrentSymbols.emplace_back(std::move(S));
-                         } catch (...) {
-                         }
-                         return true;
-                       }
-
-                       bool traverseExprLambda(const nix::ExprLambda *E) {
-                         if (!E->hasFormals())
-                           return true;
-                         for (const auto &Formal : E->formals->formals) {
-                           DocumentSymbol S;
-                           S.name = State.symbols[Formal.name];
-                           S.kind = SymbolKind::Module;
-                           S.selectionRange = VAST->nPair(Formal.pos);
-                           S.range = S.selectionRange;
-                           CurrentSymbols.emplace_back(std::move(S));
-                         }
-                         RecursiveASTVisitor<VTy>::traverseExprLambda(E);
-                         return true;
-                       }
-
-                       bool traverseExprAttrs(const nix::ExprAttrs *E) {
-                         Symbols AttrSymbols = CurrentSymbols;
-                         CurrentSymbols = {};
-                         for (const auto &[Symbol, Def] : E->attrs) {
-                           DocumentSymbol S;
-                           S.name = State.symbols[Symbol];
-                           traverseExpr(Def.e);
-                           S.children = std::move(CurrentSymbols);
-                           S.kind = SymbolKind::Field;
-                           try {
-                             S.range = VAST->nPair(VAST->getPos(Def.e));
-                           } catch (std::out_of_range &) {
-                             S.range = VAST->nPair(Def.pos);
-                           }
-                           S.selectionRange = VAST->nPair(Def.pos);
-                           S.range = S.range / S.selectionRange;
-                           AttrSymbols.emplace_back(std::move(S));
-                         }
-                         CurrentSymbols = std::move(AttrSymbols);
-                         return true;
-                       }
-
-                     } V{.VAST = AST, .State = *State};
-                     V.traverseExpr(AST->root());
-                     RR.Response = V.CurrentSymbols;
+                     RR.Response = AST->documentSymbol(State->symbols);
                    });
 }
 

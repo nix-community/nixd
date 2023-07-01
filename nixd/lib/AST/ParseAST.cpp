@@ -1,4 +1,9 @@
 #include "nixd/AST/ParseAST.h"
+
+#include "lspserver/Protocol.h"
+
+#include <nix/symbol-table.hh>
+
 #include <optional>
 
 namespace nixd {
@@ -161,4 +166,82 @@ ParseAST::edit(const std::vector<const nix::ExprVar *> &Refs,
   return Edits;
 }
 
+// Document Symbol
+
+namespace {
+
+using namespace lspserver;
+struct DocumentSymbolVisitor : RecursiveASTVisitor<DocumentSymbolVisitor> {
+  using Symbols = ParseAST::Symbols;
+
+  const ParseAST &AST;
+  const nix::SymbolTable &STable;
+
+  std::set<const nix::Expr *> Visited;
+
+  // Per-node symbols should be collected here
+  Symbols CurrentSymbols;
+
+  bool traverseExprVar(const nix::ExprVar *E) {
+    try {
+      DocumentSymbol S;
+      S.name = STable[E->name];
+      S.kind = SymbolKind::Variable;
+      S.selectionRange = AST.nPair(AST.getPos(E));
+      S.range = S.selectionRange;
+      CurrentSymbols.emplace_back(std::move(S));
+    } catch (...) {
+    }
+    return true;
+  }
+
+  bool traverseExprLambda(const nix::ExprLambda *E) {
+    if (!E->hasFormals())
+      return true;
+    for (const auto &Formal : E->formals->formals) {
+      DocumentSymbol S;
+      S.name = STable[Formal.name];
+      S.kind = SymbolKind::Module;
+      S.selectionRange = AST.nPair(Formal.pos);
+      S.range = S.selectionRange;
+      CurrentSymbols.emplace_back(std::move(S));
+    }
+    RecursiveASTVisitor<DocumentSymbolVisitor>::traverseExprLambda(E);
+    return true;
+  }
+
+  bool traverseExprAttrs(const nix::ExprAttrs *E) {
+    Symbols AttrSymbols = CurrentSymbols;
+    CurrentSymbols = {};
+    for (const auto &[Symbol, Def] : E->attrs) {
+      DocumentSymbol S;
+      S.name = STable[Symbol];
+      traverseExpr(Def.e);
+      S.children = std::move(CurrentSymbols);
+      S.kind = SymbolKind::Field;
+      try {
+        S.range = AST.nPair(AST.getPos(Def.e));
+      } catch (std::out_of_range &) {
+        S.range = AST.nPair(Def.pos);
+      }
+      S.selectionRange = AST.nPair(Def.pos);
+      S.range = S.range / S.selectionRange;
+      AttrSymbols.emplace_back(std::move(S));
+    }
+    CurrentSymbols = std::move(AttrSymbols);
+    return true;
+  }
+};
+
+} // namespace
+
+ParseAST::Symbols
+ParseAST::documentSymbol(const nix::SymbolTable &STable) const {
+  auto V = DocumentSymbolVisitor{
+      .AST = *this,
+      .STable = STable,
+  };
+  V.traverseExpr(root());
+  return V.CurrentSymbols;
+};
 } // namespace nixd

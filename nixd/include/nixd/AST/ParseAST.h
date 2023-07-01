@@ -6,6 +6,7 @@
 #include "nixd/Support/Position.h"
 
 #include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
 
 namespace nixd {
 
@@ -14,6 +15,7 @@ class ParseAST {
 public:
   using Definition = std::pair<const nix::Expr *, nix::Displacement>;
   using TextEdits = std::vector<lspserver::TextEdit>;
+  using Symbols = std::vector<lspserver::DocumentSymbol>;
 
 protected:
   std::unique_ptr<ParseData> Data;
@@ -139,5 +141,8 @@ public:
                                  const std::string &NewName) const {
     return rename(def(Var), NewName);
   };
+
+  // Document Symbol
+  [[nodiscard]] Symbols documentSymbol(const nix::SymbolTable &STable) const;
 };
 } // namespace nixd
