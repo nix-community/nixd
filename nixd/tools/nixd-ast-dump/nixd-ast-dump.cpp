@@ -2,6 +2,7 @@
 
 #include "nixd/Expr/Expr.h"
 #include "nixd/Parser/Parser.h"
+#include "nixd/Support/Position.h"
 
 #include <nix/canon-path.hh>
 #include <nix/nixexpr.hh>
@@ -27,6 +28,10 @@ const OptionCategory *Cat[] = {&Misc};
 opt<std::string> Filename(Positional, desc("<input file>"), init("-"),
                           cat(Misc));
 
+opt<bool> ShowRange("range", init(false),
+                    desc("Extract range information (nixd extension)"),
+                    cat(Misc));
+
 struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
   nix::SymbolTable &STable;
   nix::PosTable &PTable;
@@ -42,6 +47,16 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     return true;
   }
 
+  void showRange(const void *Ptr) const {
+    try {
+      auto PId = Data->locations.at(Ptr);
+      auto Range = nixd::Range(nixd::RangeIdx(PId, Data->end), PTable);
+      std::cout << Range.Begin.line << ":" << Range.Begin.column << " "
+                << Range.End.line << ":" << Range.End.column;
+    } catch (...) {
+    }
+  }
+
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) {                                       \
     for (int i = 0; i < Depth; i++) {                                          \
@@ -49,6 +64,9 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     }                                                                          \
     std::cout << #EXPR << ": ";                                                \
     E->show(STable, std::cout);                                                \
+    std::cout << " ";                                                          \
+    if (ShowRange)                                                             \
+      showRange(E);                                                            \
     std::cout << "\n";                                                         \
     return true;                                                               \
   }
