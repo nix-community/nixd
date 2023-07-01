@@ -270,6 +270,14 @@ public:
   // Interprocess
 
   // Controller
+  using StaticASTAct = llvm::unique_function<void(ParseSession &&Data,
+                                                  const std::string &Version)>;
+  void withStaticAST(const std::string &Path, StaticASTAct Action) {
+    auto Draft = DraftMgr.getDraft(Path);
+    if (!Draft)
+      throw std::logic_error("no draft stored for requested file");
+    Action(parse(*Draft->Contents, Path), Draft->Version);
+  }
 
   void forkWorker(llvm::unique_function<void()> WorkerAction,
                   std::deque<std::unique_ptr<Proc>> &WorkerPool, size_t Size);

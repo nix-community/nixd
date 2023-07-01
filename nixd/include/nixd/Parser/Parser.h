@@ -5,9 +5,13 @@
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 
+#include <filesystem>
 #include <utility>
 
 namespace nixd {
+
+using ParseSession =
+    std::tuple<nix::SymbolTable, nix::PosTable, std::unique_ptr<ParseData>>;
 
 std::unique_ptr<ParseData> parse(char *Text, size_t Length,
                                  nix::Pos::Origin Origin,
@@ -22,9 +26,8 @@ inline std::unique_ptr<ParseData> parse(std::string Text,
   return parse(Text.data(), Text.length(), std::move(Origin), BasePath, State);
 }
 
-inline std::tuple<nix::SymbolTable, nix::PosTable, std::unique_ptr<ParseData>>
-parse(char *Text, size_t Length, nix::Pos::Origin Origin,
-      const nix::SourcePath &BasePath) {
+inline ParseSession parse(char *Text, size_t Length, nix::Pos::Origin Origin,
+                          const nix::SourcePath &BasePath) {
   nix::SymbolTable Symbols;
   nix::PosTable Positions;
   ParseState State{Symbols, Positions};
@@ -32,11 +35,19 @@ parse(char *Text, size_t Length, nix::Pos::Origin Origin,
   return {std::move(Symbols), std::move(Positions), std::move(Data)};
 }
 
-inline std::tuple<nix::SymbolTable, nix::PosTable, std::unique_ptr<ParseData>>
-parse(std::string Text, nix::Pos::Origin Origin,
-      const nix::SourcePath &BasePath) {
+inline ParseSession parse(std::string Text, nix::Pos::Origin Origin,
+                          const nix::SourcePath &BasePath) {
   Text.append("\0\0", 2);
   return parse(Text.data(), Text.length(), std::move(Origin), BasePath);
+}
+
+inline ParseSession parse(std::string Text, const std::string &Path) {
+  Text.append("\0\0", 2);
+  auto FSPath = std::filesystem::path(Path);
+  auto Origin = nix::CanonPath(FSPath.string());
+  auto BasePath = nix::CanonPath(FSPath.remove_filename().string());
+  return parse(Text.data(), Text.length(), std::move(Origin),
+               std::move(BasePath));
 }
 
 inline std::unique_ptr<ParseData> parse(char *Text, size_t Length,
