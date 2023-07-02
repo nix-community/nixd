@@ -2,11 +2,13 @@
 
 #include "lspserver/Protocol.h"
 
+#include "nixd/Expr/Nodes.h"
 #include "nixd/Parser/Parser.h"
 #include "nixd/Support/Position.h"
 
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
+#include <optional>
 
 namespace nixd {
 
@@ -25,14 +27,22 @@ protected:
   std::map<const nix::ExprVar *, Definition> Definitions;
 
 public:
+  void bindVars(const nix::StaticEnv &Env) {
+    if (auto *Root = dynamic_cast<nodes::StaticBindable *>(Data->result)) {
+      Root->bindVarsStatic(*Data->STable, *Data->PTable, Env);
+    }
+  }
+
+  void bindVars() {
+    nix::StaticEnv Env(true, nullptr);
+    bindVars(Env);
+  }
+
   void staticAnalysis() {
     ParentMap = getParentMap(root());
     prepareDefRef();
   }
-  ParseAST(decltype(Data) D, bool DoSA = true) : Data(std::move(D)) {
-    if (DoSA)
-      staticAnalysis();
-  }
+  ParseAST(std::unique_ptr<ParseData> D) : Data(std::move(D)) {}
 
   virtual ~ParseAST() = default;
 
@@ -55,7 +65,7 @@ public:
   [[nodiscard]] nix::PosIdx end(nix::PosIdx P) const { return Data->end.at(P); }
 
   [[nodiscard]] Range nPair(nix::PosIdx P) const {
-    return {nPairIdx(P), Data->state.positions};
+    return {nPairIdx(P), *Data->PTable};
   }
 
   [[nodiscard]] RangeIdx nPairIdx(nix::PosIdx P) const { return {P, end(P)}; }
@@ -84,7 +94,7 @@ public:
   }
 
   Range nRange(const void *Ptr) const {
-    return {nRangeIdx(Ptr), Data->state.positions};
+    return {nRangeIdx(Ptr), *Data->PTable};
   }
 
   RangeIdx nRangeIdx(const void *Ptr) const { return {getPos(Ptr), Data->end}; }

@@ -19,7 +19,7 @@ class EvalAST : public ParseAST {
   void rewriteAST();
 
 public:
-  EvalAST(decltype(Data) D) : ParseAST(std::move(D), false) {
+  EvalAST(std::unique_ptr<ParseData> D) : ParseAST(std::move(D)) {
     rewriteAST();
     staticAnalysis();
   }

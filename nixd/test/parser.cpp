@@ -61,8 +61,8 @@ rec {
       try {
         auto BeginIdx = Data->locations.at(E);
         auto EndIdx = Data->end.at(BeginIdx);
-        auto Begin = Data->state.positions[BeginIdx];
-        auto End = Data->state.positions[EndIdx];
+        auto Begin = (*Data->PTable)[BeginIdx];
+        auto End = (*Data->PTable)[EndIdx];
         VisitedNodes++;
         if (const auto *Elet = dynamic_cast<const ExprLet *>(E)) {
           // This is toplevel declaration, assert the range is correct
@@ -90,10 +90,7 @@ rec {
 }
 
 TEST(Parser, parse1) {
-  nix::SymbolTable Symbols;
-  nix::PosTable Positions;
-  auto Data = parse("{ x = 1; }", CanonPath("/"), CanonPath("/"),
-                    ParseState{Symbols, Positions});
+  auto Data = parse("{ x = 1; }", CanonPath("/"), CanonPath("/"));
 }
 
 } // namespace nixd

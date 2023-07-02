@@ -37,8 +37,6 @@ opt<bool> BindVars("bindv", init(false), desc("Do variables name binding"),
                    cat(Misc));
 
 struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
-  nix::SymbolTable &STable;
-  nix::PosTable &PTable;
   std::unique_ptr<nixd::ParseData> Data;
 
   int Depth = 0;
@@ -54,7 +52,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
   void showRange(const void *Ptr) const {
     try {
       auto PId = Data->locations.at(Ptr);
-      auto Range = nixd::Range(nixd::RangeIdx(PId, Data->end), PTable);
+      auto Range = nixd::Range(nixd::RangeIdx(PId, Data->end), *Data->PTable);
       std::cout << Range.Begin.line << ":" << Range.Begin.column << " "
                 << Range.End.line << ":" << Range.End.column;
     } catch (...) {
@@ -67,7 +65,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
       std::cout << " ";                                                        \
     }                                                                          \
     std::cout << #EXPR << ": ";                                                \
-    E->show(STable, std::cout);                                                \
+    E->show(*Data->STable, std::cout);                                         \
     std::cout << " ";                                                          \
     if (ShowRange)                                                             \
       showRange(E);                                                            \
@@ -116,15 +114,14 @@ int main(int argc, char *argv[]) {
     Buffer = nix::SourcePath(nix::CanonPath(BasePath.string())).readFile();
     Origin = nix::CanonPath(BasePath.string());
   }
-  auto [STable, PTable, Data] =
-      nixd::parse(Buffer, std::move(Origin),
-                  nix::CanonPath(BasePath.remove_filename().string()));
+  auto Data = nixd::parse(Buffer, std::move(Origin),
+                          nix::CanonPath(BasePath.remove_filename().string()));
   if (BindVars && Data->result) {
     try {
       auto *S = dynamic_cast<nixd::nodes::StaticBindable *>(Data->result);
       assert(S && "Custom parser emits static bindable!");
       nix::StaticEnv Env(true, nullptr);
-      S->bindVarsStatic(STable, PTable, Env);
+      S->bindVarsStatic(*Data->STable, *Data->PTable, Env);
     } catch (nix::Error &E) {
       std::cerr << "Exception encountered while performing bindVars: \n";
       std::cerr << E.what();
@@ -139,7 +136,7 @@ int main(int argc, char *argv[]) {
       std::cerr << Err.what() << "\n";
     }
   }
-  ASTDump A{.STable = STable, .PTable = PTable, .Data = std::move(Data)};
+  ASTDump A{.Data = std::move(Data)};
   A.traverseExpr(Root);
   return 0;
 }
