@@ -35,7 +35,9 @@ CHECK-NEXT:       },
 CHECK-NEXT:       "declarationProvider": true,
 CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "documentFormattingProvider": true,
-CHECK-NEXT:       "documentLinkProvider": true,
+CHECK-NEXT:       "documentLinkProvider": {
+CHECK-NEXT:         "resolveProvider": false
+CHECK-NEXT:       },
 CHECK-NEXT:       "documentSymbolProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "renameProvider": {
