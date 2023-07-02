@@ -40,6 +40,9 @@ struct ParseData {
   using StringParts = std::vector<std::pair<nix::PosIdx, nix::Expr *>>;
   using AttrNames = std::vector<nix::AttrName>;
 
+  std::unique_ptr<nix::SymbolTable> STable;
+  std::unique_ptr<nix::PosTable> PTable;
+
   ParseState state;
   nix::Expr *result;
   nix::SourcePath basePath;

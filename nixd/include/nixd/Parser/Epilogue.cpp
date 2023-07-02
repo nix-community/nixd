@@ -12,6 +12,7 @@
 #include <nix/flake/flake.hh>
 #include <nix/nixexpr.hh>
 #include <nix/store-api.hh>
+#include <nix/symbol-table.hh>
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -39,7 +40,8 @@ std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
   yy_scan_buffer(text, length, scanner);
   int res = yyparse(scanner, data.get());
   yylex_destroy(scanner);
-
+  data->STable = std::make_unique<nix::SymbolTable>(state.symbols);
+  data->PTable = std::make_unique<nix::PosTable>(state.positions);
   return data; // NRVO
 }
 
