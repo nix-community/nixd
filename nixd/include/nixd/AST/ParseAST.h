@@ -153,6 +153,18 @@ public:
     return rename(def(Var), NewName);
   };
 
+  [[nodiscard]] std::optional<TextEdits>
+  rename(lspserver::Position Pos, const std::string &NewName) const {
+    if (const auto *EVar =
+            dynamic_cast<const nix::ExprVar *>(lookupContainMin(Pos))) {
+      return rename(EVar, NewName);
+    }
+    if (auto Def = lookupDef(Pos)) {
+      return rename(*Def, NewName);
+    }
+    return std::nullopt;
+  };
+
   // Document Symbol
   [[nodiscard]] Symbols documentSymbol(const nix::SymbolTable &STable) const;
 

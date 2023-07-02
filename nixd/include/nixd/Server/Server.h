@@ -96,6 +96,54 @@ public:
     ~ReplyRAII() { R(std::move(Response)); };
   };
 
+  template <class ReplyTy>
+  void withParseData(ReplyRAII<ReplyTy> &&RR, const std::string &Path,
+                     llvm::unique_function<void(ReplyRAII<ReplyTy> &&RR,
+                                                std::unique_ptr<ParseData> Data,
+                                                const std::string &Version)>
+                         Action) noexcept {
+    try {
+      auto Draft = DraftMgr.getDraft(Path);
+      if (!Draft)
+        throw std::logic_error("no draft stored for requested file");
+      try {
+        Action(std::move(RR), parse(*Draft->Contents, Path), Draft->Version);
+      } catch (std::exception &E) {
+        RR.Response =
+            lspserver::error("something uncaught in the AST action, reason {0}",
+                             stripANSI(E.what()));
+        return;
+      } catch (...) {
+        RR.Response = lspserver::error("something uncaught in the AST action");
+        return;
+      }
+    } catch (std::exception &E) {
+      RR.Response = lspserver::error(stripANSI(E.what()));
+      return;
+    } catch (...) {
+      RR.Response = lspserver::error("encountered unknown exception");
+      return;
+    }
+  }
+
+  template <class ReplyTy>
+  void withParseAST(
+      ReplyRAII<ReplyTy> &&RR, const std::string &Path,
+      llvm::unique_function<void(ReplyRAII<ReplyTy> &&RR, ParseAST &&AST,
+                                 const std::string &Version)>
+          Action) noexcept {
+    withParseData<ReplyTy>(
+        std::move(RR), Path,
+        [Action = std::move(Action)](ReplyRAII<ReplyTy> &&RR,
+                                     std::unique_ptr<ParseData> Data,
+                                     const std::string &Version) mutable {
+          auto AST = ParseAST(std::move(Data));
+          AST.bindVars();
+          AST.staticAnalysis();
+          Action(std::move(RR), std::move(AST), Version);
+        });
+  }
+
 private:
   bool WaitWorker = false;
 
@@ -332,9 +380,6 @@ public:
   void onStaticDocumentSymbol(
       const lspserver::TextDocumentIdentifier &,
       lspserver::Callback<std::vector<lspserver::DocumentSymbol>>);
-
-  void onStaticRename(const lspserver::RenameParams &,
-                      lspserver::Callback<std::vector<lspserver::TextEdit>>);
 
   // Worker::Nix::Eval
 
