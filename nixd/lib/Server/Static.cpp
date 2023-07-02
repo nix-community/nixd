@@ -18,9 +18,6 @@ void Server::switchToStatic() {
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onStaticDefinition);
 
-  Registry.addMethod("nixd/ipc/textDocument/rename", this,
-                     &Server::onStaticRename);
-
   evalInstallable(Config.getEvalDepth());
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
@@ -50,28 +47,6 @@ void Server::onStaticDocumentLink(
                      const nix::ref<EvalAST> &AST, ReplyRAII<Links> &&RR) {
                    RR.Response = AST->documentLink(File);
                  });
-}
-
-void Server::onStaticRename(
-    const lspserver::RenameParams &Params,
-    lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
-  using namespace lspserver;
-  using TextEdits = std::vector<lspserver::TextEdit>;
-  auto Action = [&Params](const nix::ref<EvalAST> &AST,
-                          ReplyRAII<TextEdits> &&RR) {
-    RR.Response = error("no suitable renaming action available");
-    if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(
-            AST->lookupContainMin(Params.position))) {
-      RR.Response = AST->rename(EVar, Params.newName);
-      return;
-    }
-    if (auto Def = AST->lookupDef(Params.position)) {
-      RR.Response = AST->rename(*Def, Params.newName);
-      return;
-    }
-  };
-  withAST<TextEdits>(Params.textDocument.uri.file().str(),
-                     ReplyRAII<TextEdits>(std::move(Reply)), std::move(Action));
 }
 
 void Server::onStaticCompletion(const lspserver::CompletionParams &Params,

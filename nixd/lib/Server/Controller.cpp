@@ -1,6 +1,8 @@
 #include "nixd-config.h"
 
 #include "nixd/Expr/Expr.h"
+#include "nixd/Parser/Parser.h"
+#include "nixd/Parser/Require.h"
 #include "nixd/Server/EvalDraftStore.h"
 #include "nixd/Server/Server.h"
 #include "nixd/Support/Diagnostic.h"
@@ -518,16 +520,23 @@ void Server::onCompletion(
 void Server::onRename(const lspserver::RenameParams &Params,
                       lspserver::Callback<lspserver::WorkspaceEdit> Reply) {
 
-  auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWC<std::vector<lspserver::TextEdit>>(
-        "nixd/ipc/textDocument/rename", Params,
-        {StaticWorkers, StaticWorkerLock, 1e5});
-    auto Edits = latestMatchOr<std::vector<lspserver::TextEdit>>(
-        Responses,
-        [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
-    std::map<std::string, std::vector<lspserver::TextEdit>> Changes;
-    Changes[Params.textDocument.uri.uri()] = std::move(Edits);
-    Reply(lspserver::WorkspaceEdit{.changes = std::move(Changes)});
+  auto Task = [Params, Reply = std::move(Reply), this]() mutable {
+    auto URI = Params.textDocument.uri;
+    auto Path = URI.file().str();
+    auto Action = [&URI, &Params](ReplyRAII<lspserver::WorkspaceEdit> &&RR,
+                                  ParseAST &&AST, const std::string &Version) {
+      std::map<std::string, std::vector<lspserver::TextEdit>> Changes;
+      if (auto Edits = AST.rename(Params.position, Params.newName)) {
+        Changes[URI.uri()] = std::move(*Edits);
+        RR.Response = lspserver::WorkspaceEdit{.changes = Changes};
+        return;
+      }
+      RR.Response = lspserver::error("no rename edits available");
+      return;
+    };
+    withParseAST<lspserver::WorkspaceEdit>(
+        ReplyRAII<lspserver::WorkspaceEdit>(std::move(Reply)), Path,
+        std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));
@@ -536,24 +545,25 @@ void Server::onRename(const lspserver::RenameParams &Params,
 void Server::onPrepareRename(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<llvm::json::Value> Reply) {
-  auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWC<std::vector<lspserver::TextEdit>>(
-        "nixd/ipc/textDocument/rename",
-        lspserver::RenameParams{
-            .textDocument = Params.textDocument,
-            .position = Params.position,
-        },
-        {StaticWorkers, StaticWorkerLock, 1e5});
-    auto Edits = latestMatchOr<std::vector<lspserver::TextEdit>>(
-        Responses,
-        [](const std::vector<lspserver::TextEdit> &) -> bool { return true; });
-    for (const auto &Edit : Edits) {
-      if (Edit.range.contains(Params.position)) {
-        Reply(Edit.range);
-        return;
+  auto Task = [Params, Reply = std::move(Reply), this]() mutable {
+    auto Path = Params.textDocument.uri.file().str();
+    auto Action = [&Params](ReplyRAII<llvm::json::Value> &&RR, ParseAST &&AST,
+                            const std::string &Version) {
+      auto Pos = Params.position;
+      if (auto Edits = AST.rename(Pos, "")) {
+        for (const auto &Edit : *Edits) {
+          if (Edit.range.contains(Pos)) {
+            RR.Response = Edit.range;
+            return;
+          }
+        }
       }
-    }
-    Reply(lspserver::error("no rename edits available"));
+      RR.Response = lspserver::error("no rename edits available");
+      return;
+    };
+    withParseAST<llvm::json::Value>(
+        ReplyRAII<llvm::json::Value>(std::move(Reply)), Path,
+        std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));
