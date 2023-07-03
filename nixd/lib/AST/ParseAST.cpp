@@ -235,11 +235,10 @@ struct DocumentSymbolVisitor : RecursiveASTVisitor<DocumentSymbolVisitor> {
 
 } // namespace
 
-ParseAST::Symbols
-ParseAST::documentSymbol(const nix::SymbolTable &STable) const {
+ParseAST::Symbols ParseAST::documentSymbol() const {
   auto V = DocumentSymbolVisitor{
       .AST = *this,
-      .STable = STable,
+      .STable = *Data->STable,
   };
   V.traverseExpr(root());
   return V.CurrentSymbols;

@@ -380,10 +380,6 @@ public:
       const lspserver::TextDocumentIdentifier &,
       lspserver::Callback<std::vector<lspserver::DocumentLink>>);
 
-  void onStaticDocumentSymbol(
-      const lspserver::TextDocumentIdentifier &,
-      lspserver::Callback<std::vector<lspserver::DocumentSymbol>>);
-
   // Worker::Nix::Eval
 
   void switchToEvaluator();

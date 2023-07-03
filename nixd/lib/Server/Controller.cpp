@@ -437,14 +437,13 @@ void Server::onDocumentSymbol(
     lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
 
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWC<std::vector<lspserver::DocumentSymbol>>(
-        "nixd/ipc/textDocument/documentSymbol", Params.textDocument,
-        {StaticWorkers, StaticWorkerLock, 1e6});
-
-    Reply(latestMatchOr<std::vector<lspserver::DocumentSymbol>>(
-        Responses, [](const std::vector<lspserver::DocumentSymbol> &) -> bool {
-          return true;
-        }));
+    auto Action = [](ReplyRAII<ParseAST::Symbols> &&RR, ParseAST &&AST,
+                     const std::string &Version) {
+      RR.Response = AST.documentSymbol();
+    };
+    auto RR = ReplyRAII<ParseAST::Symbols>(std::move(Reply));
+    auto Path = Params.textDocument.uri.file().str();
+    withParseAST<ParseAST::Symbols>(std::move(RR), Path, std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));
