@@ -12,7 +12,12 @@
     perSystem = { config, self', inputs', pkgs, system, ... }:
       with pkgs;
       let
-        nixd = callPackage ./default.nix { };
+        nix = nixVersions.nix_2_16;
+        llvmPackages = llvmPackages_16;
+        nixd = callPackage ./default.nix {
+          inherit nix;
+          inherit llvmPackages;
+        };
         nixdLLVM = nixd.override {
           stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv;
         };
@@ -25,6 +30,8 @@
           nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
           shellHook = ''
             export PATH="${pkgs.clang-tools}/bin:$PATH"
+            export NIX_DEBUG_INFO_DIRS=${nix.debug}/lib/debug
+            export NIX_SRC=${nix.src}
           '';
         };
       in

@@ -6,18 +6,14 @@
 , gtest
 , libbacktrace
 , lit
-, llvmPackages_16
+, llvmPackages
 , meson
 , ninja
-, nixVersions
+, nix
 , nixpkgs-fmt
 , pkg-config
 }:
 
-let
-  llvmPackages = llvmPackages_16;
-  nix = nixVersions.nix_2_16;
-in
 stdenv.mkDerivation {
   pname = "nixd";
   version = "nightly";
