@@ -10,9 +10,6 @@ void Server::switchToStatic() {
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
                      &Server::onStaticCompletion);
 
-  Registry.addMethod("nixd/ipc/textDocument/definition", this,
-                     &Server::onStaticDefinition);
-
   evalInstallable(Config.getEvalDepth());
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
@@ -60,35 +57,6 @@ void Server::onStaticCompletion(const lspserver::CompletionParams &Params,
   withAST<CompletionList>(Params.textDocument.uri.file().str(),
                           ReplyRAII<CompletionList>(std::move(Reply)),
                           std::move(Action));
-}
-
-void Server::onStaticDefinition(
-    const lspserver::TextDocumentPositionParams &Params,
-    lspserver::Callback<lspserver::Location> Reply) {
-  using namespace lspserver;
-  withAST<Location>(
-      Params.textDocument.uri.file().str(),
-      ReplyRAII<Location>(std::move(Reply)),
-      [Params, this](const nix::ref<EvalAST> &AST, ReplyRAII<Location> &&RR) {
-        auto State = IER->Session->getState();
-
-        const auto *Node = AST->lookupContainMin(Params.position);
-        if (!Node)
-          return;
-
-        // try to find the location binds to the variable.
-        if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
-          try {
-            RR.Response = Location{Params.textDocument.uri,
-                                   AST->defRange(AST->def(EVar))};
-          } catch (std::out_of_range &) {
-            RR.Response = error("location not available");
-          }
-          return;
-        }
-        RR.Response = error("requested expression is not an ExprVar.");
-        return;
-      });
 }
 
 } // namespace nixd

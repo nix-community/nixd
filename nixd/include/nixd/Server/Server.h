@@ -373,9 +373,6 @@ public:
   void onStaticCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
 
-  void onStaticDefinition(const lspserver::TextDocumentPositionParams &,
-                          lspserver::Callback<lspserver::Location>);
-
   // Worker::Nix::Eval
 
   void switchToEvaluator();

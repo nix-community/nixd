@@ -400,16 +400,44 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
 void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
                           lspserver::Callback<llvm::json::Value> Reply) {
   using RTy = lspserver::Location;
-  constexpr auto Method = "nixd/ipc/textDocument/definition";
+  using namespace lspserver;
+  using V = llvm::json::Value;
+  using O = llvm::json::Object;
+
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Resp = askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 1e6},
-                           WC{StaticWorkers, StaticWorkerLock, 2e4});
-    Reply(latestMatchOr<RTy, llvm::json::Value>(
-        Resp,
-        [](const RTy &Location) -> bool {
-          return Location.range.start.line != -1;
-        },
-        llvm::json::Object{}));
+    // Firstly, ask the eval workers if there is a suitable location
+    // Prefer evaluated locations because in most case this is more useful
+    constexpr auto Method = "nixd/ipc/textDocument/definition";
+    auto Resp =
+        askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 1e6});
+    if (!Resp.empty()) {
+      Reply(latestMatchOr<RTy, V>(
+          Resp, [](const RTy &Location) -> bool { return true; }, O{}));
+      return;
+    }
+
+    // Otherwise, statically find the definition
+    const auto &URI = Params.textDocument.uri;
+    auto Path = URI.file().str();
+    const auto &Pos = Params.position;
+
+    auto Action = [&](ReplyRAII<llvm::json::Value> &&RR, ParseAST &&AST,
+                      const std::string &Version) {
+      try {
+        Location L;
+        auto Def = AST.def(Pos);
+        L.range = AST.defRange(Def);
+        L.uri = URI;
+        RR.Response = std::move(L);
+      } catch (std::exception &E) {
+        // Reply an error is annoying at the user interface, let's just log.
+        auto ErrMsg = stripANSI(E.what());
+        RR.Response = O{};
+        elog("static definition: {0}", std::move(ErrMsg));
+      }
+    };
+
+    withParseAST<V>({std::move(Reply)}, Path, std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));
