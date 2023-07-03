@@ -3,10 +3,12 @@
 #include "lspserver/Function.h"
 
 #include <llvm/ADT/FunctionExtras.h>
+#include <llvm/Support/Compiler.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 
 #include <mutex>
+#include <stdexcept>
 
 namespace lspserver {
 
@@ -50,20 +52,30 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
 
 bool LSPServer::onReply(llvm::json::Value ID,
                         llvm::Expected<llvm::json::Value> Result) {
-  std::lock_guard<std::mutex> Guard(PendingCallsLock);
   log("<-- reply({0})", ID);
-  if (auto I = ID.getAsInteger()) {
-    if (PendingCalls.contains(*I)) {
-      PendingCalls[*I](std::move(Result));
-      PendingCalls.erase(*I);
-      return true;
+  std::optional<Callback<llvm::json::Value>> CB;
+
+  if (auto OptI = ID.getAsInteger()) {
+    if (LLVM_UNLIKELY(*OptI > INT_MAX))
+      throw std::logic_error("jsonrpc: id is too large (> INT_MAX)");
+    std::lock_guard<std::mutex> Guard(PendingCallsLock);
+    auto I = static_cast<int>(*OptI);
+    if (PendingCalls.contains(I)) {
+      CB = std::move(PendingCalls[I]);
+      PendingCalls.erase(I);
     }
+  } else {
+    throw std::logic_error("jsonrpc: not an integer message ID");
+  }
+  if (LLVM_UNLIKELY(!CB)) {
     elog("received a reply with ID {0}, but there was no such call", ID);
     // Ignore this error
     return true;
   }
-  elog("Cannot retrieve message ID from json: {0}", ID);
-  return false;
+  // Invoke the callback outside of the critical zone, because we just do not
+  // need to lock PendingCalls.
+  (*CB)(std::move(Result));
+  return true;
 }
 
 int LSPServer::bindReply(Callback<llvm::json::Value> CB) {
