@@ -10,7 +10,6 @@ libnixdServer = library('nixdServer'
 , 'EvalDraftStore.cpp'
 , 'Nix.cpp'
 , 'Option.cpp'
-, 'Static.cpp'
 , include_directories: nixd_inc
 , dependencies: libnixdServerDeps
 , install: true

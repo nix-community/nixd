@@ -6,14 +6,15 @@
 namespace nixd::nodes {
 
 struct StaticBindable {
-  virtual void bindVarsStatic(nix::SymbolTable &Symbols,
-                              nix::PosTable &Positions,
+  virtual void bindVarsStatic(const nix::SymbolTable &Symbols,
+                              const nix::PosTable &Positions,
                               const nix::StaticEnv &Env) = 0;
 };
 
 #define NIX_EXPR(EXPR)                                                         \
   struct EXPR : StaticBindable, nix::EXPR {                                    \
-    void bindVarsStatic(nix::SymbolTable &Symbols, nix::PosTable &Positions,   \
+    void bindVarsStatic(const nix::SymbolTable &Symbols,                       \
+                        const nix::PosTable &Positions,                        \
                         const nix::StaticEnv &Env) override;                   \
     using nix::EXPR::EXPR;                                                     \
   }; // namespace nixd::nodes

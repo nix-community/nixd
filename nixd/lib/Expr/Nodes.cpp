@@ -13,22 +13,25 @@ using nix::UndefinedVarError;
 
 #define A(X) (dynamic_cast<nixd::nodes::StaticBindable *>(X))
 
-void ExprInt::bindVarsStatic(nix::SymbolTable &Symbols,
-                             nix::PosTable &Positions, const StaticEnv &Env) {}
+void ExprInt::bindVarsStatic(const nix::SymbolTable &Symbols,
+                             const nix::PosTable &Positions,
+                             const StaticEnv &Env) {}
 
-void ExprFloat::bindVarsStatic(nix::SymbolTable &Symbols,
-                               nix::PosTable &Positions, const StaticEnv &Env) {
-}
+void ExprFloat::bindVarsStatic(const nix::SymbolTable &Symbols,
+                               const nix::PosTable &Positions,
+                               const StaticEnv &Env) {}
 
-void ExprString::bindVarsStatic(nix::SymbolTable &Symbols,
-                                nix::PosTable &Positions,
+void ExprString::bindVarsStatic(const nix::SymbolTable &Symbols,
+                                const nix::PosTable &Positions,
                                 const StaticEnv &Env) {}
 
-void ExprPath::bindVarsStatic(nix::SymbolTable &Symbols,
-                              nix::PosTable &Positions, const StaticEnv &Env) {}
+void ExprPath::bindVarsStatic(const nix::SymbolTable &Symbols,
+                              const nix::PosTable &Positions,
+                              const StaticEnv &Env) {}
 
-void ExprVar::bindVarsStatic(nix::SymbolTable &Symbols,
-                             nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprVar::bindVarsStatic(const nix::SymbolTable &Symbols,
+                             const nix::PosTable &Positions,
+                             const StaticEnv &Env) {
 
   /* Check whether the variable appears in the environment.  If so,
      set its level and displacement. */
@@ -61,8 +64,8 @@ void ExprVar::bindVarsStatic(nix::SymbolTable &Symbols,
   this->level = *WithLevel;
 }
 
-void ExprSelect::bindVarsStatic(nix::SymbolTable &Symbols,
-                                nix::PosTable &Positions,
+void ExprSelect::bindVarsStatic(const nix::SymbolTable &Symbols,
+                                const nix::PosTable &Positions,
                                 const StaticEnv &Env) {
   A(e)->bindVarsStatic(Symbols, Positions, Env);
   if (def)
@@ -72,8 +75,8 @@ void ExprSelect::bindVarsStatic(nix::SymbolTable &Symbols,
       A(Name.expr)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprOpHasAttr::bindVarsStatic(nix::SymbolTable &Symbols,
-                                   nix::PosTable &Positions,
+void ExprOpHasAttr::bindVarsStatic(const nix::SymbolTable &Symbols,
+                                   const nix::PosTable &Positions,
                                    const StaticEnv &Env) {
 
   A(e)->bindVarsStatic(Symbols, Positions, Env);
@@ -82,8 +85,9 @@ void ExprOpHasAttr::bindVarsStatic(nix::SymbolTable &Symbols,
       A(Name.expr)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprAttrs::bindVarsStatic(nix::SymbolTable &Symbols,
-                               nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprAttrs::bindVarsStatic(const nix::SymbolTable &Symbols,
+                               const nix::PosTable &Positions,
+                               const StaticEnv &Env) {
 
   if (recursive) {
     auto NewEnv = StaticEnv(false, &Env, recursive ? attrs.size() : 0);
@@ -114,15 +118,16 @@ void ExprAttrs::bindVarsStatic(nix::SymbolTable &Symbols,
   }
 }
 
-void ExprList::bindVarsStatic(nix::SymbolTable &Symbols,
-                              nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprList::bindVarsStatic(const nix::SymbolTable &Symbols,
+                              const nix::PosTable &Positions,
+                              const StaticEnv &Env) {
 
   for (auto &I : elems)
     A(I)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprLambda::bindVarsStatic(nix::SymbolTable &Symbols,
-                                nix::PosTable &Positions,
+void ExprLambda::bindVarsStatic(const nix::SymbolTable &Symbols,
+                                const nix::PosTable &Positions,
                                 const StaticEnv &Env) {
 
   auto NewEnv =
@@ -148,16 +153,18 @@ void ExprLambda::bindVarsStatic(nix::SymbolTable &Symbols,
   A(body)->bindVarsStatic(Symbols, Positions, NewEnv);
 }
 
-void ExprCall::bindVarsStatic(nix::SymbolTable &Symbols,
-                              nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprCall::bindVarsStatic(const nix::SymbolTable &Symbols,
+                              const nix::PosTable &Positions,
+                              const StaticEnv &Env) {
 
   A(fun)->bindVarsStatic(Symbols, Positions, Env);
   for (auto *E : args)
     A(E)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprLet::bindVarsStatic(nix::SymbolTable &Symbols,
-                             nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprLet::bindVarsStatic(const nix::SymbolTable &Symbols,
+                             const nix::PosTable &Positions,
+                             const StaticEnv &Env) {
 
   auto NewEnv = StaticEnv(false, &Env, attrs->attrs.size());
 
@@ -174,8 +181,9 @@ void ExprLet::bindVarsStatic(nix::SymbolTable &Symbols,
   A(body)->bindVarsStatic(Symbols, Positions, NewEnv);
 }
 
-void ExprWith::bindVarsStatic(nix::SymbolTable &Symbols,
-                              nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprWith::bindVarsStatic(const nix::SymbolTable &Symbols,
+                              const nix::PosTable &Positions,
+                              const StaticEnv &Env) {
 
   /* Does this `with' have an enclosing `with'?  If so, record its
      level so that `lookupVar' can look up variables in the previous
@@ -194,7 +202,8 @@ void ExprWith::bindVarsStatic(nix::SymbolTable &Symbols,
   A(body)->bindVarsStatic(Symbols, Positions, NewEnv);
 }
 
-void ExprIf::bindVarsStatic(nix::SymbolTable &Symbols, nix::PosTable &Positions,
+void ExprIf::bindVarsStatic(const nix::SymbolTable &Symbols,
+                            const nix::PosTable &Positions,
                             const StaticEnv &Env) {
 
   A(cond)->bindVarsStatic(Symbols, Positions, Env);
@@ -202,32 +211,35 @@ void ExprIf::bindVarsStatic(nix::SymbolTable &Symbols, nix::PosTable &Positions,
   A(else_)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprAssert::bindVarsStatic(nix::SymbolTable &Symbols,
-                                nix::PosTable &Positions,
+void ExprAssert::bindVarsStatic(const nix::SymbolTable &Symbols,
+                                const nix::PosTable &Positions,
                                 const StaticEnv &Env) {
 
   A(cond)->bindVarsStatic(Symbols, Positions, Env);
   A(body)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprOpNot::bindVarsStatic(nix::SymbolTable &Symbols,
-                               nix::PosTable &Positions, const StaticEnv &Env) {
+void ExprOpNot::bindVarsStatic(const nix::SymbolTable &Symbols,
+                               const nix::PosTable &Positions,
+                               const StaticEnv &Env) {
   A(e)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprConcatStrings::bindVarsStatic(nix::SymbolTable &Symbols,
-                                       nix::PosTable &Positions,
+void ExprConcatStrings::bindVarsStatic(const nix::SymbolTable &Symbols,
+                                       const nix::PosTable &Positions,
                                        const StaticEnv &Env) {
 
   for (auto &I : *this->es)
     A(I.second)->bindVarsStatic(Symbols, Positions, Env);
 }
 
-void ExprPos::bindVarsStatic(nix::SymbolTable &Symbols,
-                             nix::PosTable &Positions, const StaticEnv &Env) {}
+void ExprPos::bindVarsStatic(const nix::SymbolTable &Symbols,
+                             const nix::PosTable &Positions,
+                             const StaticEnv &Env) {}
 
 #define BIN_OP(OP, S)                                                          \
-  void OP::bindVarsStatic(nix::SymbolTable &Symbols, nix::PosTable &Positions, \
+  void OP::bindVarsStatic(const nix::SymbolTable &Symbols,                     \
+                          const nix::PosTable &Positions,                      \
                           const StaticEnv &Env) {                              \
     A(e1)->bindVarsStatic(Symbols, Positions, Env);                            \
     A(e2)->bindVarsStatic(Symbols, Positions, Env);                            \

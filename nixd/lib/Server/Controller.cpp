@@ -1,5 +1,6 @@
 #include "nixd-config.h"
 
+#include "nixd/AST/ParseAST.h"
 #include "nixd/Expr/Expr.h"
 #include "nixd/Parser/Parser.h"
 #include "nixd/Parser/Require.h"
@@ -41,6 +42,25 @@
 #include <unistd.h>
 
 namespace nixd {
+
+std::pair<std::unique_ptr<ParseData>, std::string>
+Server::parseDraft(const std::string &Path) const {
+  auto Draft = DraftMgr.getDraft(Path);
+  if (!Draft)
+    throw std::logic_error("no draft stored for requested file");
+  return std::pair{parse(*Draft->Contents, Path), Draft->Version};
+}
+
+void Server::withParseAST(
+    const std::string &Path,
+    llvm::unique_function<void(const ParseAST &, const std::string &)> Action)
+    const {
+  auto [Data, Version] = parseDraft(Path);
+  auto AST = ParseAST(std::move(Data));
+  AST.bindVars();
+  AST.staticAnalysis();
+  Action(AST, Version);
+}
 
 void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
                         std::deque<std::unique_ptr<Proc>> &WorkerPool,
@@ -114,16 +134,6 @@ void Server::updateWorkspaceVersion() {
     return;
   WorkspaceVersion++;
   std::lock_guard EvalGuard(EvalWorkerLock);
-  std::lock_guard StaticGuard(StaticWorkerLock);
-
-  // For a static worker that do not perform heavy eval.
-  forkWorker(
-      [this]() {
-        Config.eval = std::nullopt;
-        switchToStatic();
-      },
-      StaticWorkers, Config.getNumWorkers());
-
   // The eval worker
   forkWorker([this]() { switchToEvaluator(); }, EvalWorkers,
              Config.getNumWorkers());
@@ -481,8 +491,8 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   using RTy = lspserver::Hover;
   constexpr auto Method = "nixd/ipc/textDocument/hover";
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Resp = askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 2e6},
-                           WC{StaticWorkers, StaticWorkerLock, 1e4});
+    auto Resp =
+        askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 2e6});
     Reply(latestMatchOr<lspserver::Hover>(Resp, [](const lspserver::Hover &H) {
       return H.contents.value.length() != 0;
     }));
@@ -497,14 +507,28 @@ void Server::onCompletion(
   auto EnableOption =
       bool(Config.options) && Config.options->enable.value_or(false);
   using RTy = lspserver::CompletionList;
+  using namespace lspserver;
   constexpr auto Method = "nixd/ipc/textDocument/completion";
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Resp = askWC<RTy>(Method, Params, WC{EvalWorkers, EvalWorkerLock, 2e6},
-                           WC{StaticWorkers, StaticWorkerLock, 1e5});
-
+    auto Resp = askWC<RTy>(Method, Params, {EvalWorkers, EvalWorkerLock, 2e6});
     std::optional<RTy> R;
     if (!Resp.empty())
       R = std::move(Resp.back());
+    else {
+      // Statically construct the completion list.
+      try {
+        auto Path = Params.textDocument.uri.file();
+        auto Action = [&Resp, Pos = Params.position](
+                          const ParseAST &AST, const std::string &Version) {
+          auto Items = AST.completion(Pos);
+          Resp.emplace_back(CompletionList{false, Items});
+        };
+        withParseAST(Path.str(), std::move(Action));
+      } catch (std::exception &E) {
+        lspserver::elog("completion/parseAST: {0}", stripANSI(E.what()));
+      } catch (...) {
+      }
+    }
 
     if (EnableOption) {
       ipc::AttrPathParams APParams;

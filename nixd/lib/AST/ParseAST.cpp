@@ -276,4 +276,27 @@ ParseAST::Links ParseAST::documentLink(const std::string &File) const {
   return V.Result;
 }
 
+lspserver::CompletionItem
+ParseAST::toCompletionItem(const nix::Symbol &V) const {
+  lspserver::CompletionItem R;
+  R.kind = lspserver::CompletionItemKind::Interface;
+  R.label = symbols()[V];
+  return R;
+}
+
+std::vector<lspserver::CompletionItem>
+ParseAST::completion(const lspserver::Position &Pos) const {
+  std::vector<lspserver::CompletionItem> Items;
+  if (const auto *Node = lookupContainMin(Pos)) {
+    std::vector<nix::Symbol> Symbols;
+    collectSymbols(Node, Symbols);
+
+    // Insert symbols to our completion list.
+    std::transform(
+        Symbols.begin(), Symbols.end(), std::back_inserter(Items),
+        [this](const nix::Symbol &V) { return toCompletionItem(V); });
+  };
+  return Items;
+}
+
 } // namespace nixd
