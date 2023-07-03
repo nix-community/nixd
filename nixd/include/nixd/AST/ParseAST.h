@@ -28,9 +28,14 @@ protected:
   std::map<const nix::ExprVar *, Definition> Definitions;
 
 public:
+  [[nodiscard]] const nix::PosTable &positions() const { return *Data->PTable; }
+  [[nodiscard]] const nix::SymbolTable &symbols() const {
+    return *Data->STable;
+  }
+
   void bindVars(const nix::StaticEnv &Env) {
     if (auto *Root = dynamic_cast<nodes::StaticBindable *>(Data->result)) {
-      Root->bindVarsStatic(*Data->STable, *Data->PTable, Env);
+      Root->bindVarsStatic(symbols(), positions(), Env);
     }
   }
 
@@ -66,7 +71,7 @@ public:
   [[nodiscard]] nix::PosIdx end(nix::PosIdx P) const { return Data->end.at(P); }
 
   [[nodiscard]] Range nPair(nix::PosIdx P) const {
-    return {nPairIdx(P), *Data->PTable};
+    return {nPairIdx(P), positions()};
   }
 
   [[nodiscard]] RangeIdx nPairIdx(nix::PosIdx P) const { return {P, end(P)}; }
@@ -103,9 +108,7 @@ public:
     }
   }
 
-  Range nRange(const void *Ptr) const {
-    return {nRangeIdx(Ptr), *Data->PTable};
-  }
+  Range nRange(const void *Ptr) const { return {nRangeIdx(Ptr), positions()}; }
 
   RangeIdx nRangeIdx(const void *Ptr) const { return {getPos(Ptr), Data->end}; }
 
