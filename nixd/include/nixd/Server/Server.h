@@ -2,6 +2,7 @@
 
 #include "EvalDraftStore.h"
 
+#include "nixd/Parser/Require.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/JSONSerialization.h"
 
@@ -83,7 +84,6 @@ public:
     /// Parent process of the server
     Controller,
     /// Child process
-    Static,
     Evaluator,
     OptionProvider,
   };
@@ -129,6 +129,14 @@ public:
     }
   }
 
+  std::pair<std::unique_ptr<ParseData>, std::string>
+  parseDraft(const std::string &Path) const;
+
+  void withParseAST(
+      const std::string &Path,
+      llvm::unique_function<void(const ParseAST &, const std::string &)> Action)
+      const;
+
   template <class ReplyTy>
   void withParseAST(
       ReplyRAII<ReplyTy> &&RR, const std::string &Path,
@@ -160,9 +168,6 @@ private:
 
   std::shared_mutex EvalWorkerLock;
   WorkerContainer EvalWorkers; // GUARDED_BY(EvalWorkerLock)
-
-  std::shared_mutex StaticWorkerLock;
-  WorkerContainer StaticWorkers; // GUARDED_BY(EvalWorkerLock)
 
   // Used for lit tests, ensure that workers have finished their job.
   std::counting_semaphore<> FinishSmp = std::counting_semaphore(0);
@@ -231,7 +236,7 @@ public:
       Pool.join();
       std::lock_guard Guard(EvalWorkerLock);
       // Ensure that all workers are finished eval, or being killed
-      for (size_t I = 0; I < EvalWorkers.size() + StaticWorkers.size(); I++) {
+      for (size_t I = 0; I < EvalWorkers.size(); I++) {
         FinishSmp.acquire();
       }
     }
@@ -364,13 +369,6 @@ public:
                            lspserver::Callback<lspserver::Location>);
 
   void onOptionCompletion(const ipc::AttrPathParams &,
-                          lspserver::Callback<llvm::json::Value>);
-
-  // Worker::Nix::Static
-
-  void switchToStatic();
-
-  void onStaticCompletion(const lspserver::CompletionParams &,
                           lspserver::Callback<llvm::json::Value>);
 
   // Worker::Nix::Eval
