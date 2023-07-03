@@ -15,7 +15,7 @@
 using namespace nix;
 
 // backup to recover from yyless(0)
-YYLTYPE prev_yylloc;
+thread_local YYLTYPE prev_yylloc;
 
 static void initLoc(YYLTYPE *loc) {
   loc->first_line = loc->last_line = 1;
