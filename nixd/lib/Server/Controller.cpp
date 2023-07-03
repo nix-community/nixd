@@ -419,14 +419,13 @@ void Server::onDocumentLink(
     const lspserver::DocumentLinkParams &Params,
     lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWC<std::vector<lspserver::DocumentLink>>(
-        "nixd/ipc/textDocument/documentLink", Params.textDocument,
-        {StaticWorkers, StaticWorkerLock, 2e4});
-
-    Reply(latestMatchOr<std::vector<lspserver::DocumentLink>>(
-        Responses, [](const std::vector<lspserver::DocumentLink> &) -> bool {
-          return true;
-        }));
+    auto Path = Params.textDocument.uri.file().str();
+    auto Action = [File = Path](ReplyRAII<ParseAST::Links> &&RR, ParseAST &&AST,
+                                const std::string &Version) {
+      RR.Response = AST.documentLink(File);
+    };
+    auto RR = ReplyRAII<ParseAST::Links>(std::move(Reply));
+    withParseAST<ParseAST::Links>(std::move(RR), Path, std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));

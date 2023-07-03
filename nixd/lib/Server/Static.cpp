@@ -7,9 +7,6 @@ void Server::switchToStatic() {
   Role = ServerRole::Static;
   EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
 
-  Registry.addMethod("nixd/ipc/textDocument/documentLink", this,
-                     &Server::onStaticDocumentLink);
-
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
                      &Server::onStaticCompletion);
 
@@ -19,18 +16,6 @@ void Server::switchToStatic() {
   evalInstallable(Config.getEvalDepth());
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
-}
-
-void Server::onStaticDocumentLink(
-    const lspserver::TextDocumentIdentifier &Params,
-    lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
-  using Links = std::vector<lspserver::DocumentLink>;
-  using namespace lspserver;
-  withAST<Links>(Params.uri.file().str(), ReplyRAII<Links>(std::move(Reply)),
-                 [Params, File = Params.uri.file().str()](
-                     const nix::ref<EvalAST> &AST, ReplyRAII<Links> &&RR) {
-                   RR.Response = AST->documentLink(File);
-                 });
 }
 
 void Server::onStaticCompletion(const lspserver::CompletionParams &Params,

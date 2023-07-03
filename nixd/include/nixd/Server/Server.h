@@ -376,10 +376,6 @@ public:
   void onStaticDefinition(const lspserver::TextDocumentPositionParams &,
                           lspserver::Callback<lspserver::Location>);
 
-  void onStaticDocumentLink(
-      const lspserver::TextDocumentIdentifier &,
-      lspserver::Callback<std::vector<lspserver::DocumentLink>>);
-
   // Worker::Nix::Eval
 
   void switchToEvaluator();
