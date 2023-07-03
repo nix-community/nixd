@@ -9,6 +9,7 @@
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 #include <optional>
+#include <stdexcept>
 
 namespace nixd {
 
@@ -76,6 +77,15 @@ public:
 
   [[nodiscard]] std::vector<const nix::ExprVar *> ref(Definition D) const {
     return References.at(D);
+  }
+
+  [[nodiscard]] Definition def(const lspserver::Position &Pos) const {
+    if (const auto *Node = lookupContainMin(Pos)) {
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
+        return def(EVar);
+      }
+    }
+    throw std::out_of_range("AST: no suitable definition");
   }
 
   Definition def(const nix::ExprVar *Var) const { return Definitions.at(Var); }
