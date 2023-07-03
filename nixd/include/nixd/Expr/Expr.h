@@ -1,6 +1,8 @@
 /// 'nix::Expr' wrapper that suitable for language server
 #pragma once
 
+#include "Nodes.h"
+
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 
@@ -32,6 +34,8 @@ template <class Derived> struct RecursiveASTVisitor {
 #include "Nodes.inc"
 #undef NIX_EXPR
 
+  bool traverseExprError(const nixd::nodes::ExprError *) { return true; }
+
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) { return getDerived().visitExpr(E); }
 #include "Nodes.inc"
@@ -46,6 +50,9 @@ template <class Derived> struct RecursiveASTVisitor {
   if (auto CE = dynamic_cast<const nix::EXPR *>(E)) {                          \
     return getDerived().traverse##EXPR(CE);                                    \
   }
+    if (const auto *CE = dynamic_cast<const nixd::nodes::ExprError *>(E)) {
+      return getDerived().traverseExprError(CE);
+    }
 #include "Nodes.inc"
     assert(false && "We are missing some nix AST Nodes!");
     return true;
@@ -77,6 +84,9 @@ template <class Derived> struct RecursiveASTVisitor {
 #undef TRY_TO
 
 inline const char *getExprName(const nix::Expr *E) {
+  if (const auto *CE = dynamic_cast<const nixd::nodes::ExprError *>(E)) {
+    return "nixd::ExprError";
+  }
 #define NIX_EXPR(EXPR)                                                         \
   if (dynamic_cast<const nix::EXPR *>(E)) {                                    \
     return #EXPR;                                                              \

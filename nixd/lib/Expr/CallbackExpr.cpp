@@ -1,5 +1,6 @@
 #include "nixd/Expr/CallbackExpr.h"
 #include "nixd/Expr/Expr.h"
+#include "nixd/Expr/Nodes.h"
 
 #include <nix/nixexpr.hh>
 
@@ -34,9 +35,12 @@ rewriteCallback(ASTContext &Cxt, ExprCallback ECB, const nix::Expr *Root,
     return T;                                                                  \
   }
 #include "nixd/Expr/Traverse.inc"
-  return nullptr;
 #undef TRY_TO_TRAVERSE
 #undef DEF_TRAVERSE_TYPE
+  if (const auto *E = dynamic_cast<const nixd::nodes::ExprError *>(Root)) {
+    return const_cast<nix::Expr *>(Root);
+  }
+  return nullptr;
 }
 #define NIX_EXPR(EXPR)                                                         \
   void Callback##EXPR::eval(nix::EvalState &State, nix::Env &Env,              \
