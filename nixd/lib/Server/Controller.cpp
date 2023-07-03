@@ -419,14 +419,13 @@ void Server::onDocumentLink(
     const lspserver::DocumentLinkParams &Params,
     lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWC<std::vector<lspserver::DocumentLink>>(
-        "nixd/ipc/textDocument/documentLink", Params.textDocument,
-        {StaticWorkers, StaticWorkerLock, 2e4});
-
-    Reply(latestMatchOr<std::vector<lspserver::DocumentLink>>(
-        Responses, [](const std::vector<lspserver::DocumentLink> &) -> bool {
-          return true;
-        }));
+    auto Path = Params.textDocument.uri.file().str();
+    auto Action = [File = Path](ReplyRAII<ParseAST::Links> &&RR, ParseAST &&AST,
+                                const std::string &Version) {
+      RR.Response = AST.documentLink(File);
+    };
+    auto RR = ReplyRAII<ParseAST::Links>(std::move(Reply));
+    withParseAST<ParseAST::Links>(std::move(RR), Path, std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));
@@ -437,14 +436,13 @@ void Server::onDocumentSymbol(
     lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
 
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Responses = askWC<std::vector<lspserver::DocumentSymbol>>(
-        "nixd/ipc/textDocument/documentSymbol", Params.textDocument,
-        {StaticWorkers, StaticWorkerLock, 1e6});
-
-    Reply(latestMatchOr<std::vector<lspserver::DocumentSymbol>>(
-        Responses, [](const std::vector<lspserver::DocumentSymbol> &) -> bool {
-          return true;
-        }));
+    auto Action = [](ReplyRAII<ParseAST::Symbols> &&RR, ParseAST &&AST,
+                     const std::string &Version) {
+      RR.Response = AST.documentSymbol();
+    };
+    auto RR = ReplyRAII<ParseAST::Symbols>(std::move(Reply));
+    auto Path = Params.textDocument.uri.file().str();
+    withParseAST<ParseAST::Symbols>(std::move(RR), Path, std::move(Action));
   };
 
   boost::asio::post(Pool, std::move(Task));

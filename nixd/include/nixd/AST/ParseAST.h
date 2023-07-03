@@ -166,7 +166,7 @@ public:
   };
 
   // Document Symbol
-  [[nodiscard]] Symbols documentSymbol(const nix::SymbolTable &STable) const;
+  [[nodiscard]] Symbols documentSymbol() const;
 
   [[nodiscard]] Links documentLink(const std::string &File) const;
 };
