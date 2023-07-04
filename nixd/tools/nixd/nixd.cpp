@@ -104,7 +104,7 @@ opt<bool> WaitWorker{"wait-worker",
 int main(int argc, char *argv[]) {
   using namespace lspserver;
 #ifdef __linux__
-  prctl(PR_SET_PDEATHSIG, SIGHUP);
+  prctl(PR_SET_PDEATHSIG, SIGKILL);
 #endif
   nixd::registerSigHanlder();
   const char *FlagsEnvVar = "NIXD_FLAGS";
