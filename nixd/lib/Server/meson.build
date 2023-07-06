@@ -5,6 +5,7 @@ libnixdServerDeps = [ nixd_lsp_server
                     , nixdSupport
                     ]
 libnixdServer = library('nixdServer'
+, 'ASTManager.cpp'
 , 'Controller.cpp'
 , 'Eval.cpp'
 , 'EvalDraftStore.cpp'

@@ -3,6 +3,7 @@
 #include "EvalDraftStore.h"
 
 #include "nixd/Parser/Require.h"
+#include "nixd/Server/ASTManager.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/JSONSerialization.h"
 
@@ -93,65 +94,26 @@ public:
     llvm::Expected<ReplyTy> Response =
         lspserver::error("no response available");
     ReplyRAII(decltype(R) R) : R(std::move(R)) {}
-    ~ReplyRAII() { R(std::move(Response)); };
-  };
-
-  template <class ReplyTy>
-  void withParseData(ReplyRAII<ReplyTy> &&RR, const std::string &Path,
-                     llvm::unique_function<void(ReplyRAII<ReplyTy> &&RR,
-                                                std::unique_ptr<ParseData> Data,
-                                                const std::string &Version)>
-                         Action) noexcept {
-    using namespace lspserver;
-    auto ActionWrapped =
-        [&, Action = std::move(Action)](
-            const EvalDraftStore::Draft &Draft) mutable noexcept {
-          try {
-            Action(std::move(RR), parse(*Draft.Contents, Path), Draft.Version);
-          } catch (std::exception &E) {
-            RR.Response =
-                error("something uncaught in the AST action, reason {0}",
-                      stripANSI(E.what()));
-          } catch (...) {
-            RR.Response = error("something uncaught in the AST action");
-          }
-        };
-
-    try {
-      auto Draft = DraftMgr.getDraft(Path);
-      if (!Draft)
-        throw std::logic_error("no draft stored for requested file");
-      ActionWrapped(*Draft);
-    } catch (std::exception &E) {
-      RR.Response = error(stripANSI(E.what()));
-    } catch (...) {
-      RR.Response = error("encountered unknown exception");
+    ~ReplyRAII() {
+      if (R)
+        R(std::move(Response));
+    };
+    ReplyRAII(ReplyRAII &&Old) noexcept {
+      R = std::move(Old.R);
+      Response = std::move(Old.Response);
     }
-  }
-
-  std::pair<std::unique_ptr<ParseData>, std::string>
-  parseDraft(const std::string &Path) const;
-
-  void withParseAST(
-      const std::string &Path,
-      llvm::unique_function<void(const ParseAST &, const std::string &)> Action)
-      const;
+  };
 
   template <class ReplyTy>
   void withParseAST(
       ReplyRAII<ReplyTy> &&RR, const std::string &Path,
-      llvm::unique_function<void(ReplyRAII<ReplyTy> &&RR, ParseAST &&AST,
-                                 const std::string &Version)>
+      llvm::unique_function<void(ReplyRAII<ReplyTy> &&RR, const ParseAST &AST,
+                                 ASTManager::VersionTy Version)>
           Action) noexcept {
-    withParseData<ReplyTy>(
-        std::move(RR), Path,
-        [Action = std::move(Action)](ReplyRAII<ReplyTy> &&RR,
-                                     std::unique_ptr<ParseData> Data,
-                                     const std::string &Version) mutable {
-          auto AST = ParseAST(std::move(Data));
-          AST.bindVars();
-          AST.staticAnalysis();
-          Action(std::move(RR), std::move(AST), Version);
+    ASTMgr.withAST(
+        Path, [RR = std::move(RR), Action = std::move(Action)](
+                  const ParseAST &AST, ASTManager::VersionTy &Version) mutable {
+          Action(std::move(RR), AST, Version);
         });
   }
 
@@ -176,6 +138,8 @@ private:
   WorkerContainer OptionWorkers; // GUARDED_BY(OptionWorkerLock)
 
   EvalDraftStore DraftMgr;
+
+  ASTManager ASTMgr;
 
   lspserver::ClientCapabilities ClientCaps;
 
