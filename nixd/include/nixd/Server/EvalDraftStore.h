@@ -86,7 +86,8 @@ struct IValueEvalSession {
     return IVC->getEvalState();
   };
 
-  nix::Value *eval(const std::string &Installable, int Depth = 0) const {
+  [[nodiscard]] nix::Value *eval(const std::string &Installable,
+                                 int Depth = 0) const {
     lspserver::log("evaluation on installable {0}, requested depth: {1}",
                    Installable, Depth);
     auto IValue = nix::InstallableValue::require(
