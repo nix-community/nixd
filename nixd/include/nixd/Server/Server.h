@@ -110,11 +110,17 @@ public:
       llvm::unique_function<void(ReplyRAII<ReplyTy> &&RR, const ParseAST &AST,
                                  ASTManager::VersionTy Version)>
           Action) noexcept {
-    ASTMgr.withAST(
-        Path, [RR = std::move(RR), Action = std::move(Action)](
-                  const ParseAST &AST, ASTManager::VersionTy &Version) mutable {
-          Action(std::move(RR), AST, Version);
-        });
+    if (auto Draft = DraftMgr.getDraft(Path)) {
+      auto Version = EvalDraftStore::decodeVersion(Draft->Version).value_or(0);
+      ASTMgr.withAST(
+          Path, Version,
+          [RR = std::move(RR), Action = std::move(Action)](
+              const ParseAST &AST, ASTManager::VersionTy &Version) mutable {
+            Action(std::move(RR), AST, Version);
+          });
+    } else {
+      RR.Response = lspserver::error("no draft available (removed before?)");
+    }
   }
 
 private:

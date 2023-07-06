@@ -7,12 +7,13 @@
 
 namespace nixd {
 
-void ASTManager::withAST(const std::string &Path, ActionTy Action) {
+void ASTManager::withAST(const std::string &Path, VersionTy Version,
+                         ActionTy Action) {
   {
     std::lock_guard _(ActionsLock);
     Actions.insert({Path, std::move(Action)});
   }
-  checkCacheAndInvoke(Path, 0);
+  checkCacheAndInvoke(Path, Version);
 }
 
 void ASTManager::invokeActions(const ParseAST &AST, const std::string &Path,
