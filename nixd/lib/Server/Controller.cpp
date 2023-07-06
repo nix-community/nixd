@@ -4,6 +4,7 @@
 #include "nixd/Expr/Expr.h"
 #include "nixd/Parser/Parser.h"
 #include "nixd/Parser/Require.h"
+#include "nixd/Server/ASTManager.h"
 #include "nixd/Server/EvalDraftStore.h"
 #include "nixd/Server/Server.h"
 #include "nixd/Support/Diagnostic.h"
@@ -33,6 +34,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <semaphore>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -42,25 +44,6 @@
 #include <unistd.h>
 
 namespace nixd {
-
-std::pair<std::unique_ptr<ParseData>, std::string>
-Server::parseDraft(const std::string &Path) const {
-  auto Draft = DraftMgr.getDraft(Path);
-  if (!Draft)
-    throw std::logic_error("no draft stored for requested file");
-  return std::pair{parse(*Draft->Contents, Path), Draft->Version};
-}
-
-void Server::withParseAST(
-    const std::string &Path,
-    llvm::unique_function<void(const ParseAST &, const std::string &)> Action)
-    const {
-  auto [Data, Version] = parseDraft(Path);
-  auto AST = ParseAST(std::move(Data));
-  AST.bindVars();
-  AST.staticAnalysis();
-  Action(AST, Version);
-}
 
 void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
                         std::deque<std::unique_ptr<Proc>> &WorkerPool,
@@ -142,15 +125,16 @@ void Server::updateWorkspaceVersion() {
 void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                          llvm::StringRef Version) {
   using namespace lspserver;
-
+  auto IVersion = DraftStore::decodeVersion(Version);
   // Since this file is updated, we first clear its diagnostic
   PublishDiagnosticsParams Notification;
   Notification.uri = URIForFile::canonicalize(File, File);
   Notification.diagnostics = {};
-  Notification.version = DraftStore::decodeVersion(Version);
+  Notification.version = IVersion;
   PublishDiagnostic(Notification);
 
   DraftMgr.addDraft(File, Version, Contents);
+  ASTMgr.schedParse(Contents.str(), File.str(), IVersion.value_or(0));
   updateWorkspaceVersion();
 }
 
@@ -219,7 +203,9 @@ Server::getDraft(lspserver::PathRef File) const {
 
 Server::Server(std::unique_ptr<lspserver::InboundPort> In,
                std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker)
-    : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker) {
+    : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker),
+      ASTMgr(Pool) {
+
   // Life Cycle
   Registry.addMethod("initialize", this, &Server::onInitialize);
   Registry.addNotification("initialized", this, &Server::onInitialized);
@@ -431,8 +417,8 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
     auto Path = URI.file().str();
     const auto &Pos = Params.position;
 
-    auto Action = [&](ReplyRAII<llvm::json::Value> &&RR, ParseAST &&AST,
-                      const std::string &Version) {
+    auto Action = [=](ReplyRAII<llvm::json::Value> &&RR, const ParseAST &AST,
+                      ASTManager::VersionTy Version) {
       try {
         Location L;
         auto Def = AST.def(Pos);
@@ -458,8 +444,9 @@ void Server::onDocumentLink(
     lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
     auto Path = Params.textDocument.uri.file().str();
-    auto Action = [File = Path](ReplyRAII<ParseAST::Links> &&RR, ParseAST &&AST,
-                                const std::string &Version) {
+    auto Action = [File = Path](ReplyRAII<ParseAST::Links> &&RR,
+                                const ParseAST &AST,
+                                ASTManager::VersionTy Version) {
       RR.Response = AST.documentLink(File);
     };
     auto RR = ReplyRAII<ParseAST::Links>(std::move(Reply));
@@ -474,8 +461,8 @@ void Server::onDocumentSymbol(
     lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
 
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Action = [](ReplyRAII<ParseAST::Symbols> &&RR, ParseAST &&AST,
-                     const std::string &Version) {
+    auto Action = [](ReplyRAII<ParseAST::Symbols> &&RR, const ParseAST &AST,
+                     ASTManager::VersionTy Version) {
       RR.Response = AST.documentSymbol();
     };
     auto RR = ReplyRAII<ParseAST::Symbols>(std::move(Reply));
@@ -516,14 +503,17 @@ void Server::onCompletion(
       R = std::move(Resp.back());
     else {
       // Statically construct the completion list.
+      std::binary_semaphore Smp(0);
       try {
         auto Path = Params.textDocument.uri.file();
-        auto Action = [&Resp, Pos = Params.position](
-                          const ParseAST &AST, const std::string &Version) {
+        auto Action = [&Smp, &Resp, Pos = Params.position](
+                          const ParseAST &AST, ASTManager::VersionTy Version) {
           auto Items = AST.completion(Pos);
           Resp.emplace_back(CompletionList{false, Items});
+          Smp.release();
         };
-        withParseAST(Path.str(), std::move(Action));
+        ASTMgr.withAST(Path.str(), std::move(Action));
+        Smp.acquire();
       } catch (std::exception &E) {
         lspserver::elog("completion/parseAST: {0}", stripANSI(E.what()));
       } catch (...) {
@@ -573,8 +563,9 @@ void Server::onRename(const lspserver::RenameParams &Params,
   auto Task = [Params, Reply = std::move(Reply), this]() mutable {
     auto URI = Params.textDocument.uri;
     auto Path = URI.file().str();
-    auto Action = [&URI, &Params](ReplyRAII<lspserver::WorkspaceEdit> &&RR,
-                                  ParseAST &&AST, const std::string &Version) {
+    auto Action = [URI, Params](ReplyRAII<lspserver::WorkspaceEdit> &&RR,
+                                const ParseAST &AST,
+                                ASTManager::VersionTy Version) {
       std::map<std::string, std::vector<lspserver::TextEdit>> Changes;
       if (auto Edits = AST.rename(Params.position, Params.newName)) {
         Changes[URI.uri()] = std::move(*Edits);
@@ -597,8 +588,8 @@ void Server::onPrepareRename(
     lspserver::Callback<llvm::json::Value> Reply) {
   auto Task = [Params, Reply = std::move(Reply), this]() mutable {
     auto Path = Params.textDocument.uri.file().str();
-    auto Action = [&Params](ReplyRAII<llvm::json::Value> &&RR, ParseAST &&AST,
-                            const std::string &Version) {
+    auto Action = [Params](ReplyRAII<llvm::json::Value> &&RR,
+                           const ParseAST &AST, ASTManager::VersionTy Version) {
       auto Pos = Params.position;
       if (auto Edits = AST.rename(Pos, "")) {
         for (const auto &Edit : *Edits) {
