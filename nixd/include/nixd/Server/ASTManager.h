@@ -39,7 +39,7 @@ public:
 
   /// Store the action in a local structure, the action will be invoked when the
   /// task finished.
-  void withAST(const std::string &Path, ActionTy Action);
+  void withAST(const std::string &Path, VersionTy Version, ActionTy Action);
 
   void schedParse(const std::string &Content, const std::string &Path,
                   VersionTy Version);

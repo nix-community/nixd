@@ -512,8 +512,12 @@ void Server::onCompletion(
           Resp.emplace_back(CompletionList{false, Items});
           Smp.release();
         };
-        ASTMgr.withAST(Path.str(), std::move(Action));
-        Smp.acquire();
+        if (auto Draft = DraftMgr.getDraft(Path)) {
+          auto Version =
+              EvalDraftStore::decodeVersion(Draft->Version).value_or(0);
+          ASTMgr.withAST(Path.str(), Version, std::move(Action));
+          Smp.acquire();
+        }
       } catch (std::exception &E) {
         lspserver::elog("completion/parseAST: {0}", stripANSI(E.what()));
       } catch (...) {
