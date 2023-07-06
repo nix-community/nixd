@@ -89,6 +89,13 @@ using llvm::json::Object;
 using llvm::json::ObjectMapper;
 using llvm::json::Value;
 
+bool fromJSON(const Value &Params, Diagnostic &R, llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("range", R.range) && O.map("severity", R.severity) &&
+         O.map("code", R.code) && O.map("source", R.source) &&
+         O.map("message", R.message) && O.mapOptional("category", R.category);
+}
+
 bool fromJSON(const Value &Params, PublishDiagnosticsParams &R,
               llvm::json::Path P) {
   ObjectMapper O(Params, P);

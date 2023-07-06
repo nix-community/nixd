@@ -138,6 +138,7 @@ struct Diagnostics : WorkerMessage {
 bool fromJSON(const llvm::json::Value &, lspserver::PublishDiagnosticsParams &,
               llvm::json::Path);
 
+bool fromJSON(const llvm::json::Value &, Diagnostics &, llvm::json::Path);
 llvm::json::Value toJSON(const Diagnostics &);
 
 struct AttrPathParams {
