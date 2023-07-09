@@ -202,8 +202,8 @@ public:
          std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
   ~Server() override {
+    Pool.join();
     if (WaitWorker) {
-      Pool.join();
       std::lock_guard Guard(EvalWorkerLock);
       // Ensure that all workers are finished eval, or being killed
       for (size_t I = 0; I < EvalWorkers.size(); I++) {
