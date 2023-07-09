@@ -34,12 +34,14 @@ template <class Derived> struct RecursiveASTVisitor {
 #include "Nodes.inc"
 #undef NIX_EXPR
 
-  bool traverseExprError(const nixd::nodes::ExprError *) { return true; }
-
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) { return getDerived().visitExpr(E); }
 #include "Nodes.inc"
 #undef NIX_EXPR
+
+  bool visitExprError(const nixd::nodes::ExprError *E) {
+    return getDerived().visitExpr(E);
+  }
 
   Derived &getDerived() { return *static_cast<Derived *>(this); }
 
@@ -58,6 +60,7 @@ template <class Derived> struct RecursiveASTVisitor {
     return true;
 #undef NIX_EXPR
   }
+  bool traverseExprError(const nixd::nodes::ExprError *);
 }; // namespace nixd
 
 #define TRY_TO(CALL_EXPR)                                                      \
@@ -81,6 +84,16 @@ template <class Derived> struct RecursiveASTVisitor {
 #include "Traverse.inc"
 #undef DEF_TRAVERSE_TYPE
 #undef TRY_TO_TRAVERSE
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::traverseExprError(
+    const nixd::nodes::ExprError *E) {
+  if (!getDerived().shouldTraversePostOrder())
+    TRY_TO(visitExprError(E));
+  if (getDerived().shouldTraversePostOrder())
+    TRY_TO(visitExprError(E));
+  return true;
+}
 #undef TRY_TO
 
 inline const char *getExprName(const nix::Expr *E) {

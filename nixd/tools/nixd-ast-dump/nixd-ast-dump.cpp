@@ -59,27 +59,24 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     }
   }
 
-#define NIX_EXPR(EXPR)                                                         \
-  bool visit##EXPR(const nix::EXPR *E) {                                       \
-    for (int i = 0; i < Depth; i++) {                                          \
-      std::cout << " ";                                                        \
-    }                                                                          \
-    std::cout << #EXPR << ": ";                                                \
-    E->show(*Data->STable, std::cout);                                         \
-    std::cout << " ";                                                          \
-    if (ShowRange)                                                             \
-      showRange(E);                                                            \
-    if (BindVars) {                                                            \
-      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {          \
-        std::cout << " level: " << EVar->level << " "                          \
-                  << "displ: " << EVar->displ;                                 \
-      }                                                                        \
-    }                                                                          \
-    std::cout << "\n";                                                         \
-    return true;                                                               \
+  bool visitExpr(const nix::Expr *E) const {
+    for (int I = 0; I < Depth; I++) {
+      std::cout << " ";
+    }
+    std::cout << nixd::getExprName(E) << ": ";
+    E->show(*Data->STable, std::cout);
+    std::cout << " ";
+    if (ShowRange)
+      showRange(E);
+    if (BindVars) {
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(E)) {
+        std::cout << " level: " << EVar->level << " "
+                  << "displ: " << EVar->displ;
+      }
+    }
+    std::cout << "\n";
+    return true;
   }
-#include "nixd/Expr/Nodes.inc"
-#undef NIX_EXPR
 };
 
 template <class... A> void fmt(auto &OS, A... Args) {

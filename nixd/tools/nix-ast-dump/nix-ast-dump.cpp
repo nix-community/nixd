@@ -34,18 +34,14 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     return true;
   }
 
-#define NIX_EXPR(EXPR)                                                         \
-  bool visit##EXPR(const nix::EXPR *E) {                                       \
-    for (int i = 0; i < Depth; i++) {                                          \
-      std::cout << " ";                                                        \
-    }                                                                          \
-    std::cout << #EXPR << ": ";                                                \
-    E->show(State->symbols, std::cout);                                        \
-    std::cout << "\n";                                                         \
-    return true;                                                               \
+  bool visitExpr(const nix::Expr *E) const {
+    for (int I = 0; I < Depth; I++)
+      std::cout << " ";
+    std::cout << nixd::getExprName(E) << ": ";
+    E->show(State->symbols, std::cout);
+    std::cout << "\n";
+    return true;
   }
-#include "nixd/Expr/Nodes.inc"
-#undef NIX_EXPR
 };
 
 int main(int argc, char *argv[]) {
