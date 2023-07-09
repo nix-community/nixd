@@ -45,66 +45,42 @@ inline std::list<std::string> toNixArgs(const std::vector<std::string> &Args) {
   return {Args.begin(), Args.end()};
 }
 struct InstallableConfigurationItem {
-  std::optional<std::vector<std::string>> args;
-  std::optional<std::string> installable;
+  std::vector<std::string> args;
+  std::string installable;
 
   [[nodiscard]] bool empty() const {
-    return !args.has_value() && !installable.has_value();
+    return args.empty() && installable.empty();
   }
 
-  [[nodiscard]] auto dArgs() const {
-    return args.value_or(decltype(args.value()){});
-  }
-
-  [[nodiscard]] auto ndArgs() const { return toNixArgs(dArgs()); }
-
-  [[nodiscard]] auto dInstallable() const { return installable.value_or(""); }
+  [[nodiscard]] auto nArgs() const { return toNixArgs(args); }
 };
 
 struct TopLevel {
 
   struct Eval {
     /// Nix installables that will be used for root translation unit.
-    std::optional<InstallableConfigurationItem> target;
+    InstallableConfigurationItem target;
 
     /// The depth you'd like to eval *after* reached "installable" target.
-    std::optional<int> depth;
+    int depth = 0;
     /// Number of workers forking
     /// defaults to std::thread::hardware_concurrency
-    std::optional<int> workers;
+    int workers = static_cast<int>(std::thread::hardware_concurrency());
   };
 
-  std::optional<Eval> eval;
+  Eval eval;
 
   struct Formatting {
-    std::optional<std::string> command;
+    std::string command = "nixpkgs-fmt";
   };
-  std::optional<Formatting> formatting;
+  Formatting formatting;
 
   struct Options {
-    std::optional<bool> enable;
-    std::optional<InstallableConfigurationItem> target;
+    bool enable = false;
+    InstallableConfigurationItem target;
   };
 
-  std::optional<Options> options;
-
-  [[nodiscard]] std::string getFormatCommand() const {
-    if (formatting.has_value() && formatting->command.has_value())
-      return formatting->command.value();
-    return "nixpkgs-fmt";
-  }
-
-  [[nodiscard]] int getEvalDepth() const {
-    if (eval.has_value() && eval->depth.has_value())
-      return eval->depth.value();
-    return 0;
-  }
-
-  [[nodiscard]] int getNumWorkers() const {
-    if (eval.has_value() && eval->workers.has_value())
-      return eval->workers.value();
-    return static_cast<int>(std::thread::hardware_concurrency());
-  }
+  Options options;
 };
 bool fromJSON(const llvm::json::Value &Params, TopLevel::Eval &R,
               llvm::json::Path P);

@@ -350,7 +350,7 @@ public:
       const std::string &, ReplyRAII<ReplyTy>,
       llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
 
-  void evalInstallable(int Depth);
+  void evalInstallable();
 
   void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
                         lspserver::Callback<lspserver::Location>);

@@ -81,14 +81,18 @@ void Server::switchToOptionProvider() {
   initWorker();
   Role = ServerRole::OptionProvider;
 
-  if (!Config.options.has_value() || !Config.options->enable.value_or(false) ||
-      !Config.options->target.has_value() || Config.options->target->empty())
+  if (!Config.options.enable)
     return;
+  if (Config.options.target.empty()) {
+    lspserver::elog(
+        "enabled options completion, but the target set is unspecified!");
+    return;
+  }
   try {
-    auto I = Config.options->target.value();
+    auto I = Config.options.target;
     auto SessionOption = std::make_unique<IValueEvalSession>();
-    SessionOption->parseArgs(I.ndArgs());
-    OptionAttrSet = SessionOption->eval(I.dInstallable());
+    SessionOption->parseArgs(I.nArgs());
+    OptionAttrSet = SessionOption->eval(I.installable);
     OptionIES = std::move(SessionOption);
     lspserver::log("options are ready");
   } catch (std::exception &E) {
