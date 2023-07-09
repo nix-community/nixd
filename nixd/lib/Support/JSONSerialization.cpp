@@ -12,18 +12,20 @@ namespace configuration {
 
 bool fromJSON(const Value &Params, TopLevel::Eval &R, Path P) {
   ObjectMapper O(Params, P);
-  return O && O.map("depth", R.depth) && O.map("target", R.target) &&
-         O.map("workers", R.workers);
+  return O && O.mapOptional("depth", R.depth) &&
+         O.mapOptional("target", R.target) &&
+         O.mapOptional("workers", R.workers);
 }
 
 bool fromJSON(const Value &Params, TopLevel::Formatting &R, Path P) {
   ObjectMapper O(Params, P);
-  return O && O.map("command", R.command);
+  return O && O.mapOptional("command", R.command);
 }
 
 bool fromJSON(const Value &Params, TopLevel::Options &R, Path P) {
   ObjectMapper O(Params, P);
-  return O && O.map("enable", R.enable) && O.map("target", R.target);
+  return O && O.mapOptional("enable", R.enable) &&
+         O.mapOptional("target", R.target);
 }
 
 bool fromJSON(const Value &Params, TopLevel &R, Path P) {
@@ -34,8 +36,9 @@ bool fromJSON(const Value &Params, TopLevel &R, Path P) {
   }
   ObjectMapper O(X, P);
 
-  return O && O.map("eval", R.eval) && O.map("formatting", R.formatting) &&
-         O.map("options", R.options);
+  return O && O.mapOptional("eval", R.eval) &&
+         O.mapOptional("formatting", R.formatting) &&
+         O.mapOptional("options", R.options);
 }
 
 bool fromJSON(const Value &Params, std::list<std::string> &R, Path P) {
@@ -45,7 +48,8 @@ bool fromJSON(const Value &Params, std::list<std::string> &R, Path P) {
 
 bool fromJSON(const Value &Params, InstallableConfigurationItem &R, Path P) {
   ObjectMapper O(Params, P);
-  return O && O.map("args", R.args) && O.map("installable", R.installable);
+  return O && O.mapOptional("args", R.args) &&
+         O.mapOptional("installable", R.installable);
 }
 
 } // namespace configuration

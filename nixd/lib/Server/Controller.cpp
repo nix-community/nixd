@@ -119,7 +119,7 @@ void Server::updateWorkspaceVersion() {
   std::lock_guard EvalGuard(EvalWorkerLock);
   // The eval worker
   forkWorker([this]() { switchToEvaluator(); }, EvalWorkers,
-             Config.getNumWorkers());
+             Config.eval.workers);
 }
 
 void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
@@ -336,7 +336,7 @@ void Server::onDocumentDidClose(
 
 void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
                            lspserver::Callback<llvm::json::Value> Reply) {
-  if (!Config.options || !Config.options->enable.value_or(false)) {
+  if (!Config.options.enable) {
     Reply(nullptr);
     return;
   }
@@ -491,8 +491,7 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
 void Server::onCompletion(
     const lspserver::CompletionParams &Params,
     lspserver::Callback<lspserver::CompletionList> Reply) {
-  auto EnableOption =
-      bool(Config.options) && Config.options->enable.value_or(false);
+  auto EnableOption = Config.options.enable;
   using RTy = lspserver::CompletionList;
   using namespace lspserver;
   constexpr auto Method = "nixd/ipc/textDocument/completion";
@@ -665,7 +664,7 @@ void Server::onFormat(
         namespace bp = boost::process;
         bp::opstream To;
         bp::ipstream From;
-        bp::child Fmt(Config.getFormatCommand(), bp::std_out > From,
+        bp::child Fmt(Config.formatting.command, bp::std_out > From,
                       bp::std_in < To);
 
         To << Code;

@@ -40,26 +40,20 @@ void Server::switchToEvaluator() {
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
                      &Server::onEvalDefinition);
 
-  evalInstallable(Config.getEvalDepth());
+  evalInstallable();
   mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
       ipc::WorkerMessage{WorkspaceVersion});
 }
 
-void Server::evalInstallable(int Depth = 0) {
+void Server::evalInstallable() {
   assert(Role != ServerRole::Controller && "must be called in child workers.");
   auto Session = std::make_unique<IValueEvalSession>();
 
-  decltype(Config.eval->target) I;
+  auto I = Config.eval.target;
+  auto Depth = Config.eval.depth;
 
-  if (!Config.eval.has_value())
-    I = std::nullopt;
-  else
-    I = Config.eval->target;
-
-  auto ShoudlEval = I.has_value() && !I->empty();
-
-  if (ShoudlEval)
-    Session->parseArgs(I->ndArgs());
+  if (!I.empty())
+    Session->parseArgs(I.nArgs());
 
   auto ILR = DraftMgr.injectFiles(Session->getState());
 
@@ -72,8 +66,8 @@ void Server::evalInstallable(int Depth = 0) {
   Diagnostics.WorkspaceVersion = WorkspaceVersion;
   EvalDiagnostic(Diagnostics);
   try {
-    if (ShoudlEval) {
-      Session->eval(I->dInstallable(), Depth);
+    if (!I.empty()) {
+      Session->eval(I.installable, Depth);
       lspserver::log("evaluation done on worspace version: {0}",
                      WorkspaceVersion);
     }
