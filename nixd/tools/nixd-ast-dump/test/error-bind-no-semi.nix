@@ -8,7 +8,7 @@
 # CHECK: ExprAttrs: rec { a = 1; b = <nixd:err>; c = 1; d = c; } 9:1 14:2
 rec {
   a = 1;
-  b
+  b # CHECK: nixd::ExprError: <nixd:err>
     c = 1;
   d = c; # CHECK: ExprVar: c 13:7 13:8 level: 0 displ: 2
 }
