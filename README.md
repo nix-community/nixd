@@ -78,13 +78,44 @@ And diagnostic:
 - [Developers' Manual](docs/dev.md) (internal design, contributing):
 - Project matrix room: https://matrix.to/#/#nixd:matrix.org
 
-## Tooling
+## Proejct Structure
 
-We provide some extra tools based on our codebase.
+```
+.
+├── default.nix
+├── docs
+├── editors
+├── flake.lock
+├── flake.nix
+├── LICENSE
+├── lspserver                          # The C++ library for writing LSP servers.
+├── meson.build
+├── nixd                               # Modularized nixd components, test suite, and tools (binary)
+│   ├── include                        # General header files
+│   ├── lib
+│   │   ├── AST                        # AST library for nix expressions, static analysis (rename, completion, location, range) & evaluation bindings.
+│   │   ├── Expr                       # Expressions library (single AST nodes) with name lookups, locations, ...
+│   │   ├── meson.build
+│   │   ├── Nix                        # Extension to NixOS/nix
+│   │   ├── Parser                     # Extension to the parser from NixOS/nix. with ranges support & error handling.
+│   │   ├── Server                     # The nixd server library with controller (the process interacting with clients) and multiple workers (option, eval).
+│   │   └── Support
+│   ├── meson.build
+│   ├── test                           # Library tests. (rarely used)
+│   └── tools
+│       ├── meson.build
+│       ├── nix-ast-dump               # Dump nix AST from the offical parser (NixOS/nix)
+│       │   ├── meson.build
+│       │   ├── nix-ast-dump.cpp
+│       │   └── test
+│       ├── nixd                       # The nixd binary (entry point)
+│       │   ├── meson.build
+│       │   ├── nixd.cpp
+│       │   └── test                   # The regression tests.
+│       └── nixd-ast-dump              # Dump the AST nodes parsed from the extended parser, check leaks & memory safety.
+│           ├── meson.build
+│           ├── nixd-ast-dump.cpp
+│           └── test
+└── README.md
 
-### nix-ast-dump
-
-Used for dumping internal data structures in nix parser.
-
-Demo: [all-grammar.nix](tools/nix-ast-dump/test/all-grammar.nix)
-
+```
