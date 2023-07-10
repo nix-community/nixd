@@ -38,7 +38,7 @@ std::unique_ptr<ParseData> parse(char *text, size_t length, Pos::Origin origin,
 
   yylex_init(&scanner);
   yy_scan_buffer(text, length, scanner);
-  int res = yyparse(scanner, data.get());
+  yyparse(scanner, data.get());
   yylex_destroy(scanner);
   data->STable = std::make_unique<nix::SymbolTable>(state.symbols);
   data->PTable = std::make_unique<nix::PosTable>(state.positions);
