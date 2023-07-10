@@ -59,6 +59,23 @@ $ nix develop github:nix-community/nixd#vscodium
 $ codium-test
 ```
 
+### (Neo)vim
+
+#### Coc.nvim
+
+According to `:help coc-config.txt`, `coc-settings.json`:
+
+```jsonc
+{
+  "languageserver": {
+    "nix": {
+      "command": "nixd",
+      "filetypes": ["nix"]
+    }
+  }
+}
+```
+
 ### Neovim
 
 Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig).
