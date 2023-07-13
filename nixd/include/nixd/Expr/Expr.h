@@ -52,13 +52,13 @@ template <class Derived> struct RecursiveASTVisitor {
   if (auto CE = dynamic_cast<const nix::EXPR *>(E)) {                          \
     return getDerived().traverse##EXPR(CE);                                    \
   }
+#include "Nodes.inc"
+#undef NIX_EXPR
     if (const auto *CE = dynamic_cast<const nixd::nodes::ExprError *>(E)) {
       return getDerived().traverseExprError(CE);
     }
-#include "Nodes.inc"
     assert(false && "We are missing some nix AST Nodes!");
     return true;
-#undef NIX_EXPR
   }
   bool traverseExprError(const nixd::nodes::ExprError *);
 }; // namespace nixd

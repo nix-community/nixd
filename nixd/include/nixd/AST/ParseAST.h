@@ -21,6 +21,25 @@ public:
   using Symbols = std::vector<lspserver::DocumentSymbol>;
   using Links = std::vector<lspserver::DocumentLink>;
 
+  enum class LocationContext {
+
+    /// Expecting an attr name, not values.
+    /// {
+    ///    |
+    ///    ^
+    /// }
+    AttrName,
+
+    /// Expecting a nix value.
+    /// {
+    ///    a = |
+    ///        ^
+    /// }
+    Value,
+
+    Unknown
+  };
+
 protected:
   std::unique_ptr<ParseData> Data;
   std::map<const nix::Expr *, const nix::Expr *> ParentMap;
@@ -75,6 +94,16 @@ public:
   }
 
   [[nodiscard]] RangeIdx nPairIdx(nix::PosIdx P) const { return {P, end(P)}; }
+
+  [[nodiscard]] bool contains(nix::PosIdx P,
+                              const lspserver::Position &Pos) const {
+    try {
+      lspserver::Range Range = nPair(P);
+      return Range.contains(Pos);
+    } catch (std::out_of_range &) {
+      return false;
+    }
+  }
 
   void prepareDefRef();
 
@@ -190,5 +219,7 @@ public:
 
   [[nodiscard]] std::vector<lspserver::CompletionItem>
   completion(const lspserver::Position &Pos) const;
+
+  [[nodiscard]] LocationContext getContext(lspserver::Position Pos) const;
 };
 } // namespace nixd

@@ -305,7 +305,6 @@ binds
   | binds attrpath error {
     $$ = $1;
     auto *Err = data->ctx.record(new ExprError);
-    data->locations[Err] = CUR_POS;
     addAttr($$, std::move(*$2), Err, makeCurPos(@2, data), *data);
     data->locations[$$] = CUR_POS;
   }

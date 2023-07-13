@@ -38,6 +38,27 @@ TEST(AST, lookupEnd) {
   }
 }
 
+TEST(AST, LocationContext) {
+  std::string NixSrc = R"(
+{
+  a = {
+# ^
+    b = 1;
+  };
+
+  d = {
+    z = {
+      y = 1;
+    };
+  };
+}
+  )";
+  InitNix INix;
+  auto State = INix.getDummyState();
+  ParseAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
+  ASSERT_EQ(A.getContext({2, 2}), ParseAST::LocationContext::AttrName);
+}
+
 TEST(AST, lookupContainMin) {
   std::string NixSrc = R"(
 {
