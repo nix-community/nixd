@@ -31,12 +31,12 @@ stdenv.mkDerivation {
   ];
 
   nativeCheckInputs = [
-    lit
     nixpkgs-fmt
   ];
 
   buildInputs = [
     libbacktrace
+    lit
     nix
     gtest
     boost182
