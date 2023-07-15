@@ -15,41 +15,6 @@ Refer to https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#inst
 https://github.com/nix-community/vscode-nix-ide extension provide a general interface for nixd, and it should work out of box.
 Please file a bug if you encountered some trouble using the extension.
 
-
-
-
-```jsonc
-{
-    "nix.enableLanguageServer": true,
-    // Use absolute path if it is not in `PATH`.
-    "nix.serverPath": "nixd",
-    "nix.serverSettings": {
-        "nixd": {
-            "eval": {
-                // stuff
-            },
-            "formatting": {
-                "command": "nixpkgs-fmt"
-            },
-            "options": {
-                "enable": true,
-                "target": {
-                    // tweak arguments here
-                    "args": [],
-                    // NixOS options
-                    "installable": "<flakeref>#nixosConfigurations.<name>.options"
-
-                    // Flake-parts options
-                    // "installable": "<flakeref>#debug.options"
-
-                    // Home-manager options
-                    // "installable": "<flakeref>#homeConfigurations.<name>.options"
-                }
-            }
-        }
-   }
-}
-```
 We provide a test environment with the *vscode-nix-ide* plugin, and the repository has some [configuration examples](/docs/examples) that you can try.
 
 Start up the test environment:
