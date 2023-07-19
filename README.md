@@ -78,7 +78,7 @@ And diagnostic:
 - [Developers' Manual](docs/dev.md) (internal design, contributing):
 - Project matrix room: https://matrix.to/#/#nixd:matrix.org
 
-## Proejct Structure
+## Project Structure
 
 ```
 .
