@@ -1,19 +1,20 @@
 #include "nixd/Nix/Option.h"
+#include "nixd/Nix/Init.h"
 #include "nixd/Nix/Value.h"
-#include "nixd/Server/Server.h"
+#include "nixd/Server/Controller.h"
 #include "nixd/Support/Diagnostic.h"
 
 #include <mutex>
 
 namespace nixd {
 
-void Server::forkOptionWorker() {
+void Controller::forkOptionWorker() {
   std::lock_guard _(OptionWorkerLock);
   forkWorker(
       [this]() {
         switchToOptionProvider();
         Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
-                           &Server::onOptionCompletion);
+                           &Controller::onOptionCompletion);
         for (auto &W : OptionWorkers) {
           W->Pid.release();
         }
@@ -21,7 +22,7 @@ void Server::forkOptionWorker() {
       OptionWorkers, 1);
 }
 
-void Server::onOptionDeclaration(
+void Controller::onOptionDeclaration(
     const ipc::AttrPathParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
   assert(Role == ServerRole::OptionProvider &&
@@ -77,8 +78,8 @@ void Server::onOptionDeclaration(
   }
 }
 
-void Server::switchToOptionProvider() {
-  initWorker();
+void Controller::switchToOptionProvider() {
+  initEval();
   Role = ServerRole::OptionProvider;
 
   if (!Config.options.enable)
@@ -103,8 +104,9 @@ void Server::switchToOptionProvider() {
   }
 }
 
-void Server::onOptionCompletion(const ipc::AttrPathParams &Params,
-                                lspserver::Callback<llvm::json::Value> Reply) {
+void Controller::onOptionCompletion(
+    const ipc::AttrPathParams &Params,
+    lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   using namespace nix::nixd;
   ReplyRAII<CompletionList> RR(std::move(Reply));

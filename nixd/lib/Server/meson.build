@@ -7,9 +7,9 @@ libnixdServerDeps = [ nixd_lsp_server
 libnixdServer = library('nixdServer'
 , 'ASTManager.cpp'
 , 'Controller.cpp'
-, 'Eval.cpp'
+# , 'Eval.cpp'
 , 'EvalDraftStore.cpp'
-, 'Nix.cpp'
+, 'EvalWorker.cpp'
 , 'Option.cpp'
 , include_directories: nixd_inc
 , dependencies: libnixdServerDeps

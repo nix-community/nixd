@@ -1,10 +1,11 @@
 #include "nixd-config.h"
 
+#include "nixd/Server/Controller.h"
+#include "nixd/Server/EvalWorker.h"
+
 #include "lspserver/Connection.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Logger.h"
-
-#include "nixd/Server/Server.h"
 
 #include <nix/eval.hh>
 #include <nix/shared.hh>
@@ -62,11 +63,16 @@ void registerSigHanlder() {
 
 } // namespace nixd
 
+namespace {
+
 using namespace llvm::cl;
 
 OptionCategory Misc("miscellaneous options");
+OptionCategory Debug("debug-only options (for developers)");
+OptionCategory Controller(
+    "options for the controller (the process interacting with users)");
 
-const OptionCategory *NixdCatogories[] = {&Misc};
+const OptionCategory *NixdCatogories[] = {&Misc, &Debug};
 
 opt<JSONStreamStyle> InputStyle{
     "input-style",
@@ -77,14 +83,14 @@ opt<JSONStreamStyle> InputStyle{
                    "messages delimited by `// -----` lines, "
                    "with // comment support")),
     init(JSONStreamStyle::Standard),
-    cat(Misc),
+    cat(Debug),
     Hidden,
 };
 opt<bool> LitTest{"lit-test",
                   desc("Abbreviation for -input-style=delimited -pretty "
                        "-log=verbose -wait-worker. "
                        "Intended to simplify lit tests"),
-                  init(false), cat(Misc)};
+                  init(false), cat(Debug)};
 opt<Logger::Level> LogLevel{
     "log", desc("Verbosity of log messages written to stderr"),
     values(
@@ -94,18 +100,25 @@ opt<Logger::Level> LogLevel{
         clEnumValN(Logger::Level::Verbose, "verbose", "Low level details")),
     init(Logger::Level::Info), cat(Misc)};
 opt<bool> PrettyPrint{"pretty", desc("Pretty-print JSON output"), init(false),
-                      cat(Misc)};
+                      cat(Debug)};
 
 opt<bool> WaitWorker{"wait-worker",
                      desc("wait all response from workers, instead of having "
                           "any timeout logic"),
-                     init(false), cat(Misc)};
+                     init(false), cat(Debug)};
+
+using NSS = nixd::Controller::ServerRole;
+
+opt<NSS> Role{"role", desc("The role of this process, worker, controller, ..."),
+              values(clEnumValN(NSS::Controller, "controller", "Controller"),
+                     clEnumValN(NSS::Evaluator, "evaluator", "Evaluator"),
+                     clEnumValN(NSS::OptionProvider, "option", "Option")),
+              init(NSS::Controller), cat(Debug)};
+
+} // namespace
 
 int main(int argc, char *argv[]) {
   using namespace lspserver;
-#ifdef __linux__
-  prctl(PR_SET_PDEATHSIG, SIGKILL);
-#endif
   nixd::registerSigHanlder();
   const char *FlagsEnvVar = "NIXD_FLAGS";
   HideUnrelatedOptions(NixdCatogories);
@@ -128,9 +141,24 @@ int main(int argc, char *argv[]) {
 #else
   lspserver::log("nixd {0} started", NIXD_VERSION);
 #endif
-  nixd::Server Server{
-      std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
-      std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
-  Server.run();
+  switch (static_cast<NSS>(Role)) {
+  case nixd::Controller::ServerRole::Controller: {
+    nixd::Controller Controller{
+        std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
+        std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
+    Controller.run();
+    break;
+  }
+  case nixd::Controller::ServerRole::Evaluator: {
+    nixd::EvalWorker Worker{
+        std::make_unique<lspserver::InboundPort>(
+            STDIN_FILENO, lspserver::JSONStreamStyle::Standard),
+        std::make_unique<lspserver::OutboundPort>(/*PrettyPrint=*/false)};
+    Worker.run();
+    break;
+  }
+  case nixd::Controller::ServerRole::OptionProvider:
+    break;
+  }
   return 0;
 }

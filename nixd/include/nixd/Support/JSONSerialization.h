@@ -1,3 +1,5 @@
+#pragma once
+
 #include "lspserver/Protocol.h"
 
 #include <llvm/Support/JSON.h>

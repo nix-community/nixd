@@ -38,15 +38,8 @@
 
 namespace nixd {
 
-struct CompletionHelper {
-  using Items = std::vector<lspserver::CompletionItem>;
-  static void fromEnv(nix::EvalState &State, nix::Env &NixEnv, Items &Items);
-  static void fromStaticEnv(const nix::SymbolTable &STable,
-                            const nix::StaticEnv &SEnv, Items &Items);
-};
-
 /// The server instance, nix-related language features goes here
-class Server : public lspserver::LSPServer {
+class Controller : public lspserver::LSPServer {
 public:
   using WorkspaceVersionTy = ipc::WorkspaceVersionTy;
 
@@ -191,17 +184,11 @@ private:
   nix::Value *OptionAttrSet;
   std::unique_ptr<IValueEvalSession> OptionIES;
 
-  // Worker::Eval
-
-  llvm::unique_function<void(const ipc::Diagnostics &)> EvalDiagnostic;
-
-  std::unique_ptr<IValueEvalResult> IER;
-
 public:
-  Server(std::unique_ptr<lspserver::InboundPort> In,
-         std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
+  Controller(std::unique_ptr<lspserver::InboundPort> In,
+             std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
-  ~Server() override {
+  ~Controller() override {
     if (WaitWorker) {
       Pool.join();
       std::lock_guard Guard(EvalWorkerLock);
@@ -325,10 +312,6 @@ public:
     return Vec;
   }
 
-  // Worker
-
-  void initWorker();
-
   // Worker::Nix::Option
 
   void forkOptionWorker();
@@ -340,31 +323,11 @@ public:
 
   void onOptionCompletion(const ipc::AttrPathParams &,
                           lspserver::Callback<llvm::json::Value>);
-
-  // Worker::Nix::Eval
-
-  void switchToEvaluator();
-
-  template <class ReplyTy>
-  void withAST(
-      const std::string &, ReplyRAII<ReplyTy>,
-      llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
-
-  void evalInstallable();
-
-  void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
-                        lspserver::Callback<lspserver::Location>);
-
-  void onEvalHover(const lspserver::TextDocumentPositionParams &,
-                   lspserver::Callback<llvm::json::Value>);
-
-  void onEvalCompletion(const lspserver::CompletionParams &,
-                        lspserver::Callback<llvm::json::Value>);
 };
 
 template <class Resp, class Arg>
-auto Server::askWorkers(
-    const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+auto Controller::askWorkers(
+    const std::deque<std::unique_ptr<Controller::Proc>> &Workers,
     std::shared_mutex &WorkerLock, llvm::StringRef IPCMethod, const Arg &Params,
     unsigned Timeout) {
   // For all active workers, send the completion request
@@ -416,26 +379,6 @@ auto Server::askWorkers(
   }
 
   return AnsweredResp;
-}
-
-template <class ReplyTy>
-void Server::withAST(
-    const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
-    llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
-        Action) {
-  try {
-    auto AST = IER->Forest.at(RequestedFile);
-    try {
-      Action(AST, std::move(RR));
-    } catch (std::exception &E) {
-      RR.Response =
-          lspserver::error("something uncaught in the AST action, reason {0}",
-                           stripANSI(E.what()));
-    }
-  } catch (std::out_of_range &E) {
-    RR.Response = lspserver::error("no AST available on requested file {0}",
-                                   RequestedFile);
-  }
 }
 
 }; // namespace nixd
