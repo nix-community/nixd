@@ -6,6 +6,14 @@
 
 namespace nixd::configuration {
 
+llvm::json::Value toJSON(const TopLevel::Eval &R);
+
+llvm::json::Value toJSON(const TopLevel::Formatting &R);
+
+llvm::json::Value toJSON(const TopLevel::Options &R);
+
+llvm::json::Value toJSON(const InstallableConfigurationItem &R);
+
 bool fromJSON(const llvm::json::Value &Params, TopLevel::Eval &R,
               llvm::json::Path P);
 

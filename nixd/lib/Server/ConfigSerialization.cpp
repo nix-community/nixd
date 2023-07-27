@@ -4,9 +4,27 @@
 
 namespace nixd::configuration {
 
+using llvm::json::Object;
 using llvm::json::ObjectMapper;
 using llvm::json::Path;
 using llvm::json::Value;
+
+Value toJSON(const TopLevel::Eval &R) {
+  return Object{
+      {"depth", R.depth}, {"target", R.target}, {"workers", R.workers}};
+}
+
+Value toJSON(const TopLevel::Formatting &R) {
+  return Object{{"command", R.command}};
+}
+
+Value toJSON(const TopLevel::Options &R) {
+  return Object{{"enable", R.enable}, {"target", R.target}};
+}
+
+llvm::json::Value toJSON(const InstallableConfigurationItem &R) {
+  return Object{{"installable", R.installable}, {"args", R.args}};
+}
 
 bool fromJSON(const Value &Params, TopLevel::Eval &R, Path P) {
   ObjectMapper O(Params, P);
