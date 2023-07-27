@@ -112,19 +112,20 @@ public:
 private:
   bool WaitWorker = false;
 
+  using WorkerContainerLock = std::shared_mutex;
   using WorkerContainer = std::deque<std::unique_ptr<Proc>>;
 
   using WC = std::tuple<const WorkerContainer &, std::shared_mutex &, size_t>;
 
   WorkspaceVersionTy WorkspaceVersion = 1;
 
-  std::shared_mutex EvalWorkerLock;
+  WorkerContainerLock EvalWorkerLock;
   WorkerContainer EvalWorkers; // GUARDED_BY(EvalWorkerLock)
 
   // Used for lit tests, ensure that workers have finished their job.
   std::counting_semaphore<> FinishSmp = std::counting_semaphore(0);
 
-  std::shared_mutex OptionWorkerLock;
+  WorkerContainerLock OptionWorkerLock;
   WorkerContainer OptionWorkers; // GUARDED_BY(OptionWorkerLock)
 
   EvalDraftStore DraftMgr;
@@ -158,17 +159,6 @@ private:
   } DiagStatus; // GUARDED_BY(DiagStatusLock)
 
   boost::asio::thread_pool Pool;
-
-  //---------------------------------------------------------------------------/
-  // Worker members
-
-  // Worker::Option
-
-  /// The AttrSet having options, we use this for any nixpkgs options.
-  /// nixpkgs basically defined options under "options" attrpath
-  /// we can use this for completion (to support ALL option system)
-  nix::Value *OptionAttrSet;
-  std::unique_ptr<IValueEvalSession> OptionIES;
 
   // IPC Utils
 
@@ -307,6 +297,16 @@ public:
   }
 
   std::unique_ptr<Proc> createEvalWorker();
+
+  std::unique_ptr<Proc> createOptionWorker();
+
+  bool createEnqueueEvalWorker();
+
+  bool createEnqueueOptionWorker();
+
+  static bool enqueueWorker(WorkerContainerLock &Lock,
+                            WorkerContainer &Container,
+                            std::unique_ptr<Proc> Worker, size_t Size);
 
   void onEvalDiagnostic(const ipc::Diagnostics &);
 

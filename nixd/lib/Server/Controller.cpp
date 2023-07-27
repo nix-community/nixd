@@ -6,6 +6,7 @@
 #include "nixd/Parser/Parser.h"
 #include "nixd/Parser/Require.h"
 #include "nixd/Server/ASTManager.h"
+#include "nixd/Server/ConfigSerialization.h"
 #include "nixd/Server/Controller.h"
 #include "nixd/Server/EvalDraftStore.h"
 #include "nixd/Server/IPC.h"
@@ -128,6 +129,44 @@ std::unique_ptr<Controller::Proc> Controller::createEvalWorker() {
   return EvalWorker;
 }
 
+std::unique_ptr<Controller::Proc> Controller::createOptionWorker() {
+  auto Args = nix::Strings{"nixd", "-role=option"};
+  auto Worker = selfExec(nix::stringsToCharPtrs(Args).data());
+  auto AskEval = mkOutNotifiction<configuration::TopLevel::Options>(
+      "nixd/ipc/evalOptionSet", Worker->OutPort.get());
+  {
+    std::lock_guard _(ConfigLock);
+    AskEval(Config.options);
+  }
+  return Worker;
+}
+
+bool Controller::createEnqueueEvalWorker() {
+  size_t Size;
+  {
+    std::lock_guard _(ConfigLock);
+    Size = Config.eval.workers;
+  }
+  return enqueueWorker(EvalWorkerLock, EvalWorkers, createEvalWorker(), Size);
+}
+
+bool Controller::createEnqueueOptionWorker() {
+  return enqueueWorker(OptionWorkerLock, OptionWorkers, createOptionWorker(),
+                       1);
+}
+
+bool Controller::enqueueWorker(WorkerContainerLock &Lock,
+                               WorkerContainer &Container,
+                               std::unique_ptr<Proc> Worker, size_t Size) {
+  std::lock_guard _(Lock);
+  Container.emplace_back(std::move(Worker));
+  if (Container.size() > Size) {
+    Container.pop_front();
+    return true;
+  }
+  return false;
+}
+
 void Controller::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                              llvm::StringRef Version) {
   using namespace lspserver;
@@ -142,20 +181,16 @@ void Controller::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   DraftMgr.addDraft(File, Version, Contents);
   ASTMgr.schedParse(Contents.str(), File.str(), IVersion.value_or(0));
-  try {
-    auto EvalWorker = createEvalWorker();
-    std::lock_guard Guard1(EvalWorkerLock);
-    std::lock_guard Guard2(ConfigLock);
-    EvalWorkers.emplace_back(std::move(EvalWorker));
-    if (EvalWorkers.size() > Config.eval.workers)
-      EvalWorkers.pop_front();
-  } catch (...) {
-  }
+  createEnqueueEvalWorker();
 }
 
 void Controller::updateConfig(configuration::TopLevel &&NewConfig) {
-  Config = std::move(NewConfig);
-  // forkOptionWorker();
+  {
+    std::lock_guard _(ConfigLock);
+    Config = std::move(NewConfig);
+  }
+  createEnqueueEvalWorker();
+  createEnqueueOptionWorker();
 }
 
 void Controller::fetchConfig() {

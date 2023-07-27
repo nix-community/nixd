@@ -11,7 +11,7 @@ libnixdServer = library('nixdServer'
 , 'EvalDraftStore.cpp'
 , 'EvalWorker.cpp'
 , 'IPCSerialization.cpp'
-# , 'Option.cpp'
+, 'OptionWorker.cpp'
 , include_directories: nixd_inc
 , dependencies: libnixdServerDeps
 , install: true

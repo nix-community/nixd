@@ -2,6 +2,7 @@
 
 #include "nixd/Server/Controller.h"
 #include "nixd/Server/EvalWorker.h"
+#include "nixd/Server/OptionWorker.h"
 #include "nixd/Server/Role.h"
 
 #include "lspserver/Connection.h"
@@ -159,6 +160,11 @@ int main(int argc, char *argv[]) {
     break;
   }
   case NSS::OptionProvider:
+    nixd::OptionWorker Worker{
+        std::make_unique<lspserver::InboundPort>(
+            STDIN_FILENO, lspserver::JSONStreamStyle::Standard),
+        std::make_unique<lspserver::OutboundPort>(/*PrettyPrint=*/false)};
+    Worker.run();
     break;
   }
   return 0;
