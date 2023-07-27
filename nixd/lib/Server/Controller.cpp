@@ -5,17 +5,22 @@
 #include "nixd/Parser/Parser.h"
 #include "nixd/Parser/Require.h"
 #include "nixd/Server/ASTManager.h"
+#include "nixd/Server/ConfigSerialization.h"
+#include "nixd/Server/Controller.h"
 #include "nixd/Server/EvalDraftStore.h"
-#include "nixd/Server/Server.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/Support.h"
 
 #include "lspserver/Connection.h"
+#include "lspserver/DraftStore.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 #include "lspserver/URI.h"
+
+#include <nix/util.hh>
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
@@ -27,6 +32,7 @@
 #include <boost/iostreams/stream.hpp>
 #include <boost/process.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
@@ -38,6 +44,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <variant>
 
@@ -45,11 +52,10 @@
 
 namespace nixd {
 
-void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
-                        std::deque<std::unique_ptr<Proc>> &WorkerPool,
-                        size_t Size) {
-  if (Role != ServerRole::Controller)
-    return;
+using lspserver::DraftStore;
+
+std::unique_ptr<Controller::Proc>
+Controller::forkWorker(llvm::unique_function<void()> WorkerAction) {
   auto To = std::make_unique<nix::Pipe>();
   auto From = std::make_unique<nix::Pipe>();
 
@@ -58,27 +64,17 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
 
   auto ForkPID = fork();
   if (ForkPID == -1) {
-    lspserver::elog("Cannot create child worker process");
-    // TODO reason?
-  } else if (ForkPID == 0) {
-    // child, it should be a COW fork of the parent process info, as a snapshot
-    // we will leave the evaluation task (or any language feature) to the child
-    // process, and forward language feature requests to this childs, and choose
-    // the best response.
-    auto ChildPID = getpid();
-    lspserver::elog("created child worker process {0}", ChildPID);
+    throw std::system_error(
+        std::make_error_code(static_cast<std::errc>(errno)));
+  }
 
+  if (ForkPID == 0) {
     // Redirect stdin & stdout to our pipes, instead of LSP clients
     dup2(To->readSide.get(), 0);
     dup2(From->writeSide.get(), 1);
-
     WorkerAction();
-
-    // Communicate the controller in stadnard mode, instead of lit testing
-    switchStreamStyle(lspserver::JSONStreamStyle::Standard);
-
+    abort();
   } else {
-
     auto WorkerInputDispatcher =
         std::thread([In = From->readSide.get(), this]() {
           // Start a thread that handles outputs from WorkerProc, and call the
@@ -95,36 +91,90 @@ void Server::forkWorker(llvm::unique_function<void()> WorkerAction,
     auto OutPort =
         std::make_unique<lspserver::OutboundPort>(*ProcFdStream, false);
 
-    auto WorkerProc = std::unique_ptr<Proc>(
+    return std::unique_ptr<Proc>(
         new Proc{.ToPipe = std::move(To),
                  .FromPipe = std::move(From),
                  .OutPort = std::move(OutPort),
                  .OwnedStream = std::move(ProcFdStream),
                  .Pid = ForkPID,
-                 .WorkspaceVersion = WorkspaceVersion,
                  .InputDispatcher = std::move(WorkerInputDispatcher),
                  .Smp = std::ref(FinishSmp),
                  .WaitWorker = WaitWorker});
-
-    WorkerPool.emplace_back(std::move(WorkerProc));
-    if (WorkerPool.size() > Size && !WaitWorker)
-      WorkerPool.pop_front();
   }
 }
 
-void Server::updateWorkspaceVersion() {
-  if (Role != ServerRole::Controller)
-    return;
-  WorkspaceVersion++;
-  std::lock_guard EvalGuard(EvalWorkerLock);
-  // The eval worker
-  forkWorker([this]() { switchToEvaluator(); }, EvalWorkers,
-             Config.eval.workers);
+void Controller::syncDrafts(Proc &WorkerProc) {
+  using OP = lspserver::DidOpenTextDocumentParams;
+  using TI = lspserver::TextDocumentItem;
+  auto SendIPCDocumentOpen = mkOutNotifiction<OP>(
+      "nixd/ipc/textDocument/didOpen", WorkerProc.OutPort.get());
+  for (const auto &Path : DraftMgr.getActiveFiles()) {
+    if (auto Draft = DraftMgr.getDraft(Path)) {
+      const auto &[Content, Version] = *Draft;
+      SendIPCDocumentOpen(OP{TI{
+          .uri = lspserver::URIForFile::canonicalize(Path, Path),
+          .version = EvalDraftStore::decodeVersion(Version),
+          .text = *Content,
+      }});
+    }
+  }
 }
 
-void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
-                         llvm::StringRef Version) {
+std::unique_ptr<Controller::Proc> Controller::createEvalWorker() {
+  auto Args = nix::Strings{"nixd", "-role=evaluator"};
+  auto EvalWorker = selfExec(nix::stringsToCharPtrs(Args).data());
+  syncDrafts(*EvalWorker);
+  auto AskEval = mkOutNotifiction<ipc::EvalParams>("nixd/ipc/eval",
+                                                   EvalWorker->OutPort.get());
+  {
+    std::lock_guard _(ConfigLock);
+    AskEval(ipc::EvalParams{WorkspaceVersion, Config.eval});
+  }
+  return EvalWorker;
+}
+
+std::unique_ptr<Controller::Proc> Controller::createOptionWorker() {
+  auto Args = nix::Strings{"nixd", "-role=option"};
+  auto Worker = selfExec(nix::stringsToCharPtrs(Args).data());
+  auto AskEval = mkOutNotifiction<configuration::TopLevel::Options>(
+      "nixd/ipc/evalOptionSet", Worker->OutPort.get());
+  {
+    std::lock_guard _(ConfigLock);
+    AskEval(Config.options);
+  }
+  return Worker;
+}
+
+bool Controller::createEnqueueEvalWorker() {
+  size_t Size;
+  {
+    std::lock_guard _(ConfigLock);
+    Size = Config.eval.workers;
+  }
+  return enqueueWorker(EvalWorkerLock, EvalWorkers, createEvalWorker(), Size);
+}
+
+bool Controller::createEnqueueOptionWorker() {
+  return enqueueWorker(OptionWorkerLock, OptionWorkers, createOptionWorker(),
+                       1);
+}
+
+bool Controller::enqueueWorker(WorkerContainerLock &Lock,
+                               WorkerContainer &Container,
+                               std::unique_ptr<Proc> Worker, size_t Size) {
+  std::lock_guard _(Lock);
+  Container.emplace_back(std::move(Worker));
+  if (Container.size() > Size) {
+    Container.pop_front();
+    return true;
+  }
+  return false;
+}
+
+void Controller::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
+                             llvm::StringRef Version) {
   using namespace lspserver;
+  WorkspaceVersion++;
   auto IVersion = DraftStore::decodeVersion(Version);
   // Since this file is updated, we first clear its diagnostic
   PublishDiagnosticsParams Notification;
@@ -135,16 +185,19 @@ void Server::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   DraftMgr.addDraft(File, Version, Contents);
   ASTMgr.schedParse(Contents.str(), File.str(), IVersion.value_or(0));
-  updateWorkspaceVersion();
+  createEnqueueEvalWorker();
 }
 
-void Server::updateConfig(configuration::TopLevel &&NewConfig) {
-  Config = std::move(NewConfig);
-  forkOptionWorker();
-  updateWorkspaceVersion();
+void Controller::updateConfig(configuration::TopLevel &&NewConfig) {
+  {
+    std::lock_guard _(ConfigLock);
+    Config = std::move(NewConfig);
+  }
+  createEnqueueEvalWorker();
+  createEnqueueOptionWorker();
 }
 
-void Server::fetchConfig() {
+void Controller::fetchConfig() {
   if (ClientCaps.WorkspaceConfiguration) {
     WorkspaceConfiguration(
         lspserver::ConfigurationParams{
@@ -159,7 +212,7 @@ void Server::fetchConfig() {
 }
 
 llvm::Expected<configuration::TopLevel>
-Server::parseConfig(llvm::StringRef JSON) {
+Controller::parseConfig(llvm::StringRef JSON) {
   using namespace configuration;
 
   auto ExpectedValue = llvm::json::parse(JSON);
@@ -172,7 +225,7 @@ Server::parseConfig(llvm::StringRef JSON) {
   return lspserver::error("value cannot be converted to internal config type");
 }
 
-void Server::readJSONConfig(lspserver::PathRef File) noexcept {
+void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
   try {
     std::string ConfigStr;
     std::ostringstream SS;
@@ -189,70 +242,68 @@ void Server::readJSONConfig(lspserver::PathRef File) noexcept {
   }
 }
 
-std::string Server::encodeVersion(std::optional<int64_t> LSPVersion) {
-  return LSPVersion ? llvm::to_string(*LSPVersion) : "";
-}
-
 std::shared_ptr<const std::string>
-Server::getDraft(lspserver::PathRef File) const {
+Controller::getDraft(lspserver::PathRef File) const {
   auto Draft = DraftMgr.getDraft(File);
   if (!Draft)
     return nullptr;
   return std::move(Draft->Contents);
 }
 
-Server::Server(std::unique_ptr<lspserver::InboundPort> In,
-               std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker)
+Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
+                       std::unique_ptr<lspserver::OutboundPort> Out,
+                       int WaitWorker)
     : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker),
       ASTMgr(Pool) {
 
   // Life Cycle
-  Registry.addMethod("initialize", this, &Server::onInitialize);
-  Registry.addNotification("initialized", this, &Server::onInitialized);
+  Registry.addMethod("initialize", this, &Controller::onInitialize);
+  Registry.addNotification("initialized", this, &Controller::onInitialized);
 
   // Text Document Synchronization
   Registry.addNotification("textDocument/didOpen", this,
-                           &Server::onDocumentDidOpen);
+                           &Controller::onDocumentDidOpen);
   Registry.addNotification("textDocument/didChange", this,
-                           &Server::onDocumentDidChange);
+                           &Controller::onDocumentDidChange);
 
   Registry.addNotification("textDocument/didClose", this,
-                           &Server::onDocumentDidClose);
+                           &Controller::onDocumentDidClose);
 
   // Language Features
   Registry.addMethod("textDocument/documentLink", this,
-                     &Server::onDocumentLink);
+                     &Controller::onDocumentLink);
   Registry.addMethod("textDocument/documentSymbol", this,
-                     &Server::onDocumentSymbol);
-  Registry.addMethod("textDocument/hover", this, &Server::onHover);
-  Registry.addMethod("textDocument/completion", this, &Server::onCompletion);
-  Registry.addMethod("textDocument/declaration", this, &Server::onDecalration);
-  Registry.addMethod("textDocument/definition", this, &Server::onDefinition);
-  Registry.addMethod("textDocument/formatting", this, &Server::onFormat);
-  Registry.addMethod("textDocument/rename", this, &Server::onRename);
+                     &Controller::onDocumentSymbol);
+  Registry.addMethod("textDocument/hover", this, &Controller::onHover);
+  Registry.addMethod("textDocument/completion", this,
+                     &Controller::onCompletion);
+  Registry.addMethod("textDocument/declaration", this,
+                     &Controller::onDecalration);
+  Registry.addMethod("textDocument/definition", this,
+                     &Controller::onDefinition);
+  Registry.addMethod("textDocument/formatting", this, &Controller::onFormat);
+  Registry.addMethod("textDocument/rename", this, &Controller::onRename);
   Registry.addMethod("textDocument/prepareRename", this,
-                     &Server::onPrepareRename);
+                     &Controller::onPrepareRename);
 
   PublishDiagnostic = mkOutNotifiction<lspserver::PublishDiagnosticsParams>(
       "textDocument/publishDiagnostics");
 
   // Workspace
   Registry.addNotification("workspace/didChangeConfiguration", this,
-                           &Server::onWorkspaceDidChangeConfiguration);
+                           &Controller::onWorkspaceDidChangeConfiguration);
   WorkspaceConfiguration =
       mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
           "workspace/configuration");
 
   /// IPC
   Registry.addNotification("nixd/ipc/diagnostic", this,
-                           &Server::onEvalDiagnostic);
+                           &Controller::onEvalDiagnostic);
 
-  Registry.addMethod("nixd/ipc/textDocument/hover", this, &Server::onEvalHover);
+  // Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
+  //                    &Controller::onOptionDeclaration);
 
-  Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
-                     &Server::onOptionDeclaration);
-
-  Registry.addNotification("nixd/ipc/finished", this, &Server::onFinished);
+  Registry.addNotification("nixd/ipc/finished", this, &Controller::onFinished);
 
   readJSONConfig();
 }
@@ -260,8 +311,9 @@ Server::Server(std::unique_ptr<lspserver::InboundPort> In,
 //-----------------------------------------------------------------------------/
 // Life Cycle
 
-void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
-                          lspserver::Callback<llvm::json::Value> Reply) {
+void Controller::onInitialize(
+    const lspserver::InitializeParams &InitializeParams,
+    lspserver::Callback<llvm::json::Value> Reply) {
   ClientCaps = InitializeParams.capabilities;
   llvm::json::Object ServerCaps{
       {"textDocumentSync",
@@ -292,16 +344,17 @@ void Server::onInitialize(const lspserver::InitializeParams &InitializeParams,
 //-----------------------------------------------------------------------------/
 // Text Document Synchronization
 
-void Server::onDocumentDidOpen(
+void Controller::onDocumentDidOpen(
     const lspserver::DidOpenTextDocumentParams &Params) {
   lspserver::PathRef File = Params.textDocument.uri.file();
 
   const std::string &Contents = Params.textDocument.text;
 
-  addDocument(File, Contents, encodeVersion(Params.textDocument.version));
+  addDocument(File, Contents,
+              DraftStore::encodeVersion(Params.textDocument.version));
 }
 
-void Server::onDocumentDidChange(
+void Controller::onDocumentDidChange(
     const lspserver::DidChangeTextDocumentParams &Params) {
   lspserver::PathRef File = Params.textDocument.uri.file();
   auto Code = getDraft(File);
@@ -321,10 +374,11 @@ void Server::onDocumentDidChange(
       return;
     }
   }
-  addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
+  addDocument(File, NewCode,
+              DraftStore::encodeVersion(Params.textDocument.version));
 }
 
-void Server::onDocumentDidClose(
+void Controller::onDocumentDidClose(
     const lspserver::DidCloseTextDocumentParams &Params) {
   lspserver::PathRef File = Params.textDocument.uri.file();
   auto Code = getDraft(File);
@@ -334,8 +388,9 @@ void Server::onDocumentDidClose(
 //-----------------------------------------------------------------------------/
 // Language Features
 
-void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
-                           lspserver::Callback<llvm::json::Value> Reply) {
+void Controller::onDecalration(
+    const lspserver::TextDocumentPositionParams &Params,
+    lspserver::Callback<llvm::json::Value> Reply) {
   if (!Config.options.enable) {
     Reply(nullptr);
     return;
@@ -393,8 +448,9 @@ void Server::onDecalration(const lspserver::TextDocumentPositionParams &Params,
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
-                          lspserver::Callback<llvm::json::Value> Reply) {
+void Controller::onDefinition(
+    const lspserver::TextDocumentPositionParams &Params,
+    lspserver::Callback<llvm::json::Value> Reply) {
   using RTy = lspserver::Location;
   using namespace lspserver;
   using V = llvm::json::Value;
@@ -439,7 +495,7 @@ void Server::onDefinition(const lspserver::TextDocumentPositionParams &Params,
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onDocumentLink(
+void Controller::onDocumentLink(
     const lspserver::DocumentLinkParams &Params,
     lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply) {
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
@@ -456,7 +512,7 @@ void Server::onDocumentLink(
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onDocumentSymbol(
+void Controller::onDocumentSymbol(
     const lspserver::DocumentSymbolParams &Params,
     lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply) {
 
@@ -473,8 +529,8 @@ void Server::onDocumentSymbol(
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
-                     lspserver::Callback<lspserver::Hover> Reply) {
+void Controller::onHover(const lspserver::TextDocumentPositionParams &Params,
+                         lspserver::Callback<lspserver::Hover> Reply) {
   using RTy = lspserver::Hover;
   constexpr auto Method = "nixd/ipc/textDocument/hover";
   auto Task = [=, Reply = std::move(Reply), this]() mutable {
@@ -488,7 +544,7 @@ void Server::onHover(const lspserver::TextDocumentPositionParams &Params,
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onCompletion(
+void Controller::onCompletion(
     const lspserver::CompletionParams &Params,
     lspserver::Callback<lspserver::CompletionList> Reply) {
   auto EnableOption = Config.options.enable;
@@ -560,8 +616,8 @@ void Server::onCompletion(
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onRename(const lspserver::RenameParams &Params,
-                      lspserver::Callback<lspserver::WorkspaceEdit> Reply) {
+void Controller::onRename(const lspserver::RenameParams &Params,
+                          lspserver::Callback<lspserver::WorkspaceEdit> Reply) {
 
   auto Task = [Params, Reply = std::move(Reply), this]() mutable {
     auto URI = Params.textDocument.uri;
@@ -586,7 +642,7 @@ void Server::onRename(const lspserver::RenameParams &Params,
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::onPrepareRename(
+void Controller::onPrepareRename(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<llvm::json::Value> Reply) {
   auto Task = [Params, Reply = std::move(Reply), this]() mutable {
@@ -613,21 +669,23 @@ void Server::onPrepareRename(
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Server::clearDiagnostic(lspserver::PathRef Path) {
+void Controller::clearDiagnostic(lspserver::PathRef Path) {
   lspserver::URIForFile Uri = lspserver::URIForFile::canonicalize(Path, Path);
   clearDiagnostic(Uri);
 }
 
-void Server::clearDiagnostic(const lspserver::URIForFile &FileUri) {
+void Controller::clearDiagnostic(const lspserver::URIForFile &FileUri) {
   lspserver::PublishDiagnosticsParams Notification;
   Notification.uri = FileUri;
   Notification.diagnostics = {};
   PublishDiagnostic(Notification);
 }
 
-void Server::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
+void Controller::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
   lspserver::log("received diagnostic from worker: {0}", Diag.WorkspaceVersion);
-
+  auto Defer = std::shared_ptr<void>(nullptr, [this, Diag](...) {
+    onFinished(ipc::WorkerMessage{Diag.WorkspaceVersion});
+  });
   {
     std::lock_guard<std::mutex> Guard(DiagStatusLock);
     if (DiagStatus.WorkspaceVersion > Diag.WorkspaceVersion) {
@@ -649,9 +707,9 @@ void Server::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
   }
 }
 
-void Server::onFinished(const ipc::WorkerMessage &) { FinishSmp.release(); }
+void Controller::onFinished(const ipc::WorkerMessage &) { FinishSmp.release(); }
 
-void Server::onFormat(
+void Controller::onFormat(
     const lspserver::DocumentFormattingParams &Params,
     lspserver::Callback<std::vector<lspserver::TextEdit>> Reply) {
 

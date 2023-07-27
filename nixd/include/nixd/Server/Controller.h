@@ -4,6 +4,8 @@
 
 #include "nixd/Parser/Require.h"
 #include "nixd/Server/ASTManager.h"
+#include "nixd/Server/ConfigSerialization.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/JSONSerialization.h"
 
@@ -38,15 +40,8 @@
 
 namespace nixd {
 
-struct CompletionHelper {
-  using Items = std::vector<lspserver::CompletionItem>;
-  static void fromEnv(nix::EvalState &State, nix::Env &NixEnv, Items &Items);
-  static void fromStaticEnv(const nix::SymbolTable &STable,
-                            const nix::StaticEnv &SEnv, Items &Items);
-};
-
 /// The server instance, nix-related language features goes here
-class Server : public lspserver::LSPServer {
+class Controller : public lspserver::LSPServer {
 public:
   using WorkspaceVersionTy = ipc::WorkspaceVersionTy;
 
@@ -57,7 +52,6 @@ public:
     std::unique_ptr<llvm::raw_ostream> OwnedStream;
 
     nix::Pid Pid;
-    WorkspaceVersionTy WorkspaceVersion;
     std::thread InputDispatcher;
 
     std::counting_semaphore<> &Smp;
@@ -79,14 +73,6 @@ public:
       } else
         InputDispatcher.detach();
     }
-  };
-
-  enum class ServerRole {
-    /// Parent process of the server
-    Controller,
-    /// Child process
-    Evaluator,
-    OptionProvider,
   };
 
   template <class ReplyTy> struct ReplyRAII {
@@ -126,21 +112,20 @@ public:
 private:
   bool WaitWorker = false;
 
-  ServerRole Role = ServerRole::Controller;
-
+  using WorkerContainerLock = std::shared_mutex;
   using WorkerContainer = std::deque<std::unique_ptr<Proc>>;
 
   using WC = std::tuple<const WorkerContainer &, std::shared_mutex &, size_t>;
 
   WorkspaceVersionTy WorkspaceVersion = 1;
 
-  std::shared_mutex EvalWorkerLock;
+  WorkerContainerLock EvalWorkerLock;
   WorkerContainer EvalWorkers; // GUARDED_BY(EvalWorkerLock)
 
   // Used for lit tests, ensure that workers have finished their job.
   std::counting_semaphore<> FinishSmp = std::counting_semaphore(0);
 
-  std::shared_mutex OptionWorkerLock;
+  WorkerContainerLock OptionWorkerLock;
   WorkerContainer OptionWorkers; // GUARDED_BY(OptionWorkerLock)
 
   EvalDraftStore DraftMgr;
@@ -149,21 +134,16 @@ private:
 
   lspserver::ClientCapabilities ClientCaps;
 
-  configuration::TopLevel Config;
+  std::mutex ConfigLock;
+
+  configuration::TopLevel Config; // GUARDED_BY(ConfigLock)
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                    llvm::StringRef Version);
 
-  void removeDocument(lspserver::PathRef File) {
-    DraftMgr.removeDraft(File);
-    updateWorkspaceVersion();
-  }
-
-  /// LSP defines file versions as numbers that increase.
-  /// treats them as opaque and therefore uses strings instead.
-  static std::string encodeVersion(std::optional<int64_t> LSPVersion);
+  void removeDocument(lspserver::PathRef File) { DraftMgr.removeDraft(File); }
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
@@ -180,28 +160,36 @@ private:
 
   boost::asio::thread_pool Pool;
 
-  //---------------------------------------------------------------------------/
-  // Worker members
+  // IPC Utils
 
-  // Worker::Option
+  template <class Resp, class Arg>
+  auto askWorkers(const WorkerContainer &Workers, std::shared_mutex &WorkerLock,
+                  llvm::StringRef IPCMethod, const Arg &Params,
+                  unsigned Timeout);
 
-  /// The AttrSet having options, we use this for any nixpkgs options.
-  /// nixpkgs basically defined options under "options" attrpath
-  /// we can use this for completion (to support ALL option system)
-  nix::Value *OptionAttrSet;
-  std::unique_ptr<IValueEvalSession> OptionIES;
+  template <class Resp, class Arg>
+  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL)
+      -> std::vector<Resp> {
+    auto &[W, L, T] = CL;
+    return askWorkers<Resp>(W, L, IPCMethod, Params, T);
+  }
 
-  // Worker::Eval
+  template <class Resp, class Arg, class... A>
+  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL, A... Rest)
+      -> std::vector<Resp> {
+    auto Vec = askWC<Resp>(IPCMethod, Params, CL);
+    if (Vec.empty())
+      return askWC<Resp>(IPCMethod, Params, Rest...);
+    return Vec;
+  }
 
-  llvm::unique_function<void(const ipc::Diagnostics &)> EvalDiagnostic;
-
-  std::unique_ptr<IValueEvalResult> IER;
+  void syncDrafts(Proc &);
 
 public:
-  Server(std::unique_ptr<lspserver::InboundPort> In,
-         std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
+  Controller(std::unique_ptr<lspserver::InboundPort> In,
+             std::unique_ptr<lspserver::OutboundPort> Out, int WaitWorker = 0);
 
-  ~Server() override {
+  ~Controller() override {
     if (WaitWorker) {
       Pool.join();
       std::lock_guard Guard(EvalWorkerLock);
@@ -227,8 +215,6 @@ public:
 
   //---------------------------------------------------------------------------/
   // Text Document Synchronization
-
-  void updateWorkspaceVersion();
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
@@ -297,37 +283,34 @@ public:
 
   // Controller
 
-  void forkWorker(llvm::unique_function<void()> WorkerAction,
-                  std::deque<std::unique_ptr<Proc>> &WorkerPool, size_t Size);
+  /// Returns non-null worker process handle.
+  std::unique_ptr<Proc> forkWorker(llvm::unique_function<void()> WorkerAction);
+
+  std::unique_ptr<Proc> selfExec(char **Argv) {
+    return forkWorker([Argv]() {
+      if (auto Name = nix::getSelfExe()) {
+        execv(Name->c_str(), Argv);
+      } else {
+        throw std::runtime_error("nix::getSelfExe() returned nullopt");
+      }
+    });
+  }
+
+  std::unique_ptr<Proc> createEvalWorker();
+
+  std::unique_ptr<Proc> createOptionWorker();
+
+  bool createEnqueueEvalWorker();
+
+  bool createEnqueueOptionWorker();
+
+  static bool enqueueWorker(WorkerContainerLock &Lock,
+                            WorkerContainer &Container,
+                            std::unique_ptr<Proc> Worker, size_t Size);
 
   void onEvalDiagnostic(const ipc::Diagnostics &);
 
   void onFinished(const ipc::WorkerMessage &);
-
-  template <class Resp, class Arg>
-  auto askWorkers(const WorkerContainer &Workers, std::shared_mutex &WorkerLock,
-                  llvm::StringRef IPCMethod, const Arg &Params,
-                  unsigned Timeout);
-
-  template <class Resp, class Arg>
-  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL)
-      -> std::vector<Resp> {
-    auto &[W, L, T] = CL;
-    return askWorkers<Resp>(W, L, IPCMethod, Params, T);
-  }
-
-  template <class Resp, class Arg, class... A>
-  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL, A... Rest)
-      -> std::vector<Resp> {
-    auto Vec = askWC<Resp>(IPCMethod, Params, CL);
-    if (Vec.empty())
-      return askWC<Resp>(IPCMethod, Params, Rest...);
-    return Vec;
-  }
-
-  // Worker
-
-  void initWorker();
 
   // Worker::Nix::Option
 
@@ -340,31 +323,11 @@ public:
 
   void onOptionCompletion(const ipc::AttrPathParams &,
                           lspserver::Callback<llvm::json::Value>);
-
-  // Worker::Nix::Eval
-
-  void switchToEvaluator();
-
-  template <class ReplyTy>
-  void withAST(
-      const std::string &, ReplyRAII<ReplyTy>,
-      llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>);
-
-  void evalInstallable();
-
-  void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
-                        lspserver::Callback<lspserver::Location>);
-
-  void onEvalHover(const lspserver::TextDocumentPositionParams &,
-                   lspserver::Callback<llvm::json::Value>);
-
-  void onEvalCompletion(const lspserver::CompletionParams &,
-                        lspserver::Callback<llvm::json::Value>);
 };
 
 template <class Resp, class Arg>
-auto Server::askWorkers(
-    const std::deque<std::unique_ptr<Server::Proc>> &Workers,
+auto Controller::askWorkers(
+    const std::deque<std::unique_ptr<Controller::Proc>> &Workers,
     std::shared_mutex &WorkerLock, llvm::StringRef IPCMethod, const Arg &Params,
     unsigned Timeout) {
   // For all active workers, send the completion request
@@ -416,26 +379,6 @@ auto Server::askWorkers(
   }
 
   return AnsweredResp;
-}
-
-template <class ReplyTy>
-void Server::withAST(
-    const std::string &RequestedFile, ReplyRAII<ReplyTy> RR,
-    llvm::unique_function<void(nix::ref<EvalAST>, ReplyRAII<ReplyTy> &&)>
-        Action) {
-  try {
-    auto AST = IER->Forest.at(RequestedFile);
-    try {
-      Action(AST, std::move(RR));
-    } catch (std::exception &E) {
-      RR.Response =
-          lspserver::error("something uncaught in the AST action, reason {0}",
-                           stripANSI(E.what()));
-    }
-  } catch (std::out_of_range &E) {
-    RR.Response = lspserver::error("no AST available on requested file {0}",
-                                   RequestedFile);
-  }
 }
 
 }; // namespace nixd

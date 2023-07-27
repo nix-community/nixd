@@ -1,31 +1,33 @@
+#include "nixd/Server/OptionWorker.h"
+#include "nixd/Nix/Init.h"
 #include "nixd/Nix/Option.h"
 #include "nixd/Nix/Value.h"
-#include "nixd/Server/Server.h"
+#include "nixd/Server/ConfigSerialization.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
+#include "nixd/Support/ReplyRAII.h"
 
 #include <mutex>
 
 namespace nixd {
 
-void Server::forkOptionWorker() {
-  std::lock_guard _(OptionWorkerLock);
-  forkWorker(
-      [this]() {
-        switchToOptionProvider();
-        Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
-                           &Server::onOptionCompletion);
-        for (auto &W : OptionWorkers) {
-          W->Pid.release();
-        }
-      },
-      OptionWorkers, 1);
+OptionWorker::OptionWorker(std::unique_ptr<lspserver::InboundPort> In,
+                           std::unique_ptr<lspserver::OutboundPort> Out)
+    : lspserver::LSPServer(std::move(In), std::move(Out)) {
+
+  initEval();
+
+  Registry.addNotification("nixd/ipc/evalOptionSet", this,
+                           &OptionWorker::onEvalOptionSet);
+  Registry.addMethod("nixd/ipc/textDocument/completion/options", this,
+                     &OptionWorker::onCompletion);
+  Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
+                     &OptionWorker::onDeclaration);
 }
 
-void Server::onOptionDeclaration(
+void OptionWorker::onDeclaration(
     const ipc::AttrPathParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
-  assert(Role == ServerRole::OptionProvider &&
-         "option declaration should be calculated in option worker!");
   using namespace lspserver;
   ReplyRAII<Location> RR(std::move(Reply));
   if (!OptionAttrSet)
@@ -77,19 +79,17 @@ void Server::onOptionDeclaration(
   }
 }
 
-void Server::switchToOptionProvider() {
-  initWorker();
-  Role = ServerRole::OptionProvider;
-
-  if (!Config.options.enable)
+void OptionWorker::onEvalOptionSet(
+    const configuration::TopLevel::Options &Config) {
+  if (!Config.enable)
     return;
-  if (Config.options.target.empty()) {
+  if (Config.target.empty()) {
     lspserver::elog(
         "enabled options completion, but the target set is unspecified!");
     return;
   }
   try {
-    auto I = Config.options.target;
+    auto I = Config.target;
     auto SessionOption = std::make_unique<IValueEvalSession>();
     SessionOption->parseArgs(I.nArgs());
     OptionAttrSet = SessionOption->eval(I.installable);
@@ -103,7 +103,7 @@ void Server::switchToOptionProvider() {
   }
 }
 
-void Server::onOptionCompletion(const ipc::AttrPathParams &Params,
+void OptionWorker::onCompletion(const ipc::AttrPathParams &Params,
                                 lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   using namespace nix::nixd;

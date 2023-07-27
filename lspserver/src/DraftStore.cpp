@@ -81,6 +81,10 @@ static void updateVersion(DraftStore::Draft &D,
   }
 }
 
+std::string DraftStore::encodeVersion(std::optional<int64_t> LSPVersion) {
+  return LSPVersion ? std::to_string(*LSPVersion) : "";
+}
+
 std::string DraftStore::addDraft(PathRef File, llvm::StringRef Version,
                                  llvm::StringRef Contents) {
   std::lock_guard<std::mutex> Lock(Mutex);

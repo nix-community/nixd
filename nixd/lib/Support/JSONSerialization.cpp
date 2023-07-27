@@ -1,97 +1,25 @@
 #include "nixd/Support/JSONSerialization.h"
 
-#include "lspserver/Logger.h"
+#include "lspserver/Protocol.h"
 
 #include <llvm/Support/JSON.h>
-
-namespace nixd {
-
-using namespace llvm::json;
-
-namespace configuration {
-
-bool fromJSON(const Value &Params, TopLevel::Eval &R, Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("depth", R.depth) &&
-         O.mapOptional("target", R.target) &&
-         O.mapOptional("workers", R.workers);
-}
-
-bool fromJSON(const Value &Params, TopLevel::Formatting &R, Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("command", R.command);
-}
-
-bool fromJSON(const Value &Params, TopLevel::Options &R, Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("enable", R.enable) &&
-         O.mapOptional("target", R.target);
-}
-
-bool fromJSON(const Value &Params, TopLevel &R, Path P) {
-  Value X = Params;
-  if (Params.kind() == Value::Array) {
-    const auto *PA = Params.getAsArray();
-    X = PA->front();
-  }
-  ObjectMapper O(X, P);
-
-  return O && O.mapOptional("eval", R.eval) &&
-         O.mapOptional("formatting", R.formatting) &&
-         O.mapOptional("options", R.options);
-}
-
-bool fromJSON(const Value &Params, std::list<std::string> &R, Path P) {
-  std::vector<std::string> RVec{std::begin(R), std::end(R)};
-  return fromJSON(Params, RVec, P);
-}
-
-bool fromJSON(const Value &Params, InstallableConfigurationItem &R, Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("args", R.args) &&
-         O.mapOptional("installable", R.installable);
-}
-
-} // namespace configuration
-
-namespace ipc {
-bool fromJSON(const Value &Params, WorkerMessage &R, Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.map("WorkspaceVersion", R.WorkspaceVersion);
-}
-
-Value toJSON(const WorkerMessage &R) {
-  return Object{{"WorkspaceVersion", R.WorkspaceVersion}};
-}
-
-bool fromJSON(const Value &Params, Diagnostics &R, Path P) {
-  WorkerMessage &Base = R;
-  ObjectMapper O(Params, P);
-  return fromJSON(Params, Base, P) && O.map("Params", R.Params);
-}
-
-Value toJSON(const Diagnostics &R) {
-  Value Base = toJSON(WorkerMessage(R));
-  Base.getAsObject()->insert({"Params", R.Params});
-  return Base;
-}
-
-bool fromJSON(const Value &Params, AttrPathParams &R, Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.map("Path", R.Path);
-}
-
-Value toJSON(const AttrPathParams &R) { return Object{{"Path", R.Path}}; }
-
-} // namespace ipc
-
-} // namespace nixd
 
 namespace lspserver {
 
 using llvm::json::Object;
 using llvm::json::ObjectMapper;
 using llvm::json::Value;
+
+Value toJSON(const TextDocumentItem &R) {
+  return Object{{"text", R.text},
+                {"version", R.version},
+                {"uri", R.uri},
+                {"languageId", R.languageId}};
+}
+
+Value toJSON(const DidOpenTextDocumentParams &R) {
+  return Object{{"textDocument", R.textDocument}};
+}
 
 bool fromJSON(const Value &Params, PublishDiagnosticsParams &R,
               llvm::json::Path P) {
