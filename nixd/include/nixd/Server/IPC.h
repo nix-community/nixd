@@ -1,7 +1,8 @@
 #pragma once
 
-#include "lspserver/Protocol.h"
 #include "nixd/Server/Config.h"
+
+#include "lspserver/Protocol.h"
 
 namespace nixd::ipc {
 

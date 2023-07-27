@@ -1,4 +1,3 @@
-#include "lspserver/DraftStore.h"
 #include "nixd-config.h"
 
 #include "nixd/AST/ParseAST.h"
@@ -14,14 +13,15 @@
 #include "nixd/Support/Support.h"
 
 #include "lspserver/Connection.h"
+#include "lspserver/DraftStore.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 #include "lspserver/URI.h"
-#include "util.hh"
 
-#include <cstddef>
+#include <nix/util.hh>
+
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
@@ -32,6 +32,7 @@
 #include <boost/iostreams/stream.hpp>
 #include <boost/process.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
