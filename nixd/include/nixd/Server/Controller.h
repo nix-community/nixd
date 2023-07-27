@@ -4,6 +4,8 @@
 
 #include "nixd/Parser/Require.h"
 #include "nixd/Server/ASTManager.h"
+#include "nixd/Server/ConfigSerialization.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/JSONSerialization.h"
 
@@ -50,7 +52,6 @@ public:
     std::unique_ptr<llvm::raw_ostream> OwnedStream;
 
     nix::Pid Pid;
-    WorkspaceVersionTy WorkspaceVersion;
     std::thread InputDispatcher;
 
     std::counting_semaphore<> &Smp;
@@ -72,14 +73,6 @@ public:
       } else
         InputDispatcher.detach();
     }
-  };
-
-  enum class ServerRole {
-    /// Parent process of the server
-    Controller,
-    /// Child process
-    Evaluator,
-    OptionProvider,
   };
 
   template <class ReplyTy> struct ReplyRAII {
@@ -119,8 +112,6 @@ public:
 private:
   bool WaitWorker = false;
 
-  ServerRole Role = ServerRole::Controller;
-
   using WorkerContainer = std::deque<std::unique_ptr<Proc>>;
 
   using WC = std::tuple<const WorkerContainer &, std::shared_mutex &, size_t>;
@@ -142,21 +133,16 @@ private:
 
   lspserver::ClientCapabilities ClientCaps;
 
-  configuration::TopLevel Config;
+  std::mutex ConfigLock;
+
+  configuration::TopLevel Config; // GUARDED_BY(ConfigLock)
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
 
   void addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                    llvm::StringRef Version);
 
-  void removeDocument(lspserver::PathRef File) {
-    DraftMgr.removeDraft(File);
-    updateWorkspaceVersion();
-  }
-
-  /// LSP defines file versions as numbers that increase.
-  /// treats them as opaque and therefore uses strings instead.
-  static std::string encodeVersion(std::optional<int64_t> LSPVersion);
+  void removeDocument(lspserver::PathRef File) { DraftMgr.removeDraft(File); }
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
@@ -183,6 +169,31 @@ private:
   /// we can use this for completion (to support ALL option system)
   nix::Value *OptionAttrSet;
   std::unique_ptr<IValueEvalSession> OptionIES;
+
+  // IPC Utils
+
+  template <class Resp, class Arg>
+  auto askWorkers(const WorkerContainer &Workers, std::shared_mutex &WorkerLock,
+                  llvm::StringRef IPCMethod, const Arg &Params,
+                  unsigned Timeout);
+
+  template <class Resp, class Arg>
+  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL)
+      -> std::vector<Resp> {
+    auto &[W, L, T] = CL;
+    return askWorkers<Resp>(W, L, IPCMethod, Params, T);
+  }
+
+  template <class Resp, class Arg, class... A>
+  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL, A... Rest)
+      -> std::vector<Resp> {
+    auto Vec = askWC<Resp>(IPCMethod, Params, CL);
+    if (Vec.empty())
+      return askWC<Resp>(IPCMethod, Params, Rest...);
+    return Vec;
+  }
+
+  void syncDrafts(Proc &);
 
 public:
   Controller(std::unique_ptr<lspserver::InboundPort> In,
@@ -214,8 +225,6 @@ public:
 
   //---------------------------------------------------------------------------/
   // Text Document Synchronization
-
-  void updateWorkspaceVersion();
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
@@ -284,33 +293,24 @@ public:
 
   // Controller
 
-  void forkWorker(llvm::unique_function<void()> WorkerAction,
-                  std::deque<std::unique_ptr<Proc>> &WorkerPool, size_t Size);
+  /// Returns non-null worker process handle.
+  std::unique_ptr<Proc> forkWorker(llvm::unique_function<void()> WorkerAction);
+
+  std::unique_ptr<Proc> selfExec(char **Argv) {
+    return forkWorker([Argv]() {
+      if (auto Name = nix::getSelfExe()) {
+        execv(Name->c_str(), Argv);
+      } else {
+        throw std::runtime_error("nix::getSelfExe() returned nullopt");
+      }
+    });
+  }
+
+  std::unique_ptr<Proc> createEvalWorker();
 
   void onEvalDiagnostic(const ipc::Diagnostics &);
 
   void onFinished(const ipc::WorkerMessage &);
-
-  template <class Resp, class Arg>
-  auto askWorkers(const WorkerContainer &Workers, std::shared_mutex &WorkerLock,
-                  llvm::StringRef IPCMethod, const Arg &Params,
-                  unsigned Timeout);
-
-  template <class Resp, class Arg>
-  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL)
-      -> std::vector<Resp> {
-    auto &[W, L, T] = CL;
-    return askWorkers<Resp>(W, L, IPCMethod, Params, T);
-  }
-
-  template <class Resp, class Arg, class... A>
-  auto askWC(llvm::StringRef IPCMethod, const Arg &Params, WC CL, A... Rest)
-      -> std::vector<Resp> {
-    auto Vec = askWC<Resp>(IPCMethod, Params, CL);
-    if (Vec.empty())
-      return askWC<Resp>(IPCMethod, Params, Rest...);
-    return Vec;
-  }
 
   // Worker::Nix::Option
 

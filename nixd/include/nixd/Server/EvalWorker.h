@@ -1,6 +1,8 @@
 #pragma once
 
+#include "nixd/Server/ConfigSerialization.h"
 #include "nixd/Server/EvalDraftStore.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/JSONSerialization.h"
 #include "nixd/Support/ReplyRAII.h"
@@ -10,9 +12,13 @@
 namespace nixd {
 
 class EvalWorker : public lspserver::LSPServer {
-  llvm::unique_function<void(const ipc::Diagnostics &)> EvalDiagnostic;
+  llvm::unique_function<void(const ipc::Diagnostics &)> NotifyDiagnostics;
 
   std::unique_ptr<IValueEvalResult> IER;
+
+  configuration::TopLevel Config;
+
+  EvalDraftStore DraftMgr;
 
   template <class ReplyTy>
   void withAST(
@@ -23,14 +29,18 @@ public:
   EvalWorker(std::unique_ptr<lspserver::InboundPort> In,
              std::unique_ptr<lspserver::OutboundPort> Out);
 
-  void onEvalDefinition(const lspserver::TextDocumentPositionParams &,
-                        lspserver::Callback<lspserver::Location>);
+  void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
-  void onEvalHover(const lspserver::TextDocumentPositionParams &,
-                   lspserver::Callback<llvm::json::Value>);
+  void onEval(const ipc::WorkerMessage &Params);
 
-  void onEvalCompletion(const lspserver::CompletionParams &,
-                        lspserver::Callback<llvm::json::Value>);
+  void onDefinition(const lspserver::TextDocumentPositionParams &,
+                    lspserver::Callback<lspserver::Location>);
+
+  void onHover(const lspserver::TextDocumentPositionParams &,
+               lspserver::Callback<llvm::json::Value>);
+
+  void onCompletion(const lspserver::CompletionParams &,
+                    lspserver::Callback<llvm::json::Value>);
 };
 
 template <class ReplyTy>

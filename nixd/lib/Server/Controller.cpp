@@ -1,3 +1,4 @@
+#include "lspserver/DraftStore.h"
 #include "nixd-config.h"
 
 #include "nixd/AST/ParseAST.h"
@@ -7,6 +8,7 @@
 #include "nixd/Server/ASTManager.h"
 #include "nixd/Server/Controller.h"
 #include "nixd/Server/EvalDraftStore.h"
+#include "nixd/Server/IPC.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/Support.h"
 
@@ -16,7 +18,9 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 #include "lspserver/URI.h"
+#include "util.hh"
 
+#include <cstddef>
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/Support/Error.h>
@@ -38,6 +42,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <variant>
 
@@ -45,11 +50,10 @@
 
 namespace nixd {
 
-void Controller::forkWorker(llvm::unique_function<void()> WorkerAction,
-                            std::deque<std::unique_ptr<Proc>> &WorkerPool,
-                            size_t Size) {
-  if (Role != ServerRole::Controller)
-    return;
+using lspserver::DraftStore;
+
+std::unique_ptr<Controller::Proc>
+Controller::forkWorker(llvm::unique_function<void()> WorkerAction) {
   auto To = std::make_unique<nix::Pipe>();
   auto From = std::make_unique<nix::Pipe>();
 
@@ -58,16 +62,17 @@ void Controller::forkWorker(llvm::unique_function<void()> WorkerAction,
 
   auto ForkPID = fork();
   if (ForkPID == -1) {
-    lspserver::elog("Cannot create child worker process");
-    // TODO reason?
-  } else if (ForkPID == 0) {
+    throw std::system_error(
+        std::make_error_code(static_cast<std::errc>(errno)));
+  }
+
+  if (ForkPID == 0) {
     // Redirect stdin & stdout to our pipes, instead of LSP clients
     dup2(To->readSide.get(), 0);
     dup2(From->writeSide.get(), 1);
     WorkerAction();
-
+    abort();
   } else {
-
     auto WorkerInputDispatcher =
         std::thread([In = From->readSide.get(), this]() {
           // Start a thread that handles outputs from WorkerProc, and call the
@@ -84,42 +89,49 @@ void Controller::forkWorker(llvm::unique_function<void()> WorkerAction,
     auto OutPort =
         std::make_unique<lspserver::OutboundPort>(*ProcFdStream, false);
 
-    auto WorkerProc = std::unique_ptr<Proc>(
+    return std::unique_ptr<Proc>(
         new Proc{.ToPipe = std::move(To),
                  .FromPipe = std::move(From),
                  .OutPort = std::move(OutPort),
                  .OwnedStream = std::move(ProcFdStream),
                  .Pid = ForkPID,
-                 .WorkspaceVersion = WorkspaceVersion,
                  .InputDispatcher = std::move(WorkerInputDispatcher),
                  .Smp = std::ref(FinishSmp),
                  .WaitWorker = WaitWorker});
-
-    WorkerPool.emplace_back(std::move(WorkerProc));
-    if (WorkerPool.size() > Size && !WaitWorker)
-      WorkerPool.pop_front();
   }
 }
 
-void Controller::updateWorkspaceVersion() {
-  if (Role != ServerRole::Controller)
-    return;
-  WorkspaceVersion++;
-  std::lock_guard EvalGuard(EvalWorkerLock);
-  // The eval worker
-  forkWorker(
-      []() {
-        if (auto Name = nix::getSelfExe()) {
-          execv(Name->c_str(),
-                nix::stringsToCharPtrs({"--role=worker"}).data());
-        }
-      },
-      EvalWorkers, Config.eval.workers);
+void Controller::syncDrafts(Proc &WorkerProc) {
+  using OP = lspserver::DidOpenTextDocumentParams;
+  using TI = lspserver::TextDocumentItem;
+  auto SendIPCDocumentOpen = mkOutNotifiction<OP>(
+      "nixd/ipc/textDocument/didOpen", WorkerProc.OutPort.get());
+  for (const auto &Path : DraftMgr.getActiveFiles()) {
+    if (auto Draft = DraftMgr.getDraft(Path)) {
+      const auto &[Content, Version] = *Draft;
+      SendIPCDocumentOpen(OP{TI{
+          .uri = lspserver::URIForFile::canonicalize(Path, Path),
+          .version = EvalDraftStore::decodeVersion(Version),
+          .text = *Content,
+      }});
+    }
+  }
+}
+
+std::unique_ptr<Controller::Proc> Controller::createEvalWorker() {
+  auto Args = nix::Strings{"nixd", "-role=evaluator"};
+  auto EvalWorker = selfExec(nix::stringsToCharPtrs(Args).data());
+  syncDrafts(*EvalWorker);
+  auto AskEval = mkOutNotifiction<ipc::WorkerMessage>(
+      "nixd/ipc/eval", EvalWorker->OutPort.get());
+  AskEval(ipc::WorkerMessage{WorkspaceVersion});
+  return EvalWorker;
 }
 
 void Controller::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
                              llvm::StringRef Version) {
   using namespace lspserver;
+  WorkspaceVersion++;
   auto IVersion = DraftStore::decodeVersion(Version);
   // Since this file is updated, we first clear its diagnostic
   PublishDiagnosticsParams Notification;
@@ -130,13 +142,20 @@ void Controller::addDocument(lspserver::PathRef File, llvm::StringRef Contents,
 
   DraftMgr.addDraft(File, Version, Contents);
   ASTMgr.schedParse(Contents.str(), File.str(), IVersion.value_or(0));
-  updateWorkspaceVersion();
+  try {
+    auto EvalWorker = createEvalWorker();
+    std::lock_guard Guard1(EvalWorkerLock);
+    std::lock_guard Guard2(ConfigLock);
+    EvalWorkers.emplace_back(std::move(EvalWorker));
+    if (EvalWorkers.size() > Config.eval.workers)
+      EvalWorkers.pop_front();
+  } catch (...) {
+  }
 }
 
 void Controller::updateConfig(configuration::TopLevel &&NewConfig) {
   Config = std::move(NewConfig);
-  forkOptionWorker();
-  updateWorkspaceVersion();
+  // forkOptionWorker();
 }
 
 void Controller::fetchConfig() {
@@ -182,10 +201,6 @@ void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
   } catch (std::exception &E) {
   } catch (...) {
   }
-}
-
-std::string Controller::encodeVersion(std::optional<int64_t> LSPVersion) {
-  return LSPVersion ? llvm::to_string(*LSPVersion) : "";
 }
 
 std::shared_ptr<const std::string>
@@ -246,8 +261,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Controller::onEvalDiagnostic);
 
-  Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
-                     &Controller::onOptionDeclaration);
+  // Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
+  //                    &Controller::onOptionDeclaration);
 
   Registry.addNotification("nixd/ipc/finished", this, &Controller::onFinished);
 
@@ -296,7 +311,8 @@ void Controller::onDocumentDidOpen(
 
   const std::string &Contents = Params.textDocument.text;
 
-  addDocument(File, Contents, encodeVersion(Params.textDocument.version));
+  addDocument(File, Contents,
+              DraftStore::encodeVersion(Params.textDocument.version));
 }
 
 void Controller::onDocumentDidChange(
@@ -319,7 +335,8 @@ void Controller::onDocumentDidChange(
       return;
     }
   }
-  addDocument(File, NewCode, encodeVersion(Params.textDocument.version));
+  addDocument(File, NewCode,
+              DraftStore::encodeVersion(Params.textDocument.version));
 }
 
 void Controller::onDocumentDidClose(
@@ -627,7 +644,9 @@ void Controller::clearDiagnostic(const lspserver::URIForFile &FileUri) {
 
 void Controller::onEvalDiagnostic(const ipc::Diagnostics &Diag) {
   lspserver::log("received diagnostic from worker: {0}", Diag.WorkspaceVersion);
-
+  auto Defer = std::shared_ptr<void>(nullptr, [this, Diag](...) {
+    onFinished(ipc::WorkerMessage{Diag.WorkspaceVersion});
+  });
   {
     std::lock_guard<std::mutex> Guard(DiagStatusLock);
     if (DiagStatus.WorkspaceVersion > Diag.WorkspaceVersion) {

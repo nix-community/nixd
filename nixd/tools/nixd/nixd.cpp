@@ -2,6 +2,7 @@
 
 #include "nixd/Server/Controller.h"
 #include "nixd/Server/EvalWorker.h"
+#include "nixd/Server/Role.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/LSPServer.h"
@@ -107,7 +108,7 @@ opt<bool> WaitWorker{"wait-worker",
                           "any timeout logic"),
                      init(false), cat(Debug)};
 
-using NSS = nixd::Controller::ServerRole;
+using NSS = nixd::ServerRole;
 
 opt<NSS> Role{"role", desc("The role of this process, worker, controller, ..."),
               values(clEnumValN(NSS::Controller, "controller", "Controller"),
@@ -142,14 +143,14 @@ int main(int argc, char *argv[]) {
   lspserver::log("nixd {0} started", NIXD_VERSION);
 #endif
   switch (static_cast<NSS>(Role)) {
-  case nixd::Controller::ServerRole::Controller: {
+  case NSS::Controller: {
     nixd::Controller Controller{
         std::make_unique<lspserver::InboundPort>(STDIN_FILENO, InputStyle),
         std::make_unique<lspserver::OutboundPort>(PrettyPrint), WaitWorker};
     Controller.run();
     break;
   }
-  case nixd::Controller::ServerRole::Evaluator: {
+  case NSS::Evaluator: {
     nixd::EvalWorker Worker{
         std::make_unique<lspserver::InboundPort>(
             STDIN_FILENO, lspserver::JSONStreamStyle::Standard),
@@ -157,7 +158,7 @@ int main(int argc, char *argv[]) {
     Worker.run();
     break;
   }
-  case nixd::Controller::ServerRole::OptionProvider:
+  case NSS::OptionProvider:
     break;
   }
   return 0;

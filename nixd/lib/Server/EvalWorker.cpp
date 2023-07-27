@@ -1,5 +1,8 @@
 #include "nixd/Server/EvalWorker.h"
+#include "nixd/Nix/Init.h"
 #include "nixd/Nix/Value.h"
+#include "nixd/Server/EvalDraftStore.h"
+#include "nixd/Server/IPC.h"
 #include "nixd/Support/CompletionHelper.h"
 
 #include "lspserver/LSPServer.h"
@@ -10,17 +13,69 @@ EvalWorker::EvalWorker(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
     : lspserver::LSPServer(std::move(In), std::move(Out)) {
 
-  EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
+  initEval();
 
-  Registry.addMethod("nixd/ipc/textDocument/hover", this,
-                     &EvalWorker::onEvalHover);
+  NotifyDiagnostics = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
+
+  Registry.addNotification("nixd/ipc/eval", this, &EvalWorker::onEval);
+  Registry.addNotification("nixd/ipc/textDocument/didOpen", this,
+                           &EvalWorker::onDocumentDidOpen);
+  Registry.addMethod("nixd/ipc/textDocument/hover", this, &EvalWorker::onHover);
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
-                     &EvalWorker::onEvalCompletion);
+                     &EvalWorker::onCompletion);
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
-                     &EvalWorker::onEvalDefinition);
+                     &EvalWorker::onDefinition);
 }
 
-void EvalWorker::onEvalDefinition(
+void EvalWorker::onDocumentDidOpen(
+    const lspserver::DidOpenTextDocumentParams &Params) {
+  lspserver::PathRef File = Params.textDocument.uri.file();
+
+  const std::string &Contents = Params.textDocument.text;
+
+  auto Version = EvalDraftStore::encodeVersion(Params.textDocument.version);
+
+  DraftMgr.addDraft(File, Version, Contents);
+}
+
+void EvalWorker::onEval(const ipc::WorkerMessage &Params) {
+  auto Session = std::make_unique<IValueEvalSession>();
+
+  auto I = Config.eval.target;
+  auto Depth = Config.eval.depth;
+
+  if (!I.empty())
+    Session->parseArgs(I.nArgs());
+
+  auto ILR = DraftMgr.injectFiles(Session->getState());
+
+  std::map<std::string, lspserver::PublishDiagnosticsParams> DiagMap;
+  for (const auto &ErrInfo : ILR.InjectionErrors) {
+    insertDiagnostic(*ErrInfo.Err, DiagMap,
+                     lspserver::DraftStore::decodeVersion(ErrInfo.Version));
+  }
+  try {
+    if (!I.empty()) {
+      Session->eval(I.installable, Depth);
+      lspserver::log("finished evaluation");
+    }
+  } catch (nix::BaseError &BE) {
+    insertDiagnostic(BE, DiagMap);
+  } catch (...) {
+  }
+
+  ipc::Diagnostics Diagnostics;
+  std::transform(DiagMap.begin(), DiagMap.end(),
+                 std::back_inserter(Diagnostics.Params),
+                 [](const auto &V) { return V.second; });
+
+  Diagnostics.WorkspaceVersion = Params.WorkspaceVersion;
+  NotifyDiagnostics(Diagnostics);
+  IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
+                                           std::move(Session));
+}
+
+void EvalWorker::onDefinition(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
   using namespace lspserver;
@@ -71,9 +126,8 @@ void EvalWorker::onEvalDefinition(
       });
 }
 
-void EvalWorker::onEvalHover(
-    const lspserver::TextDocumentPositionParams &Params,
-    lspserver::Callback<llvm::json::Value> Reply) {
+void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
+                         lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   withAST<Hover>(
       Params.textDocument.uri.file().str(), ReplyRAII<Hover>(std::move(Reply)),
@@ -101,9 +155,8 @@ void EvalWorker::onEvalHover(
       });
 }
 
-void EvalWorker::onEvalCompletion(
-    const lspserver::CompletionParams &Params,
-    lspserver::Callback<llvm::json::Value> Reply) {
+void EvalWorker::onCompletion(const lspserver::CompletionParams &Params,
+                              lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   auto Action = [Params, this](const nix::ref<EvalAST> &AST,
                                ReplyRAII<CompletionList> &&RR) {

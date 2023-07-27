@@ -47,6 +47,10 @@ public:
 
   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> asVFS() const;
 
+  /// LSP defines file versions as numbers that increase.
+  /// treats them as opaque and therefore uses strings instead.
+  static std::string encodeVersion(std::optional<int64_t> LSPVersion);
+
   static std::optional<int64_t> decodeVersion(llvm::StringRef Encoded);
 
 private:
