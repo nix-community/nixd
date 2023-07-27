@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lspserver/Protocol.h"
+#include "nixd/Server/Config.h"
 
 namespace nixd::ipc {
 
@@ -21,8 +22,9 @@ struct AttrPathParams {
   std::string Path;
 };
 
-bool fromJSON(const llvm::json::Value &, AttrPathParams &, llvm::json::Path);
-
-llvm::json::Value toJSON(const AttrPathParams &);
+struct EvalParams {
+  WorkspaceVersionTy WorkspaceVersion;
+  configuration::TopLevel::Eval Eval;
+};
 
 } // namespace nixd::ipc

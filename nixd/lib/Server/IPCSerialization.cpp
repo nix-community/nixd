@@ -1,4 +1,6 @@
 #include "nixd/Server/IPCSerialization.h"
+#include "nixd/Server/ConfigSerialization.h"
+#include "nixd/Server/IPC.h"
 #include "nixd/Support/JSONSerialization.h"
 
 namespace nixd::ipc {
@@ -32,5 +34,15 @@ bool fromJSON(const Value &Params, AttrPathParams &R, Path P) {
 }
 
 Value toJSON(const AttrPathParams &R) { return Object{{"Path", R.Path}}; }
+
+Value toJSON(const EvalParams &R) {
+  return Object{{"Eval", R.Eval}, {"WorkspaceVersion", R.WorkspaceVersion}};
+}
+
+bool fromJSON(const Value &Params, EvalParams &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("Eval", R.Eval) &&
+         O.map("WorkspaceVersion", R.WorkspaceVersion);
+}
 
 } // namespace nixd::ipc

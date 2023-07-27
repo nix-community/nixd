@@ -16,8 +16,6 @@ class EvalWorker : public lspserver::LSPServer {
 
   std::unique_ptr<IValueEvalResult> IER;
 
-  configuration::TopLevel Config;
-
   EvalDraftStore DraftMgr;
 
   template <class ReplyTy>
@@ -31,7 +29,7 @@ public:
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
-  void onEval(const ipc::WorkerMessage &Params);
+  void onEval(const ipc::EvalParams &Params);
 
   void onDefinition(const lspserver::TextDocumentPositionParams &,
                     lspserver::Callback<lspserver::Location>);

@@ -9,7 +9,7 @@
 #include "nixd/Server/ConfigSerialization.h"
 #include "nixd/Server/Controller.h"
 #include "nixd/Server/EvalDraftStore.h"
-#include "nixd/Server/IPC.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/Support.h"
 
@@ -123,9 +123,12 @@ std::unique_ptr<Controller::Proc> Controller::createEvalWorker() {
   auto Args = nix::Strings{"nixd", "-role=evaluator"};
   auto EvalWorker = selfExec(nix::stringsToCharPtrs(Args).data());
   syncDrafts(*EvalWorker);
-  auto AskEval = mkOutNotifiction<ipc::WorkerMessage>(
-      "nixd/ipc/eval", EvalWorker->OutPort.get());
-  AskEval(ipc::WorkerMessage{WorkspaceVersion});
+  auto AskEval = mkOutNotifiction<ipc::EvalParams>("nixd/ipc/eval",
+                                                   EvalWorker->OutPort.get());
+  {
+    std::lock_guard _(ConfigLock);
+    AskEval(ipc::EvalParams{WorkspaceVersion, Config.eval});
+  }
   return EvalWorker;
 }
 

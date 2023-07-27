@@ -38,11 +38,11 @@ void EvalWorker::onDocumentDidOpen(
   DraftMgr.addDraft(File, Version, Contents);
 }
 
-void EvalWorker::onEval(const ipc::WorkerMessage &Params) {
+void EvalWorker::onEval(const ipc::EvalParams &Params) {
   auto Session = std::make_unique<IValueEvalSession>();
 
-  auto I = Config.eval.target;
-  auto Depth = Config.eval.depth;
+  auto I = Params.Eval.target;
+  auto Depth = Params.Eval.depth;
 
   if (!I.empty())
     Session->parseArgs(I.nArgs());

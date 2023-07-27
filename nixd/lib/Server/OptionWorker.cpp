@@ -3,6 +3,7 @@
 #include "nixd/Nix/Option.h"
 #include "nixd/Nix/Value.h"
 #include "nixd/Server/ConfigSerialization.h"
+#include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/ReplyRAII.h"
 
