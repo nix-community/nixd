@@ -1,10 +1,13 @@
 #include "nixd/AST/ParseAST.h"
+#include "nixd/Expr/Expr.h"
 
 #include "lspserver/Protocol.h"
 
+#include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 
 #include <optional>
+#include <stdexcept>
 
 namespace nixd {
 
@@ -297,6 +300,39 @@ ParseAST::completion(const lspserver::Position &Pos) const {
         [this](const nix::Symbol &V) { return toCompletionItem(V); });
   };
   return Items;
+}
+
+namespace {
+struct AttrDefVisitor : RecursiveASTVisitor<AttrDefVisitor> {
+  const ParseAST &AST;
+  const lspserver::Position &Pos;
+  bool InAttrDef;
+  bool visitExprAttrs(const nix::ExprAttrs *E) {
+    // TODO: std::ranges::all_of
+    for (const auto &[_, Def] : E->attrs) {
+      if (AST.contains(Def.pos, Pos)) {
+        InAttrDef = true;
+        // Stop traversing
+        return false;
+      }
+    }
+    return true;
+  }
+};
+
+} // namespace
+
+ParseAST::LocationContext ParseAST::getContext(lspserver::Position Pos) const {
+  AttrDefVisitor V{.AST = *this, .Pos = Pos};
+  V.traverseExpr(root());
+  if (V.InAttrDef)
+    return LocationContext::AttrName;
+  if (const auto *E = lookupContainMin(Pos)) {
+    const auto *EAttrs = dynamic_cast<const nix::ExprAttrs *>(E);
+    if (!EAttrs)
+      return LocationContext::Value;
+  }
+  return LocationContext::Unknown;
 }
 
 } // namespace nixd
