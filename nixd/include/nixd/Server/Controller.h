@@ -8,6 +8,7 @@
 #include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/JSONSerialization.h"
+#include "nixd/Support/ReplyRAII.h"
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
@@ -72,21 +73,6 @@ public:
         InputDispatcher.join();
       } else
         InputDispatcher.detach();
-    }
-  };
-
-  template <class ReplyTy> struct ReplyRAII {
-    lspserver::Callback<ReplyTy> R;
-    llvm::Expected<ReplyTy> Response =
-        lspserver::error("no response available");
-    ReplyRAII(decltype(R) R) : R(std::move(R)) {}
-    ~ReplyRAII() {
-      if (R)
-        R(std::move(Response));
-    };
-    ReplyRAII(ReplyRAII &&Old) noexcept {
-      R = std::move(Old.R);
-      Response = std::move(Old.Response);
     }
   };
 
