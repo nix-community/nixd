@@ -148,6 +148,9 @@ private:
 
   // IPC Utils
 
+  std::mutex BusyWorkersLock;
+  std::set<pid_t> BusyWorkers;
+
   template <class Resp, class Arg>
   auto askWorkers(const WorkerContainer &Workers, std::shared_mutex &WorkerLock,
                   llvm::StringRef IPCMethod, const Arg &Params,
@@ -326,9 +329,27 @@ auto Controller::askWorkers(
   {
     std::shared_lock RLock(WorkerLock);
     for (const auto &Worker : Workers) {
+      pid_t Pid = Worker->Pid;
+      bool IsWorkerBusy;
+      {
+        std::lock_guard _(BusyWorkersLock);
+        IsWorkerBusy = BusyWorkers.contains(Pid);
+      }
+
+      if (IsWorkerBusy) {
+        lspserver::log("worker {0} is busy now, skipping...", Pid);
+        continue;
+      }
+
+      {
+        std::lock_guard _(BusyWorkersLock);
+        BusyWorkers.insert(Pid);
+      }
+
       auto Request = mkOutMethod<Arg, Resp>(IPCMethod, Worker->OutPort.get());
-      Request(Params, [I, ListStoreOptional, ListStoreLock,
-                       Sema](llvm::Expected<Resp> Result) {
+
+      Request(Params, [I, Pid, ListStoreOptional, ListStoreLock, Sema,
+                       this](llvm::Expected<Resp> Result) {
         // The worker answered our request, fill the completion lists then.
         if (Result) {
           std::lock_guard Guard(*ListStoreLock);
@@ -338,6 +359,10 @@ auto Controller::askWorkers(
                           Result.takeError());
         }
         Sema->release();
+        {
+          std::lock_guard _(BusyWorkersLock);
+          BusyWorkers.erase(Pid);
+        }
       });
       I++;
     }
@@ -345,6 +370,8 @@ auto Controller::askWorkers(
 
   std::future<void> F =
       std::async([Sema, Size = I, Timeout, WaitWorker = this->WaitWorker]() {
+        if (!Size)
+          return;
         for (size_t I = 0; I < Size; I++) {
           if (WaitWorker)
             Sema->acquire();
