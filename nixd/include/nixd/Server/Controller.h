@@ -248,7 +248,7 @@ public:
                lspserver::Callback<lspserver::Hover>);
 
   void onCompletion(const lspserver::CompletionParams &,
-                    lspserver::Callback<lspserver::CompletionList>);
+                    lspserver::Callback<llvm::json::Value>);
 
   void onFormat(const lspserver::DocumentFormattingParams &,
                 lspserver::Callback<std::vector<lspserver::TextEdit>>);

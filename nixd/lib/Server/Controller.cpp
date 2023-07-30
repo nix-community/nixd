@@ -544,76 +544,91 @@ void Controller::onHover(const lspserver::TextDocumentPositionParams &Params,
   boost::asio::post(Pool, std::move(Task));
 }
 
-void Controller::onCompletion(
-    const lspserver::CompletionParams &Params,
-    lspserver::Callback<lspserver::CompletionList> Reply) {
-  auto EnableOption = Config.options.enable;
-  using RTy = lspserver::CompletionList;
-  using namespace lspserver;
-  constexpr auto Method = "nixd/ipc/textDocument/completion";
-  auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    auto Resp = askWC<RTy>(Method, Params, {EvalWorkers, EvalWorkerLock, 2e6});
-    std::optional<RTy> R;
-    if (!Resp.empty())
-      R = std::move(Resp.back());
-    else {
-      // Statically construct the completion list.
-      std::binary_semaphore Smp(0);
-      try {
-        auto Path = Params.textDocument.uri.file();
-        auto Action = [&Smp, &Resp, Pos = Params.position](
-                          const ParseAST &AST, ASTManager::VersionTy Version) {
-          auto Items = AST.completion(Pos);
-          Resp.emplace_back(CompletionList{false, Items});
-          Smp.release();
-        };
-        if (auto Draft = DraftMgr.getDraft(Path)) {
-          auto Version =
-              EvalDraftStore::decodeVersion(Draft->Version).value_or(0);
-          ASTMgr.withAST(Path.str(), Version, std::move(Action));
-          Smp.acquire();
+void Controller::onCompletion(const lspserver::CompletionParams &Params,
+                              lspserver::Callback<llvm::json::Value> Reply) {
+  // Statically construct the completion list.
+  std::binary_semaphore Smp(0);
+  auto Path = Params.textDocument.uri.file();
+  auto Action = [&Smp, &Params, &Reply,
+                 this](const ParseAST &AST,
+                       ASTManager::VersionTy Version) mutable {
+    using PL = ParseAST::LocationContext;
+    using List = lspserver::CompletionList;
+    ReplyRAII<llvm::json::Value> RR(std::move(Reply));
+
+    auto CompletionFromOptions = [&, this]() -> std::optional<List> {
+      bool OptionsEnabled;
+      {
+        std::lock_guard _(ConfigLock);
+        OptionsEnabled = Config.options.enable;
+      }
+      if (OptionsEnabled) {
+        ipc::AttrPathParams APParams;
+
+        if (Params.context.triggerCharacter == ".") {
+          // Get nixpkgs options
+          // TODO: split this in AST, use AST-based attrpath construction.
+          auto Code = llvm::StringRef(
+              *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
+          auto ExpectedPosition = positionToOffset(Code, Params.position);
+
+          // get the attr path
+          auto TruncateBackCode = Code.substr(0, ExpectedPosition.get());
+
+          auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
+          APParams.Path = AttrPath.str();
         }
-      } catch (std::exception &E) {
-        lspserver::elog("completion/parseAST: {0}", stripANSI(E.what()));
-      } catch (...) {
+
+        auto Resp = askWC<lspserver::CompletionList>(
+            "nixd/ipc/textDocument/completion/options", APParams,
+            {OptionWorkers, OptionWorkerLock, 1e5});
+        if (!Resp.empty())
+          return Resp.back();
       }
+      return std::nullopt;
+    };
+
+    auto CompletionFromEval = [&, this]() -> std::optional<List> {
+      constexpr auto Method = "nixd/ipc/textDocument/completion";
+      auto Resp =
+          askWC<List>(Method, Params, {EvalWorkers, EvalWorkerLock, 2e6});
+      std::optional<List> R;
+      if (!Resp.empty())
+        return std::move(Resp.back());
+      return std::nullopt;
+    };
+
+    switch (AST.getContext(Params.position)) {
+    case (PL::AttrName): {
+      // Requested completion on an attribute name, not values.
+      RR.Response = CompletionFromOptions();
+      break;
     }
-
-    if (EnableOption) {
-      ipc::AttrPathParams APParams;
-
-      if (Params.context.triggerCharacter == ".") {
-        // Get nixpkgs options
-        auto Code = llvm::StringRef(
-            *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
-        auto ExpectedPosition = positionToOffset(Code, Params.position);
-
-        // get the attr path
-        auto TruncateBackCode = Code.substr(0, ExpectedPosition.get());
-
-        auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
-        APParams.Path = AttrPath.str();
-      }
-
-      auto RespOption = askWC<lspserver::CompletionList>(
-          "nixd/ipc/textDocument/completion/options", APParams,
-          {OptionWorkers, OptionWorkerLock, 1e5});
-      if (!RespOption.empty()) {
-        if (R) {
-          // Merge response and option response.
-          auto O = RespOption.back().items;
-          R->items.insert(R->items.end(), O.begin(), O.end());
-        } else {
-          R = std::move(RespOption.back());
-        }
-      }
+    case (PL::Value): {
+      RR.Response = CompletionFromEval();
+      break;
     }
-    if (R)
-      Reply(std::move(*R));
-    else
-      Reply(RTy{});
+    case (PL::Unknown):
+      List L;
+      if (auto LOptions = CompletionFromOptions())
+        L.items.insert(L.items.end(), (*LOptions).items.begin(),
+                       (*LOptions).items.end());
+      if (auto LEval = CompletionFromEval())
+        L.items.insert(L.items.end(), (*LEval).items.begin(),
+                       (*LEval).items.end());
+      L.isIncomplete = true;
+      RR.Response = std::move(L);
+    }
+    Smp.release();
   };
-  boost::asio::post(Pool, std::move(Task));
+
+  if (auto Draft = DraftMgr.getDraft(Path)) {
+    auto Version = EvalDraftStore::decodeVersion(Draft->Version).value_or(0);
+    ASTMgr.withAST(Path.str(), Version, std::move(Action));
+    Smp.acquire();
+  } else {
+    Reply(lspserver::error("requested completion list on unknown draft path"));
+  }
 }
 
 void Controller::onRename(const lspserver::RenameParams &Params,
