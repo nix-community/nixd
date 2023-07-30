@@ -102,12 +102,10 @@ public:
 
 // Logs to an output stream, such as stderr.
 class StreamLogger : public Logger {
-  pthread_mutex_t *ShmLock;
+  std::mutex LogsLock;
 
 public:
   StreamLogger(llvm::raw_ostream &Logs, Logger::Level MinLevel);
-
-  ~StreamLogger() override { pthread_mutex_destroy(ShmLock); }
 
   /// Write a line to the logging stream.
   void log(Level, const char *Fmt,
