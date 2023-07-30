@@ -152,6 +152,8 @@ void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
           lspserver::vlog("no associated value on node {0}!", NodeOut.str());
           HoverText = llvm::formatv("`{0}`", ExprName);
         }
+        // Truncate the string to imporve IPC performance.
+        HoverText.resize(300);
       });
 }
 
