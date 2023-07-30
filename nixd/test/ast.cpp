@@ -5,6 +5,7 @@
 #include "nixd/AST/EvalAST.h"
 #include "nixd/AST/ParseAST.h"
 
+#include "nixd/Parser/Parser.h"
 #include "nixutil.h"
 
 #include <nix/canon-path.hh>
@@ -36,6 +37,37 @@ TEST(AST, lookupEnd) {
   } else {
     ASSERT_TRUE(false && "It must be an Attrs!");
   }
+}
+
+TEST(AST, LocationContext) {
+  std::string NixSrc = R"(
+{
+  a = {
+# ^AttrName
+    b = 1;
+#       ^Value
+  };
+
+
+# ^Unknown
+
+  d = {
+    z = {
+      y = 1;
+    };
+  };
+
+  list = [  ];
+#          ^Value
+}
+  )";
+  InitNix INix;
+  auto State = INix.getDummyState();
+  ParseAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
+  ASSERT_EQ(A.getContext({2, 2}), ParseAST::LocationContext::AttrName);
+  ASSERT_EQ(A.getContext({4, 8}), ParseAST::LocationContext::Value);
+  ASSERT_EQ(A.getContext({8, 8}), ParseAST::LocationContext::Unknown);
+  ASSERT_EQ(A.getContext({17, 10}), ParseAST::LocationContext::Value);
 }
 
 TEST(AST, lookupContainMin) {
