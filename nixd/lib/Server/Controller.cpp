@@ -391,7 +391,12 @@ void Controller::onDocumentDidClose(
 void Controller::onDecalration(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<llvm::json::Value> Reply) {
-  if (!Config.options.enable) {
+  bool EnableOption;
+  {
+    std::lock_guard _(ConfigLock);
+    EnableOption = Config.options.enable;
+  }
+  if (!EnableOption) {
     Reply(nullptr);
     return;
   }
@@ -735,9 +740,17 @@ void Controller::onFormat(
                                     this]() -> std::optional<std::string> {
       try {
         namespace bp = boost::process;
+
         bp::opstream To;
         bp::ipstream From;
-        bp::child Fmt(Config.formatting.command, bp::std_out > From,
+
+        std::string FormatCommand;
+        {
+          std::lock_guard _(ConfigLock);
+          FormatCommand = Config.formatting.command;
+        }
+
+        bp::child Fmt(std::move(FormatCommand), bp::std_out > From,
                       bp::std_in < To);
 
         To << Code;
