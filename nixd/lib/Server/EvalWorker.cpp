@@ -4,6 +4,7 @@
 #include "nixd/Server/EvalDraftStore.h"
 #include "nixd/Server/IPC.h"
 #include "nixd/Support/CompletionHelper.h"
+#include "nixd/Support/String.h"
 
 #include "lspserver/LSPServer.h"
 
@@ -152,6 +153,7 @@ void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
           lspserver::vlog("no associated value on node {0}!", NodeOut.str());
           HoverText = llvm::formatv("`{0}`", ExprName);
         }
+        truncateString(HoverText, 300);
       });
 }
 
