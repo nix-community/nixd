@@ -10,9 +10,6 @@
 
 #include <memory>
 
-#include <llvm/ADT/StringRef.h>
-#include <llvm/Support/JSON.h>
-
 namespace lspserver {
 
 /// LSPServer wraps inputs & outputs, associate message IDs between calls/reply,

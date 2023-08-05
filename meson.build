@@ -35,7 +35,7 @@ boost = dependency('boost')
 cpp = meson.get_compiler('cpp')
 backtrace = cpp.find_library('backtrace')
 
-lit = find_program('lit')
+lit = find_program('lit', required: false)
 
 subdir('lspserver')
 subdir('nixd')

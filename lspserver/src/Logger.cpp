@@ -59,11 +59,7 @@ void StreamLogger::log(Logger::Level Level, const char *Fmt,
   if (Level < MinLevel)
     return;
   llvm::sys::TimePoint<> Timestamp = std::chrono::system_clock::now();
-  struct ShmLockGuard {
-    decltype(ShmLock) Lock;
-    ShmLockGuard(decltype(Lock) L) : Lock(L) { pthread_mutex_lock(Lock); }
-    ~ShmLockGuard() { pthread_mutex_unlock(Lock); }
-  } Guard(ShmLock);
+  std::lock_guard _(LogsLock);
 
   Logs << llvm::formatv("{0}[{1:%H:%M:%S.%L}] {2}: {3}\n", indicator(Level),
                         Timestamp, getpid(), Message);
@@ -93,18 +89,5 @@ llvm::Error detail::error(std::error_code EC, std::string &&Msg) {
 }
 
 StreamLogger::StreamLogger(llvm::raw_ostream &Logs, Logger::Level MinLevel)
-    : MinLevel(MinLevel), Logs(Logs) {
-  ShmLock =
-      (pthread_mutex_t *)mmap(nullptr, getpagesize(), PROT_READ | PROT_WRITE,
-                              MAP_SHARED | MAP_ANON, -1, 0);
-
-  pthread_mutexattr_t Attr;
-  pthread_mutexattr_init(&Attr);
-  pthread_mutexattr_setpshared(&Attr, PTHREAD_PROCESS_SHARED);
-#ifndef __APPLE__
-  pthread_mutexattr_setrobust(&Attr, PTHREAD_MUTEX_ROBUST);
-#endif
-  pthread_mutex_init(ShmLock, &Attr);
-  pthread_mutexattr_destroy(&Attr);
-}
+    : MinLevel(MinLevel), Logs(Logs) {}
 } // namespace lspserver

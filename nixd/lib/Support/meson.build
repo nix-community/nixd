@@ -5,6 +5,7 @@ libnixdSupportDeps = [ nix_all
                      ]
 
 libnixdSupport = library('nixdSupport'
+, 'CompletionHelper.cpp'
 , 'Diagnostic.cpp'
 , 'JSONSerialization.cpp'
 , include_directories: nixd_inc

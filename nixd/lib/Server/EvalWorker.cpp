@@ -1,89 +1,82 @@
-#include "nixd/AST/EvalAST.h"
-#include "nixd/Expr/Expr.h"
-#include "nixd/Nix/Option.h"
+#include "nixd/Server/EvalWorker.h"
+#include "nixd/Nix/Init.h"
 #include "nixd/Nix/Value.h"
-#include "nixd/Server/Server.h"
-#include "nixd/Support/Diagnostic.h"
-#include "nixd/Support/Position.h"
+#include "nixd/Server/EvalDraftStore.h"
+#include "nixd/Server/IPC.h"
+#include "nixd/Support/CompletionHelper.h"
+#include "nixd/Support/String.h"
 
-#include "lspserver/Connection.h"
-#include "lspserver/Logger.h"
-#include "lspserver/Protocol.h"
-#include "lspserver/SourceCode.h"
-
-#include <nix/error.hh>
-#include <nix/eval.hh>
-#include <nix/nixexpr.hh>
-#include <nix/shared.hh>
-
-#include <llvm/ADT/StringRef.h>
-
-#include <algorithm>
-#include <exception>
-#include <iterator>
-#include <memory>
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <string_view>
+#include "lspserver/LSPServer.h"
 
 namespace nixd {
 
-void Server::switchToEvaluator() {
-  initWorker();
-  Role = ServerRole::Evaluator;
-  EvalDiagnostic = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
+EvalWorker::EvalWorker(std::unique_ptr<lspserver::InboundPort> In,
+                       std::unique_ptr<lspserver::OutboundPort> Out)
+    : lspserver::LSPServer(std::move(In), std::move(Out)) {
 
+  initEval();
+
+  NotifyDiagnostics = mkOutNotifiction<ipc::Diagnostics>("nixd/ipc/diagnostic");
+
+  Registry.addNotification("nixd/ipc/eval", this, &EvalWorker::onEval);
+  Registry.addNotification("nixd/ipc/textDocument/didOpen", this,
+                           &EvalWorker::onDocumentDidOpen);
+  Registry.addMethod("nixd/ipc/textDocument/hover", this, &EvalWorker::onHover);
   Registry.addMethod("nixd/ipc/textDocument/completion", this,
-                     &Server::onEvalCompletion);
-
+                     &EvalWorker::onCompletion);
   Registry.addMethod("nixd/ipc/textDocument/definition", this,
-                     &Server::onEvalDefinition);
-
-  evalInstallable();
-  mkOutNotifiction<ipc::WorkerMessage>("nixd/ipc/finished")(
-      ipc::WorkerMessage{WorkspaceVersion});
+                     &EvalWorker::onDefinition);
 }
 
-void Server::evalInstallable() {
-  assert(Role != ServerRole::Controller && "must be called in child workers.");
+void EvalWorker::onDocumentDidOpen(
+    const lspserver::DidOpenTextDocumentParams &Params) {
+  lspserver::PathRef File = Params.textDocument.uri.file();
+
+  const std::string &Contents = Params.textDocument.text;
+
+  auto Version = EvalDraftStore::encodeVersion(Params.textDocument.version);
+
+  DraftMgr.addDraft(File, Version, Contents);
+}
+
+void EvalWorker::onEval(const ipc::EvalParams &Params) {
   auto Session = std::make_unique<IValueEvalSession>();
 
-  auto I = Config.eval.target;
-  auto Depth = Config.eval.depth;
+  auto I = Params.Eval.target;
+  auto Depth = Params.Eval.depth;
 
   if (!I.empty())
     Session->parseArgs(I.nArgs());
 
   auto ILR = DraftMgr.injectFiles(Session->getState());
 
-  ipc::Diagnostics Diagnostics;
   std::map<std::string, lspserver::PublishDiagnosticsParams> DiagMap;
   for (const auto &ErrInfo : ILR.InjectionErrors) {
     insertDiagnostic(*ErrInfo.Err, DiagMap,
-                     decltype(DraftMgr)::decodeVersion(ErrInfo.Version));
+                     lspserver::DraftStore::decodeVersion(ErrInfo.Version));
   }
-  Diagnostics.WorkspaceVersion = WorkspaceVersion;
-  EvalDiagnostic(Diagnostics);
   try {
     if (!I.empty()) {
       Session->eval(I.installable, Depth);
-      lspserver::log("evaluation done on worspace version: {0}",
-                     WorkspaceVersion);
+      lspserver::log("finished evaluation");
     }
   } catch (nix::BaseError &BE) {
     insertDiagnostic(BE, DiagMap);
   } catch (...) {
   }
+
+  ipc::Diagnostics Diagnostics;
   std::transform(DiagMap.begin(), DiagMap.end(),
                  std::back_inserter(Diagnostics.Params),
                  [](const auto &V) { return V.second; });
-  EvalDiagnostic(Diagnostics);
+
+  Diagnostics.WorkspaceVersion = Params.WorkspaceVersion;
+  NotifyDiagnostics(Diagnostics);
   IER = std::make_unique<IValueEvalResult>(std::move(ILR.Forest),
                                            std::move(Session));
 }
 
-void Server::onEvalDefinition(
+void EvalWorker::onDefinition(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
   using namespace lspserver;
@@ -134,7 +127,7 @@ void Server::onEvalDefinition(
       });
 }
 
-void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
+void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
                          lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   withAST<Hover>(
@@ -160,10 +153,11 @@ void Server::onEvalHover(const lspserver::TextDocumentPositionParams &Params,
           lspserver::vlog("no associated value on node {0}!", NodeOut.str());
           HoverText = llvm::formatv("`{0}`", ExprName);
         }
+        truncateString(HoverText, 300);
       });
 }
 
-void Server::onEvalCompletion(const lspserver::CompletionParams &Params,
+void EvalWorker::onCompletion(const lspserver::CompletionParams &Params,
                               lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
   auto Action = [Params, this](const nix::ref<EvalAST> &AST,

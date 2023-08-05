@@ -100,7 +100,7 @@ Complete this file:
      CHECK:   "id": 1,
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": {
-CHECK-NEXT:     "isIncomplete": false,
+CHECK-NEXT:     "isIncomplete": true,
 CHECK-NEXT:     "items": [
 CHECK-NEXT:       {
 CHECK-NEXT:         "kind": 5,

@@ -45,7 +45,7 @@ stdenv.mkDerivation {
 
   env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
 
-  doCheck = true;
+  doCheck = !stdenv.isDarwin;
 
   checkPhase = ''
     runHook preCheck

@@ -66,16 +66,19 @@ or          { return OR_KW; }
                       .msg = hintfmt("invalid integer '%1%'", yytext),
                       .errPos = data->state.positions[CUR_POS],
                   });
+                  yyterminate();
               }
               return INT;
             }
 {FLOAT}     { errno = 0;
               yylval->nf = strtod(yytext, 0);
-              if (errno != 0)
+              if (errno != 0) {
                   data->error.emplace_back(nix::ErrorInfo{
                       .msg = hintfmt("invalid float '%1%'", yytext),
                       .errPos = data->state.positions[CUR_POS],
                   });
+                  yyterminate();
+              }
               return FLOAT;
             }
 
@@ -205,6 +208,7 @@ or          { return OR_KW; }
       .msg = hintfmt("path has a trailing slash"),
       .errPos = data->state.positions[CUR_POS],
   });
+  yyterminate();
 }
 
 {SPATH}     { yylval->path = {yytext, (size_t) yyleng}; return SPATH; }
