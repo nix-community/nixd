@@ -1,5 +1,6 @@
 libnixdServerDeps = [ nixd_lsp_server
                     , nix_all
+                    , nixdSema
                     , nixdAST
                     , nixdNix
                     , nixdSupport

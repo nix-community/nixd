@@ -1,9 +1,9 @@
 #include "nixd/Server/EvalWorker.h"
 #include "nixd/Nix/Init.h"
 #include "nixd/Nix/Value.h"
+#include "nixd/Sema/CompletionBuilder.h"
 #include "nixd/Server/EvalDraftStore.h"
 #include "nixd/Server/IPC.h"
-#include "nixd/Support/CompletionHelper.h"
 #include "nixd/Support/String.h"
 
 #include "lspserver/LSPServer.h"
@@ -163,93 +163,22 @@ void EvalWorker::onCompletion(const lspserver::CompletionParams &Params,
   auto Action = [Params, this](const nix::ref<EvalAST> &AST,
                                ReplyRAII<CompletionList> &&RR) {
     auto State = IER->Session->getState();
+    CompletionBuilder Builder;
     // Lookup an AST node, and get it's 'Env' after evaluation
-    CompletionHelper::Items Items;
     lspserver::log("current trigger character is {0}",
                    Params.context.triggerCharacter);
 
     if (Params.context.triggerCharacter == ".") {
-      const auto *Node = AST->lookupEnd(Params.position);
-      if (!Node)
-        return;
-      try {
-        auto Value = AST->getValueEval(Node, *IER->Session->getState());
-        if (Value.type() == nix::ValueType::nAttrs) {
-          // Traverse attribute bindings
-          for (auto Binding : *Value.attrs) {
-            Items.emplace_back(
-                CompletionItem{.label = State->symbols[Binding.name],
-                               .kind = CompletionItemKind::Field});
-            if (Items.size() > 5000)
-              break;
-          }
-        }
-      } catch (std::out_of_range &) {
-        RR.Response = error("no associated value on requested attrset.");
-        return;
-      }
+      Builder.addAttrFields(*AST, Params.position, *State);
     } else {
-
       const auto *Node = AST->lookupContainMin(Params.position);
-
-      // TODO: share the same code with static worker
-      std::vector<nix::Symbol> Symbols;
-      AST->collectSymbols(Node, Symbols);
-      // Insert symbols to our completion list.
-      std::transform(Symbols.begin(), Symbols.end(), std::back_inserter(Items),
-                     [&](const nix::Symbol &V) -> decltype(Items)::value_type {
-                       decltype(Items)::value_type R;
-                       R.kind = CompletionItemKind::Interface;
-                       R.label = State->symbols[V];
-                       return R;
-                     });
-
-      auto FromLambdaFormals = [&]() {
-        // Firstly, we check that if we are in "ExprAttrs", consider this
-        // is a
-        // special case for completion lambda formals
-        if (!dynamic_cast<const nix::ExprAttrs *>(Node))
-          return;
-        // Then, check that if the parent of evaluates to a "<LAMBDA>"
-        try {
-          const auto *Parent = AST->parent(Node);
-          if (const auto *SomeExprCall =
-                  dynamic_cast<const nix::ExprCall *>(Parent)) {
-            auto Value = AST->getValue(SomeExprCall->fun);
-            if (!Value.isLambda())
-              return;
-            // Then, filling the completion list using that lambda
-            // formals.
-            auto *Fun = Value.lambda.fun;
-            if (!Fun->hasFormals())
-              return;
-            for (auto Formal : Fun->formals->formals) {
-              CompletionItem Item;
-              Item.label = State->symbols[Formal.name];
-              Item.kind = CompletionItemKind::Constructor;
-              Items.emplace_back(std::move(Item));
-            }
-          }
-
-        } catch (...) {
-        }
-      };
-      FromLambdaFormals();
-      try {
-        if (!Node)
-          return;
-        auto *ExprEnv = AST->searchUpEnv(Node);
-        CompletionHelper::fromEnv(*State, *ExprEnv, Items);
-      } catch (std::out_of_range &) {
-      }
-      CompletionHelper::fromStaticEnv(State->symbols, *State->staticBaseEnv,
-                                      Items);
+      Builder.addSymbols(*AST, Node);
+      Builder.addLambdaFormals(*AST, *State, Node);
+      Builder.addEnv(*AST, *State, Node);
+      Builder.addStaticEnv(State->symbols, *State->staticBaseEnv);
     }
-    // Make the response.
-    CompletionList List;
-    List.isIncomplete = false;
-    List.items = Items;
-    RR.Response = List;
+    if (!Builder.getResult().items.empty())
+      RR.Response = Builder.getResult();
   };
 
   withAST<CompletionList>(Params.textDocument.uri.file().str(),
