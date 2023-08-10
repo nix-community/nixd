@@ -212,14 +212,6 @@ public:
 
   [[nodiscard]] Links documentLink(const std::string &File) const;
 
-  // Completion
-
-  [[nodiscard]] lspserver::CompletionItem
-  toCompletionItem(const nix::Symbol &V) const;
-
-  [[nodiscard]] std::vector<lspserver::CompletionItem>
-  completion(const lspserver::Position &Pos) const;
-
   [[nodiscard]] LocationContext getContext(lspserver::Position Pos) const;
 };
 } // namespace nixd
