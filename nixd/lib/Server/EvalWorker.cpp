@@ -94,8 +94,8 @@ void EvalWorker::onDefinition(
         // to the location which defines the package.
         try {
           auto V = AST->getValueEval(Node, *State);
-          if (nix::nixd::isDerivation(*State, V)) {
-            if (auto S = nix::nixd::attrPathStr(*State, V, "meta.position")) {
+          if (isDerivation(*State, V)) {
+            if (auto S = attrPathStr(*State, V, "meta.position")) {
               llvm::StringRef PositionStr = S.value();
               auto [Path, LineStr] = PositionStr.split(':');
               int Line;
@@ -142,7 +142,7 @@ void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
         try {
           auto Value = AST->getValueEval(Node, *IER->Session->getState());
           std::stringstream Res{};
-          nix::nixd::PrintDepth = 3;
+          PrintDepth = 3;
           Value.print(IER->Session->getState()->symbols, Res);
           HoverText =
               llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());

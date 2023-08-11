@@ -6,7 +6,7 @@
 
 #include <llvm/Support/FormatVariadic.h>
 
-namespace nix::nixd {
+namespace nixd {
 
 OptionInfo optionInfo(nix::EvalState &State, nix::Value &V) {
   OptionInfo Info;
@@ -41,4 +41,4 @@ std::string OptionInfo::mdDoc() {
                        Example, Description);
 }
 
-} // namespace nix::nixd
+} // namespace nixd

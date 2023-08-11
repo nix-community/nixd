@@ -3,11 +3,11 @@
 #include <nix/eval.hh>
 #include <nix/print.hh>
 
-namespace nix::nixd {
+namespace nixd {
 
-bool isOption(EvalState &State, Value &V) {
-  State.forceValue(V, noPos);
-  if (V.type() != ValueType::nAttrs)
+bool isOption(nix::EvalState &State, nix::Value &V) {
+  State.forceValue(V, nix::noPos);
+  if (V.type() != nix::ValueType::nAttrs)
     return false;
 
   // https://github.com/NixOS/nixpkgs/blob/58ca986543b591a8269cbce3328293ca8d64480f/lib/options.nix#L89
@@ -15,9 +15,9 @@ bool isOption(EvalState &State, Value &V) {
   return S && S.value() == "option";
 };
 
-bool isDerivation(EvalState &State, Value &V) {
-  State.forceValue(V, noPos);
-  if (V.type() != ValueType::nAttrs)
+bool isDerivation(nix::EvalState &State, nix::Value &V) {
+  State.forceValue(V, nix::noPos);
+  if (V.type() != nix::ValueType::nAttrs)
     return false;
 
   // Derivations has a special attribute "type" == "derivation"
@@ -41,7 +41,7 @@ std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
 
 int PrintDepth;
 
-} // namespace nix::nixd
+} // namespace nixd
 
 namespace nix {
 
