@@ -552,9 +552,15 @@ void Controller::onHover(const lspserver::TextDocumentPositionParams &Params,
 void Controller::onCompletion(const lspserver::CompletionParams &Params,
                               lspserver::Callback<llvm::json::Value> Reply) {
   // Statically construct the completion list.
-  std::binary_semaphore Smp(0);
   auto Path = Params.textDocument.uri.file();
-  auto Action = [&Smp, &Params, &Reply,
+
+  auto OpDraft = DraftMgr.getDraft(Path);
+  if (!OpDraft) {
+    Reply(lspserver::error("requested completion list on unknown draft path"));
+    return;
+  }
+
+  auto Action = [Params, Reply = std::move(Reply),
                  this](const ParseAST &AST,
                        ASTManager::VersionTy Version) mutable {
     using PL = ParseAST::LocationContext;
@@ -624,16 +630,10 @@ void Controller::onCompletion(const lspserver::CompletionParams &Params,
       L.isIncomplete = true;
       RR.Response = std::move(L);
     }
-    Smp.release();
   };
 
-  if (auto Draft = DraftMgr.getDraft(Path)) {
-    auto Version = EvalDraftStore::decodeVersion(Draft->Version).value_or(0);
-    ASTMgr.withAST(Path.str(), Version, std::move(Action));
-    Smp.acquire();
-  } else {
-    Reply(lspserver::error("requested completion list on unknown draft path"));
-  }
+  auto Version = EvalDraftStore::decodeVersion(OpDraft->Version).value_or(0);
+  ASTMgr.withAST(Path.str(), Version, std::move(Action));
 }
 
 void Controller::onRename(const lspserver::RenameParams &Params,
