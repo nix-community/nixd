@@ -24,11 +24,11 @@ ParseAST::lookupDef(lspserver::Position Desired) const {
 }
 
 [[nodiscard]] const nix::Expr *
-ParseAST::lookupEnd(lspserver::Position Desired) const {
+ParseAST::lookupEnd(lspserver::Position Desired) const noexcept {
   struct VTy : RecursiveASTVisitor<VTy> {
     const ParseAST &This;
 
-    const nix::Expr *R;
+    const nix::Expr *R = nullptr;
     lspserver::Position RStart = {INT_MAX, INT_MAX};
     lspserver::Position REnd = {INT_MIN, INT_MIN};
 
@@ -52,7 +52,7 @@ ParseAST::lookupEnd(lspserver::Position Desired) const {
 }
 
 std::vector<const nix::Expr *>
-ParseAST::lookupContain(lspserver::Position Desired) const {
+ParseAST::lookupContain(lspserver::Position Desired) const noexcept {
   struct VTy : RecursiveASTVisitor<VTy> {
     const ParseAST &This;
 
@@ -73,7 +73,7 @@ ParseAST::lookupContain(lspserver::Position Desired) const {
 }
 
 [[nodiscard]] const nix::Expr *
-ParseAST::lookupContainMin(lspserver::Position Desired) const {
+ParseAST::lookupContainMin(lspserver::Position Desired) const noexcept {
   struct VTy : RecursiveASTVisitor<VTy> {
     const ParseAST &This;
 
@@ -103,7 +103,7 @@ ParseAST::lookupStart(lspserver::Position Desired) const {
   struct VTy : RecursiveASTVisitor<VTy> {
     const ParseAST &This;
 
-    const nix::Expr *R;
+    const nix::Expr *R = nullptr;
     lspserver::Position RStart = {INT_MAX, INT_MAX};
     lspserver::Position REnd = {INT_MIN, INT_MIN};
 
