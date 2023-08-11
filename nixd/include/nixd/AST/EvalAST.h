@@ -33,17 +33,20 @@ public:
   /// Inject myself into nix cache.
   void injectAST(nix::EvalState &State, lspserver::PathRef Path) const;
 
+  std::optional<nix::Value> searchUpValue(const nix::Expr *Expr) const;
+
   /// Try to search (traverse) up the expr and find the first `Env` associated
   /// ancestor, return its env
   nix::Env *searchUpEnv(const nix::Expr *Expr) const;
 
-  /// Similar to `searchUpEnv`, but search for Values
-  nix::Value searchUpValue(const nix::Expr *Expr) const;
+  std::optional<nix::Value>
+  getValueStatic(const nix::Expr *Expr) const noexcept;
 
   /// Get the evaluation result (fixed point) of the expression.
-  nix::Value getValue(const nix::Expr *Expr) const;
+  std::optional<nix::Value> getValue(const nix::Expr *Expr) const noexcept;
 
-  nix::Value getValueEval(const nix::Expr *Expr, nix::EvalState &State) const;
+  std::optional<nix::Value> getValueEval(const nix::Expr *Expr,
+                                         nix::EvalState &State) const noexcept;
 
   /// Get the corresponding 'Env' while evaluating the expression.
   /// nix 'Env's contains dynamic variable name bindings at evaluation, might

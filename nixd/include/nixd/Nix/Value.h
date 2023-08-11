@@ -3,15 +3,15 @@
 #include <nix/attr-path.hh>
 #include <nix/eval.hh>
 
-namespace nix::nixd {
+namespace nixd {
 
-bool isOption(EvalState &State, Value &V);
+bool isOption(nix::EvalState &State, nix::Value &V);
 
-bool isDerivation(EvalState &State, Value &V);
+bool isDerivation(nix::EvalState &State, nix::Value &V);
 
 std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
                                        const std::string &AttrPath) noexcept;
 
 extern int PrintDepth;
 
-} // namespace nix::nixd
+} // namespace nixd

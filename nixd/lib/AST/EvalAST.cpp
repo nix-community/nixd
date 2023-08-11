@@ -24,17 +24,13 @@ void EvalAST::rewriteAST() {
   }
 }
 
-nix::Value EvalAST::getValue(const nix::Expr *Expr) const {
-  if (const auto *EV = dynamic_cast<const nix::ExprVar *>(Expr)) {
-    if (!EV->fromWith) {
-      const auto *EnvExpr = searchEnvExpr(EV, ParentMap);
-      if (const auto *EL = dynamic_cast<const nix::ExprLambda *>(EnvExpr)) {
-        const auto *F = EnvMap.at(EL->body);
-        return *F->values[EV->displ];
-      }
-    }
-  }
-  return ValueMap.at(Expr);
+std::optional<nix::Value>
+EvalAST::getValue(const nix::Expr *Expr) const noexcept {
+  if (auto OpStaticValue = getValueStatic(Expr))
+    return OpStaticValue;
+  if (ValueMap.contains(Expr))
+    return ValueMap.at(Expr);
+  return std::nullopt;
 }
 
 void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) const {
@@ -45,7 +41,7 @@ void EvalAST::injectAST(nix::EvalState &State, lspserver::PathRef Path) const {
                   DummyValue);
 }
 
-nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {
+std::optional<nix::Value> EvalAST::searchUpValue(const nix::Expr *Expr) const {
   for (;;) {
     if (ValueMap.contains(Expr))
       return ValueMap.at(Expr);
@@ -54,7 +50,7 @@ nix::Value EvalAST::searchUpValue(const nix::Expr *Expr) const {
 
     Expr = parent(Expr);
   }
-  throw std::out_of_range("No such value associated to ancestors");
+  return std::nullopt;
 }
 
 nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
@@ -66,20 +62,49 @@ nix::Env *EvalAST::searchUpEnv(const nix::Expr *Expr) const {
 
     Expr = parent(Expr);
   }
-  throw std::out_of_range("No such env associated to ancestors");
+  return nullptr;
 }
 
-nix::Value EvalAST::getValueEval(const nix::Expr *Expr,
-                                 nix::EvalState &State) const {
+std::optional<nix::Value>
+EvalAST::getValueEval(const nix::Expr *Expr,
+                      nix::EvalState &State) const noexcept {
+  auto OpVCurrent = getValue(Expr);
+  if (OpVCurrent)
+    return OpVCurrent;
+
+  // It is not evaluated.
+  // Let's find evaluated parent, and try to eval it then.
+  auto OpVAncestor = searchUpValue(Expr);
+  if (!OpVAncestor)
+    return std::nullopt;
+
+  // TODO: add tests
   try {
-    return getValue(Expr);
-  } catch (std::out_of_range &) {
-    // It is not evaluated.
-    // Let's find evaluated parent, and try to eval it then.
-    auto V = searchUpValue(Expr);
-    forceValueDepth(State, V, 2);
-    return getValue(Expr);
+    forceValueDepth(State, *OpVAncestor, 2);
+  } catch (...) {
   }
+  return getValue(Expr);
 }
 
+std::optional<nix::Value>
+EvalAST::getValueStatic(const nix::Expr *Expr) const noexcept {
+  const auto *EVar = dynamic_cast<const nix::ExprVar *>(Expr);
+  if (!EVar)
+    return std::nullopt;
+
+  if (EVar->fromWith)
+    return std::nullopt;
+
+  const auto *EnvExpr = searchEnvExpr(EVar, ParentMap);
+
+  // TODO: split this method, and make rec { }, let-binding available
+  const auto *ELambda = dynamic_cast<const nix::ExprLambda *>(EnvExpr);
+  if (!ELambda)
+    return std::nullopt;
+
+  if (!EnvMap.contains(ELambda->body))
+    return std::nullopt;
+  const auto *F = EnvMap.at(ELambda->body);
+  return *F->values[EVar->displ];
+}
 } // namespace nixd

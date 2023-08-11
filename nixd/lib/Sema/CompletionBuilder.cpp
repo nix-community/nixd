@@ -14,24 +14,27 @@ using lspserver::CompletionItemKind;
 void CompletionBuilder::addAttrFields(const EvalAST &AST,
                                       const lspserver::Position &Pos,
                                       nix::EvalState &State) {
-  try {
-    if (const auto *Node = AST.lookupEnd(Pos)) {
-      auto Value = AST.getValueEval(Node, State);
-      if (Value.type() == nix::ValueType::nAttrs) {
-        // Traverse attribute bindings
-        for (auto Binding : *Value.attrs) {
-          CompletionItem R;
-          R.label = State.symbols[Binding.name];
-          R.kind = CompletionItemKind::Field;
-          Result.items.emplace_back(std::move(R));
-          if (Result.items.size() > Limit) {
-            Result.isIncomplete = true;
-            break;
-          }
-        }
-      }
+  const nix::Expr *Node = AST.lookupEnd(Pos);
+
+  if (!Node)
+    return;
+
+  auto OpV = AST.getValueEval(Node, State);
+
+  if (!OpV || OpV->type() != nix::ValueType::nAttrs)
+    return;
+
+  for (const auto &Attr : *OpV->attrs) {
+
+    CompletionItem R;
+    R.label = State.symbols[Attr.name];
+    R.kind = CompletionItemKind::Field;
+    Result.items.emplace_back(std::move(R));
+
+    if (Result.items.size() > Limit) {
+      Result.isIncomplete = true;
+      break;
     }
-  } catch (std::out_of_range &) {
   }
 }
 
@@ -56,24 +59,29 @@ void CompletionBuilder::addLambdaFormals(const EvalAST &AST,
   if (!dynamic_cast<const nix::ExprAttrs *>(Node))
     return;
 
-  try {
-    const auto *Parent = AST.parent(Node);
-    if (const auto *SomeExprCall =
-            dynamic_cast<const nix::ExprCall *>(Parent)) {
-      auto Value = AST.getValueEval(SomeExprCall->fun, State);
-      if (!Value.isLambda())
-        return;
-      auto *Fun = Value.lambda.fun;
-      if (!Fun->hasFormals())
-        return;
-      for (auto Formal : Fun->formals->formals) {
-        CompletionItem R;
-        R.label = State.symbols[Formal.name];
-        R.kind = CompletionItemKind::Constructor;
-        Result.items.emplace_back(std::move(R));
-      }
-    }
-  } catch (std::out_of_range &) {
+  // Matching this structure:
+  //
+  //   *lambda* { | }
+  //              ^
+
+  const auto *ParentCall =
+      dynamic_cast<const nix::ExprCall *>(AST.parent(Node));
+  if (!ParentCall)
+    return;
+
+  auto OpVFunc = AST.getValueEval(ParentCall->fun, State);
+  if (!OpVFunc || !OpVFunc->isLambda())
+    return;
+
+  auto *EL = OpVFunc->lambda.fun;
+  if (!EL->hasFormals())
+    return;
+
+  for (const auto &Formal : EL->formals->formals) {
+    CompletionItem R;
+    R.label = State.symbols[Formal.name];
+    R.kind = CompletionItemKind::Constructor;
+    Result.items.emplace_back(std::move(R));
   }
 }
 
@@ -105,13 +113,10 @@ void CompletionBuilder::addEnv(nix::EvalState &State, nix::Env &NixEnv) {
 
 void CompletionBuilder::addEnv(const EvalAST &AST, nix::EvalState &State,
                                const nix::Expr *Node) {
-  try {
-    // Eval this node, for reaching deeper envs (e.g. with expressions).
-    AST.getValueEval(Node, State);
-    if (auto *ExprEnv = AST.searchUpEnv(Node))
-      addEnv(State, *ExprEnv);
-  } catch (std::out_of_range &) {
-  }
+  // Eval this node, for reaching deeper envs (e.g. with expressions).
+  AST.getValueEval(Node, State);
+  if (auto *ExprEnv = AST.searchUpEnv(Node))
+    addEnv(State, *ExprEnv);
 }
 
 void CompletionBuilder::addStaticEnv(const nix::SymbolTable &STable,

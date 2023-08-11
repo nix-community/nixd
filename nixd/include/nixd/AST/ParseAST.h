@@ -129,7 +129,7 @@ public:
     return nPair(getDisplOf(E, Displ));
   }
 
-  std::optional<lspserver::Range> lRange(const void *Ptr) const {
+  std::optional<lspserver::Range> lRange(const void *Ptr) const noexcept {
     try {
       return toLSPRange(nRange(Ptr));
     } catch (...) {
@@ -147,20 +147,26 @@ public:
   /// Lookup an AST node that ends before or on the cursor.
   /// { }  |
   ///   ^
-  [[nodiscard]] const nix::Expr *lookupEnd(lspserver::Position Desired) const;
+  /// @returns nullptr, if not found
+  [[nodiscard]] const nix::Expr *
+  lookupEnd(lspserver::Position Desired) const noexcept;
 
   /// Lookup AST nodes that contains the cursor
   /// { |     }
   /// ^~~~~~~~^
+  ///
+  /// @returns empty vector, if there is no such expression
   [[nodiscard]] std::vector<const nix::Expr *>
-  lookupContain(lspserver::Position Desired) const;
+  lookupContain(lspserver::Position Desired) const noexcept;
 
   [[nodiscard]] const nix::Expr *
-  lookupContainMin(lspserver::Position Desired) const;
+  lookupContainMin(lspserver::Position Desired) const noexcept;
 
   /// Lookup an AST node that starts after or on the cursor
   /// |  { }
   ///    ^
+  ///
+  /// @returns nullptr, if not found
   [[nodiscard]] const nix::Expr *lookupStart(lspserver::Position Desired) const;
 
   void collectSymbols(const nix::Expr *E, std::vector<nix::Symbol> &R) const {
