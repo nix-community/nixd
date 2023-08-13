@@ -12,6 +12,7 @@
 , nix
 , nixpkgs-fmt
 , pkg-config
+, tree-sitter
 }:
 
 stdenv.mkDerivation {
@@ -41,6 +42,7 @@ stdenv.mkDerivation {
     gtest
     boost182
     llvmPackages.llvm
+    tree-sitter
   ];
 
   env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";

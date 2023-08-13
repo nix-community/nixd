@@ -31,6 +31,7 @@ gtest_main = dependency('gtest_main')
 
 llvm = dependency('llvm')
 boost = dependency('boost')
+tree_sitter = dependency('tree-sitter')
 
 cpp = meson.get_compiler('cpp')
 backtrace = cpp.find_library('backtrace')
@@ -38,4 +39,5 @@ backtrace = cpp.find_library('backtrace')
 lit = find_program('lit', required: false)
 
 subdir('lspserver')
+subdir('tree-sitter-grammars')
 subdir('nixd')
