@@ -7,6 +7,7 @@
 #include "nixd/Support/String.h"
 
 #include "lspserver/LSPServer.h"
+#include "nixexpr.hh"
 
 #include <llvm/ADT/StringRef.h>
 
@@ -171,6 +172,11 @@ void EvalWorker::onCompletion(const lspserver::CompletionParams &Params,
       Builder.addAttrFields(*AST, Params.position, *State);
     } else {
       const auto *Node = AST->lookupContainMin(Params.position);
+
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
+        Builder.setPrefix(State->symbols[EVar->name]);
+      }
+
       Builder.addSymbols(*AST, Node);
       Builder.addLambdaFormals(*AST, *State, Node);
       Builder.addEnv(*AST, *State, Node);

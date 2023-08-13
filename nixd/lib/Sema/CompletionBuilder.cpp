@@ -11,6 +11,18 @@ namespace nixd {
 using lspserver::CompletionItem;
 using lspserver::CompletionItemKind;
 
+void CompletionBuilder::addItem(lspserver::CompletionItem Item) {
+  if (!Item.label.starts_with(Prefix))
+    return;
+
+  if (Result.items.size() >= Limit) {
+    Result.isIncomplete = true;
+    return;
+  }
+
+  Result.items.emplace_back(std::move(Item));
+}
+
 void CompletionBuilder::addAttrFields(const EvalAST &AST,
                                       const lspserver::Position &Pos,
                                       nix::EvalState &State) {
@@ -25,16 +37,10 @@ void CompletionBuilder::addAttrFields(const EvalAST &AST,
     return;
 
   for (const auto &Attr : *OpV->attrs) {
-
     CompletionItem R;
     R.label = State.symbols[Attr.name];
     R.kind = CompletionItemKind::Field;
-    Result.items.emplace_back(std::move(R));
-
-    if (Result.items.size() > Limit) {
-      Result.isIncomplete = true;
-      break;
-    }
+    addItem(std::move(R));
   }
 }
 
@@ -42,13 +48,12 @@ void CompletionBuilder::addSymbols(const ParseAST &AST, const nix::Expr *Node) {
   std::vector<nix::Symbol> Symbols;
   AST.collectSymbols(Node, Symbols);
   // Insert symbols to our completion list.
-  std::transform(Symbols.begin(), Symbols.end(),
-                 std::back_inserter(Result.items), [&](const nix::Symbol &V) {
-                   lspserver::CompletionItem R;
-                   R.kind = CompletionItemKind::Interface;
-                   R.label = AST.symbols()[V];
-                   return R;
-                 });
+  for (const auto &Symbol : Symbols) {
+    lspserver::CompletionItem R;
+    R.kind = CompletionItemKind::Interface;
+    R.label = AST.symbols()[Symbol];
+    addItem(std::move(R));
+  }
 }
 
 void CompletionBuilder::addLambdaFormals(const EvalAST &AST,
@@ -81,7 +86,7 @@ void CompletionBuilder::addLambdaFormals(const EvalAST &AST,
     CompletionItem R;
     R.label = State.symbols[Formal.name];
     R.kind = CompletionItemKind::Constructor;
-    Result.items.emplace_back(std::move(R));
+    addItem(std::move(R));
   }
 }
 
@@ -95,16 +100,10 @@ void CompletionBuilder::addEnv(nix::EvalState &State, nix::Env &NixEnv) {
   }
   if (NixEnv.type == nix::Env::HasWithAttrs) {
     for (const auto &SomeAttr : *NixEnv.values[0]->attrs) {
-      std::string Name = State.symbols[SomeAttr.name];
       lspserver::CompletionItem R;
-      R.label = Name;
+      R.label = State.symbols[SomeAttr.name];
       R.kind = lspserver::CompletionItemKind::Variable;
-      Result.items.emplace_back(std::move(R));
-
-      if (Result.items.size() > Limit) {
-        Result.isIncomplete = true;
-        break;
-      }
+      addItem(std::move(R));
     }
   }
   if (NixEnv.up)
@@ -122,14 +121,10 @@ void CompletionBuilder::addEnv(const EvalAST &AST, nix::EvalState &State,
 void CompletionBuilder::addStaticEnv(const nix::SymbolTable &STable,
                                      const nix::StaticEnv &SEnv) {
   for (auto [Symbol, Displ] : SEnv.vars) {
-    std::string Name = STable[Symbol];
-    if (Name.starts_with("__"))
-      continue;
-
     CompletionItem R;
-    R.label = Name;
+    R.label = STable[Symbol];
     R.kind = CompletionItemKind::Constant;
-    Result.items.emplace_back(std::move(R));
+    addItem(std::move(R));
   }
 
   if (SEnv.up)

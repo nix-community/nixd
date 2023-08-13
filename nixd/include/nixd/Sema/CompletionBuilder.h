@@ -5,6 +5,7 @@
 
 #include "lspserver/Protocol.h"
 
+#include <utility>
 #include <vector>
 
 namespace nixd {
@@ -14,6 +15,9 @@ using CompletionResult = lspserver::CompletionList;
 class CompletionBuilder {
   CompletionResult Result;
   size_t Limit = 1000;
+  std::string Prefix;
+
+  void addItem(lspserver::CompletionItem Item);
 
 public:
   /// { a = 1; b = 2; }.|
@@ -44,6 +48,8 @@ public:
   CompletionResult &getResult() { return Result; }
 
   void setLimit(size_t Limit) { this->Limit = Limit; }
+
+  void setPrefix(std::string Prefix) { this->Prefix = std::move(Prefix); }
 };
 
 } // namespace nixd
