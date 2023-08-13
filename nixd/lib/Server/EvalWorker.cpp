@@ -7,9 +7,10 @@
 #include "nixd/Support/String.h"
 
 #include "lspserver/LSPServer.h"
-#include "nixexpr.hh"
 
 #include <llvm/ADT/StringRef.h>
+
+#include <nix/nixexpr.hh>
 
 namespace nixd {
 

@@ -121,8 +121,13 @@ void CompletionBuilder::addEnv(const EvalAST &AST, nix::EvalState &State,
 void CompletionBuilder::addStaticEnv(const nix::SymbolTable &STable,
                                      const nix::StaticEnv &SEnv) {
   for (auto [Symbol, Displ] : SEnv.vars) {
+    std::string Name = STable[Symbol];
+
+    if (Name.starts_with("__"))
+      continue;
+
     CompletionItem R;
-    R.label = STable[Symbol];
+    R.label = std::move(Name);
     R.kind = CompletionItemKind::Constant;
     addItem(std::move(R));
   }
