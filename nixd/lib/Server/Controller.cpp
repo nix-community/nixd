@@ -300,9 +300,6 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Controller::onEvalDiagnostic);
 
-  // Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
-  //                    &Controller::onOptionDeclaration);
-
   Registry.addNotification("nixd/ipc/finished", this, &Controller::onFinished);
 
   readJSONConfig();
