@@ -7,6 +7,8 @@
 #include "nixd/Support/Diagnostic.h"
 #include "nixd/Support/ReplyRAII.h"
 
+#include <boost/algorithm/string.hpp>
+
 #include <mutex>
 
 namespace nixd {
@@ -29,6 +31,7 @@ void OptionWorker::onDeclaration(
     const ipc::AttrPathParams &Params,
     lspserver::Callback<lspserver::Location> Reply) {
   using namespace lspserver;
+  using boost::algorithm::join;
   ReplyRAII<Location> RR(std::move(Reply));
   if (!OptionAttrSet)
     return;
@@ -38,8 +41,9 @@ void OptionWorker::onDeclaration(
   try {
     nix::Value *V = OptionAttrSet;
     if (!Params.Path.empty()) {
+      auto AttrPath = join(Params.Path, ".");
       auto &Bindings(*OptionIES->getState()->allocBindings(0));
-      V = nix::findAlongAttrPath(*OptionIES->getState(), Params.Path, Bindings,
+      V = nix::findAlongAttrPath(*OptionIES->getState(), AttrPath, Bindings,
                                  *OptionAttrSet)
               .first;
     }
@@ -106,6 +110,7 @@ void OptionWorker::onEvalOptionSet(
 void OptionWorker::onCompletion(const ipc::AttrPathParams &Params,
                                 lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
+  using boost::algorithm::join;
   ReplyRAII<CompletionList> RR(std::move(Reply));
 
   if (!OptionAttrSet)
@@ -121,9 +126,10 @@ void OptionWorker::onCompletion(const ipc::AttrPathParams &Params,
     if (OptionAttrSet->type() == nix::ValueType::nAttrs) {
       nix::Value *V = OptionAttrSet;
       if (!Params.Path.empty()) {
+        auto AttrPath = join(Params.Path, ".");
         auto &Bindings(*OptionIES->getState()->allocBindings(0));
-        V = nix::findAlongAttrPath(*OptionIES->getState(), Params.Path,
-                                   Bindings, *OptionAttrSet)
+        V = nix::findAlongAttrPath(*OptionIES->getState(), AttrPath, Bindings,
+                                   *OptionAttrSet)
                 .first;
       }
 

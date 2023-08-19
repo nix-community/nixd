@@ -20,7 +20,7 @@ struct Diagnostics : WorkerMessage {
 };
 
 struct AttrPathParams {
-  std::string Path;
+  std::vector<std::string> Path;
 };
 
 struct EvalParams {

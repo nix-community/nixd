@@ -406,37 +406,6 @@ void Controller::onDecalration(
 
     ipc::AttrPathParams APParams;
 
-    // Try to get current attribute path, expand the position
-
-    auto Code = llvm::StringRef(
-        *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
-    auto ExpectedOffset = positionToOffset(Code, Params.position);
-
-    if (!ExpectedOffset)
-      RR.Response = ExpectedOffset.takeError();
-
-    auto Offset = ExpectedOffset.get();
-    auto From = Offset;
-    auto To = Offset;
-
-    std::string Punc = "\r\n\t ;";
-
-    auto IsPunc = [&Punc](char C) {
-      for (const auto Char : Punc) {
-        if (Char == C)
-          return true;
-      }
-      return false;
-    };
-
-    for (; From >= 0 && !IsPunc(Code[From]);)
-      From--;
-    for (; To < Code.size() && !IsPunc(Code[To]);)
-      To++;
-
-    APParams.Path = Code.substr(From, To - From).trim(Punc);
-    lspserver::log("requesting path: {0}", APParams.Path);
-
     auto Responses = askWC<lspserver::Location>(
         "nixd/ipc/option/textDocument/declaration", APParams,
         {OptionWorkers, OptionWorkerLock, 2e4});
@@ -572,21 +541,6 @@ void Controller::onCompletion(const lspserver::CompletionParams &Params,
       }
       if (OptionsEnabled) {
         ipc::AttrPathParams APParams;
-
-        if (Params.context.triggerCharacter == ".") {
-          // Get nixpkgs options
-          // TODO: split this in AST, use AST-based attrpath construction.
-          auto Code = llvm::StringRef(
-              *DraftMgr.getDraft(Params.textDocument.uri.file())->Contents);
-          auto ExpectedPosition = positionToOffset(Code, Params.position);
-
-          // get the attr path
-          auto TruncateBackCode = Code.substr(0, ExpectedPosition.get());
-
-          auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
-          APParams.Path = AttrPath.str();
-        }
-
         auto Resp = askWC<lspserver::CompletionList>(
             "nixd/ipc/textDocument/completion/options", APParams,
             {OptionWorkers, OptionWorkerLock, 1e5});
