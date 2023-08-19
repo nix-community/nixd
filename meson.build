@@ -40,4 +40,5 @@ lit = find_program('lit', required: false)
 
 subdir('lspserver')
 subdir('tree-sitter-grammars')
+subdir('cpp-tree-sitter')
 subdir('nixd')
