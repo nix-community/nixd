@@ -3,6 +3,8 @@
 #include <nix/eval.hh>
 #include <nix/print.hh>
 
+#include <boost/algorithm/string/join.hpp>
+
 namespace nixd {
 
 bool isOption(nix::EvalState &State, nix::Value &V) {
@@ -41,6 +43,16 @@ std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
 
 int PrintDepth;
 
+nix::Value selectAttrPath(nix::EvalState &State, nix::Value Set,
+                          const std::vector<std::string> &AttrPath) {
+  nix::Value V = Set;
+  if (!AttrPath.empty()) {
+    auto AttrPathStr = boost::algorithm::join(AttrPath, ".");
+    auto &Bindings(*State.allocBindings(0));
+    V = *nix::findAlongAttrPath(State, AttrPathStr, Bindings, Set).first;
+  }
+  return V;
+}
 } // namespace nixd
 
 namespace nix {

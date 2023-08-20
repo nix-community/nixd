@@ -45,6 +45,10 @@ public:
   /// builtins.*
   void addStaticEnv(const nix::SymbolTable &STable, const nix::StaticEnv &SEnv);
 
+  /// Complete option items, for Nixpkgs option system.
+  void addOption(nix::EvalState &State, nix::Value &OptionAttrSet,
+                 const std::vector<std::string> &AttrPath);
+
   CompletionResult &getResult() { return Result; }
 
   void setLimit(size_t Limit) { this->Limit = Limit; }
