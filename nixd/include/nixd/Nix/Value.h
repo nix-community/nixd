@@ -13,7 +13,7 @@ bool isDerivation(nix::EvalState &State, nix::Value &V);
 std::optional<std::string> attrPathStr(nix::EvalState &State, nix::Value &V,
                                        const std::string &AttrPath) noexcept;
 
-/// Select the path given in \p AttrPath, and return the value
+/// Select the path given in \p AttrPath, and \return the value
 nix::Value selectAttrPath(nix::EvalState &State, nix::Value Set,
                           const std::vector<std::string> &AttrPath);
 
