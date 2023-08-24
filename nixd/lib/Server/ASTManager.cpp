@@ -64,12 +64,7 @@ void ASTManager::schedParse(const std::string &Content, const std::string &Path,
       if (checkCacheAndInvoke(Path, Version))
         return;
       auto ParseData = parse(Content, Path);
-      auto NewAST = std::make_unique<ParseAST>((std::move(ParseData)));
-
-      // TODO: use AST builder to unify these stuff
-      NewAST->bindVars();
-      NewAST->staticAnalysis();
-
+      auto NewAST = ParseAST::create(std::move(ParseData));
       invokeActions(*NewAST, Path, Version);
 
       // Update the cache

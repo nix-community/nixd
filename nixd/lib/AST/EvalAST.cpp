@@ -107,4 +107,13 @@ EvalAST::getValueStatic(const nix::Expr *Expr) const noexcept {
   const auto *F = EnvMap.at(ELambda->body);
   return *F->values[EVar->displ];
 }
+std::unique_ptr<EvalAST> EvalAST::create(std::unique_ptr<ParseData> ParseData,
+                                         nix::EvalState &State) {
+  auto Ret = std::unique_ptr<EvalAST>(new EvalAST(std::move(ParseData)));
+  if (Ret->Data->result && Ret->Data->error.empty())
+    Ret->Data->result->bindVars(State, State.staticBaseEnv);
+  Ret->rewriteAST();
+  Ret->staticAnalysis();
+  return Ret;
+}
 } // namespace nixd
