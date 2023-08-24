@@ -89,7 +89,9 @@ public:
 
   /// Get the parent of some expr, if it is root, \return Expr itself
   const nix::Expr *parent(const nix::Expr *Expr) const {
-    return ParentMap.at(Expr);
+    if (ParentMap.contains(Expr))
+      return ParentMap.at(Expr);
+    return nullptr;
   };
 
   /// Find the expression that created 'Env' for ExprVar
