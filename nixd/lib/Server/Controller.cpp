@@ -1,5 +1,6 @@
 #include "nixd-config.h"
 
+#include "nixd/AST/AttrLocator.h"
 #include "nixd/AST/ParseAST.h"
 #include "nixd/Expr/Expr.h"
 #include "nixd/Parser/Parser.h"
@@ -388,6 +389,8 @@ void Controller::onDocumentDidClose(
 void Controller::onDecalration(
     const lspserver::TextDocumentPositionParams &Params,
     lspserver::Callback<llvm::json::Value> Reply) {
+  using llvm::json::Value;
+
   bool EnableOption;
   {
     std::lock_guard _(ConfigLock);
@@ -398,13 +401,16 @@ void Controller::onDecalration(
     return;
   }
 
-  auto Task = [=, Reply = std::move(Reply), this]() mutable {
-    ReplyRAII<llvm::json::Value> RR(std::move(Reply));
-
+  auto Action = [=, this](ReplyRAII<Value> &&RR, const ParseAST &AST,
+                          ASTManager::VersionTy Version) mutable {
     // Set the default response to "null", instead of errors
     RR.Response = nullptr;
 
+    AttrLocator Locator(AST);
+
+    auto AttrPath = AST.getAttrPath(Locator.locate(Params.position));
     ipc::AttrPathParams APParams;
+    APParams.Path = std::move(AttrPath);
 
     auto Responses = askWC<lspserver::Location>(
         "nixd/ipc/option/textDocument/declaration", APParams,
@@ -415,8 +421,8 @@ void Controller::onDecalration(
 
     RR.Response = std::move(Responses.back());
   };
-
-  boost::asio::post(Pool, std::move(Task));
+  std::string Path = Params.textDocument.uri.file().str();
+  withParseAST<Value>({std::move(Reply)}, Path, std::move(Action));
 }
 
 void Controller::onDefinition(
@@ -515,6 +521,16 @@ void Controller::onHover(const lspserver::TextDocumentPositionParams &Params,
   boost::asio::post(Pool, std::move(Task));
 }
 
+static llvm::StringRef getAttrPathFromCode(llvm::StringRef Code,
+                                           lspserver::Position Position) {
+  auto ExpectedOffset = positionToOffset(Code, Position);
+  auto Offset = ExpectedOffset.get();
+  // get the attr path
+  auto TruncateBackCode = Code.substr(0, Offset);
+  auto [_, AttrPath] = TruncateBackCode.rsplit(" ");
+  return AttrPath;
+}
+
 void Controller::onCompletion(const lspserver::CompletionParams &Params,
                               lspserver::Callback<llvm::json::Value> Reply) {
   // Statically construct the completion list.
@@ -526,27 +542,52 @@ void Controller::onCompletion(const lspserver::CompletionParams &Params,
     return;
   }
 
-  auto Action = [Params, Reply = std::move(Reply),
+  auto Action = [Params, Reply = std::move(Reply), Draft = *OpDraft,
                  this](const ParseAST &AST,
                        ASTManager::VersionTy Version) mutable {
     using PL = ParseAST::LocationContext;
     using List = lspserver::CompletionList;
     ReplyRAII<llvm::json::Value> RR(std::move(Reply));
 
-    auto CompletionFromOptions = [&, this]() -> std::optional<List> {
-      bool OptionsEnabled;
+    auto CompletionFromOptions = [&, Draft, this]() -> std::optional<List> {
       {
         std::lock_guard _(ConfigLock);
-        OptionsEnabled = Config.options.enable;
+        if (!Config.options.enable)
+          return std::nullopt;
       }
-      if (OptionsEnabled) {
-        ipc::AttrPathParams APParams;
-        auto Resp = askWC<lspserver::CompletionList>(
-            "nixd/ipc/textDocument/completion/options", APParams,
-            {OptionWorkers, OptionWorkerLock, 1e5});
-        if (!Resp.empty())
-          return Resp.back();
+
+      auto Position = Params.position;
+      auto TriggerCharacter = Params.context.triggerCharacter;
+      std::vector<std::string> AttrPath;
+
+      if (TriggerCharacter == ".") {
+        // Workaround for trigger character "."
+        // Our parser generates incorrect attrpath for the following example
+        // {
+        //    foo.|
+        //    boot.isContainer = 1;
+        //    ^~~~~~~~~~~~~~~~   -> "foo.boot.isContainer"
+        // }
+        auto Code = llvm::StringRef(*Draft.Contents);
+        auto AttrPathStr = getAttrPathFromCode(Code, Position);
+        llvm::SmallVector<llvm::StringRef> AttrPathVec;
+        AttrPathStr.split(AttrPathVec, ".");
+        AttrPath = AST.getAttrPath(AST.lookupContainMin(Position));
+        for (const auto &Attr : AttrPathVec)
+          AttrPath.emplace_back(Attr.str());
+      } else {
+        AttrLocator Locator(AST);
+        AttrPath = AST.getAttrPath(AST.lookupContainMin(Position));
       }
+
+      ipc::AttrPathParams APParams;
+      APParams.Path = std::move(AttrPath);
+
+      auto Resp = askWC<lspserver::CompletionList>(
+          "nixd/ipc/textDocument/completion/options", APParams,
+          {OptionWorkers, OptionWorkerLock, 1e5});
+      if (!Resp.empty())
+        return Resp.back();
       return std::nullopt;
     };
 
