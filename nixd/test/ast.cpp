@@ -29,10 +29,11 @@ TEST(AST, lookupEnd) {
   )";
   InitNix INix;
   auto State = INix.getDummyState();
-  ParseAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
-  const auto *E = A.lookupEnd({4, 4});
+  auto AST = ParseAST::create(
+      parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
+  const auto *E = AST->lookupEnd({4, 4});
   if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
-    auto Pos = State->positions[A.getPos(EA)];
+    auto Pos = State->positions[AST->getPos(EA)];
     ASSERT_EQ(Pos.line, 3);
   } else {
     ASSERT_TRUE(false && "It must be an Attrs!");
@@ -63,11 +64,12 @@ TEST(AST, LocationContext) {
   )";
   InitNix INix;
   auto State = INix.getDummyState();
-  ParseAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
-  ASSERT_EQ(A.getContext({2, 2}), ParseAST::LocationContext::AttrName);
-  ASSERT_EQ(A.getContext({4, 8}), ParseAST::LocationContext::Value);
-  ASSERT_EQ(A.getContext({8, 8}), ParseAST::LocationContext::Unknown);
-  ASSERT_EQ(A.getContext({17, 10}), ParseAST::LocationContext::Value);
+  auto AST = ParseAST::create(
+      parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
+  ASSERT_EQ(AST->getContext({2, 2}), ParseAST::LocationContext::AttrName);
+  ASSERT_EQ(AST->getContext({4, 8}), ParseAST::LocationContext::Value);
+  ASSERT_EQ(AST->getContext({8, 8}), ParseAST::LocationContext::Unknown);
+  ASSERT_EQ(AST->getContext({17, 10}), ParseAST::LocationContext::Value);
 }
 
 TEST(AST, lookupContainMin) {
@@ -86,10 +88,11 @@ TEST(AST, lookupContainMin) {
   )";
   InitNix INix;
   auto State = INix.getDummyState();
-  EvalAST A(parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
-  const auto *E = A.lookupContainMin({3, 1});
+  auto AST = ParseAST::create(
+      parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
+  const auto *E = AST->lookupContainMin({3, 1});
   if (const auto *EA = dynamic_cast<const nix::ExprAttrs *>(E)) {
-    auto Pos = State->positions[A.getPos(EA)];
+    auto Pos = State->positions[AST->getPos(EA)];
     ASSERT_EQ(Pos.line, 3);
   } else {
     ASSERT_TRUE(false && "It must be an Attrs!");

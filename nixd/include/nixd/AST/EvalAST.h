@@ -18,11 +18,11 @@ class EvalAST : public ParseAST {
   /// Rewrite the AST to our own nodes, used for collecting information
   void rewriteAST();
 
+  EvalAST(std::unique_ptr<ParseData> D) : ParseAST(std::move(D)) {}
+
 public:
-  EvalAST(std::unique_ptr<ParseData> D) : ParseAST(std::move(D)) {
-    rewriteAST();
-    staticAnalysis();
-  }
+  static std::unique_ptr<EvalAST> create(std::unique_ptr<ParseData> ParseData,
+                                         nix::EvalState &State);
 
   [[nodiscard]] nix::PosIdx getPos(const void *Ptr) const override {
     return Locations.at(Ptr);
