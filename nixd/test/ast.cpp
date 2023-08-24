@@ -64,12 +64,12 @@ TEST(AST, LocationContext) {
   )";
   InitNix INix;
   auto State = INix.getDummyState();
-  auto A = ParseAST::create(
+  auto AST = ParseAST::create(
       parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
-  ASSERT_EQ(A->getContext({2, 2}), ParseAST::LocationContext::AttrName);
-  ASSERT_EQ(A->getContext({4, 8}), ParseAST::LocationContext::Value);
-  ASSERT_EQ(A->getContext({8, 8}), ParseAST::LocationContext::Unknown);
-  ASSERT_EQ(A->getContext({17, 10}), ParseAST::LocationContext::Value);
+  ASSERT_EQ(AST->getContext({2, 2}), ParseAST::LocationContext::AttrName);
+  ASSERT_EQ(AST->getContext({4, 8}), ParseAST::LocationContext::Value);
+  ASSERT_EQ(AST->getContext({8, 8}), ParseAST::LocationContext::Unknown);
+  ASSERT_EQ(AST->getContext({17, 10}), ParseAST::LocationContext::Value);
 }
 
 TEST(AST, lookupContainMin) {
