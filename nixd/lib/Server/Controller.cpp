@@ -560,25 +560,33 @@ void Controller::onCompletion(const lspserver::CompletionParams &Params,
       auto TriggerCharacter = Params.context.triggerCharacter;
       std::vector<std::string> AttrPath;
 
-      if (TriggerCharacter == ".") {
-        // Workaround for trigger character "."
-        // Our parser generates incorrect attrpath for the following example
-        // {
-        //    foo.|
-        //    boot.isContainer = 1;
-        //    ^~~~~~~~~~~~~~~~   -> "foo.boot.isContainer"
-        // }
-        auto Code = llvm::StringRef(*Draft.Contents);
-        auto AttrPathStr = getAttrPathFromCode(Code, Position);
-        llvm::SmallVector<llvm::StringRef> AttrPathVec;
-        AttrPathStr.split(AttrPathVec, ".");
-        AttrPath = AST.getAttrPath(AST.lookupContainMin(Position));
-        for (const auto &Attr : AttrPathVec)
-          AttrPath.emplace_back(Attr.str());
-      } else {
-        AttrLocator Locator(AST);
-        AttrPath = AST.getAttrPath(AST.lookupContainMin(Position));
-      }
+      // Nested level, e.g.
+      // {
+      //   foo = {
+      //    bar = { | };
+      //   };       ^  <- [ "foo", "bar" ]
+      // }
+      auto NestedAttrPath = AST.getAttrPath(AST.lookupContainMin(Position));
+
+      // "Code"AttrPath, extracted by string manipulation (not parsing)
+      // e.g. : { foo.bar.b|  }
+      //          ^~~~~~~~~~     <- [ "foo", "bar", "b" ]
+      auto Code = llvm::StringRef(*Draft.Contents);
+      auto AttrPathStr = getAttrPathFromCode(Code, Position);
+      llvm::SmallVector<llvm::StringRef> CodeAttrPath;
+      AttrPathStr.split(CodeAttrPath, ".");
+
+      // Pops the last item, it is incomplete
+      // {
+      //   boot.isContain
+      // }      ^~~~~~~~~  pops this
+      if (!CodeAttrPath.empty() && TriggerCharacter != ".")
+        CodeAttrPath.pop_back();
+
+      // Merge "nested" and "code" attrpath, for completion
+      AttrPath = std::move(NestedAttrPath);
+      for (const auto &Attr : CodeAttrPath)
+        AttrPath.emplace_back(Attr.str());
 
       ipc::AttrPathParams APParams;
       APParams.Path = std::move(AttrPath);
