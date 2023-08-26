@@ -2,14 +2,17 @@
 
 #include "lspserver/Protocol.h"
 
+#include "nixd/AST/AttrLocator.h"
 #include "nixd/AST/EvalAST.h"
 #include "nixd/AST/ParseAST.h"
-
 #include "nixd/Parser/Parser.h"
+
 #include "nixutil.h"
 
 #include <nix/canon-path.hh>
 #include <nix/eval.hh>
+
+#include <boost/algorithm/string/join.hpp>
 
 namespace nixd {
 
@@ -97,6 +100,28 @@ TEST(AST, lookupContainMin) {
   } else {
     ASSERT_TRUE(false && "It must be an Attrs!");
   }
+}
+
+static void checkVec(const std::vector<std::string> &Vec,
+                     const std::string &Expected) {
+  auto VecStr = boost::algorithm::join(Vec, ".");
+  ASSERT_EQ(VecStr, Expected);
+}
+
+TEST(AST, AttrLocator) {
+  std::string NixSrc = R"(
+{
+  x.y = 1;
+  foo.bar.baz.foo.
+}
+  )";
+  InitNix INix;
+  auto State = INix.getDummyState();
+  auto AST = ParseAST::create(
+      parse(NixSrc, nix::CanonPath("foo"), nix::CanonPath("/"), *State));
+  AttrLocator Locator(*AST);
+  checkVec(AST->getAttrPath(Locator.locate({2, 4})), "x.y");
+  checkVec(AST->getAttrPath(Locator.locate({3, 16})), "foo.bar.baz.foo");
 }
 
 } // namespace nixd
