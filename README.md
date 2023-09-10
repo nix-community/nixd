@@ -70,6 +70,11 @@ And diagnostic:
 
 </details>
 
+## Get Started
+
+You can *try nixd without installation*.
+We have tested some working & reproducible [editor environments](/editors/editors.md) and example [configurations & workspaces](/docs/examples).
+
 ## Resources
 
 - [Editor Setup](docs/editor-setup.md)
