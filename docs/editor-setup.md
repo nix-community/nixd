@@ -15,8 +15,6 @@ Refer to https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#inst
 https://github.com/nix-community/vscode-nix-ide extension provide a general interface for nixd, and it should work out of box.
 Please file a bug if you encountered some trouble using the extension.
 
-```
-
 ### (Neo)vim
 
 #### Coc.nvim
@@ -38,4 +36,3 @@ According to `:help coc-config.txt`, `coc-settings.json`:
 
 Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig).
 We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.txt#nixd)
-
