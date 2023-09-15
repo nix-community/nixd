@@ -13,7 +13,6 @@ subdir('lib')
 
 nixdDeps = [ nixdAST
            , nixdNix
-           , nixdParser
            , nixdServer
            , nixdSupport
            ]
@@ -37,3 +36,4 @@ test_server = executable('test-server'
 )
 
 test('server', test_server)
+

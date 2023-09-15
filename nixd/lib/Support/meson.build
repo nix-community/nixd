@@ -1,6 +1,5 @@
 libnixdSupportDeps = [ nix_all
                      , llvm
-                     , nixdParser
                      , nixd_lsp_server
                      ]
 

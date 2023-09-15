@@ -15,7 +15,7 @@
 
 
 %{
-#include "nixd/Lexer/Prologue.h"
+#include "Lexer/Prologue.cpp"
 %}
 
 
@@ -57,27 +57,32 @@ or          { return OR_KW; }
 \/\/        { return UPDATE; }
 \+\+        { return CONCAT; }
 
-{ID}        { yylval->id = {yytext, (size_t) yyleng}; return ID; }
+{ID}        { yylval->ID = {yytext, (size_t) yyleng}; return ID; }
 {INT}       { errno = 0;
               try {
-                  yylval->n = boost::lexical_cast<int64_t>(yytext);
+                yylval->N = boost::lexical_cast<int64_t>(yytext);
               } catch (const boost::bad_lexical_cast &) {
-                  data->error.emplace_back(nix::ErrorInfo{
-                      .msg = hintfmt("invalid integer '%1%'", yytext),
-                      .errPos = data->state.positions[CUR_POS],
-                  });
-                  yyterminate();
+                auto Range = mkRange(*yylloc, *Data);
+                Diagnostic Diag;
+                Diag.Msg = llvm::formatv("invalid integer {0}", yytext);
+                Diag.Kind = Diagnostic::Error;
+                Diag.Range = Range;
+                Data->Diags.emplace_back(std::move(Diag));
+                yyterminate();
               }
               return INT;
             }
-{FLOAT}     { errno = 0;
-              yylval->nf = strtod(yytext, 0);
+{FLOAT}     {
+              errno = 0;
+              yylval->NF = strtod(yytext, 0);
               if (errno != 0) {
-                  data->error.emplace_back(nix::ErrorInfo{
-                      .msg = hintfmt("invalid float '%1%'", yytext),
-                      .errPos = data->state.positions[CUR_POS],
-                  });
-                  yyterminate();
+                auto Range = mkRange(*yylloc, *Data);
+                Diagnostic Diag;
+                Diag.Msg = llvm::formatv("invalid float {0}", yytext);
+                Diag.Kind = Diagnostic::Error;
+                Diag.Range = Range;
+                Data->Diags.emplace_back(std::move(Diag));
+                yyterminate();
               }
               return FLOAT;
             }
@@ -100,7 +105,7 @@ or          { return OR_KW; }
                 /* It is impossible to match strings ending with '$' with one
                    regex because trailing contexts are only valid at the end
                    of a rule. (A sane but undocumented limitation.) */
-                yylval->str = unescapeStr(data->state.symbols, yytext, yyleng);
+                yylval->STR = unescapeStr(Data->State.Symbols, yytext, yyleng);
                 return STR;
               }
 <STRING>\$\{  { PUSH_STATE(DEFAULT); return DOLLAR_CURLY; }
@@ -115,26 +120,26 @@ or          { return OR_KW; }
 
 \'\'(\ *\n)?     { PUSH_STATE(IND_STRING); return IND_STRING_OPEN; }
 <IND_STRING>([^\$\']|\$[^\{\']|\'[^\'\$])+ {
-                   yylval->str = {yytext, (size_t) yyleng, true};
+                   yylval->STR = {yytext, (size_t) yyleng, true};
                    return IND_STR;
                  }
 <IND_STRING>\'\'\$ |
 <IND_STRING>\$   {
-                   yylval->str = {"$", 1};
+                   yylval->STR = {"$", 1};
                    return IND_STR;
                  }
 <IND_STRING>\'\'\' {
-                   yylval->str = {"''", 2};
+                   yylval->STR = {"''", 2};
                    return IND_STR;
                  }
 <IND_STRING>\'\'\\{ANY} {
-                   yylval->str = unescapeStr(data->state.symbols, yytext + 2, yyleng - 2);
+                   yylval->STR = unescapeStr(Data->State.Symbols, yytext + 2, yyleng - 2);
                    return IND_STR;
                  }
 <IND_STRING>\$\{ { PUSH_STATE(DEFAULT); return DOLLAR_CURLY; }
 <IND_STRING>\'\' { POP_STATE(); return IND_STRING_CLOSE; }
 <IND_STRING>\'   {
-                   yylval->str = {"'", 1};
+                   yylval->STR = {"'", 1};
                    return IND_STR;
                  }
 
@@ -148,14 +153,14 @@ or          { return OR_KW; }
 <PATH_START>{PATH_SEG} {
   POP_STATE();
   PUSH_STATE(INPATH_SLASH);
-  yylval->path = {yytext, (size_t) yyleng};
+  yylval->PATH = {yytext, (size_t) yyleng};
   return PATH;
 }
 
 <PATH_START>{HPATH_START} {
   POP_STATE();
   PUSH_STATE(INPATH_SLASH);
-  yylval->path = {yytext, (size_t) yyleng};
+  yylval->PATH = {yytext, (size_t) yyleng};
   return HPATH;
 }
 
@@ -164,7 +169,7 @@ or          { return OR_KW; }
     PUSH_STATE(INPATH_SLASH);
   else
     PUSH_STATE(INPATH);
-  yylval->path = {yytext, (size_t) yyleng};
+  yylval->PATH = {yytext, (size_t) yyleng};
   return PATH;
 }
 {HPATH} {
@@ -172,7 +177,7 @@ or          { return OR_KW; }
     PUSH_STATE(INPATH_SLASH);
   else
     PUSH_STATE(INPATH);
-  yylval->path = {yytext, (size_t) yyleng};
+  yylval->PATH = {yytext, (size_t) yyleng};
   return HPATH;
 }
 
@@ -188,7 +193,7 @@ or          { return OR_KW; }
       PUSH_STATE(INPATH_SLASH);
   else
       PUSH_STATE(INPATH);
-  yylval->str = {yytext, (size_t) yyleng};
+  yylval->STR = {yytext, (size_t) yyleng};
   return STR;
 }
 <INPATH>{ANY} |
@@ -204,15 +209,17 @@ or          { return OR_KW; }
 
 <INPATH_SLASH>{ANY} |
 <INPATH_SLASH><<EOF>> {
-  data->error.emplace_back(nix::ErrorInfo{
-      .msg = hintfmt("path has a trailing slash"),
-      .errPos = data->state.positions[CUR_POS],
-  });
+  auto Range = mkRange(*yylloc, *Data);
+  Diagnostic Diag;
+  Diag.Msg = llvm::formatv("path has a trailing slash");
+  Diag.Kind = Diagnostic::Error;
+  Diag.Range = Range;
+  Data->Diags.emplace_back(std::move(Diag));
   yyterminate();
 }
 
-{SPATH}     { yylval->path = {yytext, (size_t) yyleng}; return SPATH; }
-{URI}       { yylval->uri = {yytext, (size_t) yyleng}; return URI; }
+{SPATH}     { yylval->PATH = {yytext, (size_t) yyleng}; return SPATH; }
+{URI}       { yylval->URI = {yytext, (size_t) yyleng}; return URI; }
 
 [ \t\r\n]+    /* eat up whitespace */
 \#[^\r\n]*    /* single-line comments */
