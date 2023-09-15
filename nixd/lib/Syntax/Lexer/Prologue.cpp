@@ -1,18 +1,20 @@
-#pragma once
+#include "Parser.tab.h"
+
+#include "nixd/Support/Position.h"
+#include "nixd/Syntax/Diagnostic.h"
+#include "nixd/Syntax/Nodes.h"
+#include "nixd/Syntax/Parser/Require.h"
+
+#include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
+
+#include <boost/lexical_cast.hpp>
+
+using nixd::syntax::Diagnostic;
 
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
 #endif
-
-#include <boost/lexical_cast.hpp>
-
-#include "Parser.tab.h"
-
-#include "nixd/Parser/Provides.h"
-
-#include <nix/nixexpr.hh>
-
-using namespace nix;
 
 // backup to recover from yyless(0)
 thread_local YYLTYPE prev_yylloc;
@@ -20,6 +22,17 @@ thread_local YYLTYPE prev_yylloc;
 static void initLoc(YYLTYPE *loc) {
   loc->first_line = loc->last_line = 1;
   loc->first_column = loc->last_column = 1;
+}
+
+static nixd::RangeIdx mkRange(YYLTYPE YL, nix::PosTable &T,
+                              const nix::PosTable::Origin &Origin) {
+  auto Begin = T.add(Origin, YL.first_line, YL.first_column);
+  auto End = T.add(Origin, YL.last_line, YL.last_column);
+  return {Begin, End};
+}
+
+static nixd::RangeIdx mkRange(YYLTYPE YL, nixd::syntax::ParseData &Data) {
+  return mkRange(YL, Data.State.Positions, Data.Origin);
 }
 
 static void adjustLoc(YYLTYPE *loc, const char *s, size_t len) {
@@ -48,7 +61,8 @@ static void adjustLoc(YYLTYPE *loc, const char *s, size_t len) {
 
 // we make use of the fact that the parser receives a private copy of the input
 // string and can munge around in it.
-static StringToken unescapeStr(SymbolTable &symbols, char *s, size_t length) {
+static nixd::syntax::StringToken unescapeStr(nix::SymbolTable &symbols, char *s,
+                                             size_t length) {
   char *result = s;
   char *t = s;
   char c;
@@ -82,5 +96,3 @@ static StringToken unescapeStr(SymbolTable &symbols, char *s, size_t length) {
 
 #define PUSH_STATE(state) yy_push_state(state, yyscanner)
 #define POP_STATE() yy_pop_state(yyscanner)
-
-#define CUR_POS makeCurPos(*yylloc, data)

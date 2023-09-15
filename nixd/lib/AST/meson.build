@@ -1,7 +1,7 @@
 libnixdASTDeps = [ nixd_lsp_server
                  , nix_all
                  , nixdExpr
-                 , nixdParser
+                 , nixdSyntax
                  , nixdNix
                  , llvm
                  ]

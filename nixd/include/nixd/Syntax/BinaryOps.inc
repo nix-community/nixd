@@ -1,0 +1,17 @@
+#ifdef BIN_OP
+BIN_OP(OpEq, "==")
+BIN_OP(OpNEq, "!=")
+BIN_OP(OpAnd, "&&")
+BIN_OP(OpOr, "||")
+BIN_OP(OpImpl, "->")
+BIN_OP(OpUpdate, "//")
+BIN_OP(OpConcatLists, "++")
+BIN_OP(OpLe, "<")
+BIN_OP(OpLeq, "<=")
+BIN_OP(OpGe, ">")
+BIN_OP(OpGeq, ">=")
+BIN_OP(OpAdd, "+")
+BIN_OP(OpSub, "-")
+BIN_OP(OpMul, "*")
+BIN_OP(OpDiv, "/")
+#endif

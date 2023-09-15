@@ -7,32 +7,32 @@ bison = find_program('bison')
 # https://github.com/NixOS/nix/blob/a1cf16563f681b5cb3026f2bbca629996ed36d86/src/libexpr/local.mk#L31
 
 lexer = custom_target('lexer'
-, input : [ 'Lexer.l' ]
+, input : [ 'Lexer/Lexer.l' ]
 , output : [ '@BASENAME@.tab.cpp', '@BASENAME@.tab.h' ]
 , command : [ flex, '--outfile=@OUTPUT0@', '--header-file=@OUTPUT1@', '@INPUT@' ]
 )
 
 parser = custom_target('parser'
-, input : [ 'Parser.y' ]
+, input : [ 'Parser/Parser.y' ]
 , output : [ '@BASENAME@.tab.cpp', '@BASENAME@.tab.h' ]
 , command : [ bison, '@INPUT@', '--defines=@OUTPUT1@', '--output=@OUTPUT0@' ]
 )
 
 #------------------------------------------------------------------------------#
-libnixdParserDeps = [ nix_all, nixdExpr ]
-
-libnixdParser = library('nixdParser'
+libnixdSyntaxDeps = [ nix_all, nixdExpr, nixdSupport ]
+libnixdSyntaxInc = [ nixd_inc, './' ]
+libnixdSyntax = library('nixdSyntax'
 , lexer
 , parser
-, include_directories: nixd_inc
-, dependencies: libnixdParserDeps
+, include_directories: libnixdSyntaxInc
+, dependencies: libnixdSyntaxDeps
 , install: true
 )
 
-nixdParser = declare_dependency( include_directories: nixd_inc
+nixdSyntax = declare_dependency( include_directories: libnixdSyntaxInc
                                , sources: [ lexer
                                           , parser
                                           ]
-                               , link_with: libnixdParser
-                               , dependencies: libnixdParserDeps
+                               , link_with: libnixdSyntax
+                               , dependencies: libnixdSyntaxDeps
                                )
