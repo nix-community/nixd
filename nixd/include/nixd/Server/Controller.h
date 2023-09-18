@@ -122,6 +122,7 @@ private:
 
   std::mutex ConfigLock;
 
+  configuration::TopLevel JSONConfig;
   configuration::TopLevel Config; // GUARDED_BY(ConfigLock)
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;

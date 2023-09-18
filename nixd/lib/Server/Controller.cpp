@@ -233,9 +233,9 @@ void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
     std::ifstream In(File.str(), std::ios::in);
     SS << In.rdbuf();
 
-    if (auto NewConfig = parseConfig(SS.str()))
-      updateConfig(std::move(NewConfig.get()));
-    else {
+    if (auto NewConfig = parseConfig(SS.str())) {
+      JSONConfig = std::move(NewConfig.get());
+    } else {
       throw nix::Error("configuration cannot be parsed");
     }
   } catch (std::exception &E) {
@@ -256,6 +256,14 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        int WaitWorker)
     : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker),
       ASTMgr(Pool) {
+
+  // JSON Config, run before initialize
+  readJSONConfig();
+  configuration::TopLevel JSONConfigCopy = JSONConfig;
+  updateConfig(std::move(JSONConfigCopy));
+  WorkspaceConfiguration =
+      mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
+          "workspace/configuration", nullptr, JSONConfig);
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
@@ -293,17 +301,12 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   // Workspace
   Registry.addNotification("workspace/didChangeConfiguration", this,
                            &Controller::onWorkspaceDidChangeConfiguration);
-  WorkspaceConfiguration =
-      mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
-          "workspace/configuration");
 
   /// IPC
   Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Controller::onEvalDiagnostic);
 
   Registry.addNotification("nixd/ipc/finished", this, &Controller::onFinished);
-
-  readJSONConfig();
 }
 
 //-----------------------------------------------------------------------------/
