@@ -38,6 +38,7 @@
     nixd::syntax::InheritedAttribute *IA;
     nixd::syntax::ListBody *LB;
     nixd::syntax::IndString *IndString;
+    nixd::syntax::Variable *Variable;
 
     // Tokens
     nixd::syntax::StringToken STR;
@@ -56,7 +57,8 @@
 %type <IndString> ind_string;
 %type <ConcatStrings> string_parts_interpolated
 %type <InterpExpr> string_parts_interp_expr
-%type <Identifier> identifier attr
+%type <Identifier> identifier attr identifier_or
+%type <Variable> var_or
 %type <IndStringParts> ind_string_parts
 %type <Formals> formals
 %type <Formal> formal
@@ -228,8 +230,11 @@ expr_select
     N->Default = $5;
     $$ = N;
   }
-  | expr_simple OR_KW {
-    // TODO
+  | expr_simple var_or {
+    auto N = decorateNode(new Call, *yylocp, *Data);
+    N->Fn = $1;
+    N->Args = {$2};
+    $$ = N;
   }
   | expr_simple
 
@@ -398,6 +403,23 @@ uri
     $$->S = std::string($1);
   }
 
+identifier_or
+  : OR_KW {
+    $$ = decorateNode(new Identifier, *yylocp, *Data);
+    $$->Symbol = Data->State.Symbols.create("or");
+
+    Diagnostic Diag;
+    Diag.Msg = "keyword `or` used as an identifier";
+    Diag.Kind = Diagnostic::Warning;
+    Diag.Range = $$->Range;
+    Data->Diags.emplace_back(std::move(Diag));
+  }
+
+var_or: identifier_or {
+  $$ = decorateNode(new Variable, *yylocp, *Data);
+  $$->ID = $1;
+}
+
 identifier
   : ID {
     $$ = decorateNode(new Identifier, *yylocp, *Data);
@@ -478,12 +500,8 @@ attrpath
 
 
 attr
-  : identifier { $$ = $1; }
-  | OR_KW {
-    auto Or = Data->State.Symbols.create("or");
-    $$ = decorateNode(new Identifier, *yylocp, *Data);
-    $$->Symbol = Or;
-  }
+  : identifier
+  | identifier_or
 
 
 
