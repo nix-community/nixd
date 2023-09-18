@@ -1,3 +1,5 @@
+#include "nixd/Sema/EvalContext.h"
+#include "nixd/Sema/Lowering.h"
 #include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Parser.h"
 #include "nixd/Syntax/Parser/Require.h"
@@ -96,6 +98,11 @@ int main(int argc, char *argv[]) {
   nixd::syntax::ParseState S{*STable, *PTable};
   nixd::syntax::ParseData Data{.State = S, .Origin = Origin};
   nixd::syntax::parse(Buffer, &Data);
+
+  nixd::Lowering Lowering{
+      .STable = *STable, .PTable = *PTable, .Diags = Data.Diags};
+  nixd::EvalContext Ctx;
+  Lowering.lower(Ctx, Data.Result);
 
   for (const auto &Diag : Data.Diags) {
     auto BeginPos = (*PTable)[Diag.Range.Begin];

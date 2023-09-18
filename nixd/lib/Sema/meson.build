@@ -1,11 +1,7 @@
-libnixdSemaDeps = [ nixd_lsp_server
-                  , nix_all
-                  , nixdAST
-                  , llvm
-                  ]
+libnixdSemaDeps = [ nixdSyntax ]
 
 libnixdSema = library('nixdSema'
-, 'CompletionBuilder.cpp'
+, 'Lowering.cpp'
 , include_directories: nixd_inc
 , dependencies: libnixdSemaDeps
 , install: true
