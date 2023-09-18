@@ -2,6 +2,7 @@ nixd_lint = executable('nixd-lint'
 , 'nixd-lint.cpp'
 , dependencies: [ boost
                 , nixdSyntax
+                , nixdSema
                 ] + nix_all
 , install: true
 )
