@@ -401,6 +401,12 @@ uri
   : URI {
     $$ = decorateNode(new nixd::syntax::URI, *yylocp, *Data);
     $$->S = std::string($1);
+
+    Diagnostic Diag;
+    Diag.Msg = "URL literal is deprecated";
+    Diag.Kind = Diagnostic::Warning;
+    Diag.Range = $$->Range;
+    Data->Diags.emplace_back(std::move(Diag));
   }
 
 identifier_or
