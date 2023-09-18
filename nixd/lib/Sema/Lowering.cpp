@@ -122,6 +122,22 @@ nix::Expr *Lowering::lower(EvalContext &Ctx, nixd::syntax::Node *Root) {
     auto *Fn = dynamic_cast<syntax::Function *>(Root);
     return lowerFunction(Ctx, Fn);
   }
+  case Node::NK_Assert: {
+    auto *Assert = dynamic_cast<syntax::Assert *>(Root);
+    auto *Cond = lower(Ctx, Assert->Cond);
+    auto *Body = lower(Ctx, Assert->Body);
+    auto *NixAssert =
+        Ctx.Pool.record(new nix::ExprAssert(Assert->Range.Begin, Cond, Body));
+    return NixAssert;
+  }
+  case Node::NK_With: {
+    auto *With = dynamic_cast<syntax::With *>(Root);
+    auto *Attrs = lower(Ctx, With->Attrs);
+    auto *Body = lower(Ctx, With->Body);
+    auto *NixWith =
+        Ctx.Pool.record(new nix::ExprWith(With->Range.Begin, Attrs, Body));
+    return NixWith;
+  }
   }
 
   return nullptr;
