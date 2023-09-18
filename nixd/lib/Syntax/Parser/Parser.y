@@ -279,6 +279,12 @@ expr_simple
     auto N = decorateNode(new LegacyLet, *yylocp, *Data);
     N->AttrBinds = $3;
     $$ = N;
+
+    Diagnostic Diag;
+    Diag.Msg = "using deprecated `let' syntactic sugar `let {..., body = ...}' -> (rec {..., body = ...}).body'";
+    Diag.Kind = Diagnostic::Warning;
+    Diag.Range = N->Range;
+    Data->Diags.emplace_back(std::move(Diag));
   }
   | REC '{' binds '}' {
     auto N = decorateNode(new AttrSet, *yylocp, *Data);
