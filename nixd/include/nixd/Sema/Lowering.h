@@ -13,10 +13,11 @@ struct Lowering {
   nix::SymbolTable &STable;
   nix::PosTable &PTable;
   std::vector<syntax::Diagnostic> &Diags;
+  EvalContext &Ctx;
 
-  nix::Expr *lower(EvalContext &Ctx, syntax::Node *Root);
-  nix::ExprLambda *lowerFunction(EvalContext &Ctx, syntax::Function *Fn);
-  nix::Formal lowerFormal(EvalContext &Ctx, const syntax::Formal &Formal);
+  nix::Expr *lower(syntax::Node *Root);
+  nix::ExprLambda *lowerFunction(syntax::Function *Fn);
+  nix::Formal lowerFormal(const syntax::Formal &Formal);
 };
 
 } // namespace nixd

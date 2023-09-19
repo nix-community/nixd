@@ -5,9 +5,8 @@
 
 namespace nixd {
 
-nix::Formal Lowering::lowerFormal(EvalContext &Ctx,
-                                  const syntax::Formal &Formal) {
-  auto *Def = Lowering::lower(Ctx, Formal.Default);
+nix::Formal Lowering::lowerFormal(const syntax::Formal &Formal) {
+  auto *Def = Lowering::lower(Formal.Default);
   nix::Formal F;
 
   F.pos = Formal.Range.Begin;
@@ -16,8 +15,7 @@ nix::Formal Lowering::lowerFormal(EvalContext &Ctx,
   return F;
 }
 
-nix::ExprLambda *Lowering::lowerFunction(EvalContext &Ctx,
-                                         syntax::Function *Fn) {
+nix::ExprLambda *Lowering::lowerFunction(syntax::Function *Fn) {
   // Implementation note:
   // The official parser does this in the semantic action, and we deferred it
   // here, as a part of the progressive lowering process.
@@ -92,12 +90,12 @@ nix::ExprLambda *Lowering::lowerFunction(EvalContext &Ctx,
     auto *NixFormals = Ctx.FormalsPool.record(new nix::Formals);
     NixFormals->ellipsis = Formals->Ellipsis;
     for (auto [_, Formal] : Names) {
-      nix::Formal F = lowerFormal(Ctx, *Formal);
+      nix::Formal F = lowerFormal(*Formal);
       NixFormals->formals.emplace_back(F);
     }
   }
 
-  auto *Body = lower(Ctx, Fn->Body);
+  auto *Body = lower(Fn->Body);
 
   nix::ExprLambda *NewLambda;
   if (Fn->Arg) {
@@ -111,7 +109,7 @@ nix::ExprLambda *Lowering::lowerFunction(EvalContext &Ctx,
   return NewLambda;
 }
 
-nix::Expr *Lowering::lower(EvalContext &Ctx, nixd::syntax::Node *Root) {
+nix::Expr *Lowering::lower(nixd::syntax::Node *Root) {
   if (!Root)
     return nullptr;
 
@@ -120,20 +118,20 @@ nix::Expr *Lowering::lower(EvalContext &Ctx, nixd::syntax::Node *Root) {
   switch (Root->getKind()) {
   case Node::NK_Function: {
     auto *Fn = dynamic_cast<syntax::Function *>(Root);
-    return lowerFunction(Ctx, Fn);
+    return lowerFunction(Fn);
   }
   case Node::NK_Assert: {
     auto *Assert = dynamic_cast<syntax::Assert *>(Root);
-    auto *Cond = lower(Ctx, Assert->Cond);
-    auto *Body = lower(Ctx, Assert->Body);
+    auto *Cond = lower(Assert->Cond);
+    auto *Body = lower(Assert->Body);
     auto *NixAssert =
         Ctx.Pool.record(new nix::ExprAssert(Assert->Range.Begin, Cond, Body));
     return NixAssert;
   }
   case Node::NK_With: {
     auto *With = dynamic_cast<syntax::With *>(Root);
-    auto *Attrs = lower(Ctx, With->Attrs);
-    auto *Body = lower(Ctx, With->Body);
+    auto *Attrs = lower(With->Attrs);
+    auto *Body = lower(With->Body);
     auto *NixWith =
         Ctx.Pool.record(new nix::ExprWith(With->Range.Begin, Attrs, Body));
     return NixWith;
