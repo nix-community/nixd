@@ -1,3 +1,4 @@
+#include "nixd/Expr/Expr.h"
 #include "nixd/Sema/EvalContext.h"
 #include "nixd/Sema/Lowering.h"
 #include "nixd/Syntax/Diagnostic.h"
@@ -24,6 +25,9 @@ opt<std::string> Filename(Positional, desc("<input file>"), init("-"),
                           cat(Misc));
 
 const OptionCategory *Cat[] = {&Misc};
+
+opt<bool> DumpNixAST("dump-nix-ast", init(false),
+                     desc("Dump the lowered nix AST"), cat(Misc));
 
 static void printCodeLines(std::ostream &Out, const std::string &Prefix,
                            std::shared_ptr<nix::AbstractPos> BeginPos,
@@ -74,6 +78,32 @@ static void printCodeLines(std::ostream &Out, const std::string &Prefix,
   }
 }
 
+struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
+  nix::SymbolTable &STable;
+  int Depth = 0;
+
+  bool traverseExpr(const nix::Expr *E) {
+    Depth++;
+    if (!nixd::RecursiveASTVisitor<ASTDump>::traverseExpr(E))
+      return false;
+    Depth--;
+    return true;
+  }
+
+  bool visitExpr(const nix::Expr *E) const {
+    if (!E)
+      return true;
+    for (int I = 0; I < Depth; I++) {
+      std::cout << " ";
+    }
+    std::cout << nixd::getExprName(E) << ": ";
+    E->show(STable, std::cout);
+    std::cout << " ";
+    std::cout << "\n";
+    return true;
+  }
+};
+
 int main(int argc, char *argv[]) {
   HideUnrelatedOptions(Cat);
   ParseCommandLineOptions(argc, argv, "nixd linter", nullptr,
@@ -102,7 +132,12 @@ int main(int argc, char *argv[]) {
   nixd::EvalContext Ctx;
   nixd::Lowering Lowering{
       .STable = *STable, .PTable = *PTable, .Diags = Data.Diags, .Ctx = Ctx};
-  Lowering.lower(Data.Result);
+  nix::Expr *NixTree = Lowering.lower(Data.Result);
+
+  if (DumpNixAST) {
+    ASTDump D{.STable = *STable};
+    D.traverseExpr(NixTree);
+  }
 
   for (const auto &Diag : Data.Diags) {
     auto BeginPos = (*PTable)[Diag.Range.Begin];
