@@ -3,6 +3,7 @@ nixd_lint = executable('nixd-lint'
 , dependencies: [ boost
                 , nixdSyntax
                 , nixdSema
+                , nixdExpr
                 ] + nix_all
 , install: true
 )
