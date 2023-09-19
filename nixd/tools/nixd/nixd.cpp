@@ -121,6 +121,15 @@ opt<NSS> Role{"role", desc("The role of this process, worker, controller, ..."),
 
 int main(int argc, char *argv[]) {
   using namespace lspserver;
+  SetVersionPrinter([](llvm::raw_ostream &OS) {
+    OS << "nixd, version: ";
+#ifdef NIXD_VCS_TAG
+    OS << NIXD_VCS_TAG;
+#else
+    OS << NIXD_VERSION;
+#endif
+    OS << "\n";
+  });
   nixd::registerSigHanlder();
   const char *FlagsEnvVar = "NIXD_FLAGS";
   HideUnrelatedOptions(NixdCatogories);
