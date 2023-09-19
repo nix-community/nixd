@@ -99,10 +99,10 @@ int main(int argc, char *argv[]) {
   nixd::syntax::ParseData Data{.State = S, .Origin = Origin};
   nixd::syntax::parse(Buffer, &Data);
 
-  nixd::Lowering Lowering{
-      .STable = *STable, .PTable = *PTable, .Diags = Data.Diags};
   nixd::EvalContext Ctx;
-  Lowering.lower(Ctx, Data.Result);
+  nixd::Lowering Lowering{
+      .STable = *STable, .PTable = *PTable, .Diags = Data.Diags, .Ctx = Ctx};
+  Lowering.lower(Data.Result);
 
   for (const auto &Diag : Data.Diags) {
     auto BeginPos = (*PTable)[Diag.Range.Begin];
