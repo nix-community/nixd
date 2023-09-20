@@ -21,7 +21,7 @@ nix::Formal Lowering::lowerFormal(const syntax::Formal &Formal) {
   return F;
 }
 
-nix::ExprLambda *Lowering::lowerFunction(syntax::Function *Fn) {
+nix::ExprLambda *Lowering::lowerFunction(const syntax::Function *Fn) {
   // Implementation note:
   // The official parser does this in the semantic action, and we deferred it
   // here, as a part of the progressive lowering process.
@@ -218,17 +218,17 @@ nix::ExprAttrs *Lowering::lowerBinds(const syntax::Binds &Binds) {
   return Builder.finish();
 }
 
-nix::Expr *Lowering::lower(nixd::syntax::Node *Root) {
+nix::Expr *Lowering::lower(const nixd::syntax::Node *Root) {
   if (!Root)
     return nullptr;
 
   switch (Root->getKind()) {
   case Node::NK_Function: {
-    auto *Fn = dynamic_cast<syntax::Function *>(Root);
+    const auto *Fn = dynamic_cast<const syntax::Function *>(Root);
     return lowerFunction(Fn);
   }
   case Node::NK_Assert: {
-    auto *Assert = dynamic_cast<syntax::Assert *>(Root);
+    const auto *Assert = dynamic_cast<const syntax::Assert *>(Root);
     auto *Cond = lower(Assert->Cond);
     auto *Body = lower(Assert->Body);
     auto *NixAssert =
@@ -236,7 +236,7 @@ nix::Expr *Lowering::lower(nixd::syntax::Node *Root) {
     return NixAssert;
   }
   case Node::NK_With: {
-    auto *With = dynamic_cast<syntax::With *>(Root);
+    const auto *With = dynamic_cast<const syntax::With *>(Root);
     auto *Attrs = lower(With->Attrs);
     auto *Body = lower(With->Body);
     auto *NixWith =
@@ -244,11 +244,11 @@ nix::Expr *Lowering::lower(nixd::syntax::Node *Root) {
     return NixWith;
   }
   case Node::NK_Binds: {
-    auto *Binds = dynamic_cast<syntax::Binds *>(Root);
+    const auto *Binds = dynamic_cast<const syntax::Binds *>(Root);
     return lowerBinds(*Binds);
   }
   case Node::NK_AttrSet: {
-    auto *AttrSet = dynamic_cast<syntax::AttrSet *>(Root);
+    const auto *AttrSet = dynamic_cast<const syntax::AttrSet *>(Root);
     assert(AttrSet->AttrBinds && "null AttrBinds of the AttrSet!");
     nix::ExprAttrs *Binds = lowerBinds(*AttrSet->AttrBinds);
     Binds->recursive = AttrSet->Recursive;
