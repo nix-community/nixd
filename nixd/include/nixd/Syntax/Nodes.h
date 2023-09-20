@@ -15,11 +15,11 @@ struct Node {
 #include "Nodes.inc"
 #undef NODE
   };
-  virtual NodeKind getKind() { return NK_Node; };
+  [[nodiscard]] virtual NodeKind getKind() const { return NK_Node; };
   virtual ~Node() = default;
 };
 
-#define COMMON_METHOD virtual NodeKind getKind() override;
+#define COMMON_METHOD virtual NodeKind getKind() const override;
 
 #define NODE(NAME, BODY) struct NAME : Node BODY;
 #include "Nodes.inc"
@@ -27,7 +27,7 @@ struct Node {
 #undef COMMON_METHOD
 
 #define NODE(NAME, _)                                                          \
-  inline Node::NodeKind NAME::getKind() { return NK_##NAME; }
+  inline Node::NodeKind NAME::getKind() const { return NK_##NAME; }
 #include "Nodes.inc"
 #undef NODE
 
