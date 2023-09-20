@@ -36,8 +36,8 @@ struct Lowering {
   std::vector<syntax::Diagnostic> &Diags;
   EvalContext &Ctx;
 
-  nix::Expr *lower(syntax::Node *Root);
-  nix::ExprLambda *lowerFunction(syntax::Function *Fn);
+  nix::Expr *lower(const syntax::Node *Root);
+  nix::ExprLambda *lowerFunction(const syntax::Function *Fn);
   nix::Formal lowerFormal(const syntax::Formal &Formal);
   nix::AttrPath lowerAttrPath(const syntax::AttrPath &Path);
   nix::ExprAttrs *lowerBinds(const syntax::Binds &Binds);
