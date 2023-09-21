@@ -51,7 +51,7 @@ NODE(List, {
 })
 
 NODE(Let, {
-  Node *Binds;
+  Binds *Binds;
   Node *Body;
   COMMON_METHOD
 })
