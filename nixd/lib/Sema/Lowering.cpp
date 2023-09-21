@@ -134,8 +134,9 @@ static syntax::Diagnostic mkAttrDupDiag(std::string Name, RangeIdx Range,
   return Diag;
 }
 
-ExprAttrsBuilder::ExprAttrsBuilder(Lowering &LW, bool Recursive, RangeIdx Range)
-    : LW(LW), Recursive(Recursive), Range(Range) {
+ExprAttrsBuilder::ExprAttrsBuilder(Lowering &LW, RangeIdx Range, bool Recursive,
+                                   bool IsLet)
+    : LW(LW), Range(Range), Recursive(Recursive), IsLet(IsLet) {
   Result = LW.Ctx.Pool.record(new nix::ExprAttrs);
 }
 
@@ -196,6 +197,15 @@ static Diagnostic mkRecDiag(RangeIdx ThisRange, RangeIdx MergingRange,
   return Diag;
 }
 
+static Diagnostic mkLetDynamicDiag(RangeIdx Range) {
+  Diagnostic Diag;
+  Diag.Kind = Diagnostic::Error;
+  Diag.Msg = "dynamic attributes are not allowed in let ... in ... expression";
+  Diag.Range = Range;
+
+  return Diag;
+}
+
 void ExprAttrsBuilder::addAttrSet(const syntax::AttrSet &AS) {
   if (AS.Recursive != Recursive) {
     auto Diag = mkRecDiag(Range, AS.Range, Recursive, AS.Recursive);
@@ -233,7 +243,7 @@ void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
         // because we have chance to merge it latter
         const auto *BodyAttrSet = dynamic_cast<const syntax::AttrSet *>(Body);
         Nested[Sym] = std::make_unique<ExprAttrsBuilder>(
-            LW, BodyAttrSet->Recursive, BodyAttrSet->Range);
+            LW, BodyAttrSet->Range, BodyAttrSet->Recursive, IsLet);
         Nested[Sym]->addBinds(*BodyAttrSet->AttrBinds);
       } else {
         nix::ExprAttrs::AttrDef Def(LW.lower(Body), Attr->Range.Begin);
@@ -243,6 +253,11 @@ void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
     break;
   }
   default: {
+    if (IsLet) {
+      // reject dynamic attrs in let expression
+      LW.Diags.emplace_back(mkLetDynamicDiag(Attr->Range));
+      return;
+    }
     nix::Expr *NameExpr = LW.lower(Attr);
     nix::Expr *ValueExpr = LW.lower(Body);
     nix::ExprAttrs::DynamicAttrDef DDef(NameExpr, ValueExpr, Attr->Range.Begin);
@@ -281,15 +296,20 @@ void ExprAttrsBuilder::addAttribute(const syntax::Attribute &A) {
       } else {
         // create a new builder and select to it.
         S->Nested[Sym] = std::make_unique<ExprAttrsBuilder>(
-            LW, /*Recursive=*/false, Name->Range);
+            LW, Name->Range, /*Recursive=*/false, IsLet);
         S->Fields[Sym] = Name;
         S = S->Nested[Sym].get();
       }
       break; // case Node::NK_Identifier:
     }
     default: {
+      if (IsLet) {
+        // reject dynamic attrs in let expression
+        LW.Diags.emplace_back(mkLetDynamicDiag(Name->Range));
+        return;
+      }
       DynamicNested[Name] = std::make_unique<ExprAttrsBuilder>(
-          LW, /*Recursive=*/false, Name->Range);
+          LW, Name->Range, /*Recursive=*/false, IsLet);
       S = DynamicNested[Name].get();
     }
     }
@@ -389,7 +409,8 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   case Node::NK_AttrSet: {
     const auto *AttrSet = dynamic_cast<const syntax::AttrSet *>(Root);
     assert(AttrSet->AttrBinds && "null AttrBinds of the AttrSet!");
-    ExprAttrsBuilder Builder(*this, AttrSet->Recursive, AttrSet->Range);
+    ExprAttrsBuilder Builder(*this, AttrSet->Range, AttrSet->Recursive,
+                             /*IsLet=*/false);
     Builder.addBinds(*AttrSet->AttrBinds);
     return Builder.finish();
   }
@@ -398,6 +419,22 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     auto *NixInt = new nix::ExprInt(Int->N);
     Ctx.Pool.record(NixInt);
     return NixInt;
+  }
+  case Node::NK_Let: {
+    const auto *Let = dynamic_cast<const syntax::Let *>(Root);
+    ExprAttrsBuilder Builder(*this, Let->Binds->Range, /*Recursive=*/true,
+                             /*IsLet=*/true);
+    Builder.addBinds(*Let->Binds);
+    nix::ExprAttrs *Attrs = Builder.finish();
+    nix::Expr *Body = lower(Let->Body);
+
+    // special work for let expression, the expression there is implictly
+    // recursive, and we should not mark `rec` to the evaluator, because the
+    // official parser does not do this also.
+    Attrs->recursive = false;
+
+    auto *Ret = new nix::ExprLet(Attrs, Body);
+    return Ret;
   }
   }
 
