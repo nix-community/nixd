@@ -436,6 +436,15 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     auto *Ret = new nix::ExprLet(Attrs, Body);
     return Ret;
   }
+  case Node::NK_If: {
+    const auto *If = dynamic_cast<const syntax::If *>(Root);
+    auto *Cond = lower(If->Cond);
+    auto *Then = lower(If->Then);
+    auto *Else = lower(If->Else);
+    auto *NixIf =
+        Ctx.Pool.record(new nix::ExprIf(If->Range.Begin, Cond, Then, Else));
+    return NixIf;
+  }
   }
 
   return nullptr;
