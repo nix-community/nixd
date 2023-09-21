@@ -18,9 +18,14 @@ class ExprAttrsBuilder {
   Lowering &LW;
   nix::ExprAttrs *Result;
 
+  RangeIdx Range;
+
   bool Recursive;
 
-  RangeIdx Range;
+  /// let ... in ...
+  /// It is not allowed to use dynamic binds here, so we want to give diagnostic
+  /// to each occurrence.
+  bool IsLet;
 
   /// Nested attributes, we create a new builder for them, and collapse the map
   /// while finishing
@@ -34,7 +39,8 @@ class ExprAttrsBuilder {
   std::map<nix::Symbol, const syntax::Node *> Fields;
 
 public:
-  ExprAttrsBuilder(Lowering &LW, bool Recursive, RangeIdx Range);
+  ExprAttrsBuilder(Lowering &LW, RangeIdx Range, bool Recursive, bool IsLet);
+
   void addAttr(const syntax::Node *Attr, const syntax::Node *Body,
                bool Recursive);
   void addAttribute(const syntax::Attribute &A);
