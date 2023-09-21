@@ -60,6 +60,65 @@ struct Lowering {
   nix::ExprLambda *lowerFunction(const syntax::Function *Fn);
   nix::Formal lowerFormal(const syntax::Formal &Formal);
   nix::AttrPath lowerAttrPath(const syntax::AttrPath &Path);
+  nix::Expr *lowerOp(const syntax::Node *Op);
+
+private:
+  constexpr static std::string_view LessThan = "__lessThan";
+  constexpr static std::string_view Sub = "__sub";
+  constexpr static std::string_view Mul = "__mul";
+  constexpr static std::string_view Div = "__div";
+
+  nix::ExprVar *mkVar(std::string_view Sym) {
+    return mkVar(STable.create(Sym));
+  }
+
+  nix::ExprVar *mkVar(nix::Symbol Sym) {
+    auto *Var = new nix::ExprVar(Sym);
+    Ctx.Pool.record(Var);
+    return Var;
+  };
+
+  nix::ExprOpNot *mkNot(nix::Expr *Body) {
+    auto *OpNot = new nix::ExprOpNot(Body);
+    Ctx.Pool.record(OpNot);
+    return OpNot;
+  }
+
+  nix::ExprCall *mkCall(std::string_view FnName, nix::PosIdx P,
+                        std::vector<nix::Expr *> Args) {
+    nix::ExprVar *Fn = mkVar(FnName);
+    auto *Nix = new nix::ExprCall(P, Fn, std::move(Args));
+    return Ctx.Pool.record(Nix);
+  }
+
+  template <class SyntaxTy>
+  nix::Expr *lowerCallOp(std::string_view FnName, const syntax::Node *Op,
+                         bool SwapOperands = false, bool Not = false) {
+    auto *SOP = dynamic_cast<const SyntaxTy *>(Op);
+    assert(SOP && "types are not matching between op pointer & syntax type!");
+    nix::Expr *LHS = lower(SOP->LHS);
+    nix::Expr *RHS = lower(SOP->RHS);
+    if (SwapOperands)
+      std::swap(LHS, RHS);
+    nix::PosIdx P = SOP->OpRange.Begin;
+    nix::ExprCall *Call = mkCall(FnName, P, {LHS, RHS});
+    if (Not)
+      return mkNot(Call);
+    return Call;
+  }
+
+  /// The bin-op expression is actually legal in the nix evaluator
+  /// OpImpl -> nix::ExprOpImpl
+  template <class NixTy, class SyntaxTy>
+  NixTy *lowerLegalOp(const syntax::Node *Op) {
+    auto *SOP = dynamic_cast<const SyntaxTy *>(Op);
+    assert(SOP && "types are not matching between op pointer & syntax type!");
+    nix::Expr *LHS = lower(SOP->LHS);
+    nix::Expr *RHS = lower(SOP->RHS);
+    nix::PosIdx P = SOP->OpRange.Begin;
+    auto *Nix = new NixTy(P, LHS, RHS);
+    return Ctx.Pool.record(Nix);
+  }
 };
 
 } // namespace nixd

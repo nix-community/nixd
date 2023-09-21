@@ -6,6 +6,7 @@
 
 #include <nix/nixexpr.hh>
 
+#include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FormatVariadic.h>
 
 #include <memory>
@@ -381,6 +382,101 @@ void ExprAttrsBuilder::addInherited(const syntax::InheritedAttribute &IA) {
   }
 }
 
+nix::Expr *Lowering::lowerOp(const syntax::Node *Op) {
+  if (!Op)
+    return nullptr;
+
+  switch (Op->getKind()) {
+  case Node::NK_OpNot: {
+    const auto *OpNot = dynamic_cast<const syntax::OpNot *>(Op);
+    return mkNot(lower(OpNot->Body));
+  }
+
+  // arithmetic
+  case Node::NK_OpAdd: {
+    // A + B
+    // ->
+    // ExprConcatStrings:
+    //   - pos: "+"
+    //   - forceString: false
+    //   - es: {{A.pos, A}, {B.pos, B}}
+    const auto *OpAdd = dynamic_cast<const syntax::OpAdd *>(Op);
+    nix::Expr *A = lower(OpAdd->LHS);
+    nix::Expr *B = lower(OpAdd->RHS);
+    nix::PosIdx APos = OpAdd->LHS->Range.Begin;
+    nix::PosIdx BPos = OpAdd->RHS->Range.Begin;
+    nix::PosIdx Pos = OpAdd->OpRange.Begin;
+    auto *ES = Ctx.ESPool.record(new EvalContext::ES{{APos, A}, {BPos, B}});
+    auto ECS = new nix::ExprConcatStrings(Pos, /*forceString=*/false, ES);
+    return Ctx.Pool.record(ECS);
+  }
+  case Node::NK_OpSub:
+    return lowerCallOp<syntax::OpSub>(Sub, Op);
+  case Node::NK_OpMul:
+    return lowerCallOp<syntax::OpMul>(Mul, Op);
+  case Node::NK_OpDiv:
+    return lowerCallOp<syntax::OpDiv>(Div, Op);
+
+  // comparison
+  case Node::NK_OpNegate: {
+    // -X
+    // ->
+    // (__sub 0 X)
+    const auto *OpNegate = dynamic_cast<const syntax::OpNegate *>(Op);
+    nix::Expr *I0 = Ctx.Pool.record(new nix::ExprInt(0));
+    nix::Expr *X = lower(OpNegate->Body);
+    nix::PosIdx P = OpNegate->OpRange.Begin;
+    return mkCall(Sub, P, {I0, X});
+  }
+  case Node::NK_OpLe: {
+    // A < B
+    // ->
+    // (__lessThan A B)
+    return lowerCallOp<syntax::OpLe>(LessThan, Op);
+  }
+  case Node::NK_OpLeq: {
+    // A <= B
+    // ->
+    // (! (__lessThan B A))
+    return lowerCallOp<syntax::OpLeq>(LessThan, Op, /*SwapOperands=*/true,
+                                      /*Not=*/true);
+  }
+  case Node::NK_OpGe: {
+    // A > B
+    // ->
+    // (__lessThan B A)
+    return lowerCallOp<syntax::OpGe>(LessThan, Op, /*SwapOperands=*/true);
+  }
+  case Node::NK_OpGeq: {
+    // A >= B
+    // ->
+    // ! (__lessThan A B)
+    return lowerCallOp<syntax::OpGeq>(LessThan, Op, /*SwapOperands=*/false,
+                                      /*Not=*/true);
+  }
+
+  // legal nodes, the list here has the same order with official parser.
+  // src/libexpr/nixexpr.hh, `MakeBinOp`
+  case Node::NK_OpEq:
+    return lowerLegalOp<nix::ExprOpEq, syntax::OpEq>(Op);
+  case Node::NK_OpNEq:
+    return lowerLegalOp<nix::ExprOpNEq, syntax::OpNEq>(Op);
+  case Node::NK_OpAnd:
+    return lowerLegalOp<nix::ExprOpAnd, syntax::OpAnd>(Op);
+  case Node::NK_OpOr:
+    return lowerLegalOp<nix::ExprOpOr, syntax::OpOr>(Op);
+  case Node::NK_OpImpl:
+    return lowerLegalOp<nix::ExprOpImpl, syntax::OpImpl>(Op);
+  case Node::NK_OpUpdate:
+    return lowerLegalOp<nix::ExprOpUpdate, syntax::OpUpdate>(Op);
+  case Node::NK_OpConcatLists:
+    return lowerLegalOp<nix::ExprOpConcatLists, syntax::OpConcatLists>(Op);
+  default:
+    llvm_unreachable("do not know how to lower this op!");
+  }
+  return nullptr;
+}
+
 nix::Expr *Lowering::lower(const syntax::Node *Root) {
   if (!Root)
     return nullptr;
@@ -444,6 +540,16 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     auto *NixIf =
         Ctx.Pool.record(new nix::ExprIf(If->Range.Begin, Cond, Then, Else));
     return NixIf;
+  }
+
+  // operators
+  case Node::NK_OpNot:
+  case Node::NK_OpNegate:
+#define BIN_OP(NAME, _) case Node::NK_##NAME:
+#include "nixd/Syntax/BinaryOps.inc"
+#undef BIN_OP
+  {
+    return lowerOp(Root);
   }
   }
 
