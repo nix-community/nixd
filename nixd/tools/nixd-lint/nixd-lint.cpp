@@ -29,6 +29,9 @@ const OptionCategory *Cat[] = {&Misc};
 opt<bool> DumpNixAST("dump-nix-ast", init(false),
                      desc("Dump the lowered nix AST"), cat(Misc));
 
+opt<bool> ShowPosition("show-position", init(false),
+                       desc("Print location information"), cat(Misc));
+
 static void printCodeLines(std::ostream &Out, const std::string &Prefix,
                            std::shared_ptr<nix::AbstractPos> BeginPos,
                            std::shared_ptr<nix::AbstractPos> EndPos,
@@ -80,6 +83,7 @@ static void printCodeLines(std::ostream &Out, const std::string &Prefix,
 
 struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
   nix::SymbolTable &STable;
+  nix::PosTable &PTable;
   int Depth = 0;
 
   bool traverseExpr(const nix::Expr *E) {
@@ -98,9 +102,23 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     }
     std::cout << nixd::getExprName(E) << ": ";
     E->show(STable, std::cout);
+
+    if (ShowPosition) {
+      std::cout << " ";
+      showPosition(*E);
+    }
+
     std::cout << " ";
     std::cout << "\n";
     return true;
+  }
+
+  void showPosition(const nix::Expr &E) const {
+    nix::PosIdx PID = E.getPos();
+    if (PID != nix::noPos) {
+      nix::Pos Pos = PTable[PID];
+      std::cout << Pos.line << ":" << Pos.column;
+    }
   }
 };
 
@@ -135,7 +153,7 @@ int main(int argc, char *argv[]) {
   nix::Expr *NixTree = Lowering.lower(Data.Result);
 
   if (DumpNixAST) {
-    ASTDump D{.STable = *STable};
+    ASTDump D{.STable = *STable, .PTable = *PTable};
     D.traverseExpr(NixTree);
   }
 
