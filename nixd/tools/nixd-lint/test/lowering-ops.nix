@@ -55,4 +55,8 @@
 
   # CHECK: ExprOpConcatLists: (1 ++ 2)
   Concat = 1 ++ 2;
+
+  # TODO: check that we can deal with dynamic attrpath
+  # CHECK: ExprOpHasAttr: ((1) ? a.b.c)
+  HasAttr = 1 ? a.b.c;
 }

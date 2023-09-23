@@ -382,6 +382,24 @@ void ExprAttrsBuilder::addInherited(const syntax::InheritedAttribute &IA) {
   }
 }
 
+nix::AttrPath Lowering::lowerAttrPath(const syntax::AttrPath &Path) {
+  nix::AttrPath Ret;
+  for (Node *Name : Path.Names) {
+    switch (Name->getKind()) {
+    case Node::NK_Identifier: {
+      nix::Symbol Sym = dynamic_cast<syntax::Identifier *>(Name)->Symbol;
+      Ret.emplace_back(Sym);
+      break;
+    }
+    default: {
+      nix::Expr *E = lower(Name);
+      Ret.emplace_back(E);
+    }
+    }
+  }
+  return Ret;
+}
+
 nix::Expr *Lowering::lowerOp(const syntax::Node *Op) {
   if (!Op)
     return nullptr;
@@ -471,6 +489,15 @@ nix::Expr *Lowering::lowerOp(const syntax::Node *Op) {
     return lowerLegalOp<nix::ExprOpUpdate, syntax::OpUpdate>(Op);
   case Node::NK_OpConcatLists:
     return lowerLegalOp<nix::ExprOpConcatLists, syntax::OpConcatLists>(Op);
+
+  case Node::NK_OpHasAttr: {
+    const auto *OpHasAttr = dynamic_cast<const syntax::OpHasAttr *>(Op);
+    assert(OpHasAttr->Path && "OpHasAttr->Path must not be nullptr! (parser?)");
+    nix::AttrPath Path = lowerAttrPath(*OpHasAttr->Path);
+    nix::Expr *Body = lower(OpHasAttr->Operand);
+    auto *NixOpHasAttr = new nix::ExprOpHasAttr(Body, std::move(Path));
+    return Ctx.Pool.record(NixOpHasAttr);
+  }
   default:
     llvm_unreachable("do not know how to lower this op!");
   }
@@ -545,6 +572,7 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   // operators
   case Node::NK_OpNot:
   case Node::NK_OpNegate:
+  case Node::NK_OpHasAttr:
 #define BIN_OP(NAME, _) case Node::NK_##NAME:
 #include "nixd/Syntax/BinaryOps.inc"
 #undef BIN_OP
