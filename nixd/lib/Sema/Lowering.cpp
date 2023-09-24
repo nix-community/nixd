@@ -601,6 +601,17 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     auto *NixSelect = new nix::ExprSelect(P, Body, std::move(Path), Default);
     return Ctx.Pool.record(NixSelect);
   }
+  case Node::NK_Variable: {
+    const auto *Var = dynamic_cast<const syntax::Variable *>(Root);
+    nix::Expr *Ret;
+    nix::PosIdx P = Var->Range.Begin;
+    nix::Symbol Sym = Var->ID->Symbol;
+    if (Sym == STable.create(CurPos))
+      Ret = new nix::ExprPos(P);
+    else
+      Ret = new nix::ExprVar(P, Sym);
+    return Ctx.Pool.record(Ret);
+  }
 
   } // switch
 
