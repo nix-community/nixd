@@ -612,6 +612,26 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
       Ret = new nix::ExprVar(P, Sym);
     return Ctx.Pool.record(Ret);
   }
+  case Node::NK_String: {
+    const auto *String = dynamic_cast<const syntax::String *>(Root);
+    auto *NixString = new nix::ExprString(std::string(String->S));
+    return Ctx.Pool.record(NixString);
+  }
+  case Node::NK_ConcatStrings: {
+    const auto *CS = dynamic_cast<const syntax::ConcatStrings *>(Root);
+    nix::PosIdx P = CS->Range.Begin;
+    auto *ES = Ctx.ESPool.record(new EvalContext::ES);
+    for (Node *SubStr : CS->SubStrings) {
+      auto *NixSubStr = lower(SubStr);
+      ES->emplace_back(std::pair{SubStr->Range.Begin, NixSubStr});
+    }
+    auto *NixConcatStrings = new nix::ExprConcatStrings(P, CS->ForceString, ES);
+    return Ctx.Pool.record(NixConcatStrings);
+  }
+  case Node::NK_InterpExpr: {
+    const auto *IE = dynamic_cast<const syntax::InterpExpr *>(Root);
+    return lower(IE->Body);
+  }
 
   } // switch
 
