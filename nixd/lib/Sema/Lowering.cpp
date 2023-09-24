@@ -591,6 +591,17 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     auto *NixCall = new nix::ExprCall(Call->Range.Begin, Fn, std::move(Args));
     return Ctx.Pool.record(NixCall);
   }
+  case Node::NK_Select: {
+    const auto *Select = dynamic_cast<const syntax::Select *>(Root);
+    nix::Expr *Body = lower(Select->Body);
+    nix::Expr *Default = lower(Select->Default);
+    nix::PosIdx P = Select->Range.Begin;
+    assert(Select->Path && "Select->Path must be non-null!");
+    nix::AttrPath Path = lowerAttrPath(*Select->Path);
+    auto *NixSelect = new nix::ExprSelect(P, Body, std::move(Path), Default);
+    return Ctx.Pool.record(NixSelect);
+  }
+
   } // switch
 
   return nullptr;
