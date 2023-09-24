@@ -579,7 +579,19 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   {
     return lowerOp(Root);
   }
+
+  case Node::NK_Call: {
+    const auto *Call = dynamic_cast<const syntax::Call *>(Root);
+    nix::Expr *Fn = lower(Call->Fn);
+    std::vector<nix::Expr *> Args;
+
+    for (Node *Arg : Call->Args)
+      Args.emplace_back(lower(Arg));
+
+    auto *NixCall = new nix::ExprCall(Call->Range.Begin, Fn, std::move(Args));
+    return Ctx.Pool.record(NixCall);
   }
+  } // switch
 
   return nullptr;
 }
