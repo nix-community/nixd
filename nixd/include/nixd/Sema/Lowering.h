@@ -69,6 +69,8 @@ private:
   constexpr static std::string_view Div = "__div";
   constexpr static std::string_view CurPos = "__curPos";
 
+  nix::Expr *stripIndentation(const syntax::IndStringParts &ISP);
+
   nix::ExprVar *mkVar(std::string_view Sym) {
     return mkVar(STable.create(Sym));
   }

@@ -504,6 +504,114 @@ nix::Expr *Lowering::lowerOp(const syntax::Node *Op) {
   return nullptr;
 }
 
+nix::Expr *Lowering::stripIndentation(const syntax::IndStringParts &ISP) {
+  // Note: this function is adopted from the offical implementation, see the
+  // comments there for what they want to do.
+  // @stripIndentation,  src/libexpr/parser.y
+  if (ISP.SubStrings.empty())
+    return Ctx.Pool.record(new nix::ExprString(""));
+
+  bool AtStartOfLine = true;
+  std::size_t MinIndent = 1000000;
+  std::size_t CurIndent = 0;
+  for (Node *SubStr : ISP.SubStrings) {
+    auto *IndStr = dynamic_cast<syntax::IndString *>(SubStr);
+    if (!IndStr || !IndStr->HasIndentation) {
+      if (AtStartOfLine) {
+        AtStartOfLine = false;
+        MinIndent = std::min(CurIndent, MinIndent);
+      }
+      continue;
+    }
+    for (char C : IndStr->S) {
+      if (AtStartOfLine) {
+        if (C == ' ') {
+          CurIndent++;
+        } else if (C == '\n') {
+          CurIndent = 0;
+        } else {
+          AtStartOfLine = false;
+          MinIndent = std::min(CurIndent, MinIndent);
+        }
+      } else if (C == '\n') {
+        AtStartOfLine = true;
+        CurIndent = 0;
+      }
+    }
+  }
+
+  auto NewES = new EvalContext::ES();
+  AtStartOfLine = true;
+  std::size_t CurDropped = 0;
+  auto I = ISP.SubStrings.begin();
+  auto N = ISP.SubStrings.size();
+
+  const auto TrimExpr = [&](nix::Expr *E) {
+    AtStartOfLine = false;
+    CurDropped = 0;
+    NewES->emplace_back(std::pair{(*I)->Range.Begin, E});
+  };
+
+  const auto TrimString = [&](std::string &Before) {
+    std::string After;
+    for (char C : Before) {
+      if (AtStartOfLine) {
+        if (C == ' ') {
+          if (CurDropped >= MinIndent)
+            After += C;
+        } else if (C == '\n') {
+          CurDropped = 0;
+          After += C;
+        } else {
+          AtStartOfLine = false;
+          CurDropped = 0;
+          After += C;
+        }
+      } else {
+        After += C;
+        if (C == '\n')
+          AtStartOfLine = true;
+      }
+    }
+
+    if (N == 1) {
+      auto P = After.find_last_of('\n');
+      if (P != std::string::npos &&
+          After.find_first_not_of(' ', P + 1) == std::string::npos)
+        After = std::string(After, 0, P + 1);
+    }
+
+    NewES->emplace_back((*I)->Range.Begin,
+                        Ctx.Pool.record(new nix::ExprString(std::move(After))));
+  };
+
+  for (; I != ISP.SubStrings.end(); ++I, --N) {
+    switch ((*I)->getKind()) {
+    case Node::NK_IndString: {
+      auto *IndStr = dynamic_cast<syntax::IndString *>(*I);
+      TrimString(IndStr->S);
+      break;
+    }
+    case Node::NK_InterpExpr: {
+      auto *IE = dynamic_cast<syntax::InterpExpr *>(*I);
+      TrimExpr(lower(IE->Body));
+      break;
+    }
+    default:
+      llvm_unreachable("encountered neither of string nor interpolated expre "
+                       "in indented strings!");
+    }
+  }
+
+  if (NewES->size() == 1) {
+    if (auto *EStr = dynamic_cast<nix::ExprString *>((*NewES)[0].second)) {
+      return EStr;
+    }
+  }
+  return Ctx.Pool.record(
+      new nix::ExprConcatStrings(ISP.Range.Begin, /*forceString=*/true, NewES));
+}
+
 nix::Expr *Lowering::lower(const syntax::Node *Root) {
   if (!Root)
     return nullptr;
@@ -631,6 +739,10 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   case Node::NK_InterpExpr: {
     const auto *IE = dynamic_cast<const syntax::InterpExpr *>(Root);
     return lower(IE->Body);
+  }
+  case Node::NK_IndStringParts: {
+    const auto *ISP = dynamic_cast<const syntax::IndStringParts *>(Root);
+    return stripIndentation(*ISP);
   }
 
   } // switch
