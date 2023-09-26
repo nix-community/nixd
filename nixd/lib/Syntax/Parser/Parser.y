@@ -288,7 +288,7 @@ expr_simple
   }
   | LET '{' binds '}' {
     auto N = decorateNode(new LegacyLet, *yylocp, *Data);
-    N->AttrBinds = $3;
+    N->Binds = $3;
     $$ = N;
 
     Diagnostic Diag;
@@ -299,13 +299,13 @@ expr_simple
   }
   | REC '{' binds '}' {
     auto N = decorateNode(new AttrSet, *yylocp, *Data);
-    N->AttrBinds = $3;
+    N->Binds = $3;
     N->Recursive = true;
     $$ = N;
   }
   | '{' binds '}' {
     auto N = decorateNode(new AttrSet, *yylocp, *Data);
-    N->AttrBinds = $2;
+    N->Binds = $2;
     N->Recursive = false;
     $$ = N;
   }

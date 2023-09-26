@@ -171,13 +171,13 @@ NODE(Braced, {
 })
 
 NODE(AttrSet, {
-  Binds *AttrBinds;
+  syntax::Binds *Binds;
   bool Recursive;
   COMMON_METHOD
 })
 
 NODE(LegacyLet, {
-  Binds *AttrBinds;
+  syntax::Binds *Binds;
   COMMON_METHOD
 })
 

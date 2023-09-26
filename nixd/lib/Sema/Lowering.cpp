@@ -213,8 +213,8 @@ void ExprAttrsBuilder::addAttrSet(const syntax::AttrSet &AS) {
     auto Diag = mkRecDiag(Range, AS.Range, Recursive, AS.Recursive);
     LW.Diags.emplace_back(std::move(Diag));
   }
-  assert(AS.AttrBinds && "binds should not be empty! parser error?");
-  addBinds(*AS.AttrBinds);
+  assert(AS.Binds && "binds should not be empty! parser error?");
+  addBinds(*AS.Binds);
 }
 
 void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
@@ -246,7 +246,7 @@ void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
         const auto *BodyAttrSet = dynamic_cast<const syntax::AttrSet *>(Body);
         Nested[Sym] = std::make_unique<ExprAttrsBuilder>(
             LW, BodyAttrSet->Range, BodyAttrSet->Recursive, IsLet);
-        Nested[Sym]->addBinds(*BodyAttrSet->AttrBinds);
+        Nested[Sym]->addBinds(*BodyAttrSet->Binds);
       } else {
         nix::ExprAttrs::AttrDef Def(LW.lower(Body), Attr->Range.Begin);
         Result->attrs.insert({Sym, Def});
@@ -640,10 +640,10 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   }
   case Node::NK_AttrSet: {
     const auto *AttrSet = dynamic_cast<const syntax::AttrSet *>(Root);
-    assert(AttrSet->AttrBinds && "null AttrBinds of the AttrSet!");
+    assert(AttrSet->Binds && "null Binds of the AttrSet!");
     ExprAttrsBuilder Builder(*this, AttrSet->Range, AttrSet->Recursive,
                              /*IsLet=*/false);
-    Builder.addBinds(*AttrSet->AttrBinds);
+    Builder.addBinds(*AttrSet->Binds);
     return Builder.finish();
   }
   case Node::NK_Int: {
@@ -671,9 +671,9 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   case Node::NK_LegacyLet: {
     // let { ..., .body = ... } -> rec { ..., body = ... }.body
     const auto *LegacyLet = dynamic_cast<const syntax::LegacyLet *>(Root);
-    ExprAttrsBuilder Builder(*this, LegacyLet->AttrBinds->Range,
+    ExprAttrsBuilder Builder(*this, LegacyLet->Binds->Range,
                              /*Recursive=*/true, /*IsLet=*/false);
-    Builder.addBinds(*LegacyLet->AttrBinds);
+    Builder.addBinds(*LegacyLet->Binds);
     nix::ExprAttrs *Attrs = Builder.finish();
     return Ctx.Pool.record(
         new nix::ExprSelect(nix::noPos, Attrs, STable.create("body")));
