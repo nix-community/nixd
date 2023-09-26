@@ -149,7 +149,11 @@ int main(int argc, char *argv[]) {
 
   nixd::EvalContext Ctx;
   nixd::Lowering Lowering{
-      .STable = *STable, .PTable = *PTable, .Diags = Data.Diags, .Ctx = Ctx};
+      .STable = *STable,
+      .PTable = *PTable,
+      .Diags = Data.Diags,
+      .Ctx = Ctx,
+      .BasePath = nix::SourcePath(nix::CanonPath(BasePath.string()))};
   nix::Expr *NixTree = Lowering.lower(Data.Result);
 
   if (DumpNixAST) {

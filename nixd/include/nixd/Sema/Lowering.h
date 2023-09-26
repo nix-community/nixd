@@ -4,6 +4,7 @@
 #include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Nodes.h"
 
+#include <nix/input-accessor.hh>
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 
@@ -55,6 +56,7 @@ struct Lowering {
   nix::PosTable &PTable;
   std::vector<syntax::Diagnostic> &Diags;
   EvalContext &Ctx;
+  const nix::SourcePath &BasePath;
 
   nix::Expr *lower(const syntax::Node *Root);
   nix::ExprLambda *lowerFunction(const syntax::Function *Fn);
@@ -68,6 +70,8 @@ private:
   constexpr static std::string_view Mul = "__mul";
   constexpr static std::string_view Div = "__div";
   constexpr static std::string_view CurPos = "__curPos";
+  constexpr static std::string_view FindFile = "__findFile";
+  constexpr static std::string_view NixPath = "__nixPath";
 
   nix::Expr *stripIndentation(const syntax::IndStringParts &ISP);
 

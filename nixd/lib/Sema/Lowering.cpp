@@ -3,6 +3,7 @@
 #include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Nodes.h"
 #include "nixd/Syntax/Range.h"
+#include "util.hh"
 
 #include <nix/nixexpr.hh>
 
@@ -743,6 +744,37 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
   case Node::NK_IndStringParts: {
     const auto *ISP = dynamic_cast<const syntax::IndStringParts *>(Root);
     return stripIndentation(*ISP);
+  }
+  case Node::NK_Path: {
+    const auto *Path = dynamic_cast<const syntax::Path *>(Root);
+    const std::string &S = Path->S;
+
+    // conformance hack for offical parser.
+    // add back in the trailing '/' to the first segment
+    nix::Path NixPath(nix::absPath(S, BasePath.path.abs()));
+    if (S.length() > 1 && S.back() == '/')
+      NixPath += "/";
+
+    return Ctx.Pool.record(new nix::ExprPath(std::move(NixPath)));
+  }
+  case Node::NK_SPath: {
+    // <nixpkgs> -> (__findPath __nixPath nixpkgs)
+    const auto *SPath = dynamic_cast<const syntax::SPath *>(Root);
+
+    // strip '<' '>'
+    std::string Path = SPath->S.substr(1, SPath->S.length() - 2);
+
+    nix::PosIdx Pos = SPath->Range.Begin;
+    nix::ExprVar *Fn = mkVar(FindFile);
+    nix::ExprVar *NP = mkVar(NixPath);
+    auto *Arg = Ctx.Pool.record(new nix::ExprString(std::move(Path)));
+    return Ctx.Pool.record(new nix::ExprCall(Pos, Fn, {NP, Arg}));
+  }
+  case Node::NK_HPath: {
+    // HPath,  ~/. -> $HOME
+    const auto *HPath = dynamic_cast<const syntax::HPath *>(Root);
+    nix::Path Path(nix::getHome() + HPath->S.substr(1, HPath->S.length() - 1));
+    return Ctx.Pool.record(new nix::ExprPath(std::move(Path)));
   }
 
   } // switch
