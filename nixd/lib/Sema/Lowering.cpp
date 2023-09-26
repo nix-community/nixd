@@ -668,6 +668,16 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     auto *Ret = new nix::ExprLet(Attrs, Body);
     return Ret;
   }
+  case Node::NK_LegacyLet: {
+    // let { ..., .body = ... } -> rec { ..., body = ... }.body
+    const auto *LegacyLet = dynamic_cast<const syntax::LegacyLet *>(Root);
+    ExprAttrsBuilder Builder(*this, LegacyLet->AttrBinds->Range,
+                             /*Recursive=*/true, /*IsLet=*/false);
+    Builder.addBinds(*LegacyLet->AttrBinds);
+    nix::ExprAttrs *Attrs = Builder.finish();
+    return Ctx.Pool.record(
+        new nix::ExprSelect(nix::noPos, Attrs, STable.create("body")));
+  }
   case Node::NK_If: {
     const auto *If = dynamic_cast<const syntax::If *>(Root);
     auto *Cond = lower(If->Cond);
@@ -776,6 +786,26 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     nix::Path Path(nix::getHome() + HPath->S.substr(1, HPath->S.length() - 1));
     return Ctx.Pool.record(new nix::ExprPath(std::move(Path)));
   }
+  case Node::NK_List: {
+    // [ a b c ]
+    const auto *List = dynamic_cast<const syntax::List *>(Root);
+    auto *Ret = Ctx.Pool.record(new nix::ExprList);
+    for (Node *Elem : List->Body->Elems) {
+      Ret->elems.emplace_back(lower(Elem));
+    }
+    return Ret;
+  }
+  case Node::NK_URI: {
+    const auto *URI = dynamic_cast<const syntax::URI *>(Root);
+    auto *NixString = new nix::ExprString(std::string(URI->S));
+    return Ctx.Pool.record(NixString);
+  }
+  case Node::NK_Braced: {
+    const auto *Braced = dynamic_cast<const syntax::Braced *>(Root);
+    return lower(Braced->Body);
+  }
+  default:
+    llvm_unreachable("don't know how to lowering this node!");
 
   } // switch
 
