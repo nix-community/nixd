@@ -3,9 +3,9 @@
 #include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Nodes.h"
 #include "nixd/Syntax/Range.h"
-#include "util.hh"
 
 #include <nix/nixexpr.hh>
+#include <nix/util.hh>
 
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/FormatVariadic.h>
@@ -65,7 +65,7 @@ nix::ExprLambda *Lowering::lowerFunction(const syntax::Function *Fn) {
       if (Names.contains(Sym)) {
         // We have seen this symbol before, so this formal is duplicated
         const syntax::Formal *Previous = Names[Sym];
-        syntax::Diagnostic Diag;
+        Diagnostic Diag;
         Diag.Kind = syntax::Diagnostic::Error;
         Diag.Msg = "duplicated function formal declaration";
         Diag.Range = Formal->Range;
@@ -426,7 +426,7 @@ nix::Expr *Lowering::lowerOp(const syntax::Node *Op) {
     nix::PosIdx BPos = OpAdd->RHS->Range.Begin;
     nix::PosIdx Pos = OpAdd->OpRange.Begin;
     auto *ES = Ctx.ESPool.record(new EvalContext::ES{{APos, A}, {BPos, B}});
-    auto ECS = new nix::ExprConcatStrings(Pos, /*forceString=*/false, ES);
+    auto *ECS = new nix::ExprConcatStrings(Pos, /*forceString=*/false, ES);
     return Ctx.Pool.record(ECS);
   }
   case Node::NK_OpSub:
@@ -541,7 +541,7 @@ nix::Expr *Lowering::stripIndentation(const syntax::IndStringParts &ISP) {
     }
   }
 
-  auto NewES = new EvalContext::ES();
+  auto *NewES = new EvalContext::ES();
   AtStartOfLine = true;
   std::size_t CurDropped = 0;
   auto I = ISP.SubStrings.begin();
@@ -599,7 +599,7 @@ nix::Expr *Lowering::stripIndentation(const syntax::IndStringParts &ISP) {
       break;
     }
     default:
-      llvm_unreachable("encountered neither of string nor interpolated expre "
+      llvm_unreachable("encountered neither string nor interpolated expr"
                        "in indented strings!");
     }
   }
@@ -664,9 +664,7 @@ nix::Expr *Lowering::lower(const syntax::Node *Root) {
     // recursive, and we should not mark `rec` to the evaluator, because the
     // official parser does not do this also.
     Attrs->recursive = false;
-
-    auto *Ret = new nix::ExprLet(Attrs, Body);
-    return Ret;
+    return Ctx.Pool.record(new nix::ExprLet(Attrs, Body));
   }
   case Node::NK_LegacyLet: {
     // let { ..., .body = ... } -> rec { ..., body = ... }.body
