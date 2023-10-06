@@ -1903,6 +1903,9 @@ struct ConfigurationParams {
 
 llvm::json::Value toJSON(const ConfigurationParams &);
 
+bool fromJSON(const llvm::json::Value &E, llvm::json::Value &R,
+              llvm::json::Path P);
+
 } // namespace lspserver
 namespace llvm {
 template <> struct format_provider<lspserver::Position> {

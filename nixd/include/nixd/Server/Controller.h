@@ -136,7 +136,7 @@ private:
       PublishDiagnostic;
 
   llvm::unique_function<void(const lspserver::ConfigurationParams &,
-                             lspserver::Callback<configuration::TopLevel>)>
+                             lspserver::Callback<llvm::json::Value>)>
       WorkspaceConfiguration;
 
   std::mutex DiagStatusLock;

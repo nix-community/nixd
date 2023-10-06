@@ -1498,4 +1498,10 @@ llvm::json::Value toJSON(const ConfigurationParams &N) {
   return llvm::json::Object{{"items", N.items}};
 }
 
+bool fromJSON(const llvm::json::Value &E, llvm::json::Value &R,
+              llvm::json::Path P) {
+  R = E;
+  return true;
+}
+
 } // namespace lspserver

@@ -1,3 +1,4 @@
+#include "lspserver/LSPBinder.h"
 #include "nixd-config.h"
 
 #include "nixd/AST/AttrLocator.h"
@@ -204,9 +205,15 @@ void Controller::fetchConfig() {
         lspserver::ConfigurationParams{
             std::vector<lspserver::ConfigurationItem>{
                 lspserver::ConfigurationItem{.section = "nixd"}}},
-        [this](llvm::Expected<configuration::TopLevel> Response) {
+        [this](llvm::Expected<llvm::json::Value> Response) {
           if (Response) {
-            updateConfig(std::move(Response.get()));
+            llvm::Expected<configuration::TopLevel> ResponseConfig =
+                lspserver::parseParamWithDefault<configuration::TopLevel>(
+                    Response.get(), "workspace/configuration", "reply",
+                    JSONConfig);
+            if (ResponseConfig) {
+              updateConfig(std::move(ResponseConfig.get()));
+            }
           }
         });
   }
@@ -262,8 +269,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   configuration::TopLevel JSONConfigCopy = JSONConfig;
   updateConfig(std::move(JSONConfigCopy));
   WorkspaceConfiguration =
-      mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
-          "workspace/configuration", nullptr, JSONConfig);
+      mkOutMethod<lspserver::ConfigurationParams, llvm::json::Value>(
+          "workspace/configuration", nullptr);
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
