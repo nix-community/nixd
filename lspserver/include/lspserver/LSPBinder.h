@@ -6,18 +6,29 @@
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/JSON.h>
+#include <type_traits>
 
 namespace lspserver {
 
 namespace detail {
+
+template <typename T>
+typename std::enable_if<std::is_default_constructible_v<T>, T>::type
+valueOrDefault(const std::optional<T> &OptionalDefault) {
+  return OptionalDefault ? OptionalDefault.value() : T();
+}
+
+template <typename T>
+typename std::enable_if<!std::is_default_constructible_v<T>, T>::type
+valueOrDefault(const std::optional<T> &OptionalDefault) {
+  return OptionalDefault.value();
+}
+
 template <typename T>
 llvm::Expected<T> parseParamWithOptionalDefault(
     const llvm::json::Value &Raw, llvm::StringRef PayloadName,
     llvm::StringRef PayloadKind, std::optional<T> OptionalDefault = {}) {
-  T Result;
-  if (OptionalDefault) {
-    Result = std::move(OptionalDefault.value());
-  }
+  T Result = valueOrDefault(OptionalDefault);
   llvm::json::Path::Root Root;
   if (!fromJSON(Raw, Result, Root)) {
     elog("Failed to decode {0} {1}: {2}", PayloadName, PayloadKind,
@@ -35,12 +46,14 @@ llvm::Expected<T> parseParamWithOptionalDefault(
   }
   return Result;
 }
+
 } // namespace detail
 
 template <typename T>
-llvm::Expected<T> parseParam(const llvm::json::Value &Raw,
-                             llvm::StringRef PayloadName,
-                             llvm::StringRef PayloadKind) {
+typename std::enable_if<std::is_default_constructible_v<T>,
+                        llvm::Expected<T>>::type
+parseParam(const llvm::json::Value &Raw, llvm::StringRef PayloadName,
+           llvm::StringRef PayloadKind) {
   return detail::parseParamWithOptionalDefault<T>(Raw, PayloadName,
                                                   PayloadKind);
 }
