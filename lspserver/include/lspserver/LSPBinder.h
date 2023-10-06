@@ -9,11 +9,15 @@
 
 namespace lspserver {
 
+namespace detail {
 template <typename T>
-llvm::Expected<T> parseParam(const llvm::json::Value &Raw,
-                             llvm::StringRef PayloadName,
-                             llvm::StringRef PayloadKind, T Base = T()) {
-  T Result = Base;
+llvm::Expected<T> parseParamWithOptionalDefault(
+    const llvm::json::Value &Raw, llvm::StringRef PayloadName,
+    llvm::StringRef PayloadKind, std::optional<T> OptionalDefault = {}) {
+  T Result;
+  if (OptionalDefault) {
+    Result = std::move(OptionalDefault.value());
+  }
   llvm::json::Path::Root Root;
   if (!fromJSON(Raw, Result, Root)) {
     elog("Failed to decode {0} {1}: {2}", PayloadName, PayloadKind,
@@ -31,6 +35,24 @@ llvm::Expected<T> parseParam(const llvm::json::Value &Raw,
   }
   return Result;
 }
+} // namespace detail
+
+template <typename T>
+llvm::Expected<T> parseParam(const llvm::json::Value &Raw,
+                             llvm::StringRef PayloadName,
+                             llvm::StringRef PayloadKind) {
+  return detail::parseParamWithOptionalDefault<T>(Raw, PayloadName,
+                                                  PayloadKind);
+}
+
+template <typename T>
+llvm::Expected<T>
+parseParamWithDefault(const llvm::json::Value &Raw, llvm::StringRef PayloadName,
+                      llvm::StringRef PayloadKind, T Default) {
+  return detail::parseParamWithOptionalDefault<T>(Raw, PayloadName, PayloadKind,
+                                                  Default);
+}
+
 struct HandlerRegistry {
   using JSON = llvm::json::Value;
   template <typename HandlerT>

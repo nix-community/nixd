@@ -77,8 +77,8 @@ protected:
               llvm::Expected<llvm::json::Value> Response) mutable {
             if (!Response)
               return Reply(Response.takeError());
-            Reply(parseParam<ResponseTy>(std::move(*Response), Method, "reply",
-                                         Base));
+            Reply(parseParamWithDefault<ResponseTy>(std::move(*Response),
+                                                    Method, "reply", Base));
           },
           O);
     };
