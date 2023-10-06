@@ -205,12 +205,12 @@ void Controller::fetchConfig() {
         lspserver::ConfigurationParams{
             std::vector<lspserver::ConfigurationItem>{
                 lspserver::ConfigurationItem{.section = "nixd"}}},
-        [this](llvm::Expected<llvm::json::Value> Response) {
+        [this](llvm::Expected<OptionalValue> Response) {
           if (Response) {
             llvm::Expected<configuration::TopLevel> ResponseConfig =
                 lspserver::parseParamWithDefault<configuration::TopLevel>(
-                    Response.get(), "workspace/configuration", "reply",
-                    JSONConfig);
+                    Response.get().Value.value(), "workspace/configuration",
+                    "reply", JSONConfig);
             if (ResponseConfig) {
               updateConfig(std::move(ResponseConfig.get()));
             }
@@ -269,7 +269,7 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   configuration::TopLevel JSONConfigCopy = JSONConfig;
   updateConfig(std::move(JSONConfigCopy));
   WorkspaceConfiguration =
-      mkOutMethod<lspserver::ConfigurationParams, llvm::json::Value>(
+      mkOutMethod<lspserver::ConfigurationParams, OptionalValue>(
           "workspace/configuration", nullptr);
 
   // Life Cycle
@@ -800,4 +800,11 @@ void Controller::onFormat(
   };
   boost::asio::post(Pool, std::move(Task));
 }
+
+bool fromJSON(const llvm::json::Value &E, OptionalValue &R,
+              llvm::json::Path P) {
+  R.Value = E;
+  return true;
+}
+
 } // namespace nixd

@@ -41,6 +41,12 @@
 
 namespace nixd {
 
+struct OptionalValue {
+  std::optional<llvm::json::Value> Value;
+};
+
+bool fromJSON(const llvm::json::Value &E, OptionalValue &R, llvm::json::Path P);
+
 /// The server instance, nix-related language features goes here
 class Controller : public lspserver::LSPServer {
 public:
@@ -136,7 +142,7 @@ private:
       PublishDiagnostic;
 
   llvm::unique_function<void(const lspserver::ConfigurationParams &,
-                             lspserver::Callback<llvm::json::Value>)>
+                             lspserver::Callback<OptionalValue>)>
       WorkspaceConfiguration;
 
   std::mutex DiagStatusLock;
