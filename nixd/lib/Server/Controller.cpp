@@ -15,6 +15,7 @@
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
+#include "lspserver/LSPBinder.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
@@ -204,9 +205,15 @@ void Controller::fetchConfig() {
         lspserver::ConfigurationParams{
             std::vector<lspserver::ConfigurationItem>{
                 lspserver::ConfigurationItem{.section = "nixd"}}},
-        [this](llvm::Expected<configuration::TopLevel> Response) {
+        [this](llvm::Expected<OptionalValue> Response) {
           if (Response) {
-            updateConfig(std::move(Response.get()));
+            llvm::Expected<configuration::TopLevel> ResponseConfig =
+                lspserver::parseParamWithDefault<configuration::TopLevel>(
+                    Response.get().Value.value(), "workspace/configuration",
+                    "reply", DefaultConfig);
+            if (ResponseConfig) {
+              updateConfig(std::move(ResponseConfig.get()));
+            }
           }
         });
   }
@@ -226,20 +233,23 @@ Controller::parseConfig(llvm::StringRef JSON) {
   return lspserver::error("value cannot be converted to internal config type");
 }
 
-void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
+bool Controller::readJSONConfigToDefault(lspserver::PathRef File) noexcept {
   try {
     std::string ConfigStr;
     std::ostringstream SS;
     std::ifstream In(File.str(), std::ios::in);
     SS << In.rdbuf();
 
-    if (auto NewConfig = parseConfig(SS.str()))
-      updateConfig(std::move(NewConfig.get()));
-    else {
-      throw nix::Error("configuration cannot be parsed");
+    if (auto NewConfig = parseConfig(SS.str())) {
+      DefaultConfig = std::move(NewConfig.get());
+      return true;
     }
+
+    throw nix::Error(".nixd.json configuration cannot be parsed");
   } catch (std::exception &E) {
+    return false;
   } catch (...) {
+    return false;
   }
 }
 
@@ -256,6 +266,16 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        int WaitWorker)
     : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker),
       ASTMgr(Pool) {
+
+  // JSON Config, run before initialize
+  if (readJSONConfigToDefault()) {
+    configuration::TopLevel JSONConfigCopy = DefaultConfig;
+    updateConfig(std::move(JSONConfigCopy));
+  };
+
+  WorkspaceConfiguration =
+      mkOutMethod<lspserver::ConfigurationParams, OptionalValue>(
+          "workspace/configuration", nullptr);
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
@@ -293,17 +313,12 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   // Workspace
   Registry.addNotification("workspace/didChangeConfiguration", this,
                            &Controller::onWorkspaceDidChangeConfiguration);
-  WorkspaceConfiguration =
-      mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
-          "workspace/configuration");
 
   /// IPC
   Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Controller::onEvalDiagnostic);
 
   Registry.addNotification("nixd/ipc/finished", this, &Controller::onFinished);
-
-  readJSONConfig();
 }
 
 //-----------------------------------------------------------------------------/
@@ -790,4 +805,11 @@ void Controller::onFormat(
   };
   boost::asio::post(Pool, std::move(Task));
 }
+
+bool fromJSON(const llvm::json::Value &E, OptionalValue &R,
+              llvm::json::Path P) {
+  R.Value = E;
+  return true;
+}
+
 } // namespace nixd
