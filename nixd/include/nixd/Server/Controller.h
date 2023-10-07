@@ -128,7 +128,10 @@ private:
 
   std::mutex ConfigLock;
 
-  configuration::TopLevel JSONConfig;
+  // When the server starts, DefaultConfig is set to the
+  // parsed contents of .nixd.json if it exists. This is used
+  // as the default when parsing workspace/configuration.
+  configuration::TopLevel DefaultConfig;
   configuration::TopLevel Config; // GUARDED_BY(ConfigLock)
 
   std::shared_ptr<const std::string> getDraft(lspserver::PathRef File) const;
@@ -262,9 +265,10 @@ public:
   static llvm::Expected<configuration::TopLevel>
   parseConfig(llvm::StringRef JSON);
 
-  /// Try to update the server config from json encoded file \p File
-  /// Won't touch config field if exceptions encountered
-  void readJSONConfig(lspserver::PathRef File = ".nixd.json") noexcept;
+  /// Try to update the default config from json encoded file \p File
+  /// Won't touch default config field if exceptions encountered
+  /// Returns true if the default config is set and false otherwise.
+  bool readJSONConfigToDefault(lspserver::PathRef File = ".nixd.json") noexcept;
 
   void onWorkspaceDidChangeConfiguration(
       const lspserver::DidChangeConfigurationParams &) {

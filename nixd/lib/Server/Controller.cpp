@@ -210,7 +210,7 @@ void Controller::fetchConfig() {
             llvm::Expected<configuration::TopLevel> ResponseConfig =
                 lspserver::parseParamWithDefault<configuration::TopLevel>(
                     Response.get().Value.value(), "workspace/configuration",
-                    "reply", JSONConfig);
+                    "reply", DefaultConfig);
             if (ResponseConfig) {
               updateConfig(std::move(ResponseConfig.get()));
             }
@@ -233,7 +233,7 @@ Controller::parseConfig(llvm::StringRef JSON) {
   return lspserver::error("value cannot be converted to internal config type");
 }
 
-void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
+bool Controller::readJSONConfigToDefault(lspserver::PathRef File) noexcept {
   try {
     std::string ConfigStr;
     std::ostringstream SS;
@@ -241,12 +241,15 @@ void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
     SS << In.rdbuf();
 
     if (auto NewConfig = parseConfig(SS.str())) {
-      JSONConfig = std::move(NewConfig.get());
-    } else {
-      throw nix::Error("configuration cannot be parsed");
+      DefaultConfig = std::move(NewConfig.get());
+      return true;
     }
+
+    throw nix::Error(".nixd.json configuration cannot be parsed");
   } catch (std::exception &E) {
+    return false;
   } catch (...) {
+    return false;
   }
 }
 
@@ -265,9 +268,11 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
       ASTMgr(Pool) {
 
   // JSON Config, run before initialize
-  readJSONConfig();
-  configuration::TopLevel JSONConfigCopy = JSONConfig;
-  updateConfig(std::move(JSONConfigCopy));
+  if (readJSONConfigToDefault()) {
+    configuration::TopLevel JSONConfigCopy = DefaultConfig;
+    updateConfig(std::move(JSONConfigCopy));
+  };
+
   WorkspaceConfiguration =
       mkOutMethod<lspserver::ConfigurationParams, OptionalValue>(
           "workspace/configuration", nullptr);
