@@ -1,4 +1,3 @@
-#include "lspserver/LSPBinder.h"
 #include "nixd-config.h"
 
 #include "nixd/AST/AttrLocator.h"
@@ -16,6 +15,7 @@
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
+#include "lspserver/LSPBinder.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
