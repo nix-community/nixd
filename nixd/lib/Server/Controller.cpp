@@ -207,10 +207,16 @@ void Controller::fetchConfig() {
                 lspserver::ConfigurationItem{.section = "nixd"}}},
         [this](llvm::Expected<OptionalValue> Response) {
           if (Response) {
+            const llvm::json::Value FirstConfig =
+                Response.get().Value.value().getAsArray()->front();
+            if (FirstConfig.kind() == llvm::json::Value::Null) {
+              lspserver::log("workspace/configuration is not set");
+              return;
+            }
             llvm::Expected<configuration::TopLevel> ResponseConfig =
                 lspserver::parseParamWithDefault<configuration::TopLevel>(
-                    Response.get().Value.value(), "workspace/configuration",
-                    "reply", DefaultConfig);
+                    FirstConfig, "workspace/configuration", "reply",
+                    DefaultConfig);
             if (ResponseConfig) {
               updateConfig(std::move(ResponseConfig.get()));
             }
