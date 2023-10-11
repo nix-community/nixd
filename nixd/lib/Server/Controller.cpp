@@ -207,8 +207,16 @@ void Controller::fetchConfig() {
                 lspserver::ConfigurationItem{.section = "nixd"}}},
         [this](llvm::Expected<OptionalValue> Response) {
           if (Response) {
+            const llvm::json::Value ResponseValue =
+                Response.get().Value.value();
+            if (ResponseValue.kind() != llvm::json::Value::Array) {
+              lspserver::elog(
+                  "workspace/configuration response is not an array: {0}",
+                  ResponseValue);
+              return;
+            }
             const llvm::json::Value FirstConfig =
-                Response.get().Value.value().getAsArray()->front();
+                ResponseValue.getAsArray()->front();
             if (FirstConfig.kind() == llvm::json::Value::Null) {
               lspserver::log("workspace/configuration is not set");
               return;
