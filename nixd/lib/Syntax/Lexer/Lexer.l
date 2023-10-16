@@ -63,11 +63,7 @@ or          { return OR_KW; }
                 yylval->N = boost::lexical_cast<int64_t>(yytext);
               } catch (const boost::bad_lexical_cast &) {
                 auto Range = mkRange(*yylloc, *Data);
-                Diagnostic Diag;
-                Diag.Msg = llvm::formatv("invalid integer {0}", yytext);
-                Diag.Kind = Diagnostic::Error;
-                Diag.Range = Range;
-                Data->Diags.emplace_back(std::move(Diag));
+                Data->Diags.emplace_back(std::make_unique<nixd::DiagInvalidInteger>(Range, yytext));
                 yyterminate();
               }
               return INT;
@@ -77,11 +73,7 @@ or          { return OR_KW; }
               yylval->NF = strtod(yytext, 0);
               if (errno != 0) {
                 auto Range = mkRange(*yylloc, *Data);
-                Diagnostic Diag;
-                Diag.Msg = llvm::formatv("invalid float {0}", yytext);
-                Diag.Kind = Diagnostic::Error;
-                Diag.Range = Range;
-                Data->Diags.emplace_back(std::move(Diag));
+                Data->Diags.emplace_back(std::make_unique<nixd::DiagInvalidFloat>(Range, yytext));
                 yyterminate();
               }
               return FLOAT;
@@ -210,11 +202,7 @@ or          { return OR_KW; }
 <INPATH_SLASH>{ANY} |
 <INPATH_SLASH><<EOF>> {
   auto Range = mkRange(*yylloc, *Data);
-  Diagnostic Diag;
-  Diag.Msg = llvm::formatv("path has a trailing slash");
-  Diag.Kind = Diagnostic::Error;
-  Diag.Range = Range;
-  Data->Diags.emplace_back(std::move(Diag));
+  Data->Diags.emplace_back(std::make_unique<nixd::DiagPathTrailingSlash>(Range));
   yyterminate();
 }
 

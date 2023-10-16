@@ -1,7 +1,7 @@
+#include "nixd/Basic/Diagnostic.h"
 #include "nixd/Expr/Expr.h"
 #include "nixd/Sema/EvalContext.h"
 #include "nixd/Sema/Lowering.h"
-#include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Parser.h"
 #include "nixd/Syntax/Parser/Require.h"
 
@@ -66,7 +66,7 @@ static void printCodeLines(std::ostream &Out, const std::string &Prefix,
       if (BeginPos->line == EndPos->line) {
         Out << ANSI_RED;
         for (auto I = BeginPos->column + 1; I < EndPos->column; I++) {
-          Out << (I == EndPos->column - 1 ? "^" : "~");
+          Out << "~";
         }
         Out << ANSI_NORMAL;
       }
@@ -162,17 +162,17 @@ int main(int argc, char *argv[]) {
   }
 
   for (const auto &Diag : Data.Diags) {
-    auto BeginPos = (*PTable)[Diag.Range.Begin];
-    auto EndPos = (*PTable)[Diag.Range.End];
-    switch (Diag.Kind) {
-    case nixd::syntax::Diagnostic::Warning:
+    auto BeginPos = (*PTable)[Diag->Range.Begin];
+    auto EndPos = (*PTable)[Diag->Range.End];
+    switch (Diag->severity()) {
+    case nixd::Diagnostic::DS_Warning:
       std::cout << ANSI_WARNING "warning: " ANSI_NORMAL;
       break;
-    case nixd::syntax::Diagnostic::Error:
+    case nixd::Diagnostic::DS_Error:
       std::cout << ANSI_RED "error: " ANSI_NORMAL;
       break;
     }
-    std::cout << Diag.Msg << "\n";
+    std::cout << Diag->format() << "\n";
     if (BeginPos) {
       std::cout << "\n"
                 << ANSI_BLUE << "at " ANSI_WARNING << BeginPos << ANSI_NORMAL
@@ -185,22 +185,24 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    for (const auto &Note : Diag.Notes) {
-      auto NoteBegin = (*PTable)[Note.Range.Begin];
-      auto NoteEnd = (*PTable)[Note.Range.End];
-      std::cout << "\n";
-      std::cout << ANSI_CYAN "note: " ANSI_NORMAL;
-      std::cout << Note.Msg << "\n";
+    if (auto *ND = dynamic_cast<nixd::NotableDiagnostic *>(Diag.get())) {
+      for (const auto &Note : ND->Notes) {
+        auto NoteBegin = (*PTable)[Note->Range.Begin];
+        auto NoteEnd = (*PTable)[Note->Range.End];
+        std::cout << "\n";
+        std::cout << ANSI_CYAN "note: " ANSI_NORMAL;
+        std::cout << Note->format() << "\n";
 
-      if (NoteBegin) {
-        std::cout << "\n"
-                  << ANSI_BLUE << "at " ANSI_WARNING << NoteBegin << ANSI_NORMAL
-                  << ":";
-        if (auto Lines =
-                std::shared_ptr<nix::AbstractPos>(NoteBegin)->getCodeLines()) {
-          std::cout << "\n";
-          printCodeLines(std::cout, "", NoteBegin, NoteEnd, *Lines);
-          std::cout << "\n";
+        if (NoteBegin) {
+          std::cout << "\n"
+                    << ANSI_BLUE << "at " ANSI_WARNING << NoteBegin
+                    << ANSI_NORMAL << ":";
+          if (auto Lines = std::shared_ptr<nix::AbstractPos>(NoteBegin)
+                               ->getCodeLines()) {
+            std::cout << "\n";
+            printCodeLines(std::cout, "", NoteBegin, NoteEnd, *Lines);
+            std::cout << "\n";
+          }
         }
       }
     }

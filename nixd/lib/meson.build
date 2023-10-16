@@ -1,4 +1,5 @@
 subdir('Expr')
+subdir('Basic')
 subdir('Nix')
 subdir('Support')
 subdir('Syntax')

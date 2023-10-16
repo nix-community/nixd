@@ -1,7 +1,7 @@
 #pragma once
 
+#include "nixd/Basic/Diagnostic.h"
 #include "nixd/Support/GCPool.h"
-#include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Nodes.h"
 
 #include <cstddef>
@@ -26,7 +26,7 @@ struct ParseData {
 
   nixd::GCPool<Node> Nodes;
 
-  std::vector<Diagnostic> Diags;
+  std::vector<std::unique_ptr<Diagnostic>> Diags;
 };
 
 // Note: copied from

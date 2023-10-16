@@ -290,12 +290,7 @@ expr_simple
     auto N = decorateNode(new LegacyLet, *yylocp, *Data);
     N->Binds = $3;
     $$ = N;
-
-    Diagnostic Diag;
-    Diag.Msg = "using deprecated `let' syntactic sugar `let {..., body = ...}' -> (rec {..., body = ...}).body'";
-    Diag.Kind = Diagnostic::Warning;
-    Diag.Range = N->Range;
-    Data->Diags.emplace_back(std::move(Diag));
+    Data->Diags.emplace_back(std::make_unique<nixd::DiagDeprecatedLet>(N->Range));
   }
   | REC '{' binds '}' {
     auto N = decorateNode(new AttrSet, *yylocp, *Data);
@@ -416,24 +411,14 @@ uri
   : URI {
     $$ = decorateNode(new nixd::syntax::URI, *yylocp, *Data);
     $$->S = std::string($1);
-
-    Diagnostic Diag;
-    Diag.Msg = "URL literal is deprecated";
-    Diag.Kind = Diagnostic::Warning;
-    Diag.Range = $$->Range;
-    Data->Diags.emplace_back(std::move(Diag));
+    Data->Diags.emplace_back(std::make_unique<nixd::DiagDeprecatedURL>($$->Range));
   }
 
 identifier_or
   : OR_KW {
     $$ = decorateNode(new Identifier, *yylocp, *Data);
     $$->Symbol = Data->State.Symbols.create("or");
-
-    Diagnostic Diag;
-    Diag.Msg = "keyword `or` used as an identifier";
-    Diag.Kind = Diagnostic::Warning;
-    Diag.Range = $$->Range;
-    Data->Diags.emplace_back(std::move(Diag));
+    Data->Diags.emplace_back(std::make_unique<nixd::DiagOrIdentifier>($$->Range));
   }
 
 var_or: identifier_or {

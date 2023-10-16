@@ -4,7 +4,7 @@ rec {
 
   # CHECK: merging two attributes with different `rec` modifiers, the latter will be implicitly ignored
 
-  # CHECK: this attribute set is not recursive
+  # CHECK: this attribute set is non-recursive
   # CHECK: while this attribute set is marked as recursive, it will be considered as non-recursive
   foo = rec {
     x = 1;

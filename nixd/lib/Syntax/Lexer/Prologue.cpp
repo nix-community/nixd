@@ -1,7 +1,6 @@
 #include "Parser.tab.h"
 
 #include "nixd/Support/Position.h"
-#include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Nodes.h"
 #include "nixd/Syntax/Parser/Require.h"
 
@@ -10,7 +9,7 @@
 
 #include <boost/lexical_cast.hpp>
 
-using nixd::syntax::Diagnostic;
+using nixd::Diagnostic;
 
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wunneeded-internal-declaration"

@@ -1,7 +1,7 @@
 #pragma once
 
+#include "nixd/Basic/Diagnostic.h"
 #include "nixd/Sema/EvalContext.h"
-#include "nixd/Syntax/Diagnostic.h"
 #include "nixd/Syntax/Nodes.h"
 
 #include <nix/input-accessor.hh>
@@ -54,7 +54,7 @@ public:
 struct Lowering {
   nix::SymbolTable &STable;
   nix::PosTable &PTable;
-  std::vector<syntax::Diagnostic> &Diags;
+  std::vector<std::unique_ptr<Diagnostic>> &Diags;
   EvalContext &Ctx;
   const nix::SourcePath &BasePath;
 

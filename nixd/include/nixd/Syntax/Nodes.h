@@ -1,7 +1,7 @@
 /// FIXME: comment for this file.
 #pragma once
 
-#include "Range.h"
+#include "nixd/Basic/Range.h"
 
 namespace nixd::syntax {
 

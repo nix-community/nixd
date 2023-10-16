@@ -1,4 +1,4 @@
-libnixdSemaDeps = [ nixdSyntax ]
+libnixdSemaDeps = [ nixdSyntax, nixdBasic ]
 
 libnixdSema = library('nixdSema'
 , 'Lowering.cpp'

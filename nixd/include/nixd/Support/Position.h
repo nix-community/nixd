@@ -1,7 +1,7 @@
 #pragma once
 
+#include "nixd/Basic/Range.h"
 #include "nixd/Nix/PosAdapter.h"
-#include "nixd/Syntax/Range.h"
 
 #include "lspserver/Protocol.h"
 

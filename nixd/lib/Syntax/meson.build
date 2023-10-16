@@ -19,7 +19,7 @@ parser = custom_target('parser'
 )
 
 #------------------------------------------------------------------------------#
-libnixdSyntaxDeps = [ nix_all, nixdExpr, nixdSupport ]
+libnixdSyntaxDeps = [ nix_all, nixdBasic, nixdExpr, nixdSupport ]
 libnixdSyntaxInc = [ nixd_inc, './' ]
 libnixdSyntax = library('nixdSyntax'
 , lexer
