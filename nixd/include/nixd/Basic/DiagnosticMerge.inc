@@ -20,4 +20,4 @@
 #undef DIAG_BODY
 #undef DIAG_SIMPLE
 
-#endif
+#endif // DIAG_ALL

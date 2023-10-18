@@ -8,6 +8,6 @@ libnixdBasic = library('nixdBasic'
 )
 
 nixdBasic = declare_dependency( include_directories: nixd_inc
-                            , dependencies: libnixdBasicDeps
-                            , link_with: libnixdBasic
-                            )
+                              , dependencies: libnixdBasicDeps
+                              , link_with: libnixdBasic
+                              )
