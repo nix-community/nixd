@@ -15,6 +15,8 @@
 namespace nixd {
 
 using syntax::Node;
+using DK = Diagnostic::DiagnosticKind;
+using NK = Note::NoteKind;
 
 nix::Formal Lowering::lowerFormal(const syntax::Formal &Formal) {
   auto *Def = Lowering::lower(Formal.Default);
@@ -63,10 +65,8 @@ nix::ExprLambda *Lowering::lowerFunction(const syntax::Function *Fn) {
       if (Names.contains(Sym)) {
         // We have seen this symbol before, so this formal is duplicated
         const syntax::Formal *Previous = Names[Sym];
-        auto Diag = std::make_unique<DiagDuplicatedFormal>(Formal->Range);
-        auto PrevDefNote = std::make_unique<DiagPrevDeclared>(Previous->Range);
-        Diag->Notes.emplace_back(std::move(PrevDefNote));
-        Diags.emplace_back(std::move(Diag));
+        Diags.diag(Formal->Range, Diagnostic::DK_DuplicatedFormal)
+            .note(Previous->Range, NK::NK_PrevDeclared);
       } else {
         Names[Sym] = Formal;
       }
@@ -77,10 +77,8 @@ nix::ExprLambda *Lowering::lowerFunction(const syntax::Function *Fn) {
       auto ArgSym = Fn->Arg->Symbol;
       if (Names.contains(ArgSym)) {
         const syntax::Formal *Previous = Names[ArgSym];
-        auto Diag = std::make_unique<DiagDuplicatedFormalToArg>(Fn->Arg->Range);
-        auto PrevDefNote = std::make_unique<DiagPrevDeclared>(Previous->Range);
-        Diag->Notes.emplace_back(std::move(PrevDefNote));
-        Diags.emplace_back(std::move(Diag));
+        Diags.diag(Fn->Arg->Range, Diagnostic::DK_DuplicatedFormalToArg)
+            .note(Previous->Range, NK::NK_PrevDeclared);
       }
     }
     // Construct nix::Formals, from ours
@@ -106,12 +104,11 @@ nix::ExprLambda *Lowering::lowerFunction(const syntax::Function *Fn) {
   return NewLambda;
 }
 
-static std::unique_ptr<Diagnostic>
-mkAttrDupDiag(const std::string &Name, RangeIdx Range, RangeIdx Prev) {
-  auto Diag = std::make_unique<DiagDuplicatedAttr>(Range, Name);
-  auto PrevDefNote = std::make_unique<DiagPrevDeclared>(Prev);
-  Diag->Notes.emplace_back(std::move(PrevDefNote));
-  return Diag;
+static void diagAttrDup(DiagnosticEngine &DE, const std::string &Name,
+                        RangeIdx Range, RangeIdx Prev) {
+  auto &Diag = DE.diag(Range, DK::DK_DuplicatedAttr);
+  Diag << Name;
+  Diag.note(Prev, NK::NK_PrevDeclared);
 }
 
 ExprAttrsBuilder::ExprAttrsBuilder(Lowering &LW, RangeIdx Range, bool Recursive,
@@ -151,20 +148,19 @@ void ExprAttrsBuilder::addBinds(const syntax::Binds &Binds) {
   }
 }
 
-static std::unique_ptr<DiagMergeDiffRec>
-mkRecDiag(RangeIdx ThisRange, RangeIdx MergingRange, bool ThisRec) {
-  auto Diag = std::make_unique<DiagMergeDiffRec>(MergingRange);
-  Diag->Notes.emplace_back(
-      std::make_unique<DiagThisRecursive>(ThisRange, ThisRec));
-  Diag->Notes.emplace_back(
-      std::make_unique<DiagRecConsider>(MergingRange, !ThisRec));
-  return Diag;
+static const char *nonPrefix(bool P) { return P ? "" : "non-"; }
+
+static void diagRec(DiagnosticEngine &DE, RangeIdx ThisRange,
+                    RangeIdx MergingRange, bool ThisRec) {
+  Diagnostic &Diag = DE.diag(MergingRange, DK::DK_MergeDiffRec);
+  Diag.note(ThisRange, NK::NK_ThisRecursive) << nonPrefix(ThisRec);
+  Diag.note(MergingRange, NK::NK_RecConsider)
+      << nonPrefix(!ThisRec) << nonPrefix(ThisRec);
 }
 
 void ExprAttrsBuilder::addAttrSet(const syntax::AttrSet &AS) {
   if (AS.Recursive != Recursive) {
-    auto Diag = mkRecDiag(Range, AS.Range, Recursive);
-    LW.Diags.emplace_back(std::move(Diag));
+    diagRec(LW.Diags, Range, AS.Range, Recursive);
   }
   assert(AS.Binds && "binds should not be empty! parser error?");
   addBinds(*AS.Binds);
@@ -173,8 +169,7 @@ void ExprAttrsBuilder::addAttrSet(const syntax::AttrSet &AS) {
 void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
                                const syntax::Node *Body, bool Recursive) {
   if (Recursive != this->Recursive) {
-    auto Diag = mkRecDiag(Range, Attr->Range, this->Recursive);
-    LW.Diags.emplace_back(std::move(Diag));
+    diagRec(LW.Diags, Range, Attr->Range, this->Recursive);
   }
   switch (Attr->getKind()) {
   case Node::NK_Identifier: {
@@ -184,9 +179,7 @@ void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
       // duplicated, but if they are two attrset, we can try to merge them.
       if (Body->getKind() != Node::NK_AttrSet || !Nested.contains(Sym)) {
         // the body is not an attribute set, report error.
-        auto Diag =
-            mkAttrDupDiag(LW.STable[Sym], ID->Range, Fields[Sym]->Range);
-        LW.Diags.emplace_back(std::move(Diag));
+        diagAttrDup(LW.Diags, LW.STable[Sym], ID->Range, Fields[Sym]->Range);
         return;
       }
       const auto *BodyAttrSet = dynamic_cast<const syntax::AttrSet *>(Body);
@@ -210,7 +203,7 @@ void ExprAttrsBuilder::addAttr(const syntax::Node *Attr,
   default: {
     if (IsLet) {
       // reject dynamic attrs in let expression
-      LW.Diags.emplace_back(std::make_unique<DiagLetDynamic>(Attr->Range));
+      LW.Diags.diag(Attr->Range, Diagnostic::DK_LetDynamic);
       return;
     }
     nix::Expr *NameExpr = LW.lower(Attr);
@@ -241,9 +234,8 @@ void ExprAttrsBuilder::addAttribute(const syntax::Attribute &A) {
         if (!S->Nested.contains(Sym)) {
           // contains a field but the body is not an attr, then we cannot
           // perform merging.
-          std::unique_ptr<Diagnostic> Diag =
-              mkAttrDupDiag(LW.STable[Sym], ID->Range, S->Fields[Sym]->Range);
-          LW.Diags.emplace_back(std::move(Diag));
+          diagAttrDup(LW.Diags, LW.STable[Sym], ID->Range,
+                      S->Fields[Sym]->Range);
           return;
         }
         // select this symbol, and consider merging it.
@@ -260,7 +252,7 @@ void ExprAttrsBuilder::addAttribute(const syntax::Attribute &A) {
     default: {
       if (IsLet) {
         // reject dynamic attrs in let expression
-        LW.Diags.emplace_back(std::make_unique<DiagLetDynamic>(Name->Range));
+        LW.Diags.diag(Name->Range, Diagnostic::DK_LetDynamic);
         return;
       }
       DynamicNested[Name] = std::make_unique<ExprAttrsBuilder>(
@@ -277,7 +269,7 @@ void ExprAttrsBuilder::addAttribute(const syntax::Attribute &A) {
 
 void ExprAttrsBuilder::addInherited(const syntax::InheritedAttribute &IA) {
   if (IA.InheritedAttrs->Names.empty())
-    LW.Diags.emplace_back(std::make_unique<DiagEmptyInherit>(IA.Range));
+    LW.Diags.diag(IA.Range, Diagnostic::DK_EmptyInherit);
 
   // inherit (expr) attr1 attr2
   // lowering `(expr)` to nix expression
@@ -297,15 +289,14 @@ void ExprAttrsBuilder::addInherited(const syntax::InheritedAttribute &IA) {
       break;
     }
     default: {
-      LW.Diags.emplace_back(std::make_unique<DiagInheritDynamic>(Name->Range));
+      LW.Diags.diag(Name->Range, Diagnostic::DK_InheritDynamic);
     }
     }
 
     // Check if it is duplicated
     if (Fields.contains(Sym)) {
       std::string SymStr = LW.STable[Sym];
-      auto Diag = mkAttrDupDiag(SymStr, Name->Range, Fields[Sym]->Range);
-      LW.Diags.emplace_back(std::move(Diag));
+      diagAttrDup(LW.Diags, SymStr, Name->Range, Fields[Sym]->Range);
       continue;
     }
 

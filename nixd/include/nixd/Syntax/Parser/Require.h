@@ -26,7 +26,7 @@ struct ParseData {
 
   nixd::GCPool<Node> Nodes;
 
-  std::vector<std::unique_ptr<Diagnostic>> Diags;
+  DiagnosticEngine Diags;
 };
 
 // Note: copied from

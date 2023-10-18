@@ -290,7 +290,7 @@ expr_simple
     auto N = decorateNode(new LegacyLet, *yylocp, *Data);
     N->Binds = $3;
     $$ = N;
-    Data->Diags.emplace_back(std::make_unique<nixd::DiagDeprecatedLet>(N->Range));
+    Data->Diags.diag($$->Range, Diagnostic::DK_DeprecatedLet);
   }
   | REC '{' binds '}' {
     auto N = decorateNode(new AttrSet, *yylocp, *Data);
@@ -411,14 +411,14 @@ uri
   : URI {
     $$ = decorateNode(new nixd::syntax::URI, *yylocp, *Data);
     $$->S = std::string($1);
-    Data->Diags.emplace_back(std::make_unique<nixd::DiagDeprecatedURL>($$->Range));
+    Data->Diags.diag($$->Range, Diagnostic::DK_DeprecatedURL);
   }
 
 identifier_or
   : OR_KW {
     $$ = decorateNode(new Identifier, *yylocp, *Data);
     $$->Symbol = Data->State.Symbols.create("or");
-    Data->Diags.emplace_back(std::make_unique<nixd::DiagOrIdentifier>($$->Range));
+    Data->Diags.diag($$->Range, Diagnostic::DK_OrIdentifier);
   }
 
 var_or: identifier_or {

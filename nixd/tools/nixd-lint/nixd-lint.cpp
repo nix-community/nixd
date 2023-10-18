@@ -40,15 +40,15 @@ static void printCodeLines(std::ostream &Out, const std::string &Prefix,
   // previous line of code.
   if (LOC.prevLineOfCode.has_value()) {
     Out << std::endl
-        << fmt("%1% %|2$5d|| %3%", Prefix, (BeginPos->line - 1),
-               *LOC.prevLineOfCode);
+        << nix::fmt("%1% %|2$5d|| %3%", Prefix, (BeginPos->line - 1),
+                    *LOC.prevLineOfCode);
   }
 
   if (LOC.errLineOfCode.has_value()) {
     // line of code containing the error.
     Out << std::endl
-        << fmt("%1% %|2$5d|| %3%", Prefix, (BeginPos->line),
-               *LOC.errLineOfCode);
+        << nix::fmt("%1% %|2$5d|| %3%", Prefix, (BeginPos->line),
+                    *LOC.errLineOfCode);
     // error arrows for the column range.
     if (BeginPos->column > 0) {
       auto Start = BeginPos->column;
@@ -60,8 +60,8 @@ static void printCodeLines(std::ostream &Out, const std::string &Prefix,
       std::string arrows("^");
 
       Out << std::endl
-          << fmt("%1%      |%2%" ANSI_RED "%3%" ANSI_NORMAL, Prefix, Spaces,
-                 arrows);
+          << nix::fmt("%1%      |%2%" ANSI_RED "%3%" ANSI_NORMAL, Prefix,
+                      Spaces, arrows);
 
       if (BeginPos->line == EndPos->line) {
         Out << ANSI_RED;
@@ -76,8 +76,8 @@ static void printCodeLines(std::ostream &Out, const std::string &Prefix,
   // next line of code.
   if (LOC.nextLineOfCode.has_value()) {
     Out << std::endl
-        << fmt("%1% %|2$5d|| %3%", Prefix, (BeginPos->line + 1),
-               *LOC.nextLineOfCode);
+        << nix::fmt("%1% %|2$5d|| %3%", Prefix, (BeginPos->line + 1),
+                    *LOC.nextLineOfCode);
   }
 }
 
@@ -122,6 +122,60 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
   }
 };
 
+void printNote(nixd::Note &Note, nix::SymbolTable &STable,
+               nix::PosTable &PTable) {
+  auto NoteBegin = PTable[Note.range().Begin];
+  auto NoteEnd = PTable[Note.range().End];
+  std::cout << "\n";
+  std::cout << ANSI_CYAN "note: " ANSI_NORMAL;
+  std::cout << Note.format() << "\n";
+
+  if (NoteBegin) {
+    std::cout << "\n"
+              << ANSI_BLUE << "at " ANSI_WARNING << NoteBegin << ANSI_NORMAL
+              << ":";
+    if (auto Lines =
+            std::shared_ptr<nix::AbstractPos>(NoteBegin)->getCodeLines()) {
+      std::cout << "\n";
+      printCodeLines(std::cout, "", NoteBegin, NoteEnd, *Lines);
+      std::cout << "\n";
+    }
+  }
+}
+
+void printDiag(nixd::Diagnostic::Severity Serverity, nixd::Diagnostic &Diag,
+               nix::SymbolTable &STable, nix::PosTable &PTable) {
+  auto BeginPos = PTable[Diag.range().Begin];
+  auto EndPos = PTable[Diag.range().End];
+  switch (Serverity) {
+  case nixd::Diagnostic::DS_Warning:
+    std::cout << ANSI_WARNING "warning: " ANSI_NORMAL;
+    break;
+  case nixd::Diagnostic::DS_Error:
+    std::cout << ANSI_RED "error: " ANSI_NORMAL;
+    break;
+  case nixd::Diagnostic::DS_Fatal:
+    std::cout << ANSI_RED "fatal: " ANSI_NORMAL;
+    break;
+  }
+  std::cout << Diag.format() << "\n";
+  if (BeginPos) {
+    std::cout << "\n"
+              << ANSI_BLUE << "at " ANSI_WARNING << BeginPos << ANSI_NORMAL
+              << ":";
+    if (auto Lines =
+            std::shared_ptr<nix::AbstractPos>(BeginPos)->getCodeLines()) {
+      std::cout << "\n";
+      printCodeLines(std::cout, "", BeginPos, EndPos, *Lines);
+      std::cout << "\n";
+    }
+  }
+
+  for (const auto &Note : Diag.notes()) {
+    printNote(*Note, STable, PTable);
+  }
+}
+
 int main(int argc, char *argv[]) {
   HideUnrelatedOptions(Cat);
   ParseCommandLineOptions(argc, argv, "nixd linter", nullptr,
@@ -161,51 +215,21 @@ int main(int argc, char *argv[]) {
     D.traverseExpr(NixTree);
   }
 
-  for (const auto &Diag : Data.Diags) {
-    auto BeginPos = (*PTable)[Diag->Range.Begin];
-    auto EndPos = (*PTable)[Diag->Range.End];
-    switch (Diag->severity()) {
-    case nixd::Diagnostic::DS_Warning:
-      std::cout << ANSI_WARNING "warning: " ANSI_NORMAL;
-      break;
-    case nixd::Diagnostic::DS_Error:
-      std::cout << ANSI_RED "error: " ANSI_NORMAL;
-      break;
-    }
-    std::cout << Diag->format() << "\n";
-    if (BeginPos) {
-      std::cout << "\n"
-                << ANSI_BLUE << "at " ANSI_WARNING << BeginPos << ANSI_NORMAL
-                << ":";
-      if (auto Lines =
-              std::shared_ptr<nix::AbstractPos>(BeginPos)->getCodeLines()) {
-        std::cout << "\n";
-        printCodeLines(std::cout, "", BeginPos, EndPos, *Lines);
-        std::cout << "\n";
-      }
-    }
-
-    if (auto *ND = dynamic_cast<nixd::NotableDiagnostic *>(Diag.get())) {
-      for (const auto &Note : ND->Notes) {
-        auto NoteBegin = (*PTable)[Note->Range.Begin];
-        auto NoteEnd = (*PTable)[Note->Range.End];
-        std::cout << "\n";
-        std::cout << ANSI_CYAN "note: " ANSI_NORMAL;
-        std::cout << Note->format() << "\n";
-
-        if (NoteBegin) {
-          std::cout << "\n"
-                    << ANSI_BLUE << "at " ANSI_WARNING << NoteBegin
-                    << ANSI_NORMAL << ":";
-          if (auto Lines = std::shared_ptr<nix::AbstractPos>(NoteBegin)
-                               ->getCodeLines()) {
-            std::cout << "\n";
-            printCodeLines(std::cout, "", NoteBegin, NoteEnd, *Lines);
-            std::cout << "\n";
-          }
-        }
-      }
-    }
+  for (const auto &Err : Data.Diags.fatals()) {
+    printDiag(nixd::Diagnostic::Severity::DS_Fatal, *Err, *STable, *PTable);
   }
+
+  for (const auto &Err : Data.Diags.errors()) {
+    printDiag(nixd::Diagnostic::Severity::DS_Error, *Err, *STable, *PTable);
+  }
+
+  for (const auto &Err : Data.Diags.warnings()) {
+    printDiag(nixd::Diagnostic::Severity::DS_Warning, *Err, *STable, *PTable);
+  }
+  /*
+  for (const auto &Diag : Data.Diags) {
+
+  }
+  */
   return 0;
 }

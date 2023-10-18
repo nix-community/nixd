@@ -1,4 +1,4 @@
-libnixdBasicDeps = [ nix_all, llvm ]
+libnixdBasicDeps = [ nix_all, llvm, fmt ]
 libnixdBasic = library('nixdBasic'
 , [ 'Diagnostic.cpp'
   ]

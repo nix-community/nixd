@@ -3,6 +3,7 @@
 , bison
 , boost182
 , flex
+, fmt
 , gtest
 , libbacktrace
 , lit
@@ -41,6 +42,7 @@ stdenv.mkDerivation {
     gtest
     boost182
     llvmPackages.llvm
+    fmt
   ];
 
   env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";

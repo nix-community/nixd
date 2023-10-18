@@ -63,7 +63,7 @@ or          { return OR_KW; }
                 yylval->N = boost::lexical_cast<int64_t>(yytext);
               } catch (const boost::bad_lexical_cast &) {
                 auto Range = mkRange(*yylloc, *Data);
-                Data->Diags.emplace_back(std::make_unique<nixd::DiagInvalidInteger>(Range, yytext));
+                Data->Diags.diag(Range, Diagnostic::DK_InvalidInteger) << std::string(yytext);
                 yyterminate();
               }
               return INT;
@@ -73,7 +73,7 @@ or          { return OR_KW; }
               yylval->NF = strtod(yytext, 0);
               if (errno != 0) {
                 auto Range = mkRange(*yylloc, *Data);
-                Data->Diags.emplace_back(std::make_unique<nixd::DiagInvalidFloat>(Range, yytext));
+                Data->Diags.diag(Range, Diagnostic::DK_InvalidFloat) << std::string(yytext);
                 yyterminate();
               }
               return FLOAT;
@@ -202,7 +202,7 @@ or          { return OR_KW; }
 <INPATH_SLASH>{ANY} |
 <INPATH_SLASH><<EOF>> {
   auto Range = mkRange(*yylloc, *Data);
-  Data->Diags.emplace_back(std::make_unique<nixd::DiagPathTrailingSlash>(Range));
+  Data->Diags.diag(Range, Diagnostic::DK_PathTrailingSlash);
   yyterminate();
 }
 

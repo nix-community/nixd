@@ -54,7 +54,7 @@ public:
 struct Lowering {
   nix::SymbolTable &STable;
   nix::PosTable &PTable;
-  std::vector<std::unique_ptr<Diagnostic>> &Diags;
+  DiagnosticEngine &Diags;
   EvalContext &Ctx;
   const nix::SourcePath &BasePath;
 

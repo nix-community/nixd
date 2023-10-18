@@ -10,6 +10,8 @@
 
 using namespace nixd::syntax;
 
+using nixd::Diagnostic;
+
 YY_DECL;
 
 /// Convert a yacc location (yylloc) to nix::PosIdx
@@ -28,8 +30,7 @@ static nixd::RangeIdx mkRange(YYLTYPE YL, nixd::syntax::ParseData &Data) {
 void yyerror(YYLTYPE *YL, yyscan_t Scanner, nixd::syntax::ParseData *Data,
              const char *Error) {
   auto Range = mkRange(*YL, *Data);
-  Data->Diags.emplace_back(
-      std::make_unique<nixd::DiagBisonParse>(Range, Error));
+  Data->Diags.diag(Range, Diagnostic::DK_BisonParse) << std::string(Error);
 }
 
 template <class T>

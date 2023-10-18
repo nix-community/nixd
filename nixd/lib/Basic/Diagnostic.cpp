@@ -1,52 +1,43 @@
 #include "nixd/Basic/Diagnostic.h"
 #include "nixd/Basic/Range.h"
 
-#include "llvm/Support/FormatVariadic.h"
-
 namespace nixd {
 
-#define DIAG_BODY(SNAME, CNAME, SEVERITY, MESSAGE, BODY)                       \
-  const char *Diag##CNAME::sname() const { return SNAME; }                     \
-  Diagnostic::Severity Diag##CNAME::severity() const { return DS_##SEVERITY; } \
-  Diagnostic::Kind Diag##CNAME::kind() const { return DK_##CNAME; }            \
-  constexpr const char *Diag##CNAME::message() { return MESSAGE; }             \
-  std::string_view Diag##CNAME::format() const { return Str; }
-#define DIAG_NOTE_BODY(SNAME, CNAME, SEVERITY, MESSAGE, BODY)                  \
-  DIAG_BODY(SNAME, CNAME, SEVERITY, MESSAGE, BODY)
+nixd::Diagnostic::Severity nixd::Diagnostic::severity(DiagnosticKind Kind) {
+  switch (Kind) {
+#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
+  case DK_##CNAME:                                                             \
+    return DS_##SEVERITY;
 #include "nixd/Basic/DiagnosticKinds.inc"
-#undef DIAG_BODY
-#undef DIAG_NOTE_BODY
-
-DiagBisonParse::DiagBisonParse(RangeIdx Range, std::string Str)
-    : Diagnostic(Range), Str(std::move(Str)) {}
-
-DiagDuplicatedAttr::DiagDuplicatedAttr(RangeIdx Range, std::string AttrName)
-    : NotableDiagnostic(Range) {
-  Str = llvm::formatv(message(), AttrName);
+#undef DIAG
+  }
 }
-
-static const char *getPrefix(bool P) { return P ? "" : "non-"; }
-
-DiagThisRecursive::DiagThisRecursive(RangeIdx Range, bool Recursive)
-    : Diagnostic(Range) {
-  Str = llvm::formatv(message(), getPrefix(Recursive));
+const char *nixd::Diagnostic::message(DiagnosticKind Kind) {
+  switch (Kind) {
+#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
+  case DK_##CNAME:                                                             \
+    return MESSAGE;
+#include "nixd/Basic/DiagnosticKinds.inc"
+#undef DIAG
+  }
 }
-
-DiagRecConsider::DiagRecConsider(RangeIdx Range, bool MarkedRecursive)
-    : Diagnostic(Range) {
-  Str = llvm::formatv(message(), getPrefix(MarkedRecursive),
-                      getPrefix(!MarkedRecursive));
+const char *nixd::Diagnostic::sname(DiagnosticKind Kind) {
+  switch (Kind) {
+#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
+  case DK_##CNAME:                                                             \
+    return SNAME;
+#include "nixd/Basic/DiagnosticKinds.inc"
+#undef DIAG
+  }
 }
-
-DiagInvalidInteger::DiagInvalidInteger(RangeIdx Range, std::string_view Content)
-    : Diagnostic(Range) {
-  Str = llvm::formatv(message(), Content);
-}
-
-DiagInvalidFloat::DiagInvalidFloat(RangeIdx Range,
-                                   const std::string_view Content)
-    : Diagnostic(Range) {
-  Str = llvm::formatv(message(), Content);
+const char *nixd::Note::message(NoteKind Kind) {
+  switch (Kind) {
+#define DIAG_NOTE(SNAME, CNAME, MESSAGE)                                       \
+  case NK_##CNAME:                                                             \
+    return MESSAGE;
+#include "nixd/Basic/NoteKinds.inc"
+#undef DIAG_NOTE
+  }
 }
 
 } // namespace nixd
