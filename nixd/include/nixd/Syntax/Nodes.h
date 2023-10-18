@@ -15,16 +15,13 @@ struct Node {
 #include "Nodes.inc"
 #undef NODE
   };
-  [[nodiscard]] virtual NodeKind getKind() const { return NK_Node; };
+  [[nodiscard]] virtual NodeKind getKind() const = 0;
   virtual ~Node() = default;
 };
-
-#define COMMON_METHOD virtual NodeKind getKind() const override;
 
 #define NODE(NAME, BODY) struct NAME : Node BODY;
 #include "Nodes.inc"
 #undef NODE
-#undef COMMON_METHOD
 
 #define NODE(NAME, _)                                                          \
   inline Node::NodeKind NAME::getKind() const { return NK_##NAME; }

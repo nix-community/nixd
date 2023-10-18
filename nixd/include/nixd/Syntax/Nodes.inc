@@ -1,9 +1,6 @@
 #ifdef NODE
 
-#ifndef COMMON_METHOD
-#define COMMON_METHOD
-#define P_COMMON_METHOD_DEFINED
-#endif
+#define COMMON_METHOD virtual NodeKind getKind() const override;
 
 NODE(Identifier, {
   nix::Symbol Symbol;
@@ -195,9 +192,6 @@ NODE(LegacyLet, {
 #include "BinaryOps.inc"
 #undef BIN_OP
 
-#ifdef P_COMMON_METHOD_DEFINED
 #undef COMMON_METHOD
-#undef P_COMMON_METHOD_DEFINED
-#endif // P_COMMON_METHOD_DEFINED
 
 #endif // NODE
