@@ -1,0 +1,2 @@
+subdir('Lex')
+subdir('Syntax')
