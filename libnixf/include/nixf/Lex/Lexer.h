@@ -29,6 +29,8 @@ class Lexer {
 
   bool lexFloatExp(std::string &NumStr);
 
+  void lexNumbers(Token &Tok);
+
   [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }
 
 public:

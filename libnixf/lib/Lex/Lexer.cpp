@@ -144,6 +144,58 @@ bool Lexer::lexFloatExp(std::string &NumStr) {
   return true;
 }
 
+void Lexer::lexNumbers(Token &Tok) {
+  // numbers
+  //
+  // currently libexpr accepts:
+  // INT         [0-9]+
+  // FLOAT       (([1-9][0-9]*\.[0-9]*)|(0?\.[0-9]+))([Ee][+-]?[0-9]+)?
+  //
+  // regex 'FLOAT' rejects floats like 00.0
+  //
+  // nix-repl> 000.3
+  // error: attempt to call something which is not a function but an integer
+  //
+  //        at «string»:1:1:
+  //
+  //             1| 000.3
+  //              | ^
+  //
+  // however, we accept [0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?
+  // and issues a warning if it has leading zeros
+  std::string NumStr;
+  unsigned NumStart = curOffset();
+  // [0-9]+
+  while (!eof() && isdigit(*Cur)) {
+    NumStr += *Cur;
+    Cur++;
+  }
+  if (*Cur == '.') {
+    // float
+    NumStr += *Cur; // '.'
+    Cur++;
+
+    // [0-9]*
+    while (!eof() && isdigit(*Cur)) {
+      NumStr += *Cur;
+      Cur++;
+    }
+
+    if (lexFloatExp(NumStr))
+      Tok.Kind = TokenKind::TK_float;
+    else
+      Tok.Kind = TokenKind::TK_err;
+    if (NumStr.starts_with("00")) {
+      Diags.diag({NumStart, NumStart + 2}, DK::DK_FloatLeadingZero) << NumStr;
+    }
+    Tok.Content = std::move(NumStr);
+  } else {
+    // integer
+    Tok.Kind = TokenKind::TK_int;
+    Tok.Content = std::move(NumStr);
+  }
+}
+
 std::shared_ptr<Token> Lexer::lex() {
   // eat leading trivia
   Trivia LT = consumeTrivia();
@@ -156,55 +208,8 @@ std::shared_ptr<Token> Lexer::lex() {
   }
 
   if (std::isdigit(*Cur) || *Cur == '.') {
-    // numbers
-    //
-    // currently libexpr accepts:
-    // INT         [0-9]+
-    // FLOAT       (([1-9][0-9]*\.[0-9]*)|(0?\.[0-9]+))([Ee][+-]?[0-9]+)?
-    //
-    // regex 'FLOAT' rejects floats like 00.0
-    //
-    // nix-repl> 000.3
-    // error: attempt to call something which is not a function but an integer
-    //
-    //        at «string»:1:1:
-    //
-    //             1| 000.3
-    //              | ^
-    //
-    // however, we accept [0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?
-    // and issues a warning if it has leading zeros
-    std::string NumStr;
-    unsigned NumStart = curOffset();
-    // [0-9]+
-    while (!eof() && isdigit(*Cur)) {
-      NumStr += *Cur;
-      Cur++;
-    }
-    if (*Cur == '.') {
-      // float
-      NumStr += *Cur; // '.'
-      Cur++;
-
-      // [0-9]*
-      while (!eof() && isdigit(*Cur)) {
-        NumStr += *Cur;
-        Cur++;
-      }
-
-      if (lexFloatExp(NumStr))
-        Tok->Kind = TokenKind::TK_float;
-      else
-        Tok->Kind = TokenKind::TK_err;
-      if (NumStr.starts_with("00")) {
-        Diags.diag({NumStart, NumStart + 2}, DK::DK_FloatLeadingZero) << NumStr;
-      }
-      Tok->Content = std::move(NumStr);
-    } else {
-      // integer
-      Tok->Kind = TokenKind::TK_int;
-      Tok->Content = std::move(NumStr);
-    }
+    lexNumbers(*Tok);
+    return Tok;
   }
 
   return Tok;
