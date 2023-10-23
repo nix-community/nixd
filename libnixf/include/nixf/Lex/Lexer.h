@@ -30,6 +30,9 @@ class Lexer {
 
   bool lexFloatExp(std::string &NumStr);
 
+  // Advance cursor if it starts with prefix, otherwise do nothing
+  bool consumePrefix(std::string_view Prefix);
+
   void lexNumbers(Token &Tok);
 
   [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }

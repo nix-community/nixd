@@ -13,6 +13,17 @@ using namespace tok;
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
+bool Lexer::consumePrefix(std::string_view Prefix) {
+  // Check [Cur, Cur + Prefix.length)
+  if (Cur + Prefix.length() > Src.end())
+    return false;
+  if (remain().starts_with(Prefix)) {
+    Cur += Prefix.length();
+    return true;
+  }
+  return false;
+}
+
 std::optional<TriviaPiece> Lexer::tryConsumeWhitespaces() {
   if (eof() || !std::isspace(*Cur))
     return std::nullopt;
@@ -67,7 +78,7 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
   const char *BeginPtr = Cur;
   unsigned BeginOffset = curOffset();
 
-  if (Remain.starts_with("/*")) {
+  if (consumePrefix("/*")) {
     // consume block comments until we meet '*/'
     while (true) {
       if (eof()) {
@@ -81,14 +92,12 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
         // recover
         return TriviaPiece::blockComment(std::string(Remain));
       }
-      if (!eof(Cur + 1) && remain().starts_with("*/")) {
+      if (!eof(Cur + 1) && consumePrefix("*/"))
         // we found the ending '*/'
-        Cur += 2;
         return TriviaPiece::blockComment(std::string(BeginPtr, Cur));
-      }
       Cur++;
     }
-  } else if (Remain.starts_with("#")) {
+  } else if (consumePrefix("#")) {
     // single line comments, consume blocks until we meet EOF or '\n' or '\r'
     while (true) {
       if (eof() || tryAdvanceEOL()) {
