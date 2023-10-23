@@ -1,9 +1,11 @@
-#include "nixf/Lex/Lexer.h"
+#include <gtest/gtest.h>
+
 #include "nixf/Basic/DiagnosticEngine.h"
+#include "nixf/Lex/Lexer.h"
 #include "nixf/Syntax/Token.h"
 #include "nixf/Syntax/Trivia.h"
+
 #include <cstddef>
-#include <gtest/gtest.h>
 
 namespace nixf {
 
