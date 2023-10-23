@@ -1,15 +1,9 @@
 #include "nixf/Syntax/Trivia.h"
 
+#include <cassert>
 #include <ostream>
 
 namespace nixf {
-
-static std::ostream &printChCount(std::ostream &OS, char Ch, unsigned Count) {
-  for (unsigned I = 0; I < Count; I++) {
-    OS << Ch;
-  }
-  return OS;
-}
 
 TriviaKind spaceTriviaKind(char Ch) {
   assert(std::isspace(Ch));
@@ -54,18 +48,17 @@ char spaceTriviaCh(TriviaKind Kind) {
   }
 }
 
-std::ostream &operator<<(std::ostream &OS, const TriviaPiece &Piece) {
-  if (isSpaceTrivia(Piece.Kind))
-    return printChCount(OS, spaceTriviaCh(Piece.Kind), Piece.Count);
-  OS << Piece.Text;
-  return OS;
+void TriviaPiece::dump(std::ostream &OS) const { OS << Text; }
+
+Trivia::Trivia(TriviaPieces P) : Pieces(std::move(P)) {
+  Length = 0;
+  for (const TriviaPiece &Piece : Pieces)
+    Length += Piece.getLength();
 }
 
-std::ostream &operator<<(std::ostream &OS, const Trivia &Trivia) {
-  for (const TriviaPiece &Piece : Trivia.Pieces)
-    OS << Piece;
-
-  return OS;
+void Trivia::dump(std::ostream &OS) const {
+  for (const TriviaPiece &Piece : Pieces)
+    Piece.dump(OS);
 }
 
 } // namespace nixf

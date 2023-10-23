@@ -1,8 +1,6 @@
 #pragma once
 
-#include <cassert>
-#include <string>
-#include <vector>
+#include "nixf/Syntax/RawSyntax.h"
 
 namespace nixf {
 
@@ -38,54 +36,29 @@ char spaceTriviaCh(TriviaKind Kind);
 
 bool isSpaceTrivia(TriviaKind Kind);
 
-struct TriviaPiece {
+class TriviaPiece : public RawNode {
+private:
   TriviaKind Kind;
-  unsigned Count;
   std::string Text;
 
-  TriviaPiece(TriviaKind Kind, unsigned Count, std::string Text)
-      : Kind(Kind), Count(Count), Text(std::move(Text)) {}
-
-  static TriviaPiece spaces(unsigned Count) {
-    return TriviaPiece{TriviaKind::Space, Count, std::string{}};
+public:
+  TriviaPiece(TriviaKind Kind, std::string Text)
+      : Kind(Kind), Text(std::move(Text)) {
+    Length = Text.length();
   }
-
-  static TriviaPiece verticalTabs(unsigned Count) {
-    return TriviaPiece{TriviaKind::VerticalTab, Count, std::string{}};
-  }
-
-  static TriviaPiece formFeeds(unsigned Count) {
-    return TriviaPiece{TriviaKind::Formfeed, Count, std::string{}};
-  }
-
-  static TriviaPiece tabs(unsigned Count) {
-    return TriviaPiece{TriviaKind::Tab, Count, std::string{}};
-  }
-
-  static TriviaPiece newlines(unsigned Count) {
-    return TriviaPiece{TriviaKind::Newline, Count, std::string{}};
-  }
-
-  static TriviaPiece carriageReturns(unsigned Count) {
-    return TriviaPiece{TriviaKind::CarriageReturn, Count, std::string{}};
-  }
-
-  static TriviaPiece lineComment(std::string Text) {
-    return TriviaPiece{TriviaKind::LineComment, 1, std::move(Text)};
-  }
-
-  static TriviaPiece blockComment(std::string Text) {
-    return TriviaPiece{TriviaKind::BlockComment, 1, std::move(Text)};
-  }
-
-  friend std::ostream &operator<<(std::ostream &, const TriviaPiece &Piece);
+  void dump(std::ostream &OS) const override;
 };
 
-struct Trivia {
+class Trivia : public RawNode {
+public:
   using TriviaPieces = std::vector<TriviaPiece>;
+
+private:
   TriviaPieces Pieces;
 
-  friend std::ostream &operator<<(std::ostream &, const Trivia &Trivia);
+public:
+  explicit Trivia(TriviaPieces Pieces);
+  void dump(std::ostream &OS) const override;
 };
 
 } // namespace nixf

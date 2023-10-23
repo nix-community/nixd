@@ -35,32 +35,15 @@ std::optional<TriviaPiece> Lexer::tryConsumeWhitespaces() {
   if (eof() || !std::isspace(*Cur))
     return std::nullopt;
 
-  char Ch = *Cur;
-  unsigned Count = 0;
-  TriviaKind Kind = spaceTriviaKind(Ch);
+  const char *Ch = Cur;
+  TriviaKind Kind = spaceTriviaKind(*Cur);
 
   // consume same characters and combine them into a TriviaPiece
   do {
-    Count++;
     Cur++;
-  } while (Cur != Src.end() && *Cur == Ch);
+  } while (Cur != Src.end() && *Cur == *Ch);
 
-  switch (Kind) {
-  case TriviaKind::Space:
-    return TriviaPiece::spaces(Count);
-  case TriviaKind::Tab:
-    return TriviaPiece::tabs(Count);
-  case TriviaKind::VerticalTab:
-    return TriviaPiece::verticalTabs(Count);
-  case TriviaKind::Formfeed:
-    return TriviaPiece::formFeeds(Count);
-  case TriviaKind::Newline:
-    return TriviaPiece::newlines(Count);
-  case TriviaKind::CarriageReturn:
-    return TriviaPiece::carriageReturns(Count);
-  default:
-    __builtin_unreachable();
-  }
+  return TriviaPiece(Kind, std::string(Ch, Cur));
 }
 
 std::optional<TriviaPiece> Lexer::tryConsumeComments() {
@@ -73,6 +56,7 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
 
   if (consumePrefix("/*")) {
     // consume block comments until we meet '*/'
+    constexpr auto Kind = TriviaKind::BlockComment;
     while (true) {
       if (eof()) {
         // there is no '*/' to terminate comments
@@ -83,18 +67,18 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
             .note(NK::NK_BCommentBegin, B);
 
         // recover
-        return TriviaPiece::blockComment(std::string(Remain));
+        return TriviaPiece(Kind, std::string(Remain));
       }
       if (!eof(Cur + 1) && consumePrefix("*/"))
         // we found the ending '*/'
-        return TriviaPiece::blockComment(std::string(BeginPtr, Cur));
+        return TriviaPiece(Kind, std::string(BeginPtr, Cur));
       Cur++;
     }
   } else if (consumePrefix("#")) {
     // single line comments, consume blocks until we meet EOF or '\n' or '\r'
     while (true) {
       if (eof() || consumeEOL()) {
-        return TriviaPiece::lineComment(std::string(BeginPtr, Cur));
+        return TriviaPiece(TriviaKind::LineComment, std::string(BeginPtr, Cur));
       }
       Cur++;
     }
@@ -105,19 +89,19 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
 
 Trivia Lexer::consumeTrivia() {
   if (eof())
-    return {};
+    return Trivia({});
 
-  Trivia Result;
+  Trivia::TriviaPieces Pieces;
   while (true) {
     if (std::optional<TriviaPiece> OTP = tryConsumeWhitespaces())
-      Result.Pieces.emplace_back(std::move(*OTP));
+      Pieces.emplace_back(std::move(*OTP));
     else if (std::optional<TriviaPiece> OTP = tryConsumeComments())
-      Result.Pieces.emplace_back(std::move(*OTP));
+      Pieces.emplace_back(std::move(*OTP));
     else
       break;
   }
 
-  return Result;
+  return Trivia(Pieces);
 }
 
 bool Lexer::lexFloatExp() {
@@ -145,7 +129,7 @@ bool Lexer::lexFloatExp() {
   return true;
 }
 
-void Lexer::lexNumbers(Token &Tok) {
+void Lexer::lexNumbers() {
   // numbers
   //
   // currently libexpr accepts:
@@ -177,50 +161,48 @@ void Lexer::lexNumbers(Token &Tok) {
       Cur++;
 
     if (lexFloatExp())
-      Tok.Kind = tok_float;
+      Tok = tok_float;
     else
-      Tok.Kind = tok_err;
+      Tok = tok_err;
 
   } else {
     // integer
-    Tok.Kind = tok_int;
+    Tok = tok_int;
   }
-  finishToken(Tok);
-  if (Tok.Content.starts_with("00") && Tok.Kind == tok_float)
-    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2})
-        << Tok.Content;
+
+  if (tokStr().starts_with("00") && Tok == tok_float)
+    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << tokStr();
 }
 
 std::shared_ptr<Token> Lexer::lexString() {
   // Accept all characters, except ${, or "
   startToken();
-  auto Tok = std::make_shared<Token>();
   if (eof()) {
-    Tok->Kind = tok_eof;
-    return Tok;
+    Tok = tok_eof;
+    return finishToken();
   }
   switch (*Cur) {
   case '"':
     Cur++;
-    Tok->Kind = tok_dquote;
+    Tok = tok_dquote;
     break;
   case '\\':
     // Consume two characters, for escaping
     // NOTE: we may not want to break out Unicode wchar here, but libexpr does
     // such ignoring
     Cur += 2;
-    Tok->Kind = tok_string_escape;
+    Tok = tok_string_escape;
     break;
   case '$':
     if (consumePrefix("${")) {
-      Tok->Kind = tok_dollar_curly;
+      Tok = tok_dollar_curly;
       break;
     }
 
     // Otherwise, consider it is a part of string.
     [[fallthrough]];
   default:
-    Tok->Kind = tok_string_part;
+    Tok = tok_string_part;
     for (; !eof();) {
       // '\' escape
       if (*Cur == '\\')
@@ -237,30 +219,23 @@ std::shared_ptr<Token> Lexer::lexString() {
       Cur++;
     }
   }
-
-  finishToken(*Tok);
-  return Tok;
+  return finishToken();
 }
 
 std::shared_ptr<Token> Lexer::lex() {
   // eat leading trivia
-  Trivia LT = consumeTrivia();
-  auto Tok = std::make_shared<Token>();
-  Tok->LeadingTrivia = LT;
-
+  LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
   startToken();
 
   if (eof()) {
-    Tok->Kind = tok_eof;
-    return Tok;
+    Tok = tok_eof;
+    return finishToken();
   }
 
   if (std::isdigit(*Cur) || *Cur == '.') {
-    lexNumbers(*Tok);
-    return Tok;
+    lexNumbers();
+    return finishToken();
   }
-
-  finishToken(*Tok);
-  return Tok;
+  return finishToken();
 }
 } // namespace nixf

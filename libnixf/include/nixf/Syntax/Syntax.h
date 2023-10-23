@@ -1,53 +1,55 @@
 #pragma once
 
-#include <utility>
+#include "RawSyntax.h"
 
-#include "SyntaxView.h"
-#include "nixf/Syntax/RawSyntax.h"
+#include <memory>
 
 namespace nixf {
 
+// All language constructs in nix language.
+class Syntax {
+public:
+  enum SyntaxKind {
+    // expressions, the can be evaluated to "values"
+    SK_BeginExpr,
+#define EXPR(NAME) SK_##NAME,
+#include "SyntaxKinds.inc"
+#undef EXPR
+    SK_EndExpr,
+  };
+
+private:
+  SyntaxKind Kind;
+  Syntax *Parent;
+
+public:
+  Syntax(SyntaxKind Kind, Syntax *Parent = nullptr)
+      : Kind(Kind), Parent(Parent) {}
+  SyntaxKind getKind() { return Kind; }
+
+  Syntax *getParent() { return Parent; }
+  void setParent(Syntax *NewParent) { Parent = NewParent; }
+
+  /// returns printable name of enum kind.
+  static const char *getName(SyntaxKind Kind);
+
+  constexpr const char *getName() { return getName(getKind()); }
+
+  /// Check if this node is an expression
+  static bool isExpr(SyntaxKind Kind) {
+    return SK_BeginExpr < Kind && Kind < SK_EndExpr;
+  }
+
+  bool isExpr() { return isExpr(Kind); }
+};
+
 /// Abstract class for all expressions
-struct ExprSyntax {
-  enum ExprKind {
-    EK_Formal,
-    EK_Formals,
-    EK_Lambda,
-    EK_Assert,
-    EK_With,
-    EK_Binds,
-    EK_List,
-    EK_Let,
-    EK_If,
-    EK_Variable,
-    EK_Int,
-    EK_Float,
-    EK_String,
-  } Kind;
-  ExprSyntax(ExprKind Kind) : Kind(Kind) {}
+struct ExprSyntax : Syntax {
+  ExprSyntax(SyntaxKind Kind) : Syntax(Kind) {}
 };
 
-struct VarSyntax : ExprSyntax {
-  VarSyntax(std::shared_ptr<RawSyntax> Raw)
-      : ExprSyntax(EK_Variable), Var(std::move(Raw)) {}
-  SyntaxView Var;
-};
-
-struct IntSyntax : ExprSyntax {
-  SyntaxView Int;
-  IntSyntax(std::shared_ptr<RawSyntax> Raw)
-      : ExprSyntax(EK_Int), Int(std::move(Raw)) {}
-};
-
-struct FloatSyntax : ExprSyntax {
-  SyntaxView Int;
-  FloatSyntax(std::shared_ptr<RawSyntax> Raw)
-      : ExprSyntax(EK_Int), Int(std::move(Raw)) {}
-};
-
-struct IfSyntax : ExprSyntax {
-  std::shared_ptr<ExprSyntax> Cond;
-  std::shared_ptr<ExprSyntax> Body;
+struct LambdaSyntax : Syntax {
+  LambdaSyntax() : Syntax(SK_Lambda) {}
 };
 
 } // namespace nixf

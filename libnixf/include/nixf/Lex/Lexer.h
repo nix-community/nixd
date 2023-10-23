@@ -1,7 +1,10 @@
 #pragma once
 
 #include "nixf/Syntax/Token.h"
+#include "nixf/Syntax/Trivia.h"
 
+#include <cassert>
+#include <memory>
 #include <optional>
 #include <string_view>
 
@@ -17,8 +20,13 @@ class Lexer {
 
   // token recorder
   const char *TokStartPtr;
+  tok::TokenKind Tok;
+  std::unique_ptr<Trivia> LeadingTrivia;
   void startToken() { TokStartPtr = Cur; }
-  void finishToken(Token &Tok) { Tok.Content = std::string(TokStartPtr, Cur); }
+  std::shared_ptr<Token> finishToken() {
+    return std::make_shared<Token>(Tok, std::string(tokStr()),
+                                   std::move(LeadingTrivia), nullptr);
+  }
 
   Trivia consumeTrivia();
 
@@ -41,7 +49,9 @@ class Lexer {
   /// Look ahead and check if we has \p Prefix
   bool prefix(std::string_view Prefix);
 
-  void lexNumbers(Token &Tok);
+  void lexNumbers();
+
+  [[nodiscard]] std::string_view tokStr() const { return {TokStartPtr, Cur}; }
 
   [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }
 
