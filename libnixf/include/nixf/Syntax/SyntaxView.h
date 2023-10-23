@@ -17,7 +17,7 @@ class SyntaxView : std::enable_shared_from_this<SyntaxView> {
   ChildTy Children;
 
 public:
-  explicit SyntaxView(std::shared_ptr<RawSyntax> Raw) : Raw(std::move(Raw)) {
+  explicit SyntaxView(std::shared_ptr<RawSyntax> R) : Raw(std::move(R)) {
     for (const auto &Ch : Raw->Layout) {
       auto ChView = std::make_shared<SyntaxView>(Ch);
       ChView->Parent = weak_from_this();
