@@ -3,7 +3,7 @@
 namespace nixf {
 
 /// Abstract class for all expressions
-class ExprSyntax {
+struct ExprSyntax {
   enum ExprKind {
     EK_Formal,
     EK_Formals,
@@ -18,7 +18,8 @@ class ExprSyntax {
     EK_Int,
     EK_Float,
     EK_String,
-  };
+  } Kind;
+  ExprSyntax(ExprKind Kind) : Kind(Kind) {}
 };
 
 } // namespace nixf
