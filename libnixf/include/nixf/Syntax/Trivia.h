@@ -38,8 +38,8 @@ bool isSpaceTrivia(TriviaKind Kind);
 
 class TriviaPiece : public RawNode {
 private:
-  TriviaKind Kind;
-  std::string Text;
+  const TriviaKind Kind;
+  const std::string Text;
 
 public:
   TriviaPiece(TriviaKind Kind, std::string Text)
@@ -54,7 +54,7 @@ public:
   using TriviaPieces = std::vector<TriviaPiece>;
 
 private:
-  TriviaPieces Pieces;
+  const TriviaPieces Pieces;
 
 public:
   explicit Trivia(TriviaPieces Pieces);

@@ -24,10 +24,10 @@ enum TokenKind {
 } // namespace tok
 
 class Token : public RawNode {
-  tok::TokenKind Kind;
-  std::string Content;
-  std::unique_ptr<Trivia> LeadingTrivia;
-  std::unique_ptr<Trivia> TrailingTrivia;
+  const tok::TokenKind Kind;
+  const std::string Content;
+  const std::unique_ptr<Trivia> LeadingTrivia;
+  const std::unique_ptr<Trivia> TrailingTrivia;
 
 public:
   Token(tok::TokenKind Kind, const std::string &Content,
@@ -43,7 +43,6 @@ public:
   }
 
   tok::TokenKind getKind() { return Kind; }
-  void setKind(tok::TokenKind Kind) { this->Kind = Kind; }
 
   Trivia *getLeadingTrivia() { return LeadingTrivia.get(); }
   Trivia *getTrailingTrivia() { return TrailingTrivia.get(); }
