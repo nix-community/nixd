@@ -2,11 +2,24 @@
 #include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Syntax/Token.h"
 #include "nixf/Syntax/Trivia.h"
+#include <cstddef>
 #include <gtest/gtest.h>
 
 namespace nixf {
 
 using namespace tok;
+
+static auto collect(Lexer &L, std::shared_ptr<Token> (Lexer::*Ptr)()) {
+  std::vector<std::shared_ptr<Token>> Ret;
+  for (;;) {
+    auto Tok = (L.*Ptr)();
+    if (Tok->Kind == tok_eof)
+      break;
+    Ret.emplace_back(std::move(Tok));
+  }
+  return Ret;
+}
+
 struct LexerTest : testing::Test {
   DiagnosticEngine Diag;
   std::stringstream SS;
@@ -119,6 +132,30 @@ TEST_F(LexerTest, FloatNoExp) {
   ASSERT_FALSE(Diag.diags().empty());
   ASSERT_EQ(std::string(Diag.diags()[0]->format()),
             "float point has trailing `e` but has no exponential part");
+}
+
+TEST_F(LexerTest, lexString) {
+  Lexer Lexer(R"("aa bb \\ \t \" \n ${}")", Diag);
+  const TokenKind Match[] = {
+      tok_dquote,        // '"'
+      tok_string_part,   // 'aa bb '
+      tok_string_escape, // '\\'
+      tok_string_part,   // ' '
+      tok_string_escape, // '\t'
+      tok_string_part,   // ' '
+      tok_string_escape, // '\"'
+      tok_string_part,   // ' '
+      tok_string_escape, // '\n'
+      tok_string_part,   // ' '
+      tok_dollar_curly,  // '${'
+      tok_string_part,   // '}'
+      tok_dquote,        // '"'
+  };
+  auto Tokens = collect(Lexer, &Lexer::lexString);
+  for (size_t I = 0; I < Tokens.size(); I++) {
+    ASSERT_EQ(Tokens[I]->Kind, Match[I]);
+  }
+  ASSERT_EQ(Tokens.size(), 13);
 }
 
 } // namespace nixf

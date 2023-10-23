@@ -17,6 +17,11 @@ enum TokenKind {
   tok_int,
   tok_float,
 
+  tok_dquote, // "
+  tok_string_part,
+  tok_dollar_curly,  // ${
+  tok_string_escape, // escaped string, e.g. \r \n \x \"
+
   tok_err,
 };
 

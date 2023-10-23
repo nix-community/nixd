@@ -38,6 +38,9 @@ class Lexer {
   // Advance cursor if it starts with prefix, otherwise do nothing
   bool consumePrefix(std::string_view Prefix);
 
+  /// Look ahead and check if we has \p Prefix
+  bool prefix(std::string_view Prefix);
+
   void lexNumbers(Token &Tok);
 
   [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }
@@ -48,13 +51,16 @@ public:
     Cur = Src.begin();
   }
 
+  const char *cur() { return Cur; }
+
   /// Reset the cursor at source \p offset (zero-based indexing)
-  void setCursor(unsigned Offset) {
-    Cur = Src.begin() + Offset;
-    assert(Cur < Src.end());
+  void setCur(const char *NewCur) {
+    assert(NewCur < Src.end());
+    Cur = NewCur;
   }
 
   std::shared_ptr<Token> lex();
+  std::shared_ptr<Token> lexString();
 };
 
 } // namespace nixf

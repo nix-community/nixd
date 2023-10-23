@@ -14,11 +14,18 @@ using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
 bool Lexer::consumePrefix(std::string_view Prefix) {
+  if (prefix(Prefix)) {
+    Cur += Prefix.length();
+    return true;
+  }
+  return false;
+}
+
+bool Lexer::prefix(std::string_view Prefix) {
   // Check [Cur, Cur + Prefix.length)
   if (Cur + Prefix.length() > Src.end())
     return false;
   if (remain().starts_with(Prefix)) {
-    Cur += Prefix.length();
     return true;
   }
   return false;
@@ -182,6 +189,57 @@ void Lexer::lexNumbers(Token &Tok) {
   if (Tok.Content.starts_with("00") && Tok.Kind == tok_float)
     Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2})
         << Tok.Content;
+}
+
+std::shared_ptr<Token> Lexer::lexString() {
+  // Accept all characters, except ${, or "
+  startToken();
+  auto Tok = std::make_shared<Token>();
+  if (eof()) {
+    Tok->Kind = tok_eof;
+    return Tok;
+  }
+  switch (*Cur) {
+  case '"':
+    Cur++;
+    Tok->Kind = tok_dquote;
+    break;
+  case '\\':
+    // Consume two characters, for escaping
+    // NOTE: we may not want to break out Unicode wchar here, but libexpr does
+    // such ignoring
+    Cur += 2;
+    Tok->Kind = tok_string_escape;
+    break;
+  case '$':
+    if (consumePrefix("${")) {
+      Tok->Kind = tok_dollar_curly;
+      break;
+    }
+
+    // Otherwise, consider it is a part of string.
+    [[fallthrough]];
+  default:
+    Tok->Kind = tok_string_part;
+    for (; !eof();) {
+      // '\' escape
+      if (*Cur == '\\')
+        break;
+      if (*Cur == '"')
+        break;
+      // double-$, or \$, escapes ${.
+      // We will handle escaping on Sema
+      if (consumePrefix("$${"))
+        continue;
+      // Encountered a string interpolation, stop here
+      if (prefix("${"))
+        break;
+      Cur++;
+    }
+  }
+
+  finishToken(*Tok);
+  return Tok;
 }
 
 std::shared_ptr<Token> Lexer::lex() {
