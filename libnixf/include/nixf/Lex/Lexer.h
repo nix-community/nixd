@@ -1,12 +1,13 @@
 #pragma once
 
-#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Syntax/Token.h"
 
 #include <optional>
 #include <string_view>
 
 namespace nixf {
+
+class DiagnosticEngine;
 
 class Lexer {
   const std::string_view Src;

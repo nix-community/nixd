@@ -1,9 +1,8 @@
-#include <gtest/gtest.h>
-
-#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Lex/Lexer.h"
+#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Syntax/Token.h"
 #include "nixf/Syntax/Trivia.h"
+#include <gtest/gtest.h>
 
 namespace nixf {
 
@@ -16,28 +15,28 @@ TEST_F(LexerTest, Integer) {
   Lexer Lexer("1", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->Kind, TokenKind::TK_int);
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer2) {
   Lexer Lexer("1123123", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->Kind, TokenKind::TK_int);
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer4) {
   Lexer Lexer("00023121123123", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->Kind, TokenKind::TK_int);
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer5) {
   Lexer Lexer("00023121123123", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->Kind, TokenKind::TK_int);
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Trivia1) {
@@ -50,7 +49,7 @@ TEST_F(LexerTest, Trivia1) {
   SS << P->LeadingTrivia;
   ASSERT_EQ(SS.str(), Trivia);
   ASSERT_EQ(P->Content, "3");
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, TriviaLComment) {
@@ -65,7 +64,7 @@ TEST_F(LexerTest, TriviaLComment) {
   SS << P->LeadingTrivia;
   ASSERT_EQ(SS.str(), "# single line comment\n\n");
   ASSERT_EQ(P->Content, "3");
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, TriviaBComment) {
@@ -79,7 +78,7 @@ aaa
   SS << P->LeadingTrivia;
   ASSERT_EQ(SS.str(), "/* block comment\naaa\n*/");
   ASSERT_EQ(P->Content, "");
-  ASSERT_TRUE(Diag.empty());
+  ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, TriviaBComment2) {
@@ -94,10 +93,10 @@ aaa
   ASSERT_EQ(P->LeadingTrivia.Pieces[0].Count, 1);
   ASSERT_EQ(P->LeadingTrivia.Pieces[0].Text, Src);
   ASSERT_EQ(P->Content, "");
-  ASSERT_TRUE(!Diag.errors().empty());
+  ASSERT_TRUE(!Diag.diags().empty());
 
-  ASSERT_EQ(std::string(Diag.errors()[0]->format()), "unterminated /* comment");
-  ASSERT_EQ(std::string(Diag.errors()[0]->notes()[0]->format()),
+  ASSERT_EQ(std::string(Diag.diags()[0]->format()), "unterminated /* comment");
+  ASSERT_EQ(std::string(Diag.diags()[0]->notes()[0]->format()),
             "/* comment begins at here");
 }
 
@@ -106,8 +105,8 @@ TEST_F(LexerTest, FloatLeadingZero) {
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->Kind, TokenKind::TK_float);
   ASSERT_EQ(P->Content, "00.33");
-  ASSERT_FALSE(Diag.warnings().empty());
-  ASSERT_EQ(std::string(Diag.warnings()[0]->format()),
+  ASSERT_FALSE(Diag.diags().empty());
+  ASSERT_EQ(std::string(Diag.diags()[0]->format()),
             "float begins with extra zeros `00.33` is nixf extension");
 }
 
@@ -116,8 +115,8 @@ TEST_F(LexerTest, FloatNoExp) {
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->Kind, TokenKind::TK_err);
   ASSERT_EQ(P->Content, "00.33e");
-  ASSERT_FALSE(Diag.fatals().empty());
-  ASSERT_EQ(std::string(Diag.fatals()[0]->format()),
+  ASSERT_FALSE(Diag.diags().empty());
+  ASSERT_EQ(std::string(Diag.diags()[0]->format()),
             "float point has trailing `e` but has no exponential part");
 }
 

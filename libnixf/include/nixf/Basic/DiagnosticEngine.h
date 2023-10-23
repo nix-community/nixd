@@ -13,7 +13,7 @@ public:
     return *Diags.back();
   }
 
-  std::vector<std::unique_ptr<Diagnostic>> &diags();
+  std::vector<std::unique_ptr<Diagnostic>> &diags() { return Diags; }
 
 private:
   std::vector<std::unique_ptr<Diagnostic>> Diags;

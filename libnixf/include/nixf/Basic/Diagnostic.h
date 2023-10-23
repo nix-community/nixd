@@ -50,7 +50,7 @@ public:
 #undef DIAG_NOTE
   };
 
-  Note(OffsetRange Range, NoteKind Kind) : Range(Range), Kind(Kind) {}
+  Note(NoteKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
 
   template <class T> PartialDiagnostic &operator<<(const T &Var) {
     Args.push_back(Var);
@@ -66,8 +66,8 @@ public:
   OffsetRange range() const { return Range; }
 
 private:
-  OffsetRange Range;
   NoteKind Kind;
+  OffsetRange Range;
 };
 
 /// The super class for all diagnostics.
@@ -91,8 +91,8 @@ public:
 #undef DIAG
   };
 
-  Diagnostic(OffsetRange Range, DiagnosticKind Kind)
-      : Range(Range), Kind(Kind) {}
+  Diagnostic(DiagnosticKind Kind, OffsetRange Range)
+      : Kind(Kind), Range(Range) {}
 
   [[nodiscard]] DiagnosticKind kind() const { return Kind; };
 
@@ -111,8 +111,8 @@ public:
 
   [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 
-  Note &note(OffsetRange Range, Note::NoteKind Kind) {
-    return *Notes.emplace_back(std::make_unique<Note>(Range, Kind));
+  Note &note(Note::NoteKind Kind, OffsetRange Range) {
+    return *Notes.emplace_back(std::make_unique<Note>(Kind, Range));
   }
 
   std::vector<std::unique_ptr<Note>> &notes() { return Notes; }
@@ -120,41 +120,11 @@ public:
   OffsetRange range() const { return Range; }
 
 private:
+  DiagnosticKind Kind;
   /// Location of this diagnostic
   OffsetRange Range;
 
   std::vector<std::unique_ptr<Note>> Notes;
-
-  DiagnosticKind Kind;
-};
-
-class DiagnosticEngine {
-public:
-  Diagnostic &diag(OffsetRange Range, Diagnostic::DiagnosticKind Kind) {
-    auto Diag = std::make_unique<Diagnostic>(Range, Kind);
-    switch (getServerity(Diag->kind())) {
-    case Diagnostic::DS_Fatal:
-      return *Fatals.emplace_back(std::move(Diag));
-    case Diagnostic::DS_Error:
-      return *Errors.emplace_back(std::move(Diag));
-    case Diagnostic::DS_Warning:
-      return *Warnings.emplace_back(std::move(Diag));
-    }
-  }
-
-  bool empty() { return Warnings.empty() && Errors.empty() && Fatals.empty(); }
-
-  std::vector<std::unique_ptr<Diagnostic>> &warnings() { return Warnings; }
-  std::vector<std::unique_ptr<Diagnostic>> &errors() { return Errors; }
-  std::vector<std::unique_ptr<Diagnostic>> &fatals() { return Fatals; }
-
-private:
-  Diagnostic::Severity getServerity(Diagnostic::DiagnosticKind Kind) {
-    return Diagnostic::severity(Kind);
-  }
-  std::vector<std::unique_ptr<Diagnostic>> Warnings;
-  std::vector<std::unique_ptr<Diagnostic>> Errors;
-  std::vector<std::unique_ptr<Diagnostic>> Fatals;
 };
 
 } // namespace nixf

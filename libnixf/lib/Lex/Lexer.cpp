@@ -1,5 +1,5 @@
 #include "nixf/Lex/Lexer.h"
-#include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Syntax/Token.h"
 #include "nixf/Syntax/Trivia.h"
 
@@ -73,8 +73,8 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
         OffsetRange R = {curOffset() - 1, curOffset()};
         OffsetRange B = {BeginOffset, BeginOffset + 2};
 
-        Diags.diag(R, DK::DK_UnterminatedBComment)
-            .note(B, NK::NK_BCommentBegin);
+        Diags.diag(DK::DK_UnterminatedBComment, R)
+            .note(NK::NK_BCommentBegin, B);
 
         // recover
         return TriviaPiece::blockComment(std::string(Remain));
@@ -136,7 +136,7 @@ bool Lexer::lexFloatExp(std::string &NumStr) {
       } while (!eof() && isdigit(*Cur));
     } else {
       // not matching [0-9]+, error
-      Diags.diag({EOffset, EOffset + 1}, DK::DK_FloatNoExp) << ECh;
+      Diags.diag(DK::DK_FloatNoExp, {EOffset, EOffset + 1}) << ECh;
       return false;
     }
   }
@@ -186,7 +186,7 @@ void Lexer::lexNumbers(Token &Tok) {
     else
       Tok.Kind = TokenKind::TK_err;
     if (NumStr.starts_with("00")) {
-      Diags.diag({NumStart, NumStart + 2}, DK::DK_FloatLeadingZero) << NumStr;
+      Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << NumStr;
     }
     Tok.Content = std::move(NumStr);
   } else {
