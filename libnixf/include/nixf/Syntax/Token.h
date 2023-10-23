@@ -42,12 +42,14 @@ public:
       Length += TrailingTrivia->getLength();
   }
 
-  tok::TokenKind getKind() { return Kind; }
+  [[nodiscard]] tok::TokenKind getKind() const { return Kind; }
 
-  Trivia *getLeadingTrivia() { return LeadingTrivia.get(); }
-  Trivia *getTrailingTrivia() { return TrailingTrivia.get(); }
+  [[nodiscard]] Trivia *getLeadingTrivia() const { return LeadingTrivia.get(); }
+  [[nodiscard]] Trivia *getTrailingTrivia() const {
+    return TrailingTrivia.get();
+  }
 
-  std::string_view getContent() { return Content; }
+  [[nodiscard]] std::string_view getContent() const { return Content; }
 
   void dump(std::ostream &OS) const override {
     if (LeadingTrivia)
