@@ -127,22 +127,19 @@ Trivia Lexer::consumeTrivia() {
   return Result;
 }
 
-bool Lexer::lexFloatExp(std::string &NumStr) {
+bool Lexer::lexFloatExp() {
   // accept ([Ee][+-]?[0-9]+)?, the exponential part (after `.` of a float)
   if (!eof() && (*Cur == 'E' || *Cur == 'e')) {
     unsigned EOffset = curOffset();
     char ECh = *Cur;
-    NumStr += *Cur;
     Cur++;
     // [+-]?
     if (!eof() && (*Cur == '+' || *Cur == '-')) {
-      NumStr += *Cur;
       Cur++;
     }
     // [0-9]+
     if (!eof() && isdigit(*Cur)) {
       do {
-        NumStr += *Cur;
         Cur++;
       } while (!eof() && isdigit(*Cur));
     } else {
@@ -174,37 +171,31 @@ void Lexer::lexNumbers(Token &Tok) {
   //
   // however, we accept [0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?
   // and issues a warning if it has leading zeros
-  std::string NumStr;
   unsigned NumStart = curOffset();
   // [0-9]+
-  while (!eof() && isdigit(*Cur)) {
-    NumStr += *Cur;
+  while (!eof() && isdigit(*Cur))
     Cur++;
-  }
   if (*Cur == '.') {
     // float
-    NumStr += *Cur; // '.'
     Cur++;
 
     // [0-9]*
-    while (!eof() && isdigit(*Cur)) {
-      NumStr += *Cur;
+    while (!eof() && isdigit(*Cur))
       Cur++;
-    }
 
-    if (lexFloatExp(NumStr))
+    if (lexFloatExp())
       Tok.Kind = tok_float;
     else
       Tok.Kind = tok_err;
-    if (NumStr.starts_with("00")) {
-      Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << NumStr;
-    }
-    Tok.Content = std::move(NumStr);
+
   } else {
     // integer
     Tok.Kind = tok_int;
-    Tok.Content = std::move(NumStr);
   }
+  finishToken(Tok);
+  if (Tok.Content.starts_with("00") && Tok.Kind == tok_float)
+    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2})
+        << Tok.Content;
 }
 
 std::shared_ptr<Token> Lexer::lex() {
@@ -212,6 +203,8 @@ std::shared_ptr<Token> Lexer::lex() {
   Trivia LT = consumeTrivia();
   auto Tok = std::make_shared<Token>();
   Tok->LeadingTrivia = LT;
+
+  startToken();
 
   if (eof()) {
     Tok->Kind = tok_eof;
@@ -223,6 +216,7 @@ std::shared_ptr<Token> Lexer::lex() {
     return Tok;
   }
 
+  finishToken(*Tok);
   return Tok;
 }
 } // namespace nixf

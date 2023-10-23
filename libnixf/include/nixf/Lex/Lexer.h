@@ -15,6 +15,11 @@ class Lexer {
   unsigned OffsetBase;
   const char *Cur;
 
+  // token recorder
+  const char *TokStartPtr;
+  void startToken() { TokStartPtr = Cur; }
+  void finishToken(Token &Tok) { Tok.Content = std::string(TokStartPtr, Cur); }
+
   Trivia consumeTrivia();
 
   std::optional<TriviaPiece> tryConsumeWhitespaces();
@@ -28,7 +33,7 @@ class Lexer {
 
   bool tryAdvanceEOL();
 
-  bool lexFloatExp(std::string &NumStr);
+  bool lexFloatExp();
 
   // Advance cursor if it starts with prefix, otherwise do nothing
   bool consumePrefix(std::string_view Prefix);
