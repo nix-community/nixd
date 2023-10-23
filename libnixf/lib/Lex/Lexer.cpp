@@ -56,20 +56,6 @@ std::optional<TriviaPiece> Lexer::tryConsumeWhitespaces() {
   }
 }
 
-bool Lexer::tryAdvanceEOL() {
-  if (!eof(Cur + 1) && remain().starts_with("\r\n")) {
-    // CRLF
-    Cur += 2;
-    return true;
-  }
-  if (!eof() && *Cur == '\n') {
-    // LF
-    Cur++;
-    return true;
-  }
-  return false;
-}
-
 std::optional<TriviaPiece> Lexer::tryConsumeComments() {
   if (eof())
     return std::nullopt;
@@ -100,7 +86,7 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
   } else if (consumePrefix("#")) {
     // single line comments, consume blocks until we meet EOF or '\n' or '\r'
     while (true) {
-      if (eof() || tryAdvanceEOL()) {
+      if (eof() || consumeEOL()) {
         return TriviaPiece::lineComment(std::string(BeginPtr, Cur));
       }
       Cur++;

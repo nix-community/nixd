@@ -31,7 +31,7 @@ class Lexer {
 
   bool eof() { return eof(Cur); }
 
-  bool tryAdvanceEOL();
+  bool consumeEOL() { return consumePrefix("\r\n") || consumePrefix("\n"); }
 
   bool lexFloatExp();
 
