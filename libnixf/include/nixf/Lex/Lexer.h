@@ -40,6 +40,12 @@ public:
     Cur = Src.begin();
   }
 
+  /// Reset the cursor at source \p offset (zero-based indexing)
+  void setCursor(unsigned Offset) {
+    Cur = Src.begin() + Offset;
+    assert(Cur < Src.end());
+  }
+
   std::shared_ptr<Token> lex();
 };
 
