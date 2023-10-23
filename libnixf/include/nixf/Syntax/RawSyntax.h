@@ -7,8 +7,10 @@ namespace nixf {
 
 enum class SyntaxKind { Token };
 
-class RawSyntax {
+class SyntaxView;
 
+class RawSyntax {
+  friend class SyntaxView;
   const SyntaxKind Kind;
 
   const std::vector<std::shared_ptr<RawSyntax>> Layout;
