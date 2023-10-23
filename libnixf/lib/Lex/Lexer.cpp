@@ -8,6 +8,8 @@
 
 namespace nixf {
 
+using namespace tok;
+
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
@@ -182,16 +184,16 @@ void Lexer::lexNumbers(Token &Tok) {
     }
 
     if (lexFloatExp(NumStr))
-      Tok.Kind = TokenKind::TK_float;
+      Tok.Kind = tok_float;
     else
-      Tok.Kind = TokenKind::TK_err;
+      Tok.Kind = tok_err;
     if (NumStr.starts_with("00")) {
       Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << NumStr;
     }
     Tok.Content = std::move(NumStr);
   } else {
     // integer
-    Tok.Kind = TokenKind::TK_int;
+    Tok.Kind = tok_int;
     Tok.Content = std::move(NumStr);
   }
 }
@@ -203,7 +205,7 @@ std::shared_ptr<Token> Lexer::lex() {
   Tok->LeadingTrivia = LT;
 
   if (eof()) {
-    Tok->Kind = TokenKind::TK_eof;
+    Tok->Kind = tok_eof;
     return Tok;
   }
 

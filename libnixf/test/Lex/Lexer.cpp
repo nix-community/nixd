@@ -6,6 +6,7 @@
 
 namespace nixf {
 
+using namespace tok;
 struct LexerTest : testing::Test {
   DiagnosticEngine Diag;
   std::stringstream SS;
@@ -14,28 +15,28 @@ struct LexerTest : testing::Test {
 TEST_F(LexerTest, Integer) {
   Lexer Lexer("1", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_int);
+  ASSERT_EQ(P->Kind, tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer2) {
   Lexer Lexer("1123123", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_int);
+  ASSERT_EQ(P->Kind, tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer4) {
   Lexer Lexer("00023121123123", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_int);
+  ASSERT_EQ(P->Kind, tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer5) {
   Lexer Lexer("00023121123123", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_int);
+  ASSERT_EQ(P->Kind, tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -44,7 +45,7 @@ TEST_F(LexerTest, Trivia1) {
   std::string Src = Trivia + "3";
   Lexer Lexer(Src, Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_int);
+  ASSERT_EQ(P->Kind, tok_int);
   ASSERT_EQ(P->LeadingTrivia.Pieces.size(), 11);
   SS << P->LeadingTrivia;
   ASSERT_EQ(SS.str(), Trivia);
@@ -59,7 +60,7 @@ TEST_F(LexerTest, TriviaLComment) {
 )",
               Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_int);
+  ASSERT_EQ(P->Kind, tok_int);
   ASSERT_EQ(P->LeadingTrivia.Pieces.size(), 2);
   SS << P->LeadingTrivia;
   ASSERT_EQ(SS.str(), "# single line comment\n\n");
@@ -73,7 +74,7 @@ aaa
 */)";
   Lexer Lexer(Src, Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_eof);
+  ASSERT_EQ(P->Kind, tok_eof);
   ASSERT_EQ(P->LeadingTrivia.Pieces.size(), 1);
   SS << P->LeadingTrivia;
   ASSERT_EQ(SS.str(), "/* block comment\naaa\n*/");
@@ -87,7 +88,7 @@ aaa
 )";
   Lexer Lexer(Src, Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_eof);
+  ASSERT_EQ(P->Kind, tok_eof);
   ASSERT_EQ(P->LeadingTrivia.Pieces.size(), 1);
   ASSERT_EQ(P->LeadingTrivia.Pieces[0].Kind, TriviaKind::BlockComment);
   ASSERT_EQ(P->LeadingTrivia.Pieces[0].Count, 1);
@@ -103,7 +104,7 @@ aaa
 TEST_F(LexerTest, FloatLeadingZero) {
   Lexer Lexer("00.33", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_float);
+  ASSERT_EQ(P->Kind, tok_float);
   ASSERT_EQ(P->Content, "00.33");
   ASSERT_FALSE(Diag.diags().empty());
   ASSERT_EQ(std::string(Diag.diags()[0]->format()),
@@ -113,7 +114,7 @@ TEST_F(LexerTest, FloatLeadingZero) {
 TEST_F(LexerTest, FloatNoExp) {
   Lexer Lexer("00.33e", Diag);
   std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->Kind, TokenKind::TK_err);
+  ASSERT_EQ(P->Kind, tok_err);
   ASSERT_EQ(P->Content, "00.33e");
   ASSERT_FALSE(Diag.diags().empty());
   ASSERT_EQ(std::string(Diag.diags()[0]->format()),

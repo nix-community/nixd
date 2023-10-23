@@ -9,15 +9,21 @@
 
 namespace nixf {
 
-enum class TokenKind {
-  TK_eof,
-  TK_int,
-  TK_float,
-  TK_err,
+namespace tok {
+
+enum TokenKind {
+  tok_eof,
+
+  tok_int,
+  tok_float,
+
+  tok_err,
 };
 
+} // namespace tok
+
 struct Token : RawSyntax {
-  TokenKind Kind;
+  tok::TokenKind Kind;
   std::string Content;
   Trivia LeadingTrivia;
   Trivia TrailingTrivia;
