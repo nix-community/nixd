@@ -82,9 +82,8 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
       }
       Cur++;
     }
-  } else {
-    return std::nullopt;
   }
+  return std::nullopt;
 }
 
 Trivia Lexer::consumeTrivia() {
