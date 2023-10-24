@@ -49,7 +49,10 @@ char spaceTriviaCh(TriviaKind Kind) {
   }
 }
 
-void TriviaPiece::dump(std::ostream &OS) const { OS << Text; }
+void TriviaPiece::dump(std::ostream &OS, bool DiscardTrivia) const {
+  if (!DiscardTrivia)
+    OS << Text;
+}
 
 Trivia::Trivia(TriviaPieces P)
     : RawNode(SyntaxKind::SK_Trivia), Pieces(std::move(P)) {
@@ -58,9 +61,9 @@ Trivia::Trivia(TriviaPieces P)
     Length += Piece.getLength();
 }
 
-void Trivia::dump(std::ostream &OS) const {
+void Trivia::dump(std::ostream &OS, bool DiscardTrivia) const {
   for (const TriviaPiece &Piece : Pieces)
-    Piece.dump(OS);
+    Piece.dump(OS, DiscardTrivia);
 }
 
 } // namespace nixf

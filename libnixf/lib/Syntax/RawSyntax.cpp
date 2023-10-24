@@ -13,10 +13,10 @@ RawTwine::RawTwine(SyntaxKind Kind,
   }
 }
 
-void RawTwine::dump(std::ostream &OS) const {
+void RawTwine::dump(std::ostream &OS, bool DiscardTrivia) const {
   for (const auto &Node : Layout) {
     if (Node)
-      Node->dump(OS);
+      Node->dump(OS, DiscardTrivia);
   }
 };
 

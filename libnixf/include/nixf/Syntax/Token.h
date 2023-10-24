@@ -44,12 +44,12 @@ public:
 
   [[nodiscard]] std::string_view getContent() const { return Content; }
 
-  void dump(std::ostream &OS) const override {
+  void dump(std::ostream &OS, bool DiscardTrivia = true) const override {
     if (LeadingTrivia)
-      LeadingTrivia->dump(OS);
+      LeadingTrivia->dump(OS, DiscardTrivia);
     OS << Content;
     if (TrailingTrivia)
-      TrailingTrivia->dump(OS);
+      TrailingTrivia->dump(OS, DiscardTrivia);
   }
 };
 

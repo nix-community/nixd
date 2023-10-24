@@ -61,7 +61,7 @@ TEST_F(LexerTest, Trivia1) {
   Lexer Lexer(Src, Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->getKind(), tok_int);
-  P->getLeadingTrivia()->dump(SS);
+  P->getLeadingTrivia()->dump(SS, /*DiscardTrivia=*/false);
   ASSERT_EQ(SS.str(), Trivia);
   ASSERT_EQ(P->getContent(), "3");
   ASSERT_TRUE(Diag.diags().empty());
@@ -75,7 +75,7 @@ TEST_F(LexerTest, TriviaLComment) {
               Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->getKind(), tok_int);
-  P->getLeadingTrivia()->dump(SS);
+  P->getLeadingTrivia()->dump(SS, /*DiscardTrivia=*/false);
   ASSERT_EQ(SS.str(), "# single line comment\n\n");
   ASSERT_EQ(P->getContent(), "3");
   ASSERT_TRUE(Diag.diags().empty());
@@ -88,7 +88,7 @@ aaa
   Lexer Lexer(Src, Diag);
   std::shared_ptr<Token> P = Lexer.lex();
   ASSERT_EQ(P->getKind(), tok_eof);
-  P->getLeadingTrivia()->dump(SS);
+  P->getLeadingTrivia()->dump(SS, /*DiscardTrivia=*/false);
   ASSERT_EQ(SS.str(), "/* block comment\naaa\n*/");
   ASSERT_EQ(P->getContent(), "");
   ASSERT_TRUE(Diag.diags().empty());

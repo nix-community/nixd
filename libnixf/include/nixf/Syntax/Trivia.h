@@ -46,7 +46,7 @@ public:
       : RawNode(SyntaxKind::SK_TriviaPiece), Kind(Kind), Text(std::move(Text)) {
     Length = Text.length();
   }
-  void dump(std::ostream &OS) const override;
+  void dump(std::ostream &OS, bool DiscardTrivia = true) const override;
 };
 
 class Trivia : public RawNode {
@@ -58,7 +58,7 @@ private:
 
 public:
   explicit Trivia(TriviaPieces Pieces);
-  void dump(std::ostream &OS) const override;
+  void dump(std::ostream &OS, bool DiscardTrivia = true) const override;
 };
 
 } // namespace nixf

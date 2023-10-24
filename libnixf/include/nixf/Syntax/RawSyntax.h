@@ -36,7 +36,7 @@ protected:
 public:
   RawNode(SyntaxKind Kind) : Kind(Kind) {}
   /// Dump source code.
-  virtual void dump(std::ostream &OS) const = 0;
+  virtual void dump(std::ostream &OS, bool DiscardTrivia = true) const = 0;
 
   static const char *nameOf(SyntaxKind Kind) {
     switch (Kind) {
@@ -52,17 +52,18 @@ public:
 
   [[nodiscard]] const char *kindName() const { return nameOf(Kind); }
 
-  virtual void dumpAST(std::ostream &OS, int Depth = 0) const {
+  virtual void dumpAST(std::ostream &OS, bool DiscardTrivia = true,
+                       int Depth = 0) const {
     for (int I = 0; I < Depth; I++)
       OS << " ";
     OS << std::string(kindName()) << " " << Length << " ";
     if (Kind == SyntaxKind::SK_Token)
-      dump(OS);
+      dump(OS, DiscardTrivia);
     OS << "\n";
     std::size_t Ch = getNumChildren();
     for (std::size_t I = 0; I < Ch; I++) {
       std::shared_ptr<RawNode> Ch = getNthChild(I);
-      Ch->dumpAST(OS, Depth + 1);
+      Ch->dumpAST(OS, DiscardTrivia, Depth + 1);
     }
   }
 
@@ -94,7 +95,7 @@ private:
 public:
   RawTwine(SyntaxKind Kind, std::vector<std::shared_ptr<RawNode>> Layout);
 
-  void dump(std::ostream &OS) const override;
+  void dump(std::ostream &OS, bool DiscardTrivia = true) const override;
 
   [[nodiscard]] std::size_t getNumChildren() const override {
     return Layout.size();
