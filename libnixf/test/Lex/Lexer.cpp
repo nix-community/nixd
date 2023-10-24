@@ -153,4 +153,33 @@ TEST_F(LexerTest, lexString) {
   ASSERT_EQ(Tokens.size(), 13);
 }
 
+TEST_F(LexerTest, lexIDPath) {
+  // FIXME: test  pp//a to see that we can lex this as Update(pp, a)
+  Lexer Lexer(R"(id pa/t)", Diag);
+  const TokenKind Match[] = {
+      tok_id,         // id
+      tok_path_start, // pa/
+      tok_id,         // t
+  };
+  auto Tokens = collect(Lexer, &Lexer::lex);
+  for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
+    ASSERT_EQ(Tokens[I]->getKind(), Match[I]);
+  }
+  ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
+}
+
+TEST_F(LexerTest, lexKW) {
+  // FIXME: test  pp//a to see that we can lex this as Update(pp, a)
+  Lexer Lexer(R"(if then)", Diag);
+  const TokenKind Match[] = {
+      tok_kw_if,   // if
+      tok_kw_then, // then
+  };
+  auto Tokens = collect(Lexer, &Lexer::lex);
+  for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
+    ASSERT_EQ(Tokens[I]->getKind(), Match[I]);
+  }
+  ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
+}
+
 } // namespace nixf

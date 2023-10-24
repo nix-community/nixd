@@ -8,18 +8,9 @@ namespace nixf {
 
 namespace tok {
 enum TokenKind {
-  tok_eof,
-
-  tok_int,
-  tok_float,
-
-  tok_dquote, // "
-  tok_string_part,
-  tok_r_curly,
-  tok_dollar_curly,  // ${
-  tok_string_escape, // escaped string, e.g. \r \n \x \"
-
-  tok_err,
+#define TOK(NAME) tok_##NAME,
+#include "TokenKinds.inc"
+#undef TOK
 };
 
 } // namespace tok

@@ -172,6 +172,71 @@ void Lexer::lexNumbers() {
     Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << tokStr();
 }
 
+static bool isPathChar(char Ch) {
+  // These characters are valid path char.
+  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '.' || Ch == '_' ||
+         Ch == '-' || Ch == '+';
+}
+
+const char *Lexer::checkPathStart() {
+  // PATH_CHAR   [a-zA-Z0-9\.\_\-\+]
+  // PATH        {PATH_CHAR}*(\/{PATH_CHAR}+)+\/?
+  // PATH_SEG    {PATH_CHAR}*\/
+  //
+
+  // Path, starts with any valid path char, and must contain slashs
+  // Here, we look ahead characters, the must be valid path char
+  // And also check if it contains a slash.
+  const char *PathCursor = Cur;
+
+  // Skipping any path char.
+  while (!eof(PathCursor) && isPathChar(*PathCursor))
+    PathCursor++;
+
+  // Check if there is a slash, and also a path char right after such slash.
+  // If so, it is a path_start
+  if (!eof(PathCursor) && *PathCursor == '/') {
+    PathCursor++;
+    // Now, check if we are on a normal path char.
+    if (!eof(PathCursor) && isPathChar(*PathCursor)) {
+      return PathCursor;
+    }
+    // Or, look ahead to see if is a dollar curly. ${
+    // This should be parsed as path-interpolation.
+    if (!eof(PathCursor + 1) && *PathCursor == '$' &&
+        *(PathCursor + 1) == '{') {
+      return PathCursor;
+    }
+  }
+
+  return nullptr;
+}
+
+static bool isIdentifierChar(char Ch) {
+  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '_' || Ch == '\'' ||
+         Ch == '-';
+}
+
+void Lexer::lexIdentifier() {
+  // identifier: [a-zA-Z_][a-zA-Z0-9_\'\-]*,
+  Cur++;
+  while (!eof() && isIdentifierChar(*Cur))
+    Cur++;
+}
+
+void Lexer::maybeKW() {
+  // For complex language this should be done on automaton or hashtable.
+  // But actually there are few keywords in nix language, so we just do
+  // comparison.
+#define TOK_KEYWORD(NAME)                                                      \
+  if (tokStr() == #NAME) {                                                     \
+    Tok = tok_kw_##NAME;                                                       \
+    return;                                                                    \
+  }
+#include "nixf/Syntax/TokenKeywords.inc"
+#undef TOK_KEYWORD
+}
+
 TokenView Lexer::lexString() {
   // Accept all characters, except ${, or "
   startToken();
@@ -232,6 +297,23 @@ TokenView Lexer::lex() {
 
   if (std::isdigit(*Cur) || *Cur == '.') {
     lexNumbers();
+    return finishToken();
+  }
+
+  if (std::isalpha(*Cur) || *Cur == '_') {
+    // Determine if this is a path, or identifier.
+    // a/b should be considered as a whole path, not (a / b)
+    if (const char *PathCursor = checkPathStart()) {
+      // Form a concret token, this is a path part.
+      Cur = PathCursor;
+      Tok = tok_path_start;
+      return finishToken();
+    }
+
+    // So, this is not a path, it should be an identifier.
+    lexIdentifier();
+    Tok = tok_id;
+    maybeKW();
     return finishToken();
   }
 

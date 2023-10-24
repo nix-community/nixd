@@ -77,6 +77,17 @@ class Lexer {
   /// Look ahead and check if we has \p Prefix
   bool prefix(std::string_view Prefix);
 
+  /// Look ahead to see it is a path, paths has higher priority than identifiers
+  /// If it is a valid path, \returns ending cursor
+  /// Otherwise \returns nullptr
+  const char *checkPathStart();
+
+  /// Should be called after lexing a "raw" identifier, we check if it is a
+  /// keyword and make assignment: `Tok <- tok_kw_*`
+  void maybeKW();
+
+  void lexIdentifier();
+
   void lexNumbers();
 
   [[nodiscard]] std::string_view tokStr() const { return {TokStartPtr, Cur}; }
