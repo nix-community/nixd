@@ -44,7 +44,7 @@ private:
 public:
   TriviaPiece(TriviaKind Kind, std::string Text)
       : RawNode(SyntaxKind::SK_TriviaPiece), Kind(Kind), Text(std::move(Text)) {
-    Length = Text.length();
+    Length = this->Text.length();
   }
   void dump(std::ostream &OS, bool DiscardTrivia = true) const override;
 };
