@@ -13,7 +13,7 @@ using namespace tok;
 
 static auto collect(Lexer &L, TokenView (Lexer::*Ptr)()) {
   std::vector<TokenView> Ret;
-  for (;;) {
+  while (true) {
     auto Tok = (L.*Ptr)();
     if (Tok->getKind() == tok_eof)
       break;
