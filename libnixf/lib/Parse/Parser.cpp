@@ -25,7 +25,6 @@ std::shared_ptr<RawNode> Parser::parseInterpolation() {
 // string : '"' {string_part} '"'
 // string_part : STRING_FRAGMENT | interpolation | STRING_ESCAPED
 std::shared_ptr<RawNode> Parser::parseString() {
-  // We are not consuming '"' because it should be eaten on parseSimple
   Builder.start(SyntaxKind::SK_String);
   consume();
   while (true) {
