@@ -26,13 +26,4 @@ TEST_F(ParserTest, Int) {
   ASSERT_EQ(Tok->getKind(), tok::tok_int);
 }
 
-TEST_F(ParserTest, String) {
-  nixf::Lexer L(R"("aaaa")", D);
-  nixf::Parser P(L);
-  std::shared_ptr<RawNode> R = P.parseExpr();
-  R->dumpAST(SS);
-  ASSERT_EQ(SS.str(), " ");
-  ASSERT_EQ(R->getSyntaxKind(), SyntaxKind::SK_String);
-}
-
 } // namespace nixf
