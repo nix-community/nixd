@@ -29,10 +29,10 @@ public:
         LeadingTrivia(std::move(LeadingTrivia)),
         TrailingTrivia(std::move(TrailingTrivia)) {
     Length = Content.length();
-    if (LeadingTrivia)
-      Length += LeadingTrivia->getLength();
-    if (TrailingTrivia)
-      Length += TrailingTrivia->getLength();
+    if (this->LeadingTrivia)
+      Length += this->LeadingTrivia->getLength();
+    if (this->TrailingTrivia)
+      Length += this->TrailingTrivia->getLength();
   }
 
   [[nodiscard]] tok::TokenKind getKind() const { return Kind; }
