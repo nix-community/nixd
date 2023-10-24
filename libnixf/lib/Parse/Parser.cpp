@@ -18,13 +18,12 @@ using namespace tok;
 //        | legacy_let
 //        | attr
 //        | list
-std::shared_ptr<RawTwine> Parser::parseSimple() {
+std::shared_ptr<RawNode> Parser::parseSimple() {
   std::shared_ptr<Token> Tok = Lex.lex();
-  switch (Tok->Kind) {
+  switch (Tok->getKind()) {
   case tok_int:
-    return std::make_shared<IntSyntax>(Tok);
   case tok_float:
-    return std::make_shared<FloatSyntax>(Tok);
+    return Tok;
   }
 }
 } // namespace nixf

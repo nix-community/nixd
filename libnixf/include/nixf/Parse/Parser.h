@@ -10,9 +10,9 @@ class Parser {
 
 public:
   explicit Parser(Lexer &Lex) : Lex(Lex) {}
-  std::shared_ptr<ExprSyntax> parseString();
-  std::shared_ptr<ExprSyntax> parseExpr();
-  std::shared_ptr<ExprSyntax> parseSimple();
+  std::shared_ptr<RawNode> parseString();
+  std::shared_ptr<RawNode> parseExpr();
+  std::shared_ptr<RawNode> parseSimple();
 };
 
 } // namespace nixf

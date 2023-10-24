@@ -3,6 +3,7 @@
 #include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Parse/Parser.h"
 #include "nixf/Syntax/Syntax.h"
+#include "nixf/Syntax/Token.h"
 
 namespace nixf {
 
@@ -18,8 +19,10 @@ struct ParserTest : testing::Test {
 TEST_F(ParserTest, Int) {
   nixf::Lexer L("1", D);
   nixf::Parser P(L);
-  std::shared_ptr<ExprSyntax> R = P.parseSimple();
-  ASSERT_EQ(R->Kind, ExprSyntax::EK_Int);
+  std::shared_ptr<RawNode> R = P.parseSimple();
+  auto *Tok = dynamic_cast<Token *>(R.get());
+  ASSERT_EQ(R->getSyntaxKind(), SyntaxKind::SK_Token);
+  ASSERT_EQ(Tok->getKind(), tok::tok_int);
 }
 
 } // namespace nixf
