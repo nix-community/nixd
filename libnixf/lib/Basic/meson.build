@@ -1,4 +1,4 @@
-libnixfBasic_deps = [ nix_expr, nix_main, nix_cmd, boost, fmt ]
+libnixfBasic_deps = [ fmt ]
 
 libnixfBasic_inc = nixf_inc
 

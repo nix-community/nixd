@@ -1,4 +1,4 @@
-libnixfParse_deps = [ nix_expr, nix_main, nix_cmd, boost, nixfBasic, nixfSyntax, nixfLex ]
+libnixfParse_deps = [ nixfBasic, nixfSyntax, nixfLex ]
 
 libnixfParse_inc = nixf_inc
 

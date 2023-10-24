@@ -1,4 +1,4 @@
-libnixfLex_deps = [ nix_expr, nix_main, nix_cmd, boost, nixfBasic, nixfSyntax ]
+libnixfLex_deps = [ nixfBasic, nixfSyntax ]
 
 libnixfLex_inc = nixf_inc
 

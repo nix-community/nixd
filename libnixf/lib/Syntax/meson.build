@@ -1,4 +1,4 @@
-libnixfSyntax_deps = [ nix_expr, nix_main, nix_cmd, boost, nixfBasic ]
+libnixfSyntax_deps = [ nixfBasic ]
 
 libnixfSyntax_inc = nixf_inc
 
