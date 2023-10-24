@@ -25,9 +25,12 @@ class Parser {
 
   void consumeOnly() { LookAheadBuf.pop_front(); }
 
-  std::shared_ptr<RawNode> parseSimple();
+  // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
   std::shared_ptr<RawNode> parseString();
+
+  // Abstract level.
+  std::shared_ptr<RawNode> parseSimple();
 
 public:
   explicit Parser(Lexer &Lex) : Lex(Lex) {}
