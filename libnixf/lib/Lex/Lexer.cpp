@@ -165,7 +165,6 @@ void Lexer::lexNumbers() {
       Tok = tok_err;
 
   } else {
-    // integer
     Tok = tok_int;
   }
 
