@@ -1,16 +1,20 @@
 #include "nixf/Syntax/Syntax.h"
+#include "nixf/Syntax/RawSyntax.h"
+#include "nixf/Syntax/SyntaxData.h"
+#include <cassert>
 
 namespace nixf {
 
-const char *Syntax::getName(SyntaxKind Kind) {
-  switch (Kind) {
-#define EXPR(NAME)                                                             \
-  case SK_##NAME:                                                              \
-    return #NAME;
-#include "nixf/Syntax/SyntaxKinds.inc"
-#undef EXPR
-  default:
-    __builtin_unreachable();
-  }
+Syntax::Syntax(std::shared_ptr<SyntaxData> Root, const SyntaxData *Data)
+    : Root(std::move(Root)), Data(Data) {
+  assert(Data);
+  assert(Root);
 }
+
+std::optional<Syntax> Syntax::getParent() {
+  if (Data->getParent())
+    return Syntax{Root, Data->getParent()};
+  return std::nullopt;
+}
+
 } // namespace nixf

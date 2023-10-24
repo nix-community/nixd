@@ -29,4 +29,10 @@ EXPR(Select)
 EXPR(String)
 EXPR(Var)
 EXPR(With)
-#endif
+#endif // EXPR
+
+#ifdef NODE
+NODE(ID)
+NODE(Formals)
+NODE(Formal)
+#endif // NODE
