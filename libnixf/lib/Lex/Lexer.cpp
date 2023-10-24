@@ -295,7 +295,7 @@ TokenView Lexer::lex() {
     return finishToken();
   }
 
-  if (std::isdigit(*Cur) || *Cur == '.') {
+  if (std::isdigit(*Cur)) {
     lexNumbers();
     return finishToken();
   }
@@ -325,6 +325,35 @@ TokenView Lexer::lex() {
   case '}':
     Cur++;
     Tok = tok_r_curly;
+    break;
+  case '.':
+    Cur++;
+    Tok = tok_dot;
+    break;
+  case ';':
+    Cur++;
+    Tok = tok_semi_colon;
+    break;
+  case '=':
+    Cur++;
+    Tok = tok_eq;
+    break;
+  case '{':
+    Cur++;
+    Tok = tok_l_curly;
+    break;
+  case '(':
+    Cur++;
+    Tok = tok_l_paren;
+    break;
+  case ')':
+    Cur++;
+    Tok = tok_r_paren;
+  case '$':
+    if (consumePrefix("${")) {
+      Tok = tok_dollar_curly;
+      break;
+    }
     break;
   }
   return finishToken();

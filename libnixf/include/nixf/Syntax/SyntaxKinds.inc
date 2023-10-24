@@ -6,7 +6,7 @@
 // Expressions.
 #ifdef EXPR
 EXPR(Assert)
-EXPR(Attrs)
+EXPR(AttrSet)
 EXPR(Call)
 EXPR(Float)
 EXPR(Int)
@@ -39,4 +39,8 @@ NODE(ID)
 NODE(Formals)
 NODE(Formal)
 NODE(Interpolation)
+NODE(AttrPath)
+NODE(Inherit)
+NODE(Binds)
+NODE(Binding)
 #endif // NODE

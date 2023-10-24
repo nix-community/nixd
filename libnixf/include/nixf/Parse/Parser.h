@@ -1,4 +1,5 @@
 #include "nixf/Lex/Lexer.h"
+#include "nixf/Syntax/Token.h"
 
 #include <queue>
 
@@ -19,6 +20,8 @@ class Parser {
   }
 
   void consume() {
+    if (LookAheadBuf.empty())
+      peek(0);
     Builder.push(LookAheadBuf.front().get());
     consumeOnly();
   }
@@ -28,6 +31,12 @@ class Parser {
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
   std::shared_ptr<RawNode> parseString();
+  std::shared_ptr<RawNode> parseAttrPath();
+  std::shared_ptr<RawNode> parseAttrName();
+  std::shared_ptr<RawNode> parseBinding();
+  std::shared_ptr<RawNode> parseInherit();
+  std::shared_ptr<RawNode> parseBinds();
+  std::shared_ptr<RawNode> parseAttrSetExpr();
 
   // Abstract level.
   std::shared_ptr<RawNode> parseExprSimple();
