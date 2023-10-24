@@ -14,7 +14,7 @@ using namespace tok;
 static auto collect(Lexer &L, TokenView (Lexer::*Ptr)()) {
   std::vector<TokenView> Ret;
   while (true) {
-    auto Tok = (L.*Ptr)();
+    TokenView Tok = (L.*Ptr)();
     if (Tok->getKind() == tok_eof)
       break;
     Ret.emplace_back(std::move(Tok));
