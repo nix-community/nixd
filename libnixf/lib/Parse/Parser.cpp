@@ -56,7 +56,7 @@ std::shared_ptr<RawNode> Parser::parseString() {
   return Builder.finsih();
 }
 
-std::shared_ptr<RawNode> Parser::parseExpr() { return parseSimple(); }
+std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSimple(); }
 
 // simple :  INT
 //        | FLOAT
@@ -69,7 +69,7 @@ std::shared_ptr<RawNode> Parser::parseExpr() { return parseSimple(); }
 //        | legacy_let
 //        | attr
 //        | list
-std::shared_ptr<RawNode> Parser::parseSimple() {
+std::shared_ptr<RawNode> Parser::parseExprSimple() {
   TokenView Tok = peek();
   switch (Tok->getKind()) {
   case tok_int:

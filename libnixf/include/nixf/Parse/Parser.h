@@ -30,7 +30,7 @@ class Parser {
   std::shared_ptr<RawNode> parseString();
 
   // Abstract level.
-  std::shared_ptr<RawNode> parseSimple();
+  std::shared_ptr<RawNode> parseExprSimple();
 
 public:
   explicit Parser(Lexer &Lex) : Lex(Lex) {}
