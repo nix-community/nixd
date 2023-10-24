@@ -1,4 +1,5 @@
 #include "nixf/Syntax/Trivia.h"
+#include "nixf/Syntax/RawSyntax.h"
 
 #include <cassert>
 #include <ostream>
@@ -50,7 +51,8 @@ char spaceTriviaCh(TriviaKind Kind) {
 
 void TriviaPiece::dump(std::ostream &OS) const { OS << Text; }
 
-Trivia::Trivia(TriviaPieces P) : Pieces(std::move(P)) {
+Trivia::Trivia(TriviaPieces P)
+    : RawNode(SyntaxKind::SK_Trivia), Pieces(std::move(P)) {
   Length = 0;
   for (const TriviaPiece &Piece : Pieces)
     Length += Piece.getLength();

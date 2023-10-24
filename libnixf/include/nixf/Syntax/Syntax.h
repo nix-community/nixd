@@ -6,6 +6,7 @@
 namespace nixf {
 
 class SyntaxData;
+class RawNode;
 
 class Syntax {
   const std::shared_ptr<SyntaxData> Root;
@@ -15,7 +16,11 @@ public:
   /// Root & Data must be non-null.
   Syntax(std::shared_ptr<SyntaxData> Root, const SyntaxData *Data);
 
-  std::optional<Syntax> getParent();
+  [[nodiscard]] std::optional<Syntax> getParent() const;
+
+  [[nodiscard]] std::shared_ptr<RawNode> getRaw() const;
 };
+
+class ExprSyntax : Syntax {};
 
 } // namespace nixf

@@ -9,6 +9,8 @@ class Syntax;
 
 enum class SyntaxKind {
   SK_Token,
+  SK_Trivia,
+  SK_TriviaPiece,
   // expressions, the can be evaluated to "values"
   SK_BeginExpr,
 #define EXPR(NAME) SK_##NAME,
@@ -31,7 +33,10 @@ protected:
   /// Text length.
   std::size_t Length;
 
+  SyntaxKind Kind;
+
 public:
+  RawNode(SyntaxKind Kind) : Kind(Kind) {}
   /// Dump source code.
   virtual void dump(std::ostream &OS) const = 0;
 
@@ -46,6 +51,8 @@ public:
   getNthChild(std::size_t N) const {
     return nullptr;
   }
+
+  SyntaxKind getSyntaxKind() { return Kind; }
 };
 
 /// Non-term constructs in a lanugage. They have children
@@ -53,8 +60,6 @@ class RawTwine : public RawNode {
   friend class SyntaxView;
 
   const std::vector<std::shared_ptr<RawNode>> Layout;
-
-  SyntaxKind Kind;
 
 public:
   RawTwine(SyntaxKind Kind, std::vector<std::shared_ptr<RawNode>> Layout);

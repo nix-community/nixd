@@ -11,10 +11,12 @@ Syntax::Syntax(std::shared_ptr<SyntaxData> Root, const SyntaxData *Data)
   assert(Root);
 }
 
-std::optional<Syntax> Syntax::getParent() {
+std::optional<Syntax> Syntax::getParent() const {
   if (Data->getParent())
     return Syntax{Root, Data->getParent()};
   return std::nullopt;
 }
+
+std::shared_ptr<RawNode> Syntax::getRaw() const { return Data->getRaw(); }
 
 } // namespace nixf

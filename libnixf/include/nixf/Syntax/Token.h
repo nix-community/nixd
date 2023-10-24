@@ -33,7 +33,8 @@ public:
   Token(tok::TokenKind Kind, const std::string &Content,
         std::unique_ptr<Trivia> LeadingTrivia,
         std::unique_ptr<Trivia> TrailingTrivia)
-      : Kind(Kind), Content(Content), LeadingTrivia(std::move(LeadingTrivia)),
+      : RawNode(SyntaxKind::SK_Token), Kind(Kind), Content(Content),
+        LeadingTrivia(std::move(LeadingTrivia)),
         TrailingTrivia(std::move(TrailingTrivia)) {
     Length = Content.length();
     if (LeadingTrivia)

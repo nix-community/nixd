@@ -10,7 +10,7 @@ class SyntaxData {
   const SyntaxData *Parent;
 
 public:
-  std::shared_ptr<RawNode> getRaw() { return Raw; }
+  [[nodiscard]] std::shared_ptr<RawNode> getRaw() const { return Raw; }
 
   SyntaxData(std::size_t Offset, std::shared_ptr<RawNode> Raw,
              const SyntaxData *Parent = nullptr);

@@ -5,7 +5,7 @@ namespace nixf {
 
 RawTwine::RawTwine(SyntaxKind Kind,
                    std::vector<std::shared_ptr<RawNode>> Layout)
-    : Layout(std::move(Layout)), Kind(Kind) {
+    : RawNode(Kind), Layout(std::move(Layout)) {
   for (const auto &Ch : Layout) {
     Length = 0;
     if (Ch)
