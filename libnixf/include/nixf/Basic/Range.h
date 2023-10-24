@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cstdint>
+
 namespace nixf {
 
 struct OffsetRange {
-  unsigned Begin;
-  unsigned End;
+  std::size_t Begin;
+  std::size_t End;
 };
 
 } // namespace nixf

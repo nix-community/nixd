@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nixf/Basic/Range.h"
 #include "nixf/Syntax/Token.h"
 #include "nixf/Syntax/Trivia.h"
 
@@ -12,10 +13,35 @@ namespace nixf {
 
 class DiagnosticEngine;
 
+class TokenView {
+  std::shared_ptr<Token> Tok;
+
+  const char *TokBegin;
+  const char *TokEnd;
+
+public:
+  TokenView(std::shared_ptr<Token> Tok, const char *TB, const char *TE)
+      : Tok(std::move(Tok)), TokBegin(TB), TokEnd(TE) {}
+  operator std::shared_ptr<Token>() const { return Tok; }
+
+  [[nodiscard]] const char *getTokBegin() const { return TokBegin; }
+  [[nodiscard]] const char *getTokEnd() const { return TokEnd; }
+
+  [[nodiscard]] std::shared_ptr<Token> get() const { return Tok; }
+
+  std::shared_ptr<Token> operator->() const { return Tok; }
+
+  OffsetRange getTokRange(const char *Base) {
+    assert(Base <= TokBegin && TokBegin <= TokEnd);
+    return {static_cast<size_t>(TokBegin - Base),
+            static_cast<size_t>(TokEnd - Base)};
+  }
+};
+
 class Lexer {
   const std::string_view Src;
   DiagnosticEngine &Diags;
-  unsigned OffsetBase;
+  const char *Base;
   const char *Cur;
 
   // token recorder
@@ -23,9 +49,11 @@ class Lexer {
   tok::TokenKind Tok;
   std::unique_ptr<Trivia> LeadingTrivia;
   void startToken() { TokStartPtr = Cur; }
-  std::shared_ptr<Token> finishToken() {
-    return std::make_shared<Token>(Tok, std::string(tokStr()),
-                                   std::move(LeadingTrivia), nullptr);
+  TokenView finishToken() {
+    auto TokBody = std::make_shared<Token>(Tok, std::string(tokStr()),
+                                           std::move(LeadingTrivia), nullptr);
+
+    return {std::move(TokBody), TokStartPtr, Cur};
   }
 
   Trivia consumeTrivia();
@@ -33,7 +61,7 @@ class Lexer {
   std::optional<TriviaPiece> tryConsumeWhitespaces();
   std::optional<TriviaPiece> tryConsumeComments();
 
-  unsigned curOffset() { return Cur - Src.begin() + OffsetBase; }
+  std::size_t curOffset() { return Cur - Base; }
 
   bool eof(const char *Ptr) { return Ptr >= Src.end(); }
 
@@ -56,9 +84,12 @@ class Lexer {
   [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }
 
 public:
-  Lexer(std::string_view Src, DiagnosticEngine &Diags, unsigned OffsetBase = 0)
-      : Src(Src), Diags(Diags), OffsetBase(OffsetBase) {
+  Lexer(std::string_view Src, DiagnosticEngine &Diags,
+        const char *OffsetBase = nullptr)
+      : Src(Src), Diags(Diags) {
     Cur = Src.begin();
+    if (!OffsetBase)
+      OffsetBase = Src.begin();
   }
 
   const char *cur() { return Cur; }
@@ -69,8 +100,8 @@ public:
     Cur = NewCur;
   }
 
-  std::shared_ptr<Token> lex();
-  std::shared_ptr<Token> lexString();
+  TokenView lex();
+  TokenView lexString();
 };
 
 } // namespace nixf

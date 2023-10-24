@@ -11,8 +11,8 @@ namespace nixf {
 
 using namespace tok;
 
-static auto collect(Lexer &L, std::shared_ptr<Token> (Lexer::*Ptr)()) {
-  std::vector<std::shared_ptr<Token>> Ret;
+static auto collect(Lexer &L, TokenView (Lexer::*Ptr)()) {
+  std::vector<TokenView> Ret;
   for (;;) {
     auto Tok = (L.*Ptr)();
     if (Tok->getKind() == tok_eof)

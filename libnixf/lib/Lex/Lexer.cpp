@@ -174,7 +174,7 @@ void Lexer::lexNumbers() {
     Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << tokStr();
 }
 
-std::shared_ptr<Token> Lexer::lexString() {
+TokenView Lexer::lexString() {
   // Accept all characters, except ${, or "
   startToken();
   if (eof()) {
@@ -222,7 +222,7 @@ std::shared_ptr<Token> Lexer::lexString() {
   return finishToken();
 }
 
-std::shared_ptr<Token> Lexer::lex() {
+TokenView Lexer::lex() {
   // eat leading trivia
   LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
   startToken();
