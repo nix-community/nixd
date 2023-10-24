@@ -4,9 +4,9 @@
 
 namespace nixf {
 
-SyntaxData::SyntaxData(std::size_t Offset, std::shared_ptr<RawNode> Raw,
+SyntaxData::SyntaxData(std::size_t Offset, std::shared_ptr<RawNode> RN,
                        const SyntaxData *Parent)
-    : Offset(Offset), Raw(std::move(Raw)), Parent(Parent) {
+    : Offset(Offset), Raw(std::move(RN)), Parent(Parent) {
   assert(Raw);
 }
 

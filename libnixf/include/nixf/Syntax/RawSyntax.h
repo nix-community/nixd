@@ -28,7 +28,7 @@ enum class SyntaxKind {
 /// Abstract class for syntax nodes.
 /// Currently they are Twines and Tokens.
 /// Tokens has trivial aand its content
-struct RawNode {
+class RawNode {
 protected:
   /// Text length.
   std::size_t Length;

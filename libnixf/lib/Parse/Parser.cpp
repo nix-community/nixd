@@ -1,4 +1,5 @@
 #include "nixf/Parse/Parser.h"
+#include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Syntax.h"
 #include "nixf/Syntax/Token.h"
 
@@ -17,7 +18,7 @@ using namespace tok;
 //        | legacy_let
 //        | attr
 //        | list
-std::shared_ptr<ExprSyntax> Parser::parseSimple() {
+std::shared_ptr<RawTwine> Parser::parseSimple() {
   std::shared_ptr<Token> Tok = Lex.lex();
   switch (Tok->Kind) {
   case tok_int:

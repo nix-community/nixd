@@ -7,8 +7,8 @@ namespace nixf {
 
 Syntax::Syntax(std::shared_ptr<SyntaxData> Root, const SyntaxData *Data)
     : Root(std::move(Root)), Data(Data) {
-  assert(Data);
-  assert(Root);
+  assert(this->Data);
+  assert(this->Root);
 }
 
 std::optional<Syntax> Syntax::getParent() const {
@@ -18,5 +18,11 @@ std::optional<Syntax> Syntax::getParent() const {
 }
 
 std::shared_ptr<RawNode> Syntax::getRaw() const { return Data->getRaw(); }
+
+SyntaxKind Syntax::getSyntaxKind() const { return Data->getSyntaxKind(); }
+
+std::shared_ptr<SyntaxData> FormalSyntax::getName() const {
+  return Data->getNthChild(0);
+}
 
 } // namespace nixf

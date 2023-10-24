@@ -12,7 +12,7 @@ class SyntaxData {
 public:
   [[nodiscard]] std::shared_ptr<RawNode> getRaw() const { return Raw; }
 
-  SyntaxData(std::size_t Offset, std::shared_ptr<RawNode> Raw,
+  SyntaxData(std::size_t Offset, std::shared_ptr<RawNode> RN,
              const SyntaxData *Parent = nullptr);
 
   [[nodiscard]] std::size_t getNumChildren() const;
@@ -24,6 +24,10 @@ public:
   [[nodiscard]] const SyntaxData *getParent() const { return Parent; }
 
   [[nodiscard]] std::size_t getOffset() const { return Offset; }
+
+  [[nodiscard]] SyntaxKind getSyntaxKind() const {
+    return getRaw()->getSyntaxKind();
+  }
 };
 
 } // namespace nixf
