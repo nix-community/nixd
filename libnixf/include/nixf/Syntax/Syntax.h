@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nixf/Syntax/RawSyntax.h"
+
 #include <memory>
 #include <optional>
 #include <utility>
