@@ -63,7 +63,8 @@ public:
     std::size_t Ch = getNumChildren();
     for (std::size_t I = 0; I < Ch; I++) {
       std::shared_ptr<RawNode> Ch = getNthChild(I);
-      Ch->dumpAST(OS, DiscardTrivia, Depth + 1);
+      if(Ch)
+        Ch->dumpAST(OS, DiscardTrivia, Depth + 1);
     }
   }
 
