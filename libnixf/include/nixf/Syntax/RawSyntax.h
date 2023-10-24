@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <stack>
 #include <vector>
 
 namespace nixf {
@@ -8,9 +9,6 @@ namespace nixf {
 class Syntax;
 
 enum class SyntaxKind {
-  SK_Token,
-  SK_Trivia,
-  SK_TriviaPiece,
   // expressions, the can be evaluated to "values"
   SK_BeginExpr,
 #define EXPR(NAME) SK_##NAME,
@@ -40,6 +38,34 @@ public:
   /// Dump source code.
   virtual void dump(std::ostream &OS) const = 0;
 
+  static const char *nameOf(SyntaxKind Kind) {
+    switch (Kind) {
+#define EXPR(NAME)                                                             \
+  case SyntaxKind::SK_##NAME:                                                  \
+    return #NAME;
+#define NODE EXPR
+#include "SyntaxKinds.inc"
+#undef EXPR
+#undef NODE
+    }
+  }
+
+  [[nodiscard]] const char *kindName() const { return nameOf(Kind); }
+
+  virtual void dumpAST(std::ostream &OS, int Depth = 0) const {
+    for (int I = 0; I < Depth; I++)
+      OS << " ";
+    OS << std::string(kindName()) << " " << Length << " ";
+    if (Kind == SyntaxKind::SK_Token)
+      dump(OS);
+    OS << "\n";
+    std::size_t Ch = getNumChildren();
+    for (std::size_t I = 0; I < Ch; I++) {
+      std::shared_ptr<RawNode> Ch = getNthChild(I);
+      Ch->dumpAST(OS, Depth + 1);
+    }
+  }
+
   virtual ~RawNode() = default;
 
   [[nodiscard]] std::size_t getLength() const { return Length; }
@@ -57,6 +83,10 @@ public:
 
 /// Non-term constructs in a lanugage. They have children
 class RawTwine : public RawNode {
+public:
+  using LayoutTy = std::vector<std::shared_ptr<RawNode>>;
+
+private:
   friend class SyntaxView;
 
   const std::vector<std::shared_ptr<RawNode>> Layout;
@@ -72,6 +102,28 @@ public:
 
   [[nodiscard]] std::shared_ptr<RawNode>
   getNthChild(std::size_t N) const override;
+};
+
+class RawTwineBuilder {
+  std::stack<std::unique_ptr<RawTwine::LayoutTy>> Stack;
+  std::stack<SyntaxKind> KindStack;
+
+public:
+  void start(SyntaxKind Kind) {
+    KindStack.push(Kind);
+    Stack.push(std::make_unique<RawTwine::LayoutTy>());
+  }
+  void push(const std::shared_ptr<RawNode> &Node) {
+    Stack.top()->emplace_back(Node);
+  }
+  std::shared_ptr<RawTwine> finsih() {
+    RawTwine::LayoutTy Layout = std::move(*Stack.top());
+    Stack.pop();
+    SyntaxKind Kind = KindStack.top();
+    KindStack.pop();
+    auto Ret = std::make_shared<RawTwine>(Kind, std::move(Layout));
+    return Ret;
+  }
 };
 
 } // namespace nixf

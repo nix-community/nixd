@@ -6,8 +6,8 @@ namespace nixf {
 RawTwine::RawTwine(SyntaxKind Kind,
                    std::vector<std::shared_ptr<RawNode>> Layout)
     : RawNode(Kind), Layout(std::move(Layout)) {
-  for (const auto &Ch : Layout) {
-    Length = 0;
+  Length = 0;
+  for (const auto &Ch : this->Layout) {
     if (Ch)
       Length += Ch->getLength();
   }
@@ -15,7 +15,8 @@ RawTwine::RawTwine(SyntaxKind Kind,
 
 void RawTwine::dump(std::ostream &OS) const {
   for (const auto &Node : Layout) {
-    Node->dump(OS);
+    if (Node)
+      Node->dump(OS);
   }
 };
 

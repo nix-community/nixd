@@ -21,4 +21,4 @@ subdir('test')
 
 install_subdir('include', install_dir : 'include/nixf')
 
-# subdir('tools')
+subdir('tools')

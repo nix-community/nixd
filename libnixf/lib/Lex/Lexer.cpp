@@ -236,6 +236,17 @@ TokenView Lexer::lex() {
     lexNumbers();
     return finishToken();
   }
+
+  switch (*Cur) {
+  case '"':
+    Cur++;
+    Tok = tok_dquote;
+    break;
+  case '}':
+    Cur++;
+    Tok = tok_r_curly;
+    break;
+  }
   return finishToken();
 }
 } // namespace nixf

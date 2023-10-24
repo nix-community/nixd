@@ -15,6 +15,7 @@ enum TokenKind {
 
   tok_dquote, // "
   tok_string_part,
+  tok_r_curly,
   tok_dollar_curly,  // ${
   tok_string_escape, // escaped string, e.g. \r \n \x \"
 

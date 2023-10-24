@@ -32,7 +32,11 @@ EXPR(With)
 #endif // EXPR
 
 #ifdef NODE
+NODE(Token)
+NODE(TriviaPiece)
+NODE(Trivia)
 NODE(ID)
 NODE(Formals)
 NODE(Formal)
+NODE(Interpolation)
 #endif // NODE
