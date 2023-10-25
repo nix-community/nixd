@@ -62,8 +62,10 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
         OffsetRange R = {Cur - 1, Cur};
         OffsetRange B = {BeginPtr, BeginPtr + 2};
 
-        Diags.diag(DK::DK_UnterminatedBComment, R)
-            .note(NK::NK_BCommentBegin, B);
+        Diagnostic &Diag = Diags.diag(DK::DK_UnterminatedBComment, R);
+
+        Diag.note(NK::NK_BCommentBegin, B);
+        Diag.fix(Fix::mkInsertion(R.Begin, "*/"));
 
         // recover
         return TriviaPiece(Kind, std::string(Remain));
