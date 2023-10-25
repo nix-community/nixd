@@ -15,11 +15,12 @@ public:
 
   std::vector<std::unique_ptr<Diagnostic>> &diags() { return Diags; }
 
-private:
-  std::vector<std::unique_ptr<Diagnostic>> Diags;
-  Diagnostic::Severity getServerity(Diagnostic::DiagnosticKind Kind) {
+  Diagnostic::Severity getServerity(Diagnostic::DiagnosticKind Kind) const {
     return Diagnostic::severity(Kind);
   }
+
+private:
+  std::vector<std::unique_ptr<Diagnostic>> Diags;
 };
 
 } // namespace nixf
