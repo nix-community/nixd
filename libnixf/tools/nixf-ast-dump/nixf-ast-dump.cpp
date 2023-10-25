@@ -11,18 +11,18 @@
 
 nixf::DiagnosticEngine Diags;
 
-// get sources of code on range offset.
+// get a whole line of source codes where the range offset in.
 // seperated by "\n"
 std::string_view getSources(std::string_view Src, nixf::OffsetRange Range) {
   const char *Begin = Range.Begin;
   const char *End = Range.End;
 
   // Look back until we meet '\n' or beginning of source.
-  while (true) {
-    if (Begin == Src.begin())
-      break;
-    if (*Begin == '\n') {
-      Begin++; // filter out '\n'
+  while (Begin > Src.begin()) {
+    // Ignoring the '\n' within the range
+    // e.g. "a\n"
+    if (*Begin == '\n' && Begin != Range.Begin) {
+      Begin++; // filter out '\n' itself
       break;
     }
     Begin--;
@@ -30,8 +30,12 @@ std::string_view getSources(std::string_view Src, nixf::OffsetRange Range) {
 
   // Do similar thing, checking '\n' and EOF.
   while (true) {
-    if (End == Src.end() || *End == '\n')
+    if (End == Src.end())
       break;
+    if (*End == '\n') {
+      End++;
+      break;
+    }
     End++;
   }
   return {Begin, End};
@@ -101,19 +105,19 @@ static void printSrc(std::string_view Src, nixf::OffsetRange Range,
       Stack.pop();
     std::cerr << *Cur;
   }
-  std::cerr << "\n";
 
-  // Print fixes.
   for (const nixf::Fix &F : Fixes) {
-    for (const char *Cur = SourceSrc.begin(); Cur < SourceSrc.end(); Cur++) {
+    std::cerr << termcolor::bold << termcolor::green
+              << "fixes: " << termcolor::reset;
+    std::string_view FixSrc = getSources(Src, F.getOldRange());
+    // a\n\n\n\n\nb
+    for (const char *Cur = FixSrc.begin(); Cur < FixSrc.end(); Cur++) {
       if (Cur == F.getOldRange().Begin) {
-        std::cerr << termcolor::green << F.getNewText();
-        Cur += F.getNewText().length();
-      } else {
-        std::cerr << " ";
+        std::cerr << termcolor::green << F.getNewText() << termcolor::reset;
+        Cur = F.getOldRange().End;
       }
+      std::cerr << *Cur;
     }
-    std::cerr << "\n";
   }
 }
 
@@ -158,7 +162,8 @@ int main(int argc, char *argv[]) {
 
   std::shared_ptr<nixf::RawNode> Expr = P.parseExpr();
 
-  Expr->dumpAST(std::cout);
+  if (Expr)
+    Expr->dumpAST(std::cout);
 
   // Emit diagnostics.
   for (const std::unique_ptr<nixf::Diagnostic> &Diag : Diags.diags()) {
