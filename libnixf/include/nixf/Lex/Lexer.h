@@ -97,10 +97,10 @@ class Lexer {
 public:
   Lexer(std::string_view Src, DiagnosticEngine &Diags,
         const char *OffsetBase = nullptr)
-      : Src(Src), Diags(Diags) {
+      : Src(Src), Diags(Diags), Base(OffsetBase) {
     Cur = Src.begin();
-    if (!OffsetBase)
-      OffsetBase = Src.begin();
+    if (!Base)
+      Base = Src.begin();
   }
 
   const char *cur() { return Cur; }
