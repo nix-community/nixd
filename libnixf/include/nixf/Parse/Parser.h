@@ -49,6 +49,7 @@ class Parser {
   std::shared_ptr<RawNode> parseInherit();
   std::shared_ptr<RawNode> parseBinds();
   std::shared_ptr<RawNode> parseAttrSetExpr();
+  std::shared_ptr<RawNode> parseParenExpr();
 
   // Abstract level.
   std::shared_ptr<RawNode> parseExprSimple();

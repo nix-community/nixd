@@ -29,6 +29,7 @@ EXPR(Select)
 EXPR(String)
 EXPR(Var)
 EXPR(With)
+EXPR(Paren)
 #endif // EXPR
 
 #ifdef NODE

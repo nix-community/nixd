@@ -1,5 +1,6 @@
 #include "nixf/Parse/Parser.h"
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Range.h"
 #include "nixf/Lex/Lexer.h"
 #include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Syntax.h"
@@ -248,6 +249,27 @@ std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
   return Builder.finsih();
 }
 
+std::shared_ptr<RawNode> Parser::parseParenExpr() {
+  Builder.start(SyntaxKind::SK_Paren);
+
+  TokenView LeftParen = peek();
+  consume(); // '('
+
+  Builder.push(parseExpr());
+
+  if (peek()->getKind() != tok_r_paren) {
+    assert(LastToken);
+    OffsetRange R{LastToken->getTokEnd(), LastToken->getTokEnd()};
+    Diagnostic &D = Diag.diag(DK::DK_Expected, R);
+    D << ")";
+    D.note(NK::NK_ToMachThis, LeftParen.getTokRange()) << "(";
+    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ")"));
+  } else {
+    consume();
+  }
+  return Builder.finsih();
+}
+
 std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSimple(); }
 
 // simple :  INT
@@ -275,6 +297,8 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return parseAttrSetExpr();
   case tok_path_fragment:
     return parsePath();
+  case tok_l_paren:
+    return parseParenExpr();
   }
   return nullptr;
 }
