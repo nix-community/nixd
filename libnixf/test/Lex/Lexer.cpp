@@ -157,9 +157,9 @@ TEST_F(LexerTest, lexIDPath) {
   // FIXME: test  pp//a to see that we can lex this as Update(pp, a)
   Lexer Lexer(R"(id pa/t)", Diag);
   const TokenKind Match[] = {
-      tok_id,         // id
-      tok_path_start, // pa/
-      tok_id,         // t
+      tok_id,            // id
+      tok_path_fragment, // pa/
+      tok_id,            // t
   };
   auto Tokens = collect(Lexer, &Lexer::lex);
   for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {

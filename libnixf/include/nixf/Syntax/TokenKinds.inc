@@ -25,7 +25,6 @@ TOK(string_part)
 TOK(string_escape) // escaped string, e.g. \r \n \x \"
 
 // Path.
-TOK(path_start)
 TOK(path_fragment)
 
 // Interpolation.

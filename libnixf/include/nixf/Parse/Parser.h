@@ -42,6 +42,7 @@ class Parser {
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
   std::shared_ptr<RawNode> parseString();
+  std::shared_ptr<RawNode> parsePath();
   std::shared_ptr<RawNode> parseAttrPath();
   std::shared_ptr<RawNode> parseAttrName();
   std::shared_ptr<RawNode> parseBinding();

@@ -103,6 +103,7 @@ public:
 
   TokenView lex();
   TokenView lexString();
+  TokenView lexPath();
 };
 
 } // namespace nixf

@@ -4,6 +4,7 @@
 #include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Syntax.h"
 #include "nixf/Syntax/Token.h"
+#include <cassert>
 
 namespace nixf {
 
@@ -57,6 +58,33 @@ std::shared_ptr<RawNode> Parser::parseString() {
     if (Finish)
       break;
   }
+  return Builder.finsih();
+}
+
+/// path: path_fragment { path_fragment | interpolation }*
+std::shared_ptr<RawNode> Parser::parsePath() {
+  Builder.start(SyntaxKind::SK_Path);
+
+  assert(peek()->getKind() == tok_path_fragment);
+  consume();
+
+  while (true) {
+    TokenView Tok = peek(0, &Lexer::lexPath);
+    switch (Tok->getKind()) {
+    case tok::tok_path_fragment: {
+      consume();
+      break;
+    }
+    case tok_dollar_curly: {
+      // interpolation, we need to parse a subtree then.
+      Builder.push(parseInterpolation());
+      break;
+    }
+    default:
+      goto finish;
+    }
+  }
+finish:
   return Builder.finsih();
 }
 
@@ -245,6 +273,8 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
   case tok_l_curly:
   case tok_kw_rec:
     return parseAttrSetExpr();
+  case tok_path_fragment:
+    return parsePath();
   }
   return nullptr;
 }

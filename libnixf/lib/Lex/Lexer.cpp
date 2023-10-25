@@ -194,7 +194,7 @@ const char *Lexer::checkPathStart() {
     PathCursor++;
 
   // Check if there is a slash, and also a path char right after such slash.
-  // If so, it is a path_start
+  // If so, it is a path_fragment
   if (!eof(PathCursor) && *PathCursor == '/') {
     PathCursor++;
     // Now, check if we are on a normal path char.
@@ -235,6 +235,42 @@ void Lexer::maybeKW() {
   }
 #include "nixf/Syntax/TokenKeywords.inc"
 #undef TOK_KEYWORD
+}
+
+TokenView Lexer::lexPath() {
+  // Accept all characters, except ${, or "
+  // aaa/b//c
+  // Path
+  //   PathFragment aaa/  <- lex()
+  //   PathFragment b//c  <- lexPath()
+  LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
+  if (eof()) {
+    startToken();
+    Tok = tok_eof;
+    return finishToken();
+  }
+
+  if (*Cur == '$') {
+    startToken();
+    if (consumePrefix("${")) {
+      Tok = tok_dollar_curly;
+    }
+    return finishToken();
+  }
+
+  if (isPathChar(*Cur) || *Cur == '/') {
+    startToken();
+    Tok = tok_path_fragment;
+    while (!eof() && (isPathChar(*Cur) || *Cur == '/')) {
+      // Encountered an interpolation, stop here
+      if (prefix("${"))
+        break;
+      Cur++;
+    }
+    return finishToken();
+  }
+
+  return lex();
 }
 
 TokenView Lexer::lexString() {
@@ -295,20 +331,23 @@ TokenView Lexer::lex() {
     return finishToken();
   }
 
+  // Determine if this is a path, or identifier.
+  // a/b (including 1/2) should be considered as a whole path, not (a / b)
+  if (isPathChar(*Cur)) {
+    if (const char *PathCursor = checkPathStart()) {
+      // Form a concret token, this is a path part.
+      Cur = PathCursor;
+      Tok = tok_path_fragment;
+      return finishToken();
+    }
+  }
+
   if (std::isdigit(*Cur)) {
     lexNumbers();
     return finishToken();
   }
 
   if (std::isalpha(*Cur) || *Cur == '_') {
-    // Determine if this is a path, or identifier.
-    // a/b should be considered as a whole path, not (a / b)
-    if (const char *PathCursor = checkPathStart()) {
-      // Form a concret token, this is a path part.
-      Cur = PathCursor;
-      Tok = tok_path_start;
-      return finishToken();
-    }
 
     // So, this is not a path, it should be an identifier.
     lexIdentifier();
