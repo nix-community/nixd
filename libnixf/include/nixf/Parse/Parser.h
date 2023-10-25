@@ -39,6 +39,11 @@ class Parser {
 
   std::size_t getOffset(const char *Cur) { return Cur - Src.begin(); }
 
+  // Private utilities.
+  void matchBracket(tok::TokenKind LeftKind,
+                    std::shared_ptr<RawNode> (Parser::*InnerParse)(),
+                    tok::TokenKind RightKind);
+
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
   std::shared_ptr<RawNode> parseString();
@@ -50,6 +55,7 @@ class Parser {
   std::shared_ptr<RawNode> parseBinds();
   std::shared_ptr<RawNode> parseAttrSetExpr();
   std::shared_ptr<RawNode> parseParenExpr();
+  std::shared_ptr<RawNode> parseLegacyLet();
 
   // Abstract level.
   std::shared_ptr<RawNode> parseExprSimple();

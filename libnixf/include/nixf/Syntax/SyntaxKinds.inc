@@ -30,6 +30,8 @@ EXPR(String)
 EXPR(Var)
 EXPR(With)
 EXPR(Paren)
+// let { ..., .body }, desugared to rec { ..., .body }.body
+EXPR(LegacyLet)
 #endif // EXPR
 
 #ifdef NODE

@@ -37,7 +37,8 @@ TOK(eq)         // =
 TOK(l_curly)    // {
 TOK(l_paren)    // (
 TOK(r_paren)    // )
-
+TOK(l_bracket)  // [
+TOK(r_bracket)  // ]
 // Errorneous token.
 TOK(err)
 

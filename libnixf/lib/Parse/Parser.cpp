@@ -13,6 +13,67 @@ using namespace tok;
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
+static std::string getBracketTokenSpelling(TokenKind Kind) {
+  switch (Kind) {
+  case tok_l_curly:
+    return "{";
+  case tok_l_bracket:
+    return "[";
+  case tok_l_paren:
+    return "(";
+  case tok_r_curly:
+    return "}";
+  case tok_r_bracket:
+    return "]";
+  case tok_r_paren:
+    return ")";
+  default:
+    __builtin_unreachable();
+  }
+}
+
+/// Requirements:
+///        1. left bracket must exist
+///    or  2. left bracket may not exist, but there is some token before it.
+///
+/// Otherwise the behavior is undefined.
+void Parser::matchBracket(TokenKind LeftKind,
+                          std::shared_ptr<RawNode> (Parser::*InnerParse)(),
+                          TokenKind RightKind) {
+  const std::string LeftStr = getBracketTokenSpelling(LeftKind);
+  const std::string RightStr = getBracketTokenSpelling(RightKind);
+
+  if (TokenView LeftTok = peek(); LeftTok->getKind() == LeftKind) {
+    consume();
+
+    Builder.push((this->*InnerParse)());
+
+    if (auto const &RightTok = peek(); RightTok->getKind() == RightKind) {
+      consume();
+    } else {
+      assert(LastToken);
+      OffsetRange R{LastToken->getTokEnd(), LastToken->getTokEnd()};
+      Diagnostic &D = Diag.diag(DK::DK_Expected, R);
+      D << RightStr;
+      D.note(NK::NK_ToMachThis, LeftTok.getTokRange()) << LeftStr;
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), RightStr));
+    }
+  } else {
+    assert(LastToken);
+    auto &D = Diag.diag(DK::DK_Expected, LeftTok.getTokRange());
+    D << LeftStr;
+
+    if (LeftTok->getKind() == RightKind) {
+      // sth } -> sth { }
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " " + LeftStr));
+    } else {
+      // sth ?? -> sth { } ??
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(),
+                             " " + LeftStr + " " + RightStr));
+    }
+  }
+}
+
 /// interpolation : ${ expr }
 std::shared_ptr<RawNode> Parser::parseInterpolation() {
   Builder.start(SyntaxKind::SK_Interpolation);
@@ -216,57 +277,26 @@ std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
     consume();
   }
 
-  if (TokenView LeftCurly = peek(); LeftCurly->getKind() == tok_l_curly) {
-    consume();
-
-    Builder.push(parseBinds());
-
-    if (auto const &RightCurly = peek(); RightCurly->getKind() == tok_r_curly) {
-      consume();
-    } else {
-      Diagnostic &D = Diag.diag(DK::DK_Expected, RightCurly.getTokRange());
-      D << "}";
-      D.note(NK::NK_ToMachThis, LeftCurly.getTokRange()) << "{";
-      assert(LastToken); // at least we have a left curly.
-      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), "}"));
-    }
-  } else {
-    auto &D = Diag.diag(DK::DK_Expected, LeftCurly.getTokRange());
-    D << "{";
-
-    // If LastToken is nullopt, we have an empty file, that shouldn't happen.
-    // We can only enter this function by peeking a '{' or 'rec'.
-    assert(LastToken);
-    if (LeftCurly->getKind() == tok_r_curly) {
-      // rec } -> rec { }
-      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " {"));
-    } else {
-      // rec ?? -> rec { } ??
-      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " { }"));
-    }
-  }
+  matchBracket(tok_l_curly, &Parser::parseBinds, tok_r_curly);
 
   return Builder.finsih();
 }
 
 std::shared_ptr<RawNode> Parser::parseParenExpr() {
   Builder.start(SyntaxKind::SK_Paren);
+  matchBracket(tok_l_paren, &Parser::parseExpr, tok_r_paren);
+  return Builder.finsih();
+}
 
-  TokenView LeftParen = peek();
-  consume(); // '('
-
-  Builder.push(parseExpr());
-
-  if (peek()->getKind() != tok_r_paren) {
-    assert(LastToken);
-    OffsetRange R{LastToken->getTokEnd(), LastToken->getTokEnd()};
-    Diagnostic &D = Diag.diag(DK::DK_Expected, R);
-    D << ")";
-    D.note(NK::NK_ToMachThis, LeftParen.getTokRange()) << "(";
-    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ")"));
-  } else {
-    consume();
-  }
+/// legacy_let: `let` `{` binds `}`
+/// let {..., body = ...}' -> (rec {..., body = ...}).body'
+///
+/// TODO: Fix-it: let {..., body = <body-expr>; }' -> (let ... in <body-expr>)
+std::shared_ptr<RawNode> Parser::parseLegacyLet() {
+  Builder.start(SyntaxKind::SK_LegacyLet);
+  assert(peek()->getKind() == tok_kw_let);
+  consume(); // let
+  matchBracket(tok_l_curly, &Parser::parseBinds, tok_r_curly);
   return Builder.finsih();
 }
 
@@ -299,6 +329,8 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return parsePath();
   case tok_l_paren:
     return parseParenExpr();
+  case tok_kw_let:
+    return parseLegacyLet();
   }
   return nullptr;
 }
