@@ -12,10 +12,47 @@
 
 #include <fmt/args.h>
 
+#include <cassert>
 #include <optional>
 #include <string>
-
+#include <utility>
 namespace nixf {
+
+/// Fix-it hints. Remove the text at `OldRange`, and replace it as `NewText`
+/// Special cases:
+/// 1. Insertions: special `OldRange` that `Begin` == `End`.
+/// 2. Removals:   empty `NewText`.
+class Fix {
+  OffsetRange OldRange;
+  std::string NewText;
+
+public:
+  Fix(OffsetRange OldRange, std::string NewText)
+      : OldRange(OldRange), NewText(std::move(NewText)) {
+    assert(OldRange.Begin != OldRange.End || !this->NewText.empty());
+  }
+
+  static Fix mkInsertion(std::size_t Loc, std::string NewText) {
+    return Fix({Loc, Loc}, std::move(NewText));
+  }
+
+  static Fix mkRemoval(OffsetRange RemovingRange) {
+    return {RemovingRange, ""};
+  }
+
+  [[nodiscard]] bool isReplace() const {
+    return !isRemoval() && !isInsertion();
+  }
+
+  [[nodiscard]] bool isRemoval() const { return NewText.empty(); }
+
+  [[nodiscard]] bool isInsertion() const {
+    return OldRange.Begin == OldRange.End;
+  }
+
+  [[nodiscard]] OffsetRange getOldRange() const { return OldRange; }
+  [[nodiscard]] std::string_view getNewText() const { return NewText; }
+};
 
 class PartialDiagnostic {
 public:
@@ -117,6 +154,13 @@ public:
 
   std::vector<std::unique_ptr<Note>> &notes() { return Notes; }
 
+  Diagnostic &fix(Fix F) {
+    Fixes.emplace_back(std::move(F));
+    return *this;
+  }
+
+  const std::vector<Fix> &getFixes() { return Fixes; }
+
   OffsetRange range() const { return Range; }
 
 private:
@@ -125,6 +169,7 @@ private:
   OffsetRange Range;
 
   std::vector<std::unique_ptr<Note>> Notes;
+  std::vector<Fix> Fixes;
 };
 
 } // namespace nixf
