@@ -110,11 +110,11 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
     default:
       // inherit ( expr ??
       // missing )
-      Diagnostic &D = Diag.diag(DK::DK_Expected, Tok2.getTokRange(Src.begin()));
+      Diagnostic &D = Diag.diag(DK::DK_Expected, Tok2.getTokRange());
       D << ")";
-      D.note(NK::NK_ToMachThis, getTokRange(Tok)) << "(";
+      D.note(NK::NK_ToMachThis, Tok.getTokRange()) << "(";
       assert(LastToken);
-      D.fix(Fix::mkInsertion(getOffset(LastToken->getTokEnd()), ")"));
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ")"));
     }
   }
 

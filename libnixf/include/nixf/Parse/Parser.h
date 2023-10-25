@@ -38,9 +38,6 @@ class Parser {
   }
 
   std::size_t getOffset(const char *Cur) { return Cur - Src.begin(); }
-  OffsetRange getTokRange(const TokenView &View) {
-    return View.getTokRange(Src.begin());
-  }
 
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();

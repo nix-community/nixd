@@ -32,7 +32,7 @@ public:
     assert(OldRange.Begin != OldRange.End || !this->NewText.empty());
   }
 
-  static Fix mkInsertion(std::size_t Loc, std::string NewText) {
+  static Fix mkInsertion(const char *Loc, std::string NewText) {
     return Fix({Loc, Loc}, std::move(NewText));
   }
 

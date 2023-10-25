@@ -52,7 +52,6 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
 
   std::string_view Remain = remain();
   const char *BeginPtr = Cur;
-  unsigned BeginOffset = curOffset();
 
   if (consumePrefix("/*")) {
     // consume block comments until we meet '*/'
@@ -60,8 +59,8 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
     while (true) {
       if (eof()) {
         // there is no '*/' to terminate comments
-        OffsetRange R = {curOffset() - 1, curOffset()};
-        OffsetRange B = {BeginOffset, BeginOffset + 2};
+        OffsetRange R = {Cur - 1, Cur};
+        OffsetRange B = {BeginPtr, BeginPtr + 2};
 
         Diags.diag(DK::DK_UnterminatedBComment, R)
             .note(NK::NK_BCommentBegin, B);
@@ -106,8 +105,7 @@ Trivia Lexer::consumeTrivia() {
 bool Lexer::lexFloatExp() {
   // accept ([Ee][+-]?[0-9]+)?, the exponential part (after `.` of a float)
   if (!eof() && (*Cur == 'E' || *Cur == 'e')) {
-    unsigned EOffset = curOffset();
-    char ECh = *Cur;
+    const char *ECh = Cur;
     Cur++;
     // [+-]?
     if (!eof() && (*Cur == '+' || *Cur == '-')) {
@@ -120,7 +118,7 @@ bool Lexer::lexFloatExp() {
       } while (!eof() && isdigit(*Cur));
     } else {
       // not matching [0-9]+, error
-      Diags.diag(DK::DK_FloatNoExp, {EOffset, EOffset + 1}) << ECh;
+      Diags.diag(DK::DK_FloatNoExp, {ECh, ECh + 1}) << ECh;
       return false;
     }
   }
@@ -147,7 +145,7 @@ void Lexer::lexNumbers() {
   //
   // however, we accept [0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?
   // and issues a warning if it has leading zeros
-  unsigned NumStart = curOffset();
+  const char *NumStart = Cur;
   // [0-9]+
   while (!eof() && isdigit(*Cur))
     Cur++;

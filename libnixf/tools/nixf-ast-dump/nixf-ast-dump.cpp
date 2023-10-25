@@ -14,8 +14,8 @@ nixf::DiagnosticEngine Diags;
 // get sources of code on range offset.
 // seperated by "\n"
 std::string_view getSources(std::string_view Src, nixf::OffsetRange Range) {
-  const char *Begin = Range.Begin + Src.begin();
-  const char *End = Range.End + Src.begin();
+  const char *Begin = Range.Begin;
+  const char *End = Range.End;
 
   // Look back until we meet '\n' or beginning of source.
   while (true) {
@@ -79,7 +79,7 @@ public:
 static void printSrc(std::string_view Src, nixf::OffsetRange Range,
                      const std::vector<nixf::Fix> &Fixes) {
   std::string_view SourceSrc = getSources(Src, Range);
-  std::string_view SrcDiag(Range.Begin + Src.begin(), Range.End + Src.begin());
+  std::string_view SrcDiag(Range.Begin, Range.End);
 
   ColorStack Stack;
   using State = ColorStack::State;
@@ -90,9 +90,9 @@ static void printSrc(std::string_view Src, nixf::OffsetRange Range,
     for (const nixf::Fix &F : Fixes) {
       if (F.isInsertion())
         continue;
-      if (Cur == F.getOldRange().Begin + Src.begin())
+      if (Cur == F.getOldRange().Begin)
         Stack.push(State::Delete);
-      if (Cur == F.getOldRange().End + Src.begin())
+      if (Cur == F.getOldRange().End)
         Stack.pop();
     }
     if (Cur == SrcDiag.begin())
@@ -106,7 +106,7 @@ static void printSrc(std::string_view Src, nixf::OffsetRange Range,
   // Print fixes.
   for (const nixf::Fix &F : Fixes) {
     for (const char *Cur = SourceSrc.begin(); Cur < SourceSrc.end(); Cur++) {
-      if (Cur == F.getOldRange().Begin + Src.begin()) {
+      if (Cur == F.getOldRange().Begin) {
         std::cerr << termcolor::green << F.getNewText();
         Cur += F.getNewText().length();
       } else {
