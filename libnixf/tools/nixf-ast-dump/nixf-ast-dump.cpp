@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
   std::string Src = SS.str();
   nixf::DiagnosticEngine Diag;
   nixf::Lexer L(Src, Diag);
-  nixf::Parser P(L);
+  nixf::Parser P(L, Diag);
 
   std::shared_ptr<nixf::RawNode> Expr = P.parseExpr();
 

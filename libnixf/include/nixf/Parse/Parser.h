@@ -1,3 +1,4 @@
+#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Lex/Lexer.h"
 #include "nixf/Syntax/Token.h"
 
@@ -9,6 +10,7 @@ class ExprSyntax;
 class Parser {
   Lexer &Lex;
   RawTwineBuilder Builder;
+  DiagnosticEngine &Diag;
 
   std::deque<TokenView> LookAheadBuf;
 
@@ -42,7 +44,7 @@ class Parser {
   std::shared_ptr<RawNode> parseExprSimple();
 
 public:
-  explicit Parser(Lexer &Lex) : Lex(Lex) {}
+  explicit Parser(Lexer &Lex, DiagnosticEngine &Diag) : Lex(Lex), Diag(Diag) {}
   std::shared_ptr<RawNode> parseExpr();
 };
 

@@ -13,13 +13,12 @@ struct ParserTest : testing::Test {
   std::unique_ptr<Lexer> L;
   Parser get(std::string_view Src) {
     L = std::make_unique<Lexer>(Src, D);
-    return Parser(*L);
+    return Parser(*L, D);
   }
 };
 
 TEST_F(ParserTest, Int) {
-  nixf::Lexer L("1", D);
-  nixf::Parser P(L);
+  Parser P = get("1");
   std::shared_ptr<RawNode> R = P.parseExpr();
   auto *Tok = dynamic_cast<Token *>(R.get());
   ASSERT_EQ(R->getSyntaxKind(), SyntaxKind::SK_Token);
