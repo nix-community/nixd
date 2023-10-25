@@ -1,4 +1,5 @@
 #include "nixf/Parse/Parser.h"
+#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Syntax.h"
 #include "nixf/Syntax/Token.h"
@@ -6,6 +7,8 @@
 namespace nixf {
 
 using namespace tok;
+using DK = Diagnostic::DiagnosticKind;
+using NK = Note::NoteKind;
 
 /// interpolation : ${ expr }
 std::shared_ptr<RawNode> Parser::parseInterpolation() {
@@ -82,6 +85,7 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
 std::shared_ptr<RawNode> Parser::parseBinding() {
   Builder.start(SyntaxKind::SK_Binding);
   Builder.push(parseAttrPath());
+  const TokenView &Tok = peek();
   consume(); // TOOD: diagnostic
   Builder.push(parseExpr());
   consume();
@@ -98,7 +102,20 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
   if (Tok->getKind() == tok_l_paren) {
     consume();
     Builder.push(parseExpr());
-    consume(); // TODO: diagnostic
+    TokenView Tok2 = peek();
+    switch (Tok2->getKind()) {
+    case tok::tok_r_paren:
+      consume();
+      break;
+    default:
+      // inherit ( expr ??
+      // missing )
+      Diagnostic &D = Diag.diag(DK::DK_Expected, Tok2.getTokRange(Src.begin()));
+      D << ")";
+      D.note(NK::NK_ToMachThis, getTokRange(Tok)) << "(";
+      assert(LastToken);
+      D.fix(Fix::mkInsertion(getOffset(LastToken->getTokEnd()), ")"));
+    }
   }
 
   // parse inherited_attrs.
