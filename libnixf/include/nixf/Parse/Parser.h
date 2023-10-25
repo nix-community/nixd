@@ -8,7 +8,7 @@ namespace nixf {
 
 class ExprSyntax;
 class Parser {
-  Lexer &Lex;
+  Lexer Lex;
   RawTwineBuilder Builder;
   DiagnosticEngine &Diag;
 
@@ -44,7 +44,8 @@ class Parser {
   std::shared_ptr<RawNode> parseExprSimple();
 
 public:
-  explicit Parser(Lexer &Lex, DiagnosticEngine &Diag) : Lex(Lex), Diag(Diag) {}
+  explicit Parser(std::string_view Src, DiagnosticEngine &Diag)
+      : Lex(Src, Diag), Diag(Diag) {}
   std::shared_ptr<RawNode> parseExpr();
 };
 

@@ -10,11 +10,7 @@ namespace nixf {
 struct ParserTest : testing::Test {
   nixf::DiagnosticEngine D;
   std::stringstream SS;
-  std::unique_ptr<Lexer> L;
-  Parser get(std::string_view Src) {
-    L = std::make_unique<Lexer>(Src, D);
-    return Parser(*L, D);
-  }
+  Parser get(std::string_view Src) { return Parser(Src, D); }
 };
 
 TEST_F(ParserTest, Int) {

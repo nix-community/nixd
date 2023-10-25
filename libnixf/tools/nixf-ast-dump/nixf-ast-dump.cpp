@@ -11,8 +11,7 @@ int main(int argc, char *argv[]) {
   SS << std::cin.rdbuf();
   std::string Src = SS.str();
   nixf::DiagnosticEngine Diag;
-  nixf::Lexer L(Src, Diag);
-  nixf::Parser P(L, Diag);
+  nixf::Parser P(Src, Diag);
 
   std::shared_ptr<nixf::RawNode> Expr = P.parseExpr();
 
