@@ -20,9 +20,9 @@
   inherit (1) a b c;
 
   # DIAG: error: expected )
-  inherit (1;)
+  inherit (1;
 
-    # DIAG: note: to match this (
-    inherit (1;
+  # DIAG: note: to match this (
+  inherit (1;
 
-    }
+  }
