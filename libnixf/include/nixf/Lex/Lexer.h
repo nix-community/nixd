@@ -31,7 +31,7 @@ public:
 
   std::shared_ptr<Token> operator->() const { return Tok; }
 
-  OffsetRange getTokRange(const char *Base) {
+  OffsetRange getTokRange(const char *Base) const {
     assert(Base <= TokBegin && TokBegin <= TokEnd);
     return {static_cast<size_t>(TokBegin - Base),
             static_cast<size_t>(TokEnd - Base)};
