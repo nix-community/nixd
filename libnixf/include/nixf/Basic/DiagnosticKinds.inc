@@ -8,6 +8,7 @@ DIAG("lex-float-no-exp", FloatNoExp, Fatal,
      "float point has trailing `{}` but has no exponential part")
 DIAG("lex-float-leading-zero", FloatLeadingZero, Warning,
      "float begins with extra zeros `{}` is nixf extension")
+DIAG("parse-expected", Expected, Error, "expected {}")
 DIAG("let-dynamic", LetDynamic, Error,
      "dynamic attributes are not allowed in let ... in ... expression")
 DIAG("inherit-dynamic", InheritDynamic, Error,

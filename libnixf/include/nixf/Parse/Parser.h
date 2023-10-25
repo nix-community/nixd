@@ -1,3 +1,4 @@
+#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Lex/Lexer.h"
 #include "nixf/Syntax/Token.h"
 
@@ -7,12 +8,17 @@ namespace nixf {
 
 class ExprSyntax;
 class Parser {
-  Lexer &Lex;
+  std::string_view Src;
+  Lexer Lex;
   RawTwineBuilder Builder;
+  DiagnosticEngine &Diag;
 
   std::deque<TokenView> LookAheadBuf;
 
-  TokenView peek(std::size_t N = 0, TokenView (Lexer::*Ptr)() = &Lexer::lex) {
+  std::optional<TokenView> LastToken;
+
+  const TokenView &peek(std::size_t N = 0,
+                        TokenView (Lexer::*Ptr)() = &Lexer::lex) {
     while (N >= LookAheadBuf.size()) {
       LookAheadBuf.emplace_back((Lex.*Ptr)());
     }
@@ -26,7 +32,12 @@ class Parser {
     consumeOnly();
   }
 
-  void consumeOnly() { LookAheadBuf.pop_front(); }
+  void consumeOnly() {
+    LastToken = LookAheadBuf.front();
+    LookAheadBuf.pop_front();
+  }
+
+  std::size_t getOffset(const char *Cur) { return Cur - Src.begin(); }
 
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
@@ -42,7 +53,8 @@ class Parser {
   std::shared_ptr<RawNode> parseExprSimple();
 
 public:
-  explicit Parser(Lexer &Lex) : Lex(Lex) {}
+  explicit Parser(std::string_view Src, DiagnosticEngine &Diag)
+      : Src(Src), Lex(Src, Diag), Diag(Diag) {}
   std::shared_ptr<RawNode> parseExpr();
 };
 

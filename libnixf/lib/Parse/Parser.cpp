@@ -1,4 +1,6 @@
 #include "nixf/Parse/Parser.h"
+#include "nixf/Basic/Diagnostic.h"
+#include "nixf/Lex/Lexer.h"
 #include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Syntax.h"
 #include "nixf/Syntax/Token.h"
@@ -6,6 +8,8 @@
 namespace nixf {
 
 using namespace tok;
+using DK = Diagnostic::DiagnosticKind;
+using NK = Note::NoteKind;
 
 /// interpolation : ${ expr }
 std::shared_ptr<RawNode> Parser::parseInterpolation() {
@@ -81,8 +85,18 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
 /// binding : attrpath '=' expr ';'
 std::shared_ptr<RawNode> Parser::parseBinding() {
   Builder.start(SyntaxKind::SK_Binding);
+  OffsetRange AttrRange = peek().getTokRange();
   Builder.push(parseAttrPath());
-  consume(); // TOOD: diagnostic
+  const TokenView &Tok = peek();
+  if (Tok->getKind() == tok_eq) {
+    consume();
+  } else {
+    Diagnostic &D = Diag.diag(DK::DK_Expected, Tok.getTokRange());
+    D << "=";
+    D.note(NK::NK_ToMachThis, AttrRange) << "attrname";
+    assert(LastToken);
+    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ="));
+  }
   Builder.push(parseExpr());
   consume();
   return Builder.finsih();
@@ -98,7 +112,20 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
   if (Tok->getKind() == tok_l_paren) {
     consume();
     Builder.push(parseExpr());
-    consume(); // TODO: diagnostic
+    TokenView Tok2 = peek();
+    switch (Tok2->getKind()) {
+    case tok::tok_r_paren:
+      consume();
+      break;
+    default:
+      // inherit ( expr ??
+      // missing )
+      Diagnostic &D = Diag.diag(DK::DK_Expected, Tok2.getTokRange());
+      D << ")";
+      D.note(NK::NK_ToMachThis, Tok.getTokRange()) << "(";
+      assert(LastToken);
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ")"));
+    }
   }
 
   // parse inherited_attrs.
@@ -152,15 +179,44 @@ std::shared_ptr<RawNode> Parser::parseBinds() {
 }
 
 /// attrset_expr : rec? '{' binds '}'
+/// Implementation assumption: at least rec or '{'
 std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
   Builder.start(SyntaxKind::SK_AttrSet);
   TokenView Tok = peek();
   if (Tok->getKind() == tok_kw_rec) {
     consume();
   }
-  consume();
-  Builder.push(parseBinds());
-  consume();
+
+  if (TokenView LeftCurly = peek(); LeftCurly->getKind() == tok_l_curly) {
+    consume();
+
+    Builder.push(parseBinds());
+
+    if (auto const &RightCurly = peek(); RightCurly->getKind() == tok_r_curly) {
+      consume();
+    } else {
+      Diagnostic &D = Diag.diag(DK::DK_Expected, RightCurly.getTokRange());
+      D << "}";
+      D.note(NK::NK_ToMachThis, LeftCurly.getTokRange()) << "{";
+      assert(LastToken); // at least we have a left curly.
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), "}"));
+    }
+  } else {
+    auto &D = Diag.diag(DK::DK_Expected, LeftCurly.getTokRange());
+    D << "{";
+
+    // If LastToken is nullopt, we have an empty file, that shouldn't happen.
+    // We can only enter this function by peeking a '{' or 'rec'.
+    assert(LastToken);
+    if (LeftCurly->getKind() == tok_r_curly) {
+      // rec } -> rec { }
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " {"));
+    } else {
+      // rec ?? -> rec { } ??
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " { }"));
+    }
+  }
+
   return Builder.finsih();
 }
 

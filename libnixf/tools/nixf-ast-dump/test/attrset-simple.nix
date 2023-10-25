@@ -15,4 +15,6 @@
   # CHECK:   Token 1 .
   # CHECK:   Token 1 c
   a.b.c = 54;
-}
+
+  a
+    }

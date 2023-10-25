@@ -31,17 +31,12 @@ public:
 
   std::shared_ptr<Token> operator->() const { return Tok; }
 
-  OffsetRange getTokRange(const char *Base) const {
-    assert(Base <= TokBegin && TokBegin <= TokEnd);
-    return {static_cast<size_t>(TokBegin - Base),
-            static_cast<size_t>(TokEnd - Base)};
-  }
+  [[nodiscard]] OffsetRange getTokRange() const { return {TokBegin, TokEnd}; }
 };
 
 class Lexer {
   const std::string_view Src;
   DiagnosticEngine &Diags;
-  const char *Base;
   const char *Cur;
 
   // token recorder
@@ -60,8 +55,6 @@ class Lexer {
 
   std::optional<TriviaPiece> tryConsumeWhitespaces();
   std::optional<TriviaPiece> tryConsumeComments();
-
-  std::size_t curOffset() { return Cur - Base; }
 
   bool eof(const char *Ptr) { return Ptr >= Src.end(); }
 
@@ -95,12 +88,9 @@ class Lexer {
   [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }
 
 public:
-  Lexer(std::string_view Src, DiagnosticEngine &Diags,
-        const char *OffsetBase = nullptr)
-      : Src(Src), Diags(Diags), Base(OffsetBase) {
+  Lexer(std::string_view Src, DiagnosticEngine &Diags)
+      : Src(Src), Diags(Diags) {
     Cur = Src.begin();
-    if (!Base)
-      Base = Src.begin();
   }
 
   const char *cur() { return Cur; }
