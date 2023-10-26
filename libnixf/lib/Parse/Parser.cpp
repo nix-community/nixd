@@ -376,6 +376,7 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
 ///        | ID '?' expr
 std::shared_ptr<RawNode> Parser::parseFormal() {
   Builder.start(SyntaxKind::SK_Formal);
+  constexpr const char *DefaultExprName = "default expression of the formal";
   assert(peek()->getKind() == tok_id);
   consume();
   assert(LastToken);
@@ -383,7 +384,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
   if (Tok->getKind() == tok_question) {
     consume();
     assert(LastToken);
-    addExprWithCheck("default expression of the formal");
+    addExprWithCheck(DefaultExprName);
   } else if (canBeExprStart(Tok->getKind())) {
     if (Tok->getKind() != tok_id || peek(1)->getKind() == tok_dot) {
       // expr_start && (!id || (id && id.))
@@ -395,7 +396,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
       D << "?";
       D.note(Note::NK_DeclaresAtHere, LastToken->getTokRange()) << "formal";
       D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ? "));
-      Builder.push(parseExpr());
+      addExprWithCheck(DefaultExprName);
     }
   }
   return Builder.finsih();
