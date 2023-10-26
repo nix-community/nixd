@@ -235,8 +235,14 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
 /// binding : attrpath '=' expr ';'
 std::shared_ptr<RawNode> Parser::parseBinding() {
   Builder.start(SyntaxKind::SK_Binding);
-  OffsetRange AttrRange = peek().getTokRange();
+
+  // consume n-term `attrpath` and record its range, used for diagnostics.
+  const char *AttrBegin = peek().getTokRange().Begin;
   Builder.push(parseAttrPath());
+  const char *AttrEnd = Lex.cur() - peek()->getLength();
+  OffsetRange AttrRange{AttrBegin, AttrEnd};
+
+  assert(LastToken);
   const TokenView &Tok = peek();
   if (Tok->getKind() == tok_eq) {
     consume();
@@ -244,11 +250,58 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
     Diagnostic &D = Diag.diag(DK::DK_Expected, Tok.getTokRange());
     D << "=";
     D.note(NK::NK_ToMachThis, AttrRange) << "attrname";
-    assert(LastToken);
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ="));
   }
-  addExprWithCheck("attr body");
-  consume();
+
+  // Carefully dealing with missing ';'
+  //
+  // See this example (missing 3 semi-colons):
+  //
+  //     { a = 1 b = 2 c = 3}
+  //            ;     ;     ;
+  //
+  // this will be parsed as { a = (Call 1 b) = 2 }
+  //                                        ^ missing semi-colon?
+  //
+  // However we should guess "b" is an attribute name, not an "expr_select"
+  // The following code resolves this issue by saving lex cursor, and re-parse
+  // the expression if it is likely a miss-parsed (Call 1 b).
+
+  // Save this cursor, so that we can pop (Call 1 b) and re-parse it
+  //
+  //  { a = 1 b = 2 c = 3}
+  //        ^
+  const char *SavedCur = Lex.cur();
+
+  std::shared_ptr<RawNode> Body = parseExpr();
+
+  addExprWithCheck("attr body", Body);
+  if (peek()->getKind() == tok_semi_colon) {
+    consume(); // ;
+  } else {
+    // missing ';'
+    //  { a = 1 b = 2 c = 3}
+    //            ^
+    // if the token is '=', guess that we consumed 'b' as (Call 1 b)
+    // this should be an attrname.
+    if (peek()->getKind() == tok_eq && Body &&
+        Body->getSyntaxKind() == SyntaxKind::SK_Call) {
+      auto *BodyTwine = dynamic_cast<RawTwine *>(Body.get());
+      assert(BodyTwine);
+      Builder.pop(); // pop (Call 1 b)
+      resetCur(SavedCur);
+      assert(Body->getNumChildren() >= 2);
+      unsigned Limit = Body->getNumChildren() - 1;
+      // Now, parse expr_app with without consuming last expr_select.
+      Builder.push(parseExprApp(Limit));
+    }
+
+    Diagnostic &D =
+        Diag.diag(DK::DK_Expected, OffsetRange{LastToken->getTokEnd()});
+    D << "; at the end of binding";
+    D.note(NK::NK_DeclaresAtHere, AttrRange) << "attrname";
+    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ";"));
+  }
   return Builder.finsih();
 }
 
