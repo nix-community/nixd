@@ -1,5 +1,6 @@
 #include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Lex/Lexer.h"
+#include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Token.h"
 
 #include <queue>
@@ -70,11 +71,17 @@ class Parser {
   std::shared_ptr<RawNode> parseExprSimple();
   std::shared_ptr<RawNode> parseExprApp();
   std::shared_ptr<RawNode> parseExprOp();
+  std::shared_ptr<RawNode> parseExpr();
 
 public:
   explicit Parser(std::string_view Src, DiagnosticEngine &Diag)
       : Src(Src), Lex(Src, Diag), Diag(Diag) {}
-  std::shared_ptr<RawNode> parseExpr();
+
+  /// \brief Top-level parsing.
+  /// \returns a "ROOT" node
+  /// printing this node will exactly get the source file.
+  /// \note non-null
+  std::shared_ptr<RawNode> parse();
 };
 
 } // namespace nixf

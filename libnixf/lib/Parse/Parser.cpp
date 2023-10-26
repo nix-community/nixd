@@ -684,4 +684,20 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
   __builtin_unreachable();
 }
 
+std::shared_ptr<RawNode> Parser::parse() {
+  Builder.start(SyntaxKind::SK_Root);
+  while (true) {
+    if (peek()->getKind() == tok::tok_eof)
+      break;
+    if (std::shared_ptr<RawNode> Raw = parseExpr()) {
+      Builder.push(Raw);
+    } else {
+      Builder.start(SyntaxKind::SK_Unknown);
+      consume(); // consume this unknown token.
+      Builder.push(Builder.finsih());
+    }
+  }
+  return Builder.finsih();
+}
+
 } // namespace nixf

@@ -160,10 +160,9 @@ int main(int argc, char *argv[]) {
   std::string Src = SS.str();
   nixf::Parser P(Src, Diags);
 
-  std::shared_ptr<nixf::RawNode> Expr = P.parseExpr();
+  std::shared_ptr<nixf::RawNode> Expr = P.parse();
 
-  if (Expr)
-    Expr->dumpAST(std::cout);
+  Expr->dumpAST(std::cout);
 
   // Emit diagnostics.
   for (const std::unique_ptr<nixf::Diagnostic> &Diag : Diags.diags()) {
