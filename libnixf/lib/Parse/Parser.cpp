@@ -334,7 +334,15 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
   case tok_dot:
     // expr_simple '.' attrpath
     // expr_simple '.' attrpath 'or' expr_select
-    // TODO: parse select body.
+    Builder.start(SyntaxKind::SK_Select);
+    Builder.push(Simple);
+    consume();
+    Builder.push(parseAttrPath());
+    if (peek()->getKind() == tok_kw_or) {
+      consume();
+      Builder.push(parseExprSelect());
+    }
+    return Builder.finsih();
   case tok_kw_or:
     // `or` used as an identifier.
     // TODO: create a function.
