@@ -1,5 +1,5 @@
 # RUN: nixf-ast-dump < %s | FileCheck %s
-# RUN: nixf-ast-dump < %s 2>&1 | FileCheck %s
+# RUN: nixf-ast-dump < %s 2>&1 | FileCheck %s --check-prefix=DIAG
 
 # CHECK: AttrSet {{.*}}
 {
