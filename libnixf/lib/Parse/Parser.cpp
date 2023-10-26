@@ -238,7 +238,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
     assert(LastToken);
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ="));
   }
-  Builder.push(parseExpr());
+  addExprWithCheck("attr body");
   consume();
   return Builder.finsih();
 }
