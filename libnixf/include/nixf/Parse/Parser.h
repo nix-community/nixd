@@ -63,6 +63,7 @@ class Parser {
   std::shared_ptr<RawNode> parseExprSelect();
   std::shared_ptr<RawNode> parseExprSimple();
   std::shared_ptr<RawNode> parseExprApp();
+  std::shared_ptr<RawNode> parseExprOp();
 
 public:
   explicit Parser(std::string_view Src, DiagnosticEngine &Diag)

@@ -408,6 +408,11 @@ std::shared_ptr<RawNode> Parser::parseExprApp() {
   return Simple;
 }
 
-std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprApp(); }
+// TODO: Pratt parser.
+std::shared_ptr<RawNode> Parser::parseExprOp() {
+  return Parser::parseExprApp();
+}
+
+std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprOp(); }
 
 } // namespace nixf
