@@ -109,18 +109,26 @@ void Parser::matchBracket(TokenKind LeftKind,
   }
 }
 
-void Parser::diagNullExpr(std::string As) {
+void Parser::diagNullExpr(const std::string &As) {
+  assert(LastToken);
   OffsetRange R{LastToken->getTokEnd()};
   Diagnostic &D = Diag.diag(DK::DK_Expected, R);
   D << ("an expression as " + As);
   D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " expr"));
 }
 
+void Parser::addExprWithCheck(const std::string &As) {
+  if (std::shared_ptr<RawNode> Expr = parseExpr())
+    Builder.push(Expr);
+  else
+    diagNullExpr(As);
+}
+
 /// interpolation : ${ expr }
 std::shared_ptr<RawNode> Parser::parseInterpolation() {
   Builder.start(SyntaxKind::SK_Interpolation);
   consume();
-  Builder.push(parseExpr());
+  addExprWithCheck("interpolation");
   TokenView Tok = peek();
   if (Tok->getKind() != tok_r_curly) {
     // Error
@@ -229,7 +237,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
     assert(LastToken);
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ="));
   }
-  Builder.push(parseExpr());
+  addExprWithCheck("attr body");
   consume();
   return Builder.finsih();
 }
@@ -243,7 +251,7 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
   TokenView Tok = peek();
   if (Tok->getKind() == tok_l_paren) {
     consume();
-    Builder.push(parseExpr());
+    addExprWithCheck("inherited");
     TokenView Tok2 = peek();
     switch (Tok2->getKind()) {
     case tok::tok_r_paren:
@@ -367,6 +375,7 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
 ///        | ID '?' expr
 std::shared_ptr<RawNode> Parser::parseFormal() {
   Builder.start(SyntaxKind::SK_Formal);
+  constexpr const char *DefaultExprName = "default expression of the formal";
   assert(peek()->getKind() == tok_id);
   consume();
   assert(LastToken);
@@ -374,13 +383,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
   if (Tok->getKind() == tok_question) {
     consume();
     assert(LastToken);
-    if (canBeExprStart(peek()->getKind())) {
-      Builder.push(parseExpr());
-    } else {
-      // a ? ,
-      //    ^  missing expression?
-      diagNullExpr("default expression of the formal");
-    }
+    addExprWithCheck(DefaultExprName);
   } else if (canBeExprStart(Tok->getKind())) {
     if (Tok->getKind() != tok_id || peek(1)->getKind() == tok_dot) {
       // expr_start && (!id || (id && id.))
@@ -392,7 +395,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
       D << "?";
       D.note(Note::NK_DeclaresAtHere, LastToken->getTokRange()) << "formal";
       D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ? "));
-      Builder.push(parseExpr());
+      addExprWithCheck(DefaultExprName);
     }
   }
   return Builder.finsih();
@@ -504,16 +507,14 @@ std::shared_ptr<RawNode> Parser::parseLambdaExpr() {
   switch (peek()->getKind()) {
   case tok_colon:
     consume();
-    Builder.push(parseExpr());
     break;
   default:
     OffsetRange R{LastToken->getTokEnd(), LastToken->getTokEnd()};
     Diagnostic &D = Diag.diag(DK::DK_Expected, R);
     D << ":";
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ":"));
-    Builder.push(parseExpr());
   }
-
+  addExprWithCheck("lambda body");
   return Builder.finsih();
 }
 
@@ -549,8 +550,9 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return parseLegacyLet();
   case tok_l_bracket:
     return parseListExpr();
+  default:
+    return nullptr;
   }
-  return nullptr;
 }
 
 /// expr_select : expr_simple '.' attrpath
@@ -611,11 +613,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
   consume(); // 'if'
   assert(LastToken);
 
-  std::shared_ptr<RawNode> Expr = parseExpr();
-  if (!Expr)
-    diagNullExpr("`if` body");
-  else
-    Builder.push(Expr);
+  addExprWithCheck("`if` body");
 
   // then?
   if (peek()->getKind() == tok_kw_then) {
@@ -623,10 +621,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
 
     // 'if' expr 'then' expr 'else' expr
     //                  ^
-    if (std::shared_ptr<RawNode> Expr = parseExpr())
-      Builder.push(Expr);
-    else
-      diagNullExpr("`then` body");
+    addExprWithCheck("`then` body");
   } else {
     // if ... ??
     // missing 'then' ?
@@ -641,10 +636,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
     consume(); // else
     // 'if' expr 'then' expr 'else' expr
     //                  ^
-    if (std::shared_ptr<RawNode> Expr = parseExpr())
-      Builder.push(Expr);
-    else
-      diagNullExpr("`else` body");
+    addExprWithCheck("`else` body");
   } else {
     // if ... then ... ???
     // missing 'else' ?

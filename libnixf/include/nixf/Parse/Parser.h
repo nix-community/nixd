@@ -45,7 +45,11 @@ class Parser {
                     std::shared_ptr<RawNode> (Parser::*InnerParse)(),
                     tok::TokenKind RightKind);
 
-  void diagNullExpr(std::string As);
+  void diagNullExpr(const std::string &As);
+
+  /// Parse n-term `expr` and check if it is null.
+  /// Emit diagnostic if so.
+  void addExprWithCheck(const std::string &As);
 
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
@@ -73,7 +77,7 @@ class Parser {
   std::shared_ptr<RawNode> parseWithExpr();
   std::shared_ptr<RawNode> parseLetInExpr();
 
-  // Abstract level.
+  // Abstract level, these functions may return nullptr.
   std::shared_ptr<RawNode> parseExprSelect();
   std::shared_ptr<RawNode> parseExprSimple();
   std::shared_ptr<RawNode> parseExprApp();
