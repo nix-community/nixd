@@ -321,39 +321,6 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
   return Builder.finsih();
 }
 
-/// expr_select : expr_simple '.' attrpath
-///             | expr_simple '.' attrpath 'or' expr_select
-///             | expr_simple 'or' <-- special "apply", 'or' is argument
-///             | expr_simple
-std::shared_ptr<RawNode> Parser::parseExprSelect() {
-  // Firstly consume an expr_simple.
-  std::shared_ptr<RawNode> Simple = parseExprSimple();
-  // Now look-ahead, see if we can find '.'/'or'
-  const TokenView &Tok = peek();
-  switch (Tok->getKind()) {
-  case tok_dot:
-    // expr_simple '.' attrpath
-    // expr_simple '.' attrpath 'or' expr_select
-    Builder.start(SyntaxKind::SK_Select);
-    Builder.push(Simple);
-    consume();
-    Builder.push(parseAttrPath());
-    if (peek()->getKind() == tok_kw_or) {
-      consume();
-      Builder.push(parseExprSelect());
-    }
-    return Builder.finsih();
-  case tok_kw_or:
-    // `or` used as an identifier.
-    // TODO: create a function.
-  default:
-    // otherwise, end here.
-    return Simple;
-  }
-}
-
-std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSelect(); }
-
 /// simple :  INT
 ///        | FLOAT
 ///        | string
@@ -388,4 +355,38 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
   }
   return nullptr;
 }
+
+/// expr_select : expr_simple '.' attrpath
+///             | expr_simple '.' attrpath 'or' expr_select
+///             | expr_simple 'or' <-- special "apply", 'or' is argument
+///             | expr_simple
+std::shared_ptr<RawNode> Parser::parseExprSelect() {
+  // Firstly consume an expr_simple.
+  std::shared_ptr<RawNode> Simple = parseExprSimple();
+  // Now look-ahead, see if we can find '.'/'or'
+  const TokenView &Tok = peek();
+  switch (Tok->getKind()) {
+  case tok_dot:
+    // expr_simple '.' attrpath
+    // expr_simple '.' attrpath 'or' expr_select
+    Builder.start(SyntaxKind::SK_Select);
+    Builder.push(Simple);
+    consume();
+    Builder.push(parseAttrPath());
+    if (peek()->getKind() == tok_kw_or) {
+      consume();
+      Builder.push(parseExprSelect());
+    }
+    return Builder.finsih();
+  case tok_kw_or:
+    // `or` used as an identifier.
+    // TODO: create a function.
+  default:
+    // otherwise, end here.
+    return Simple;
+  }
+}
+
+std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSelect(); }
+
 } // namespace nixf
