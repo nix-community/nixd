@@ -551,8 +551,9 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return parseLegacyLet();
   case tok_l_bracket:
     return parseListExpr();
+  default:
+    return nullptr;
   }
-  return nullptr;
 }
 
 /// expr_select : expr_simple '.' attrpath
