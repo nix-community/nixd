@@ -47,4 +47,6 @@ NODE(Inherit)
 NODE(Binds)
 NODE(Binding)
 NODE(ListBody)
+NODE(LambdaArg)
+NODE(BracedFormals)
 #endif // NODE

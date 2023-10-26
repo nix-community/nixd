@@ -9,6 +9,7 @@ DIAG("lex-float-no-exp", FloatNoExp, Fatal,
 DIAG("lex-float-leading-zero", FloatLeadingZero, Warning,
      "float begins with extra zeros `{}` is nixf extension")
 DIAG("parse-expected", Expected, Error, "expected {}")
+DIAG("parse-missing-sep-formals", MissingSepFormals, Error, "missing seperator `,` between two lambda formals")
 DIAG("let-dynamic", LetDynamic, Error,
      "dynamic attributes are not allowed in let ... in ... expression")
 DIAG("inherit-dynamic", InheritDynamic, Error,

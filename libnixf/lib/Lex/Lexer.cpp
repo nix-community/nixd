@@ -366,8 +366,25 @@ TokenView Lexer::lex() {
     Tok = tok_r_curly;
     break;
   case '.':
+    if (consumePrefix("...")) {
+      Tok = tok_ellipsis;
+      break;
+    } else {
+      Cur++;
+      Tok = tok_dot;
+      break;
+    }
+  case '@':
     Cur++;
-    Tok = tok_dot;
+    Tok = tok_at;
+    break;
+  case ':':
+    Cur++;
+    Tok = tok_colon;
+    break;
+  case '?':
+    Cur++;
+    Tok = tok_question;
     break;
   case ';':
     Cur++;
@@ -396,6 +413,10 @@ TokenView Lexer::lex() {
   case ']':
     Cur++;
     Tok = tok_r_bracket;
+    break;
+  case ',':
+    Cur++;
+    Tok = tok_comma;
     break;
   case '$':
     if (consumePrefix("${")) {

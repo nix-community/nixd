@@ -13,6 +13,41 @@ using namespace tok;
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
+static bool isKeyword(TokenKind Kind) {
+  switch (Kind) {
+#define TOK_KEYWORD(KW)                                                        \
+  case tok_kw_##KW:                                                            \
+    return true;
+#include "nixf/Syntax/TokenKeywords.inc"
+#undef TOK_KEYWORD
+  default:
+    return false;
+  }
+}
+
+static bool canBeExprStart(TokenKind Kind) {
+  switch (Kind) {
+  case tok_dot:
+  case tok_r_bracket:
+  case tok_r_curly:
+  case tok_r_paren:
+  case tok_eof:
+
+  case tok_ellipsis:
+  case tok_comma:
+    // tok_dot could be a expr by being a part of .23 (a float)
+  case tok_semi_colon:
+  case tok_eq:
+
+  case tok_question:
+  case tok_at:
+  case tok_colon:
+    return false;
+  default:
+    return !isKeyword(Kind) || Kind == tok_kw_or;
+  }
+}
+
 static std::string getBracketTokenSpelling(TokenKind Kind) {
   switch (Kind) {
   case tok_l_curly:
@@ -321,6 +356,163 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
   return Builder.finsih();
 }
 
+/// formal : ID
+///        | ID '?' expr
+std::shared_ptr<RawNode> Parser::parseFormal() {
+  Builder.start(SyntaxKind::SK_Formal);
+  assert(peek()->getKind() == tok_id);
+  consume();
+  assert(LastToken);
+  const TokenView &Tok = peek();
+  if (Tok->getKind() == tok_question) {
+    consume();
+    assert(LastToken);
+    if (canBeExprStart(peek()->getKind())) {
+      Builder.push(parseExpr());
+    } else {
+      // a ? ,
+      //    ^  missing expression?
+      OffsetRange R{LastToken->getTokEnd()};
+      Diagnostic &D = Diag.diag(DK::DK_Expected, R);
+      D << "an expression";
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " expr"));
+    }
+  } else if (canBeExprStart(Tok->getKind())) {
+    if (Tok->getKind() != tok_id || peek(1)->getKind() == tok_dot) {
+      // expr_start && (!id || (id && id.))
+      // guess that missing ? between formal and expression.
+      // { a   1
+      //     ^
+      Diagnostic &D = Diag.diag(Diagnostic::DK_Expected,
+                                OffsetRange{LastToken->getTokEnd()});
+      D << "?";
+      D.note(Note::NK_DeclaresAtHere, LastToken->getTokRange()) << "formal";
+      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ? "));
+      Builder.push(parseExpr());
+    }
+  }
+  return Builder.finsih();
+}
+
+/// formals : formal ',' formals
+///         | formal
+///         |
+///         | '...'
+/// { a, ... }
+/// { a b
+/// { a ? 1
+/// { a ;
+std::shared_ptr<RawNode> Parser::parseFormals() {
+  Builder.start(SyntaxKind::SK_Formals);
+  TokenView Tok1 = peek();
+  switch (Tok1->getKind()) {
+  case tok_id: {
+    Builder.push(parseFormal());
+    TokenView Tok2 = peek();
+    switch (Tok2->getKind()) {
+    case tok_comma:
+      consume();
+      Builder.push(parseFormals());
+      break;
+    case tok_id: {
+      Diagnostic &D = Diag.diag(Diagnostic::DK_MissingSepFormals,
+                                OffsetRange{Tok1.getTokEnd()});
+      D.note(Note::NK_DeclaresAtHere, Tok1.getTokRange()) << "first formal";
+      D.note(Note::NK_DeclaresAtHere, Tok2.getTokRange()) << "second formal";
+      D.fix(Fix::mkInsertion(Tok1.getTokEnd(), ","));
+      Builder.push(parseFormals());
+      break;
+    }
+    default:
+      break;
+    }
+    break;
+  }
+  case tok_ellipsis:
+    consume();
+    break;
+  default:
+    break;
+  }
+  return Builder.finsih();
+}
+
+std::shared_ptr<RawNode> Parser::parseBracedFormals() {
+  Builder.start(SyntaxKind::SK_BracedFormals);
+  matchBracket(tok_l_curly, &Parser::parseFormals, tok_r_curly);
+  return Builder.finsih();
+}
+
+/// lambda_arg : ID
+///            | ID @ {' formals '}'
+///            | '{' formals '}'
+///            | '{' formals '}' @ ID
+///
+/// Assumption: must exists ID or '{'
+std::shared_ptr<RawNode> Parser::parseLambdaArg() {
+  Builder.start(SyntaxKind::SK_LambdaArg);
+  switch (peek()->getKind()) {
+  case tok_id: {
+    consume();
+    if (peek()->getKind() == tok_at) {
+      consume();
+      Builder.push(parseBracedFormals());
+    }
+    break;
+  }
+  case tok_l_curly: {
+    Builder.push(parseBracedFormals());
+    if (peek()->getKind() == tok_at) {
+      consume();
+      assert(LastToken);
+      switch (peek()->getKind()) {
+      case tok_id:
+        consume();
+        break;
+      default:
+        OffsetRange R{LastToken->getTokEnd()};
+        Diagnostic &D = Diag.diag(DK::DK_Expected, R);
+        D << "an identifier";
+        D.fix(Fix::mkInsertion(LastToken->getTokEnd(), "arg"));
+      }
+    }
+  }
+  default:
+    __builtin_unreachable();
+  }
+
+  return Builder.finsih();
+}
+
+/// lambda_expr : lambda_arg ':' expr
+///
+/// Assumption: must exists ID or '{'
+std::shared_ptr<RawNode> Parser::parseLambdaExpr() {
+  Builder.start(SyntaxKind::SK_Lambda);
+
+  // lambda_arg ':' expr
+  // ^
+  Builder.push(parseLambdaArg());
+  assert(LastToken);
+
+  // lambda_arg ':' expr
+  //             ^
+  switch (peek()->getKind()) {
+  case tok_colon:
+    consume();
+    Builder.push(parseExpr());
+    break;
+  default:
+    OffsetRange R{LastToken->getTokEnd(), LastToken->getTokEnd()};
+    Diagnostic &D = Diag.diag(DK::DK_Expected, R);
+    D << ":";
+    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ":"));
+    Builder.push(parseExpr());
+  }
+
+  return Builder.finsih();
+}
+
 /// simple :  INT
 ///        | FLOAT
 ///        | string
@@ -337,6 +529,7 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
   switch (Tok->getKind()) {
   case tok_int:
   case tok_float:
+  case tok_id:
     consumeOnly();
     return Tok.get();
   case tok_dquote:
@@ -386,19 +579,13 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
     return Simple;
   }
 }
-/// expr_app : expr_simple expr_app
-///            expr_simple
+/// expr_app : expr_select expr_app
+///            expr_select
 std::shared_ptr<RawNode> Parser::parseExprApp() {
-  std::shared_ptr<RawNode> Simple = parseExprSimple();
+  std::shared_ptr<RawNode> Simple = parseExprSelect();
 
   // Peek ahead to see if we have extra token.
-  switch (peek()->getKind()) {
-  case tok_eof:
-  case tok_r_curly:
-  case tok_semi_colon:
-  case tok_r_paren:
-    break;
-  default:
+  if (canBeExprStart(peek()->getKind())) {
     Builder.start(SyntaxKind::SK_Call);
     Builder.push(Simple);
     Builder.push(parseExprApp());
@@ -413,6 +600,88 @@ std::shared_ptr<RawNode> Parser::parseExprOp() {
   return Parser::parseExprApp();
 }
 
-std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprOp(); }
+/// expr      : lambda_expr
+///           | assert_expr
+///           | with_expr
+///           | let_in_expr
+///           | if_expr
+///           | expr_op
+///
+/// lambda_expr : ID ':' expr
+///             | '{' formals '}' ':' expr
+///             | '{' formals '}' '@' ID ':' expr
+///             | ID '@' '{' formals '}' ':' expr
+///
+/// if_expr : 'if' expr 'then' expr 'else' expr
+///
+/// assert_expr : 'assert' expr ';' expr
+///
+/// with_expr :  'with' expr ';' expr
+///
+/// let_in_expr :  'let' binds 'in' expr
+std::shared_ptr<RawNode> Parser::parseExpr() {
+  // { a }
+  // { a ,
+  // { a ...  without a ','
+  // { a @
+  //
+  switch (peek()->getKind()) {
+  case tok_id: {
+    switch (peek(1)->getKind()) {
+    case tok_at:    // ID '@'
+    case tok_colon: // ID ':'
+      return parseLambdaExpr();
+    default: // ID ???
+      return parseExprOp();
+    }
+  }
+  case tok_l_curly: {
+    switch (peek(1)->getKind()) {
+    case tok_id: { // { a
+      switch (peek(2)->getKind()) {
+      case tok_comma:    // { a ,
+      case tok_ellipsis: // { a ...
+      case tok_r_curly:  // { a }
+      case tok_at:       // { a @
+        return parseLambdaExpr();
+      default:
+        goto attrset;
+      }
+    }
+    case tok_r_curly: { // { }
+      switch (peek(2)->getKind()) {
+      case tok_colon: // { } :
+      case tok_at:    // { } @
+        return parseLambdaExpr();
+      default: // { } ???
+        goto attrset;
+      }
+    }
+    default: // { ???
+    attrset:
+      return parseAttrSetExpr();
+    }
+  }
+
+  case tok_kw_if:
+    // return parseIfExpr();
+  case tok_kw_assert:
+    // return parseAssertExpr();
+  case tok_kw_with:
+    // return parseWithExpr();
+  case tok_kw_let: {
+    switch (peek(1)->getKind()) {
+    case tok_l_curly:
+      return parseLegacyLet();
+    default:
+      break;
+      // return parseLetInExpr();
+    }
+  }
+  default:
+    return parseExprOp();
+  }
+  __builtin_unreachable();
+}
 
 } // namespace nixf

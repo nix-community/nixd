@@ -59,6 +59,12 @@ class Parser {
   std::shared_ptr<RawNode> parseListExpr();
   std::shared_ptr<RawNode> parseListBody();
 
+  std::shared_ptr<RawNode> parseFormal();
+  std::shared_ptr<RawNode> parseFormals();
+  std::shared_ptr<RawNode> parseBracedFormals();
+  std::shared_ptr<RawNode> parseLambdaArg();
+  std::shared_ptr<RawNode> parseLambdaExpr();
+
   // Abstract level.
   std::shared_ptr<RawNode> parseExprSelect();
   std::shared_ptr<RawNode> parseExprSimple();

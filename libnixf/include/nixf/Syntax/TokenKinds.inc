@@ -31,6 +31,8 @@ TOK(path_fragment)
 TOK(r_curly)      // {
 TOK(dollar_curly) // ${
 
+TOK(ellipsis)   // ...
+TOK(comma)      // ,
 TOK(dot)        // .
 TOK(semi_colon) // ;
 TOK(eq)         // =
@@ -39,6 +41,11 @@ TOK(l_paren)    // (
 TOK(r_paren)    // )
 TOK(l_bracket)  // [
 TOK(r_bracket)  // ]
+
+TOK(question) // ?
+TOK(at)       // @
+TOK(colon)    // :
+
 // Errorneous token.
 TOK(err)
 
