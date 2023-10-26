@@ -129,7 +129,7 @@ void Parser::addExprWithCheck(const std::string &As) {
 std::shared_ptr<RawNode> Parser::parseInterpolation() {
   Builder.start(SyntaxKind::SK_Interpolation);
   consume();
-  Builder.push(parseExpr());
+  addExprWithCheck("interpolation");
   TokenView Tok = peek();
   if (Tok->getKind() != tok_r_curly) {
     // Error
