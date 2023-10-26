@@ -45,6 +45,8 @@ class Parser {
                     std::shared_ptr<RawNode> (Parser::*InnerParse)(),
                     tok::TokenKind RightKind);
 
+  void diagNullExpr(std::string As);
+
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();
   std::shared_ptr<RawNode> parseString();
@@ -65,6 +67,11 @@ class Parser {
   std::shared_ptr<RawNode> parseBracedFormals();
   std::shared_ptr<RawNode> parseLambdaArg();
   std::shared_ptr<RawNode> parseLambdaExpr();
+
+  std::shared_ptr<RawNode> parseIfExpr();
+  std::shared_ptr<RawNode> parseAssertExpr();
+  std::shared_ptr<RawNode> parseWithExpr();
+  std::shared_ptr<RawNode> parseLetInExpr();
 
   // Abstract level.
   std::shared_ptr<RawNode> parseExprSelect();

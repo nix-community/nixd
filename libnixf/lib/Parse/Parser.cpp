@@ -109,6 +109,13 @@ void Parser::matchBracket(TokenKind LeftKind,
   }
 }
 
+void Parser::diagNullExpr(std::string As) {
+  OffsetRange R{LastToken->getTokEnd()};
+  Diagnostic &D = Diag.diag(DK::DK_Expected, R);
+  D << ("an expression as " + As);
+  D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " expr"));
+}
+
 /// interpolation : ${ expr }
 std::shared_ptr<RawNode> Parser::parseInterpolation() {
   Builder.start(SyntaxKind::SK_Interpolation);
@@ -372,10 +379,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
     } else {
       // a ? ,
       //    ^  missing expression?
-      OffsetRange R{LastToken->getTokEnd()};
-      Diagnostic &D = Diag.diag(DK::DK_Expected, R);
-      D << "an expression";
-      D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " expr"));
+      diagNullExpr("default expression of the formal");
     }
   } else if (canBeExprStart(Tok->getKind())) {
     if (Tok->getKind() != tok_id || peek(1)->getKind() == tok_dot) {
@@ -600,6 +604,58 @@ std::shared_ptr<RawNode> Parser::parseExprOp() {
   return Parser::parseExprApp();
 }
 
+/// if_expr : 'if' expr 'then' expr 'else' expr
+std::shared_ptr<RawNode> Parser::parseIfExpr() {
+  Builder.start(SyntaxKind::SK_If);
+  assert(peek()->getKind() == tok_kw_if);
+  consume(); // 'if'
+  assert(LastToken);
+
+  std::shared_ptr<RawNode> Expr = parseExpr();
+  if (!Expr)
+    diagNullExpr("`if` body");
+  else
+    Builder.push(Expr);
+
+  // then?
+  if (peek()->getKind() == tok_kw_then) {
+    consume(); // then
+
+    // 'if' expr 'then' expr 'else' expr
+    //                  ^
+    if (std::shared_ptr<RawNode> Expr = parseExpr())
+      Builder.push(Expr);
+    else
+      diagNullExpr("`then` body");
+  } else {
+    // if ... ??
+    // missing 'then' ?
+    Diagnostic &D =
+        Diag.diag(DK::DK_Expected, OffsetRange{LastToken->getTokEnd()});
+    D << "`then`";
+    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " then "));
+  }
+
+  // else?
+  if (peek()->getKind() == tok_kw_else) {
+    consume(); // else
+    // 'if' expr 'then' expr 'else' expr
+    //                  ^
+    if (std::shared_ptr<RawNode> Expr = parseExpr())
+      Builder.push(Expr);
+    else
+      diagNullExpr("`else` body");
+  } else {
+    // if ... then ... ???
+    // missing 'else' ?
+    Diagnostic &D =
+        Diag.diag(DK::DK_Expected, OffsetRange{LastToken->getTokEnd()});
+    D << "`else`";
+    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " else "));
+  }
+  return Builder.finsih();
+}
+
 /// expr      : lambda_expr
 ///           | assert_expr
 ///           | with_expr
@@ -664,7 +720,7 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
   }
 
   case tok_kw_if:
-    // return parseIfExpr();
+    return parseIfExpr();
   case tok_kw_assert:
     // return parseAssertExpr();
   case tok_kw_with:
