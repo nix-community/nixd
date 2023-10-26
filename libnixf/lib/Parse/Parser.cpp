@@ -386,7 +386,28 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
     return Simple;
   }
 }
+/// expr_app : expr_simple expr_app
+///            expr_simple
+std::shared_ptr<RawNode> Parser::parseExprApp() {
+  std::shared_ptr<RawNode> Simple = parseExprSimple();
 
-std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSelect(); }
+  // Peek ahead to see if we have extra token.
+  switch (peek()->getKind()) {
+  case tok_eof:
+  case tok_r_curly:
+  case tok_semi_colon:
+  case tok_r_paren:
+    break;
+  default:
+    Builder.start(SyntaxKind::SK_Call);
+    Builder.push(Simple);
+    Builder.push(parseExprApp());
+    return Builder.finsih();
+  }
+
+  return Simple;
+}
+
+std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprApp(); }
 
 } // namespace nixf
