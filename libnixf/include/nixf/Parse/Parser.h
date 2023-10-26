@@ -4,7 +4,6 @@
 #include "nixf/Syntax/Token.h"
 
 #include <queue>
-#include <utility>
 
 namespace nixf {
 

@@ -118,11 +118,10 @@ void Parser::diagNullExpr(const std::string &As) {
 }
 
 void Parser::addExprWithCheck(const std::string &As) {
-  if (std::shared_ptr<RawNode> Expr = parseExpr()) {
+  if (std::shared_ptr<RawNode> Expr = parseExpr())
     Builder.push(Expr);
-  } else {
+  else
     diagNullExpr(As);
-  }
 }
 
 /// interpolation : ${ expr }
