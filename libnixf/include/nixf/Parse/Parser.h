@@ -78,7 +78,7 @@ class Parser {
   std::shared_ptr<RawNode> parseWithExpr();
   std::shared_ptr<RawNode> parseLetInExpr();
 
-  // Abstract level.
+  // Abstract level, these functions may return nullptr.
   std::shared_ptr<RawNode> parseExprSelect();
   std::shared_ptr<RawNode> parseExprSimple();
   std::shared_ptr<RawNode> parseExprApp();
