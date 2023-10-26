@@ -252,7 +252,7 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
   TokenView Tok = peek();
   if (Tok->getKind() == tok_l_paren) {
     consume();
-    Builder.push(parseExpr());
+    addExprWithCheck("inherited");
     TokenView Tok2 = peek();
     switch (Tok2->getKind()) {
     case tok::tok_r_paren:

@@ -7,6 +7,8 @@
   a = ;
 
 
+    # DIAG: error: expected an expression as inherited
+    # DIAG: fixes:     inherit ( expr);
     inherit ();
 
   # DIAG: error: expected an expression as interpolation
