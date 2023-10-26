@@ -88,9 +88,9 @@ std::shared_ptr<RawNode> Parser::parseInterpolation() {
   return Builder.finsih();
 }
 
-// string: '"' {string_part} '"'
-// string : '"' {string_part} '"'
-// string_part : STRING_FRAGMENT | interpolation | STRING_ESCAPED
+/// string: '"' {string_part} '"'
+/// string : '"' {string_part} '"'
+/// string_part : STRING_FRAGMENT | interpolation | STRING_ESCAPED
 std::shared_ptr<RawNode> Parser::parseString() {
   Builder.start(SyntaxKind::SK_String);
   consume();
@@ -282,6 +282,7 @@ std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
   return Builder.finsih();
 }
 
+/// paren_expr : '(' expr ')'
 std::shared_ptr<RawNode> Parser::parseParenExpr() {
   Builder.start(SyntaxKind::SK_Paren);
   matchBracket(tok_l_paren, &Parser::parseExpr, tok_r_paren);
@@ -302,17 +303,17 @@ std::shared_ptr<RawNode> Parser::parseLegacyLet() {
 
 std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSimple(); }
 
-// simple :  INT
-//        | FLOAT
-//        | string
-//        | indented_string
-//        | path
-//        | hpath
-//        | uri
-//        | '(' expr ')'
-//        | legacy_let
-//        | attrset_expr
-//        | list
+/// simple :  INT
+///        | FLOAT
+///        | string
+///        | indented_string
+///        | path
+///        | hpath
+///        | uri
+///        | '(' expr ')'
+///        | legacy_let
+///        | attrset_expr
+///        | list
 std::shared_ptr<RawNode> Parser::parseExprSimple() {
   TokenView Tok = peek();
   switch (Tok->getKind()) {
