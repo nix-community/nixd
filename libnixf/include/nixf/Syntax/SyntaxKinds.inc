@@ -46,4 +46,5 @@ NODE(AttrPath)
 NODE(Inherit)
 NODE(Binds)
 NODE(Binding)
+NODE(ListBody)
 #endif // NODE

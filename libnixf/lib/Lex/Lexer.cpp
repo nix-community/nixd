@@ -388,6 +388,15 @@ TokenView Lexer::lex() {
   case ')':
     Cur++;
     Tok = tok_r_paren;
+    break;
+  case '[':
+    Cur++;
+    Tok = tok_l_bracket;
+    break;
+  case ']':
+    Cur++;
+    Tok = tok_r_bracket;
+    break;
   case '$':
     if (consumePrefix("${")) {
       Tok = tok_dollar_curly;

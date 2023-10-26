@@ -56,8 +56,11 @@ class Parser {
   std::shared_ptr<RawNode> parseAttrSetExpr();
   std::shared_ptr<RawNode> parseParenExpr();
   std::shared_ptr<RawNode> parseLegacyLet();
+  std::shared_ptr<RawNode> parseListExpr();
+  std::shared_ptr<RawNode> parseListBody();
 
   // Abstract level.
+  std::shared_ptr<RawNode> parseExprSelect();
   std::shared_ptr<RawNode> parseExprSimple();
 
 public:

@@ -301,7 +301,50 @@ std::shared_ptr<RawNode> Parser::parseLegacyLet() {
   return Builder.finsih();
 }
 
-std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSimple(); }
+/// list_body : {expr_select}
+std::shared_ptr<RawNode> Parser::parseListBody() {
+  Builder.start(SyntaxKind::SK_ListBody);
+  while (true) {
+    const TokenView &Tok = peek();
+    if (Tok->getKind() == tok_r_bracket || Tok->getKind() == tok_eof)
+      break;
+    Builder.push(parseExprSelect());
+  }
+  return Builder.finsih();
+}
+
+/// list : '[' list_body ']'
+std::shared_ptr<RawNode> Parser::parseListExpr() {
+  Builder.start(SyntaxKind::SK_List);
+  assert(peek()->getKind() == tok_l_bracket);
+  matchBracket(tok_l_bracket, &Parser::parseListBody, tok_r_bracket);
+  return Builder.finsih();
+}
+
+/// expr_select : expr_simple '.' attrpath
+///             | expr_simple '.' attrpath 'or' expr_select
+///             | expr_simple 'or' <-- special "apply", 'or' is argument
+///             | expr_simple
+std::shared_ptr<RawNode> Parser::parseExprSelect() {
+  // Firstly consume an expr_simple.
+  std::shared_ptr<RawNode> Simple = parseExprSimple();
+  // Now look-ahead, see if we can find '.'/'or'
+  const TokenView &Tok = peek();
+  switch (Tok->getKind()) {
+  case tok_dot:
+    // expr_simple '.' attrpath
+    // expr_simple '.' attrpath 'or' expr_select
+    // TODO: parse select body.
+  case tok_kw_or:
+    // `or` used as an identifier.
+    // TODO: create a function.
+  default:
+    // otherwise, end here.
+    return Simple;
+  }
+}
+
+std::shared_ptr<RawNode> Parser::parseExpr() { return parseExprSelect(); }
 
 /// simple :  INT
 ///        | FLOAT
@@ -332,6 +375,8 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return parseParenExpr();
   case tok_kw_let:
     return parseLegacyLet();
+  case tok_l_bracket:
+    return parseListExpr();
   }
   return nullptr;
 }
