@@ -4,6 +4,7 @@
 #include "nixf/Syntax/Token.h"
 
 #include <queue>
+#include <utility>
 
 namespace nixf {
 
@@ -45,7 +46,11 @@ class Parser {
                     std::shared_ptr<RawNode> (Parser::*InnerParse)(),
                     tok::TokenKind RightKind);
 
-  void diagNullExpr(std::string As);
+  void diagNullExpr(const std::string &As);
+
+  /// Parse n-term `expr` and check if it is null.
+  /// Emit diagnostic if so.
+  void addExprWithCheck(const std::string &As);
 
   // Concret n-terms.
   std::shared_ptr<RawNode> parseInterpolation();

@@ -109,11 +109,20 @@ void Parser::matchBracket(TokenKind LeftKind,
   }
 }
 
-void Parser::diagNullExpr(std::string As) {
+void Parser::diagNullExpr(const std::string &As) {
+  assert(LastToken);
   OffsetRange R{LastToken->getTokEnd()};
   Diagnostic &D = Diag.diag(DK::DK_Expected, R);
   D << ("an expression as " + As);
   D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " expr"));
+}
+
+void Parser::addExprWithCheck(const std::string &As) {
+  if (std::shared_ptr<RawNode> Expr = parseExpr()) {
+    Builder.push(Expr);
+  } else {
+    diagNullExpr(As);
+  }
 }
 
 /// interpolation : ${ expr }
@@ -611,11 +620,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
   consume(); // 'if'
   assert(LastToken);
 
-  std::shared_ptr<RawNode> Expr = parseExpr();
-  if (!Expr)
-    diagNullExpr("`if` body");
-  else
-    Builder.push(Expr);
+  addExprWithCheck("`if` body");
 
   // then?
   if (peek()->getKind() == tok_kw_then) {
@@ -623,10 +628,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
 
     // 'if' expr 'then' expr 'else' expr
     //                  ^
-    if (std::shared_ptr<RawNode> Expr = parseExpr())
-      Builder.push(Expr);
-    else
-      diagNullExpr("`then` body");
+    addExprWithCheck("`then` body");
   } else {
     // if ... ??
     // missing 'then' ?
@@ -641,10 +643,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
     consume(); // else
     // 'if' expr 'then' expr 'else' expr
     //                  ^
-    if (std::shared_ptr<RawNode> Expr = parseExpr())
-      Builder.push(Expr);
-    else
-      diagNullExpr("`else` body");
+    addExprWithCheck("`else` body");
   } else {
     // if ... then ... ???
     // missing 'else' ?
