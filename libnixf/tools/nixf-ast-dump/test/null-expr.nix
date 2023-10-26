@@ -14,4 +14,9 @@
   # DIAG: error: expected an expression as interpolation
   # DIAG: fixes:   b = "${ expr}";
   b = "${}";
+
+  # DIAG: error: expected an expression as lambda body
+  # DIAG:   c = a: ;
+  # DIAG: fixes:   c = a: expr ;
+  c = a: ;
 }

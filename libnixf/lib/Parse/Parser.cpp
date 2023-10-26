@@ -507,16 +507,14 @@ std::shared_ptr<RawNode> Parser::parseLambdaExpr() {
   switch (peek()->getKind()) {
   case tok_colon:
     consume();
-    Builder.push(parseExpr());
     break;
   default:
     OffsetRange R{LastToken->getTokEnd(), LastToken->getTokEnd()};
     Diagnostic &D = Diag.diag(DK::DK_Expected, R);
     D << ":";
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ":"));
-    Builder.push(parseExpr());
   }
-
+  addExprWithCheck("lambda body");
   return Builder.finsih();
 }
 
