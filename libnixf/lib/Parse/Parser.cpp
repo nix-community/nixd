@@ -383,13 +383,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
   if (Tok->getKind() == tok_question) {
     consume();
     assert(LastToken);
-    if (canBeExprStart(peek()->getKind())) {
-      Builder.push(parseExpr());
-    } else {
-      // a ? ,
-      //    ^  missing expression?
-      diagNullExpr("default expression of the formal");
-    }
+    addExprWithCheck("default expression of the formal");
   } else if (canBeExprStart(Tok->getKind())) {
     if (Tok->getKind() != tok_id || peek(1)->getKind() == tok_dot) {
       // expr_start && (!id || (id && id.))
