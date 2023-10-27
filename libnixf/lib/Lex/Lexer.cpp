@@ -243,15 +243,14 @@ TokenView Lexer::lexPath() {
   // Path
   //   PathFragment aaa/  <- lex()
   //   PathFragment b//c  <- lexPath()
-  LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
+  startToken();
+  Tok = tok_path_end;
   if (eof()) {
-    startToken();
     Tok = tok_eof;
     return finishToken();
   }
 
   if (*Cur == '$') {
-    startToken();
     if (consumePrefix("${")) {
       Tok = tok_dollar_curly;
     }
@@ -259,7 +258,6 @@ TokenView Lexer::lexPath() {
   }
 
   if (isPathChar(*Cur) || *Cur == '/') {
-    startToken();
     Tok = tok_path_fragment;
     while (!eof() && (isPathChar(*Cur) || *Cur == '/')) {
       // Encountered an interpolation, stop here
@@ -269,8 +267,7 @@ TokenView Lexer::lexPath() {
     }
     return finishToken();
   }
-
-  return lex();
+  return finishToken();
 }
 
 TokenView Lexer::lexString() {

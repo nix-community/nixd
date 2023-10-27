@@ -17,4 +17,11 @@
   # CHECK-NEXT:  Token 3 a/
   # CHECK-NEXT:  Token 6 a////b
   d = a/a////b;
+
+  #      CHECK:  Call 9
+  # CHECK-NEXT:   Path 7
+  # CHECK-NEXT:    Token 3 a/
+  # CHECK-NEXT:    Token 4 a/a.
+  # CHECK-NEXT:   Token 2 b
+  stop = a/a/a. b;
 }

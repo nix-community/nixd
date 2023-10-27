@@ -49,4 +49,6 @@ TOK(colon)    // :
 // Errorneous token.
 TOK(err)
 
+TOK(path_end) // emtpy token, notifies the parser it should exit parsing path.
+
 #endif // TOK

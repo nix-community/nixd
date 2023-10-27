@@ -192,8 +192,12 @@ std::shared_ptr<RawNode> Parser::parsePath() {
       Builder.push(parseInterpolation());
       break;
     }
-    default:
+    case tok_path_end: {
+      consumeOnly();
       goto finish;
+    }
+    default:
+      __builtin_unreachable();
     }
   }
 finish:
