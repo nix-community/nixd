@@ -735,8 +735,12 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
 std::shared_ptr<RawNode> Parser::parse() {
   Builder.start(SyntaxKind::SK_Root);
   while (true) {
-    if (peek()->getKind() == tok::tok_eof)
+    if (peek()->getKind() == tok::tok_eof) {
+      Builder.start(SyntaxKind::SK_EOF);
+      consume(); // consume eof.
+      Builder.push(Builder.finsih());
       break;
+    }
     if (std::shared_ptr<RawNode> Raw = parseExpr()) {
       Builder.push(Raw);
     } else {

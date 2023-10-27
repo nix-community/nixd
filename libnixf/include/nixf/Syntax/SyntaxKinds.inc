@@ -51,4 +51,5 @@ NODE(LambdaArg)
 NODE(BracedFormals)
 NODE(Unknown)
 NODE(Root)
+NODE(EOF)
 #endif // NODE
