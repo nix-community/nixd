@@ -80,7 +80,12 @@ class Parser {
   // Abstract level, these functions may return nullptr.
   std::shared_ptr<RawNode> parseExprSelect();
   std::shared_ptr<RawNode> parseExprSimple();
-  std::shared_ptr<RawNode> parseExprApp();
+
+  /// Parse expr_app
+  /// \p Limit of expr_select should be consumed, default to +inf
+  std::shared_ptr<RawNode>
+  parseExprApp(unsigned Limit = std::numeric_limits<unsigned>::max());
+
   std::shared_ptr<RawNode> parseExprOp();
   std::shared_ptr<RawNode> parseExpr();
 

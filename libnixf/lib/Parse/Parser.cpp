@@ -589,20 +589,21 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
     return Simple;
   }
 }
-/// expr_app : expr_select expr_app
+/// expr_app : expr_app expr_select
 ///            expr_select
-std::shared_ptr<RawNode> Parser::parseExprApp() {
+std::shared_ptr<RawNode> Parser::parseExprApp(unsigned Limit) {
   std::shared_ptr<RawNode> Simple = parseExprSelect();
-
-  // Peek ahead to see if we have extra token.
-  if (canBeExprStart(peek()->getKind())) {
-    Builder.start(SyntaxKind::SK_Call);
-    Builder.push(Simple);
-    Builder.push(parseExprApp());
-    return Builder.finsih();
+  std::vector<std::shared_ptr<RawNode>> V{Simple};
+  // Try to consume next expr_select
+  for (int I = 0; I < Limit; I++) {
+    std::shared_ptr<RawNode> Next = parseExprSelect();
+    if (!Next)
+      break;
+    V.emplace_back(std::move(Next));
   }
-
-  return Simple;
+  if (V.size() == 1)
+    return Simple;
+  return std::make_shared<RawTwine>(SyntaxKind::SK_Call, std::move(V));
 }
 
 // TODO: Pratt parser.
