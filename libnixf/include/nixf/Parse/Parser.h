@@ -45,8 +45,6 @@ class Parser {
                     std::shared_ptr<RawNode> (Parser::*InnerParse)(),
                     tok::TokenKind RightKind);
 
-  void diagNullExpr(const std::string &As);
-
   /// Parse n-term `expr` and check if it is null.
   /// Emit diagnostic if so.
   void addExprWithCheck(const std::string &As);

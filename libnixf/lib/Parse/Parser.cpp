@@ -1,5 +1,6 @@
 #include "nixf/Parse/Parser.h"
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Basic/Range.h"
 #include "nixf/Lex/Lexer.h"
 #include "nixf/Syntax/RawSyntax.h"
@@ -68,6 +69,15 @@ std::string getBracketTokenSpelling(TokenKind Kind) {
     __builtin_unreachable();
   }
 }
+
+Diagnostic &diagNullExpr(DiagnosticEngine &Diag, const char *Loc,
+                         std::string As) {
+  Diagnostic &D = Diag.diag(DK::DK_Expected, OffsetRange(Loc));
+  D << ("an expression as " + std::move(As));
+  D.fix(Fix::mkInsertion(Loc, " expr"));
+  return D;
+}
+
 } // namespace
 
 /// Requirements:
@@ -112,19 +122,12 @@ void Parser::matchBracket(TokenKind LeftKind,
   }
 }
 
-void Parser::diagNullExpr(const std::string &As) {
-  assert(LastToken);
-  OffsetRange R{LastToken->getTokEnd()};
-  Diagnostic &D = Diag.diag(DK::DK_Expected, R);
-  D << ("an expression as " + As);
-  D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " expr"));
-}
-
 void Parser::addExprWithCheck(const std::string &As) {
+  assert(LastToken);
   if (std::shared_ptr<RawNode> Expr = parseExpr())
     Builder.push(Expr);
   else
-    diagNullExpr(As);
+    diagNullExpr(Diag, LastToken->getTokEnd(), As);
 }
 
 /// interpolation : ${ expr }
