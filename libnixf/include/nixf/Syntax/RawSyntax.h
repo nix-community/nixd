@@ -118,6 +118,7 @@ public:
   void push(std::shared_ptr<RawNode> Node) {
     Stack.top()->emplace_back(std::move(Node));
   }
+  void pop() { Stack.top()->pop_back(); }
   std::shared_ptr<RawTwine> finsih() {
     RawTwine::LayoutTy Layout = std::move(*Stack.top());
     Stack.pop();

@@ -3,6 +3,7 @@
 #include "nixf/Syntax/RawSyntax.h"
 #include "nixf/Syntax/Token.h"
 
+#include <limits>
 #include <queue>
 
 namespace nixf {
@@ -36,6 +37,11 @@ class Parser {
   void consumeOnly() {
     LastToken = LookAheadBuf.front();
     LookAheadBuf.pop_front();
+  }
+
+  void resetCur(const char *NewCur) {
+    Lex.setCur(NewCur);
+    LookAheadBuf.clear();
   }
 
   std::size_t getOffset(const char *Cur) { return Cur - Src.begin(); }
