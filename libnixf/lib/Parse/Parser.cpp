@@ -13,7 +13,9 @@ using namespace tok;
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
-static bool isKeyword(TokenKind Kind) {
+namespace {
+
+bool isKeyword(TokenKind Kind) {
   switch (Kind) {
 #define TOK_KEYWORD(KW)                                                        \
   case tok_kw_##KW:                                                            \
@@ -25,7 +27,7 @@ static bool isKeyword(TokenKind Kind) {
   }
 }
 
-static bool canBeExprStart(TokenKind Kind) {
+bool canBeExprStart(TokenKind Kind) {
   switch (Kind) {
   case tok_dot:
   case tok_r_bracket:
@@ -48,7 +50,7 @@ static bool canBeExprStart(TokenKind Kind) {
   }
 }
 
-static std::string getBracketTokenSpelling(TokenKind Kind) {
+std::string getBracketTokenSpelling(TokenKind Kind) {
   switch (Kind) {
   case tok_l_curly:
     return "{";
@@ -66,6 +68,7 @@ static std::string getBracketTokenSpelling(TokenKind Kind) {
     __builtin_unreachable();
   }
 }
+} // namespace
 
 /// Requirements:
 ///        1. left bracket must exist
