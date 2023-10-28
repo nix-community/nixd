@@ -214,6 +214,8 @@ finish:
 ///          | kw_or   <-- "or" used as an identifier
 ///          | string
 ///          | interpolation
+///
+/// \note nullable.
 std::shared_ptr<RawNode> Parser::parseAttrName() {
   TokenView Tok = peek();
   switch (Tok->getKind()) {
@@ -227,22 +229,27 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
   case tok_dollar_curly:
     return parseInterpolation();
   default:
-    // TODO: error.
-    __builtin_unreachable();
+    return nullptr;
   }
 }
 
 /// binding : attrpath '=' expr ';'
+/// \note nullable
 std::shared_ptr<RawNode> Parser::parseBinding() {
-  Builder.start(SyntaxKind::SK_Binding);
-
   // consume n-term `attrpath` and record its range, used for diagnostics.
   const char *AttrBegin = peek().getTokRange().Begin;
-  Builder.push(parseAttrPath());
+  std::shared_ptr<RawNode> AttrPath = parseAttrPath();
   const char *AttrEnd = Lex.cur() - peek()->getLength();
-  OffsetRange AttrRange{AttrBegin, AttrEnd};
+
+  if (!AttrPath)
+    return nullptr;
 
   assert(LastToken);
+
+  Builder.start(SyntaxKind::SK_Binding);
+  Builder.push(std::move(AttrPath));
+  OffsetRange AttrRange{AttrBegin, AttrEnd};
+
   const TokenView &Tok = peek();
   if (Tok->getKind() == tok_eq) {
     consume();
@@ -338,22 +345,48 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
       consume();
       break;
     }
-    Builder.push(parseAttrName());
+    std::shared_ptr<RawNode> AttrName = parseAttrName();
+    if (!AttrName) {
+      // This is not an attrname. But we haven't meet the ending ';' yet.
+      // Missing semi-colon ?   inherit a b c a = 1;
+      //                                       ^ ;
+      // TODO: diagnostic.
+      break;
+    }
+    Builder.push(std::move(AttrName));
   }
   return Builder.finsih();
 }
 
 /// attrpath : attrname {. attrname}
+/// \note nullable
 std::shared_ptr<RawNode> Parser::parseAttrPath() {
+  std::shared_ptr<RawNode> AttrName = parseAttrName();
+
+  if (!AttrName)
+    return nullptr;
+
   Builder.start(SyntaxKind::SK_AttrPath);
-  Builder.push(parseAttrName());
+  Builder.push(std::move(AttrName));
   /// Peek '.' and consume next attrname
   while (true) {
     TokenView Tok = peek();
     if (Tok->getKind() != tok_dot)
       break;
     consume();
-    Builder.push(parseAttrName());
+    assert(LastToken);
+    AttrName = parseAttrName();
+    if (!AttrName) {
+      // not/missing an attrname after
+      // guess: extra token '.' ?s
+      // attr. = 1
+      //     ^ remove this . and continue parsing.
+      Diagnostic &D = Diag.diag(Diagnostic::DK_Expected, Tok.getTokRange());
+      D << "attrname after `.`";
+      D.fix(Fix::mkRemoval(Tok.getTokRange()));
+      break;
+    }
+    Builder.push(std::move(AttrName));
   }
   return Builder.finsih();
 }
@@ -366,18 +399,17 @@ std::shared_ptr<RawNode> Parser::parseBinds() {
     switch (Tok->getKind()) {
     case tok_kw_inherit:
       Builder.push(parseInherit());
-      continue;
-    case tok_id:           // identifer
-    case tok_dquote:       // string
-    case tok_kw_or:        // identifer_or
-    case tok_dollar_curly: // interpolation
-      Builder.push(parseBinding());
-      continue;
-    default:
+      break;
+    default: {
+      std::shared_ptr<RawNode> Binding = parseBinding();
+      if (!Binding)
+        goto finish;
+      Builder.push(std::move(Binding));
       break;
     }
-    break;
+    }
   }
+finish:
   return Builder.finsih();
 }
 
@@ -625,21 +657,34 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
 std::shared_ptr<RawNode> Parser::parseExprSelect() {
   // Firstly consume an expr_simple.
   std::shared_ptr<RawNode> Simple = parseExprSimple();
+  if (!Simple)
+    return nullptr;
   // Now look-ahead, see if we can find '.'/'or'
   const TokenView &Tok = peek();
   switch (Tok->getKind()) {
-  case tok_dot:
+  case tok_dot: {
     // expr_simple '.' attrpath
     // expr_simple '.' attrpath 'or' expr_select
     Builder.start(SyntaxKind::SK_Select);
     Builder.push(std::move(Simple));
-    consume();
-    Builder.push(parseAttrPath());
+    consume(); // .
+    std::shared_ptr<RawNode> AttrPath = parseAttrPath();
+    if (!AttrPath) {
+      // guess: extra token '.' ?
+      // attr. = 1
+      //     ^ remove this . and continue parsing.
+      Diagnostic &D = Diag.diag(Diagnostic::DK_Expected, Tok.getTokRange());
+      D << "attrpath after `.`";
+      D.fix(Fix::mkRemoval(Tok.getTokRange()));
+      return Simple;
+    }
+    Builder.push(std::move(AttrPath));
     if (peek()->getKind() == tok_kw_or) {
       consume();
       Builder.push(parseExprSelect());
     }
     return Builder.finsih();
+  }
   case tok_kw_or:
     // `or` used as an identifier.
     // TODO: create a function.
@@ -793,7 +838,6 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
   default:
     return parseExprOp();
   }
-  __builtin_unreachable();
 }
 
 std::shared_ptr<RawNode> Parser::parse() {
