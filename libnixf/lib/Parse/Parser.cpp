@@ -21,7 +21,7 @@ bool isKeyword(TokenKind Kind) {
 #define TOK_KEYWORD(KW)                                                        \
   case tok_kw_##KW:                                                            \
     return true;
-#include "nixf/Syntax/TokenKeywords.inc"
+#include "nixf/Syntax/TokenKinds.inc"
 #undef TOK_KEYWORD
   default:
     return false;
@@ -758,9 +758,142 @@ std::shared_ptr<RawNode> Parser::parseExprApp(unsigned Limit) {
   return std::make_shared<RawTwine>(SyntaxKind::SK_Call, std::move(V));
 }
 
-// TODO: Pratt parser.
-std::shared_ptr<RawNode> Parser::parseExprOp() {
-  return Parser::parseExprApp();
+/// Operators.
+namespace {
+
+/// Binary operators:
+///
+/// %right ->
+/// %left ||
+/// %left &&
+/// %nonassoc == !=
+/// %nonassoc < > <= >=
+/// %right //
+/// %left NOT
+/// %left + -
+/// %left * /
+/// %right ++
+/// %nonassoc '?'
+/// %nonassoc NEGATE
+std::pair<unsigned, unsigned> getBP(TokenKind Kind) {
+  switch (Kind) {
+  case tok_op_impl: // %right ->
+    return {2, 1};
+  case tok_op_or: // %left ||
+    return {3, 4};
+  case tok_op_and: // %left &&
+    return {5, 6};
+  case tok_op_eq: // %nonassoc == !=
+  case tok_op_neq:
+    return {7, 7};
+  case tok_op_lt: // %nonassoc < > <= >=
+  case tok_op_le:
+  case tok_op_ge:
+  case tok_op_gt:
+    return {8, 8};
+  case tok_op_update: // %right //
+    return {10, 9};
+    // %left NOT - 11
+  case tok_op_add: // %left + -
+  case tok_op_negate:
+    return {12, 13};
+  case tok_op_mul: // %left * /
+    return {14, 15};
+  case tok_op_div:
+  case tok_op_concat: // %right ++
+    return {17, 16};
+  // % op_negate
+  default:
+    __builtin_unreachable();
+  }
+}
+
+unsigned getUnaryBP(TokenKind Kind) {
+  switch (Kind) {
+  case tok_op_not:
+    return 11;
+  case tok_op_negate:
+    return 100;
+  default:
+    __builtin_unreachable();
+  }
+}
+
+} // namespace
+
+/// Pratt parser.
+/// expr_op : '!' expr_op
+///         | '-' expr_op
+///         | expr_op BINARY_OP expr_op
+std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
+  //
+  // expr_op OP           expr_op   OP expr_op
+  //            ^LeftRBP  ^       ^ LBP
+  //                      |
+  //                      | we are here
+
+  // Firstly consume an expression.
+  std::shared_ptr<RawNode> Prefix;
+  switch (peek()->getKind()) {
+  case tok_op_not:
+    Builder.start(SyntaxKind::SK_OpNot);
+    consume();
+    addExprWithCheck("the body of operator `!`",
+                     parseExprOpBP(getUnaryBP(tok_op_not)));
+    Prefix = Builder.finsih();
+    break;
+  case tok_op_negate:
+    Builder.start(SyntaxKind::SK_OpNegate);
+    consume();
+    addExprWithCheck("the body of operator `-`",
+                     parseExprOpBP(getUnaryBP(tok_op_negate)));
+    Prefix = Builder.finsih();
+    break;
+  default:
+    Prefix = parseExprApp();
+  }
+
+  if (!Prefix)
+    return nullptr;
+
+  assert(LastToken);
+
+  while (true) {
+    switch (auto Tok = peek(); Tok->getKind()) {
+      // For all binary ops:
+      //
+      // expr_op OP           expr_op   OP expr_op
+      //            ^LeftRBP           ^ LBP
+      //                               |
+      //                               | we are here
+#define TOK_BIN_OP(NAME) case tok_op_##NAME:
+#include "nixf/Syntax/TokenKinds.inc"
+#undef TOK_BIN_OP
+      {
+        auto [LBP, RBP] = getBP(Tok->getKind());
+        if (LeftRBP <= LBP) {
+          if (LeftRBP == LBP) {
+            // a == 1 == 2
+            // association for non-associable bin-ops.
+            // TODO: emit diagnostic
+          }
+          Builder.start(SyntaxKind::SK_OpBinary);
+          Builder.push(Prefix);
+          consume(); // bin_op
+          if (auto Expr = parseExprOpBP(RBP))
+            Builder.push(Expr);
+          else
+            diagNullExpr(Diag, LastToken->getTokEnd(), "right hand side");
+          Prefix = Builder.finsih();
+        } else {
+          return Prefix;
+        }
+        break;
+      } // case bin_op:
+    default:
+      return Prefix;
+    } // switch
+  }   // while(true)
 }
 
 /// if_expr : 'if' expr 'then' expr 'else' expr

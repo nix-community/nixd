@@ -43,7 +43,10 @@ class Lexer {
   const char *TokStartPtr;
   tok::TokenKind Tok;
   std::unique_ptr<Trivia> LeadingTrivia;
-  void startToken() { TokStartPtr = Cur; }
+  void startToken() {
+    Tok = tok::tok_unknown;
+    TokStartPtr = Cur;
+  }
   TokenView finishToken() {
     auto TokBody = std::make_shared<Token>(Tok, std::string(tokStr()),
                                            std::move(LeadingTrivia), nullptr);

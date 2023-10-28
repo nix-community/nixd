@@ -153,16 +153,14 @@ void Lexer::lexNumbers() {
     Cur++;
   if (*Cur == '.') {
     // float
+    Tok = tok_float;
     Cur++;
 
     // [0-9]*
     while (!eof() && isdigit(*Cur))
       Cur++;
 
-    if (lexFloatExp())
-      Tok = tok_float;
-    else
-      Tok = tok_err;
+    lexFloatExp();
 
   } else {
     Tok = tok_int;
@@ -233,7 +231,7 @@ void Lexer::maybeKW() {
     Tok = tok_kw_##NAME;                                                       \
     return;                                                                    \
   }
-#include "nixf/Syntax/TokenKeywords.inc"
+#include "nixf/Syntax/TokenKinds.inc"
 #undef TOK_KEYWORD
 }
 
@@ -354,6 +352,68 @@ TokenView Lexer::lex() {
   }
 
   switch (*Cur) {
+  case '+':
+    if (consumePrefix("++")) {
+      Tok = tok_op_concat;
+    } else {
+      Cur++;
+      Tok = tok_op_add;
+    }
+    break;
+  case '-':
+    if (consumePrefix("->")) {
+      Tok = tok_op_impl;
+    } else {
+      Cur++;
+      Tok = tok_op_negate;
+    }
+    break;
+  case '*':
+    Cur++;
+    Tok = tok_op_mul;
+    break;
+  case '/':
+    if (consumePrefix("//")) {
+      Tok = tok_op_update;
+    } else {
+      Cur++;
+      Tok = tok_op_div;
+    }
+    break;
+  case '|':
+    if (consumePrefix("||"))
+      Tok = tok_op_or;
+    break;
+  case '!':
+    if (consumePrefix("!=")) {
+      Tok = tok_op_neq;
+    } else {
+      Cur++;
+      Tok = tok_op_not;
+    }
+    break;
+  case '<':
+    if (consumePrefix("<=")) {
+      Tok = tok_op_le;
+    } else {
+      Cur++;
+      Tok = tok_op_lt;
+    }
+    break;
+  case '>':
+    if (consumePrefix(">=")) {
+      Tok = tok_op_ge;
+    } else {
+      Cur++;
+      Tok = tok_op_gt;
+    }
+    break;
+  case '&':
+    if (consumePrefix("&&")) {
+      Tok = tok_op_and;
+      break;
+    }
+    break;
   case '"':
     Cur++;
     Tok = tok_dquote;
@@ -388,9 +448,14 @@ TokenView Lexer::lex() {
     Tok = tok_semi_colon;
     break;
   case '=':
-    Cur++;
-    Tok = tok_eq;
-    break;
+    if (consumePrefix("==")) {
+      Tok = tok_op_eq;
+      break;
+    } else {
+      Cur++;
+      Tok = tok_eq;
+      break;
+    }
   case '{':
     Cur++;
     Tok = tok_l_curly;
@@ -422,6 +487,8 @@ TokenView Lexer::lex() {
     }
     break;
   }
+  if (Tok == tok_unknown)
+    Cur++;
   return finishToken();
 }
 } // namespace nixf

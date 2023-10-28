@@ -9,7 +9,7 @@ namespace nixf {
 namespace tok {
 enum TokenKind {
 #define TOK(NAME) tok_##NAME,
-#include "TokenKinds.inc"
+#include "Tokens.inc"
 #undef TOK
 };
 

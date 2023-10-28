@@ -115,7 +115,16 @@ class Parser {
   std::shared_ptr<RawNode>
   parseExprApp(unsigned Limit = std::numeric_limits<unsigned>::max());
 
-  std::shared_ptr<RawNode> parseExprOp();
+  std::shared_ptr<RawNode> parseExprOp() { return parseExprOpBP(0); }
+
+  /// \note Pratt Parser.
+  /// Pratt, Vaughan. "Top down operator precedence."
+  /// Proceedings of the 1st Annual ACM SIGACT-SIGPLAN Symposium on Principles
+  /// of Programming Languages (1973).
+  /// https://web.archive.org/web/20151223215421/http://hall.org.ua/halls/wizzard/pdf/Vaughan.Pratt.TDOP.pdf
+  /// \returns expr_op
+  std::shared_ptr<RawNode> parseExprOpBP(unsigned LeftRBP);
+
   std::shared_ptr<RawNode> parseExpr();
 
   /// Create an "Unknown" with many tokens until \p Predicate does not hold

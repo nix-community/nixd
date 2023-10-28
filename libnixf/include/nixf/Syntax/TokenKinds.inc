@@ -5,15 +5,27 @@
 /// note: keyword tokens will be prefixed with kw_ and they are declared in
 /// TokenKeywords.inc
 
+// Keywords goes here, they are special identifiers.
+#ifdef TOK_KEYWORD
+
+TOK_KEYWORD(if)
+TOK_KEYWORD(then)
+TOK_KEYWORD(else)
+TOK_KEYWORD(assert)
+TOK_KEYWORD(with)
+TOK_KEYWORD(let)
+TOK_KEYWORD(in)
+TOK_KEYWORD(rec)
+TOK_KEYWORD(inherit)
+TOK_KEYWORD(or)
+
+#endif // TOK_KEYWORD
+
 #ifdef TOK
 TOK(eof)
 
 // Identifier.
 TOK(id)
-// Keywords goes here, they are special identifiers.
-#define TOK_KEYWORD(NAME) TOK(kw_##NAME)
-#include "TokenKeywords.inc"
-#undef TOK_KEYWORD
 
 // Numbers.
 TOK(int)
@@ -46,9 +58,31 @@ TOK(question) // ?
 TOK(at)       // @
 TOK(colon)    // :
 
-// Errorneous token.
-TOK(err)
+TOK(unknown)
 
 TOK(path_end) // emtpy token, notifies the parser it should exit parsing path.
 
+TOK(op_not) // !
+
 #endif // TOK
+
+// Binary Ops
+#ifdef TOK_BIN_OP
+
+TOK_BIN_OP(impl)   // ->
+TOK_BIN_OP(or)     // ||
+TOK_BIN_OP(and)    // &&
+TOK_BIN_OP(eq)     // ==
+TOK_BIN_OP(neq)    // !=
+TOK_BIN_OP(lt)     // <
+TOK_BIN_OP(gt)     // >
+TOK_BIN_OP(le)     // <=
+TOK_BIN_OP(ge)     // >=
+TOK_BIN_OP(update) // //
+TOK_BIN_OP(add)    // +
+TOK_BIN_OP(negate) // -
+TOK_BIN_OP(mul)    // *
+TOK_BIN_OP(div)    // /
+TOK_BIN_OP(concat) // ++
+
+#endif // TOK_BIN_OP
