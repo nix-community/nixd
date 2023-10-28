@@ -122,12 +122,12 @@ void Parser::matchBracket(TokenKind LeftKind,
   }
 }
 
-void Parser::addExprWithCheck(const std::string &As) {
+void Parser::addExprWithCheck(std::string As, std::shared_ptr<RawNode> Expr) {
   assert(LastToken);
-  if (std::shared_ptr<RawNode> Expr = parseExpr())
-    Builder.push(Expr);
+  if (Expr)
+    Builder.push(std::move(Expr));
   else
-    diagNullExpr(Diag, LastToken->getTokEnd(), As);
+    diagNullExpr(Diag, LastToken->getTokEnd(), std::move(As));
 }
 
 /// interpolation : ${ expr }
