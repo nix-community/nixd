@@ -757,6 +757,17 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
   return Builder.finsih();
 }
 
+std::shared_ptr<RawNode>
+Parser::parseUnknownUntil(const std::function<bool()> &Predicate) {
+  Builder.start(SyntaxKind::SK_Unknown);
+  while (true) {
+    if (Predicate())
+      break;
+    consume();
+  }
+  return Builder.finsih();
+}
+
 /// expr      : lambda_expr
 ///           | assert_expr
 ///           | with_expr

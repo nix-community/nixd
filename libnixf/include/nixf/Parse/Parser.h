@@ -97,6 +97,10 @@ class Parser {
   std::shared_ptr<RawNode> parseExprOp();
   std::shared_ptr<RawNode> parseExpr();
 
+  /// Create an "Unknown" with many tokens until \p Predicate does not hold
+  std::shared_ptr<RawNode>
+  parseUnknownUntil(const std::function<bool()> &Predicate);
+
 public:
   explicit Parser(std::string_view Src, DiagnosticEngine &Diag)
       : Src(Src), Lex(Src, Diag), Diag(Diag) {}
