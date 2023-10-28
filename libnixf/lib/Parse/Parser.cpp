@@ -576,7 +576,7 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
     // expr_simple '.' attrpath
     // expr_simple '.' attrpath 'or' expr_select
     Builder.start(SyntaxKind::SK_Select);
-    Builder.push(Simple);
+    Builder.push(std::move(Simple));
     consume();
     Builder.push(parseAttrPath());
     if (peek()->getKind() == tok_kw_or) {
@@ -750,7 +750,7 @@ std::shared_ptr<RawNode> Parser::parse() {
       break;
     }
     if (std::shared_ptr<RawNode> Raw = parseExpr()) {
-      Builder.push(Raw);
+      Builder.push(std::move(Raw));
     } else {
       Builder.start(SyntaxKind::SK_Unknown);
       consume(); // consume this unknown token.

@@ -115,8 +115,8 @@ public:
     KindStack.push(Kind);
     Stack.push(std::make_unique<RawTwine::LayoutTy>());
   }
-  void push(const std::shared_ptr<RawNode> &Node) {
-    Stack.top()->emplace_back(Node);
+  void push(std::shared_ptr<RawNode> Node) {
+    Stack.top()->emplace_back(std::move(Node));
   }
   std::shared_ptr<RawTwine> finsih() {
     RawTwine::LayoutTy Layout = std::move(*Stack.top());
