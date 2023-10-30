@@ -4,9 +4,26 @@
 #include "nixf/Syntax/Token.h"
 
 #include <limits>
+#include <map>
 #include <queue>
 
 namespace nixf {
+
+using GuardTokensTy = std::map<tok::TokenKind, std::size_t>;
+struct GuardTokensRAII {
+  GuardTokensRAII(GuardTokensTy &GuardTokens, tok::TokenKind Kind)
+      : Kind(Kind), GuardTokens(GuardTokens) {
+    ++GuardTokens[Kind];
+  }
+
+  ~GuardTokensRAII() {
+    assert(GuardTokens[Kind] > 0);
+    --GuardTokens[Kind];
+  }
+
+  tok::TokenKind Kind;
+  GuardTokensTy &GuardTokens;
+};
 
 class ExprSyntax;
 class Parser {
@@ -14,6 +31,10 @@ class Parser {
   Lexer Lex;
   RawTwineBuilder Builder;
   DiagnosticEngine &Diag;
+
+  /// These tokens should not be consumed as unknown nodes from error recovery.
+  friend struct GuardTokensRAII;
+  GuardTokensTy GuardTokens;
 
   std::deque<TokenView> LookAheadBuf;
 
@@ -98,8 +119,7 @@ class Parser {
   std::shared_ptr<RawNode> parseExpr();
 
   /// Create an "Unknown" with many tokens until \p Predicate does not hold
-  std::shared_ptr<RawNode>
-  parseUnknownUntil(const std::function<bool()> &Predicate);
+  std::shared_ptr<RawNode> parseUnknownUntilGuard();
 
 public:
   explicit Parser(std::string_view Src, DiagnosticEngine &Diag)
