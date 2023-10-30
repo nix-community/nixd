@@ -171,6 +171,7 @@ std::shared_ptr<RawNode> Parser::parseString() {
       break;
     }
     case tok_string_part:
+    case tok_string_escape:
       // If this is a part of string, just push it.
       consume();
       break;

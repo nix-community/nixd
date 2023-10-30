@@ -9,6 +9,9 @@
 # CHECK-NEXT:   Token 6 string
 # CHECK-NEXT:   Token 1 "
 # CHECK-NEXT:  Token 2  }
-# CHECK-NEXT: Token 6 asdasd
+# CHECK-NEXT: Token 7 asdasd
+# CHECK-NEXT: Token 2 \n
+# CHECK-NEXT: Token 1
+# CHECK-NEXT: Token 2 \\
 # CHECK-NEXT: Token 1 "
-"asdasdasd${ "string" }asdasd"
+"asdasdasd${ "string" }asdasd \n \\"
