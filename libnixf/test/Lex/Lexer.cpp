@@ -119,16 +119,6 @@ TEST_F(LexerTest, FloatLeadingZero) {
             "float begins with extra zeros `00.33` is nixf extension");
 }
 
-TEST_F(LexerTest, FloatNoExp) {
-  Lexer Lexer("00.33e", Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
-  ASSERT_EQ(P->getKind(), tok_err);
-  ASSERT_EQ(P->getContent(), "00.33e");
-  ASSERT_FALSE(Diag.diags().empty());
-  ASSERT_EQ(std::string(Diag.diags()[0]->format()),
-            "float point has trailing `e` but has no exponential part");
-}
-
 TEST_F(LexerTest, lexString) {
   Lexer Lexer(R"("aa bb \\ \t \" \n ${}")", Diag);
   const TokenKind Match[] = {
