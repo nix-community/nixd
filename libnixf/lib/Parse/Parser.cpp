@@ -293,18 +293,16 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
       resetCur(UnkBegin);
       break;
     }
-    case tok_eof:
-    case tok_r_curly: {
-      // attrpath UNKNOWN }
+    default: {
+      // attrpath UNKNOWN
       // ~~~~~~~~  remove attrpath + UNKNOWN.
+      Builder.reset(SyntaxKind::SK_Unknown);
       OffsetRange RM{AttrBegin, UnkEnd};
       Diagnostic &D = Diag.diag(DK::DK_UnexpectedText, RM);
       D << "in binding declaration";
       D.fix(Fix::mkRemoval(RM));
       return Builder.finsih();
     }
-    default:
-      __builtin_unreachable();
     }
   }
 
@@ -948,6 +946,66 @@ std::shared_ptr<RawNode> Parser::parseUnknownUntilGuard() {
   return Builder.finsih();
 }
 
+/// let_in_expr :  'let' binds 'in' expr
+std::shared_ptr<RawNode> Parser::parseLetInExpr() {
+  GuardTokensRAII InGuard{GuardTokens, tok_kw_in};
+  Builder.start(SyntaxKind::SK_Let);
+  assert(peek()->getKind() == tok_kw_let);
+  const char *LetBegin = peek().getTokBegin();
+  consume(); // let
+  assert(LastToken);
+
+  Builder.push(parseBinds());
+
+  if (peek()->getKind() == tok_kw_in) {
+    consume(); // in
+  } else {
+    const char *InsPoint = LastToken->getTokEnd();
+    std::shared_ptr<RawNode> Expr = parseExpr();
+    if (Expr) {
+      Builder.push(std::move(Expr));
+      // let ... expr
+      // missing 'in' ?
+      Diagnostic &D = Diag.diag(DK::DK_Expected, OffsetRange{InsPoint});
+      D << "`in`";
+      D.fix(Fix::mkInsertion(InsPoint, " in "));
+      return Builder.finsih();
+    }
+    // try to recover from creating unknown node.
+    const char *UnkBegin = peek().getTokBegin();
+    Builder.push(parseUnknownUntilGuard());
+    const char *UnkEnd = peek().getTokBegin();
+
+    switch (TokenView Tok = peek(); Tok->getKind()) {
+    case tok_kw_in: {
+      // ok, not missing 'in'
+      // 'let' binds UNKNOWN 'in' -> remove UNKNOWN.
+      Diagnostic &D =
+          Diag.diag(DK::DK_UnexpectedBetween, OffsetRange{UnkBegin, UnkEnd});
+      D << "text";
+      D << "let";
+      D << "`in`";
+      D.note(NK::NK_DeclaresAtHere, Tok.getTokRange()) << "`in`";
+      D.fix(Fix::mkRemoval({UnkBegin, UnkEnd}));
+      consume();
+      break;
+    }
+    default: {
+      // let ... UNKNOWN -> remove all
+      Builder.reset(SyntaxKind::SK_Unknown);
+      OffsetRange RM{LetBegin, UnkEnd};
+      Diagnostic &D = Diag.diag(DK::DK_UnexpectedText, RM);
+      D << "in let-in expression";
+      D.fix(Fix::mkRemoval(RM));
+      return Builder.finsih();
+    }
+    }
+  }
+
+  addExprWithCheck("body");
+  return Builder.finsih();
+}
+
 /// expr      : lambda_expr
 ///           | assert_expr
 ///           | with_expr
@@ -1022,8 +1080,7 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
     case tok_l_curly:
       return parseLegacyLet();
     default:
-      break;
-      // return parseLetInExpr();
+      return parseLetInExpr();
     }
   }
   default:

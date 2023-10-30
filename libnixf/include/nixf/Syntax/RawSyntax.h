@@ -115,6 +115,10 @@ public:
     KindStack.push(Kind);
     Stack.push(std::make_unique<RawTwine::LayoutTy>());
   }
+  void reset(SyntaxKind Kind) {
+    KindStack.pop();
+    KindStack.push(Kind);
+  }
   void push(std::shared_ptr<RawNode> Node) {
     Stack.top()->emplace_back(std::move(Node));
   }
