@@ -621,6 +621,7 @@ std::shared_ptr<RawNode> Parser::parseLambdaArg() {
         D.fix(Fix::mkInsertion(LastToken->getTokEnd(), "arg"));
       }
     }
+    break;
   }
   default:
     __builtin_unreachable();
