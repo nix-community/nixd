@@ -88,6 +88,8 @@ Diagnostic &diagNullExpr(DiagnosticEngine &Diag, const char *Loc,
 void Parser::matchBracket(TokenKind LeftKind,
                           std::shared_ptr<RawNode> (Parser::*InnerParse)(),
                           TokenKind RightKind) {
+  GuardTokensRAII Guard{GuardTokens, RightKind};
+
   const std::string LeftStr = getBracketTokenSpelling(LeftKind);
   const std::string RightStr = getBracketTokenSpelling(RightKind);
 
@@ -236,6 +238,8 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
 /// binding : attrpath '=' expr ';'
 /// \note nullable
 std::shared_ptr<RawNode> Parser::parseBinding() {
+  GuardTokensRAII EqGuard{GuardTokens, tok_eq};
+  GuardTokensRAII SemiGuard{GuardTokens, tok_semi_colon};
   // consume n-term `attrpath` and record its range, used for diagnostics.
   const char *AttrBegin = peek().getTokRange().Begin;
   std::shared_ptr<RawNode> AttrPath = parseAttrPath();
@@ -254,10 +258,54 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
   if (Tok->getKind() == tok_eq) {
     consume();
   } else {
-    Diagnostic &D = Diag.diag(DK::DK_Expected, Tok.getTokRange());
-    D << "=";
-    D.note(NK::NK_ToMachThis, AttrRange) << "attrname";
-    D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " ="));
+    // try to recover from creating unknown node.
+
+    const char *InsPoint = LastToken->getTokEnd();
+    const char *UnkBegin = peek().getTokBegin();
+
+    Builder.push(parseUnknownUntilGuard());
+    const char *UnkEnd = peek().getTokBegin();
+    switch (TokenView Tok = peek(); Tok->getKind()) {
+    case tok_eq: {
+      // ok, not missing '='
+      // attrpath UNKNOWN '=' -> remove UNKNOWN.
+      Diagnostic &D = Diag.diag(DK::DK_UnexpectedBetween, {UnkBegin, UnkEnd});
+      D << "text";
+      D << "attrpath";
+      D << "`=`";
+      D.note(NK::NK_DeclaresAtHere, AttrRange) << "attrname";
+      D.note(NK::NK_DeclaresAtHere, Tok.getTokRange()) << "`=`";
+      D.fix(Fix::mkRemoval({UnkBegin, UnkEnd}));
+      consume();
+      break;
+    }
+    case tok_semi_colon: {
+      // attrpath UNKNOWN ;
+      //         ^ insert '='
+      // interpret UNKNOWN as normal expression.
+      Diagnostic &D = Diag.diag(DK::DK_Expected, Tok.getTokRange());
+      D << "=";
+      D.note(NK::NK_ToMachThis, AttrRange) << "attrname";
+      D.fix(Fix::mkInsertion(InsPoint, " ="));
+
+      // pop Unknown node, guess that it is an expression.
+      Builder.pop();
+      resetCur(UnkBegin);
+      break;
+    }
+    case tok_eof:
+    case tok_r_curly: {
+      // attrpath UNKNOWN }
+      // ~~~~~~~~  remove attrpath + UNKNOWN.
+      OffsetRange RM{AttrBegin, UnkEnd};
+      Diagnostic &D = Diag.diag(DK::DK_UnexpectedText, RM);
+      D << "in binding declaration";
+      D.fix(Fix::mkRemoval(RM));
+      return Builder.finsih();
+    }
+    default:
+      __builtin_unreachable();
+    }
   }
 
   // Carefully dealing with missing ';'
@@ -757,6 +805,16 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
   return Builder.finsih();
 }
 
+std::shared_ptr<RawNode> Parser::parseUnknownUntilGuard() {
+  Builder.start(SyntaxKind::SK_Unknown);
+  while (true) {
+    if (GuardTokens[peek()->getKind()] != 0)
+      break;
+    consume();
+  }
+  return Builder.finsih();
+}
+
 /// expr      : lambda_expr
 ///           | assert_expr
 ///           | with_expr
@@ -841,6 +899,7 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
 }
 
 std::shared_ptr<RawNode> Parser::parse() {
+  GuardTokensRAII Guard{GuardTokens, tok_eof};
   Builder.start(SyntaxKind::SK_Root);
   while (true) {
     if (peek()->getKind() == tok::tok_eof) {
