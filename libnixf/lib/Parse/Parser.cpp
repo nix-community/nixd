@@ -154,17 +154,14 @@ std::shared_ptr<RawNode> Parser::parseString() {
   consume();
   while (true) {
     TokenView Tok = peek(0, &Lexer::lexString);
-    bool Finish = false;
     switch (Tok->getKind()) {
     case tok_dquote:
       // end of a string.
-      Finish = true;
       consume();
-      break;
+      return Builder.finsih();
     case tok_eof:
       // encountered EOF, unbalanced dquote.
-      Finish = true;
-      break;
+      return Builder.finsih();
     case tok_dollar_curly: {
       // interpolation, we need to parse a subtree then.
       Builder.push(parseInterpolation());
@@ -175,11 +172,10 @@ std::shared_ptr<RawNode> Parser::parseString() {
       // If this is a part of string, just push it.
       consume();
       break;
+    default:
+      __builtin_unreachable();
     }
-    if (Finish)
-      break;
   }
-  return Builder.finsih();
 }
 
 /// path: path_fragment { path_fragment | interpolation }*
