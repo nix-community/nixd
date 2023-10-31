@@ -250,7 +250,8 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
   TokenView Tok = peek();
   switch (Tok->getKind()) {
   case tok_kw_or:
-  // TODO: Diagnostic.
+    Diag.diag(DK::DK_OrIdentifier, Tok.getTokRange());
+    [[fallthrough]];
   case tok_id:
     consumeOnly();
     return Tok.get();
@@ -764,8 +765,11 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
     return Builder.finsih();
   }
   case tok_kw_or:
-    // `or` used as an identifier.
-    // TODO: create a function.
+    Builder.start(SyntaxKind::SK_Call);
+    Builder.push(std::move(Simple));
+    Diag.diag(DK::DK_OrIdentifier, Tok.getTokRange());
+    consume();
+    return Builder.finsih();
   default:
     // otherwise, end here.
     return Simple;
