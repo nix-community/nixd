@@ -1037,6 +1037,38 @@ std::shared_ptr<RawNode> Parser::parseLetInExpr() {
   return Builder.finsih();
 }
 
+/// assert_expr : 'assert' expr ';' expr
+std::shared_ptr<RawNode> Parser::parseAssertExpr() {
+  assert(peek()->getKind() == tok_kw_assert);
+  Builder.start(SyntaxKind::SK_Assert);
+  consume(); // assert
+  addExprWithCheck("assert cond");
+
+  if (peek()->getKind() == tok_semi_colon) {
+    consume(); // ;
+  }
+
+  addExprWithCheck("assert cond");
+
+  return Builder.finsih();
+}
+
+/// with_expr :  'with' expr ';' expr
+std::shared_ptr<RawNode> Parser::parseWithExpr() {
+  assert(peek()->getKind() == tok_kw_with);
+  Builder.start(SyntaxKind::SK_With);
+  consume(); // with
+  addExprWithCheck("with cond");
+
+  if (peek()->getKind() == tok_semi_colon) {
+    consume(); // ;
+  }
+
+  addExprWithCheck("with body");
+
+  return Builder.finsih();
+}
+
 /// expr      : lambda_expr
 ///           | assert_expr
 ///           | with_expr
@@ -1103,9 +1135,9 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
   case tok_kw_if:
     return parseIfExpr();
   case tok_kw_assert:
-    // return parseAssertExpr();
+    return parseAssertExpr();
   case tok_kw_with:
-    // return parseWithExpr();
+    return parseWithExpr();
   case tok_kw_let: {
     switch (peek(1)->getKind()) {
     case tok_l_curly:
