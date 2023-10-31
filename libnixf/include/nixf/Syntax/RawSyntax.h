@@ -47,6 +47,8 @@ public:
 #include "SyntaxKinds.inc"
 #undef EXPR
 #undef NODE
+    default:
+      __builtin_unreachable();
     }
   }
 
