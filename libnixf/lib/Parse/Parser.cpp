@@ -743,7 +743,7 @@ std::shared_ptr<RawNode> Parser::parseExprApp(unsigned Limit) {
   std::shared_ptr<RawNode> Simple = parseExprSelect();
   std::vector<std::shared_ptr<RawNode>> V{Simple};
   // Try to consume next expr_select
-  for (int I = 1; I < Limit; I++) {
+  for (unsigned I = 1; I < Limit; I++) {
     std::shared_ptr<RawNode> Next = parseExprSelect();
     if (!Next)
       break;
