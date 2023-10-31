@@ -15,7 +15,8 @@ public:
 
   std::vector<std::unique_ptr<Diagnostic>> &diags() { return Diags; }
 
-  Diagnostic::Severity getServerity(Diagnostic::DiagnosticKind Kind) const {
+  [[nodiscard]] Diagnostic::Severity
+  getServerity(Diagnostic::DiagnosticKind Kind) const {
     return Diagnostic::severity(Kind);
   }
 
