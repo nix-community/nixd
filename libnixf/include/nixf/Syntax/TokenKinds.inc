@@ -36,6 +36,8 @@ TOK(dquote)
 TOK(string_part)
 TOK(string_escape) // escaped string, e.g. \r \n \x \"
 
+TOK(quote2) // ''
+
 // Path.
 TOK(path_fragment)
 

@@ -106,6 +106,7 @@ public:
 
   TokenView lex();
   TokenView lexString();
+  TokenView lexIndString();
   TokenView lexPath();
 };
 

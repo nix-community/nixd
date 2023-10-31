@@ -65,6 +65,8 @@ std::string getBracketTokenSpelling(TokenKind Kind) {
     return "]";
   case tok_r_paren:
     return ")";
+  case tok_quote2:
+    return "''";
   default:
     __builtin_unreachable();
   }
@@ -174,6 +176,35 @@ std::shared_ptr<RawNode> Parser::parseString() {
       break;
     default:
       __builtin_unreachable();
+    }
+  }
+}
+
+/// ind_string: '' ind_string_parts ''
+std::shared_ptr<RawNode> Parser::parseIndString() {
+  Builder.start(SyntaxKind::SK_IndString);
+  matchBracket(tok_quote2, &Parser::parseIndStringParts, tok_quote2);
+  return Builder.finsih();
+}
+
+/// ind_string_parts : ( TokStringFragment | interpolation | TokStringEscape )*
+std::shared_ptr<RawNode> Parser::parseIndStringParts() {
+  Builder.start(SyntaxKind::SK_IndStringParts);
+  while (true) {
+    const TokenView &Tok = peek(0, &Lexer::lexIndString);
+    switch (Tok->getKind()) {
+    case tok_dollar_curly: {
+      // interpolation, we need to parse a subtree then.
+      Builder.push(parseInterpolation());
+      continue;
+    }
+    case tok_string_part:
+    case tok_string_escape:
+      // If this is a part of string, just push it.
+      consume();
+      continue;
+    default:
+      return Builder.finsih();
     }
   }
 }
@@ -678,6 +709,8 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return Tok.get();
   case tok_dquote:
     return parseString();
+  case tok_quote2:
+    return parseIndString();
   case tok_l_curly:
   case tok_kw_rec:
     return parseAttrSetExpr();

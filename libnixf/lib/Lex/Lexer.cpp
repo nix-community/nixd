@@ -316,6 +316,40 @@ TokenView Lexer::lexString() {
   return finishToken();
 }
 
+TokenView Lexer::lexIndString() {
+  startToken();
+  if (eof()) {
+    Tok = tok_eof;
+    return finishToken();
+  }
+  if (consumePrefix("''")) {
+    Tok = tok_quote2;
+    if (consumePrefix("$") || consumePrefix("\\") || consumePrefix("'"))
+      Tok = tok_string_escape;
+    return finishToken();
+  }
+
+  if (consumePrefix("${")) {
+    Tok = tok_dollar_curly;
+    return finishToken();
+  }
+
+  Tok = tok_string_part;
+  for (; !eof();) {
+    if (prefix("''"))
+      break;
+    // double-$, or \$, escapes ${.
+    // We will handle escaping on Sema
+    if (consumePrefix("$${"))
+      continue;
+    // Encountered a string interpolation, stop here
+    if (prefix("${"))
+      break;
+    Cur++;
+  }
+  return finishToken();
+}
+
 TokenView Lexer::lex() {
   // eat leading trivia
   LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
@@ -352,6 +386,10 @@ TokenView Lexer::lex() {
   }
 
   switch (*Cur) {
+  case '\'':
+    if (consumePrefix("''"))
+      Tok = tok_quote2;
+    break;
   case '+':
     if (consumePrefix("++")) {
       Tok = tok_op_concat;
