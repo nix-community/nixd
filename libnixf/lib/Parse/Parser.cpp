@@ -524,10 +524,11 @@ std::shared_ptr<RawNode> Parser::parseLegacyLet() {
 std::shared_ptr<RawNode> Parser::parseListBody() {
   Builder.start(SyntaxKind::SK_ListBody);
   while (true) {
-    const TokenView &Tok = peek();
-    if (Tok->getKind() == tok_r_bracket || Tok->getKind() == tok_eof)
+    std::shared_ptr<RawNode> Expr = parseExprSelect();
+    if (Expr)
+      Builder.push(std::move(Expr));
+    else
       break;
-    Builder.push(parseExprSelect());
   }
   return Builder.finsih();
 }
