@@ -8,6 +8,7 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  -misc-use-anonymous-namespace,
   -misc-const-correctness,
   -misc-unused-parameters,
   -misc-non-private-member-variables-in-classes,
