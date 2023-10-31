@@ -67,6 +67,8 @@ std::string getBracketTokenSpelling(TokenKind Kind) {
     return ")";
   case tok_quote2:
     return "''";
+  case tok_dquote:
+    return "\"";
   default:
     __builtin_unreachable();
   }
@@ -148,36 +150,34 @@ std::shared_ptr<RawNode> Parser::parseInterpolation() {
   return Builder.finsih();
 }
 
-/// string: '"' {string_part} '"'
-/// string : '"' {string_part} '"'
-/// string_part : STRING_FRAGMENT | interpolation | STRING_ESCAPED
-std::shared_ptr<RawNode> Parser::parseString() {
-  Builder.start(SyntaxKind::SK_String);
-  consume();
+/// string_part : (TokStringPart | interpolation | TokStringEscape)*
+std::shared_ptr<RawNode> Parser::parseStringParts() {
+  Builder.start(SyntaxKind::SK_StringParts);
   while (true) {
     TokenView Tok = peek(0, &Lexer::lexString);
     switch (Tok->getKind()) {
-    case tok_dquote:
-      // end of a string.
-      consume();
-      return Builder.finsih();
-    case tok_eof:
-      // encountered EOF, unbalanced dquote.
-      return Builder.finsih();
     case tok_dollar_curly: {
       // interpolation, we need to parse a subtree then.
       Builder.push(parseInterpolation());
-      break;
+      continue;
     }
     case tok_string_part:
     case tok_string_escape:
       // If this is a part of string, just push it.
       consume();
-      break;
+      continue;
+    case tok_dquote:
     default:
-      __builtin_unreachable();
+      return Builder.finsih();
     }
   }
+}
+
+/// string: '"' string_parts '"'
+std::shared_ptr<RawNode> Parser::parseString() {
+  Builder.start(SyntaxKind::SK_String);
+  matchBracket(tok_dquote, &Parser::parseStringParts, tok_dquote);
+  return Builder.finsih();
 }
 
 /// ind_string: '' ind_string_parts ''

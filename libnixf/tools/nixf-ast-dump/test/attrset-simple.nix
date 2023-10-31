@@ -36,6 +36,7 @@
   # CHECK-NEXT:      AttrPath 16
   # CHECK-NEXT:       String 11
   # CHECK-NEXT:        Token 6 "
+  # CHECK-NEXT:        StringParts 4
   # CHECK-NEXT:        Interpolation 4
   # CHECK-NEXT:         Token 2 ${
   # CHECK-NEXT:         Token 1 c
