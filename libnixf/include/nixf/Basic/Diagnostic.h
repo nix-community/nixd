@@ -33,7 +33,7 @@ public:
   }
 
   static Fix mkInsertion(const char *Loc, std::string NewText) {
-    return Fix({Loc, Loc}, std::move(NewText));
+    return {{Loc, Loc}, std::move(NewText)};
   }
 
   static Fix mkRemoval(OffsetRange RemovingRange) {
