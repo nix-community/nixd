@@ -150,7 +150,7 @@ std::shared_ptr<RawNode> Parser::parseInterpolation() {
   return Builder.finsih();
 }
 
-/// string_part : (TokStringPart | interpolation | TokStringEscape)*
+/// string_part : ( TokStringPart | interpolation | TokStringEscape )*
 std::shared_ptr<RawNode> Parser::parseStringParts() {
   Builder.start(SyntaxKind::SK_StringParts);
   while (true) {
@@ -209,7 +209,7 @@ std::shared_ptr<RawNode> Parser::parseIndStringParts() {
   }
 }
 
-/// path: path_fragment { path_fragment | interpolation }*
+/// path: path_fragment ( path_fragment | interpolation )*
 std::shared_ptr<RawNode> Parser::parsePath() {
   Builder.start(SyntaxKind::SK_Path);
 
@@ -389,7 +389,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
 
 /// inherit :  'inherit' '(' expr ')' inherited_attrs ';'
 ///         |  'inherit' inherited_attrs ';'
-/// inherited_attrs: {attrname}
+/// inherited_attrs: attrname*
 std::shared_ptr<RawNode> Parser::parseInherit() {
   Builder.start(SyntaxKind::SK_Inherit);
   consume(); // inherit
@@ -433,7 +433,7 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
   return Builder.finsih();
 }
 
-/// attrpath : attrname {. attrname}
+/// attrpath : attrname ('.' attrname)*
 /// \note nullable
 std::shared_ptr<RawNode> Parser::parseAttrPath() {
   std::shared_ptr<RawNode> AttrName = parseAttrName();
@@ -466,7 +466,7 @@ std::shared_ptr<RawNode> Parser::parseAttrPath() {
   return Builder.finsih();
 }
 
-/// binds : {binding|inherit}
+/// binds : ( binding | inherit )*
 std::shared_ptr<RawNode> Parser::parseBinds() {
   Builder.start(SyntaxKind::SK_Binds);
   while (true) {
@@ -521,7 +521,7 @@ std::shared_ptr<RawNode> Parser::parseLegacyLet() {
   return Builder.finsih();
 }
 
-/// list_body : {expr_select}
+/// list_body : expr_select*
 std::shared_ptr<RawNode> Parser::parseListBody() {
   Builder.start(SyntaxKind::SK_ListBody);
   while (true) {
