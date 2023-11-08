@@ -1117,6 +1117,7 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
       case tok_ellipsis: // { a ...
       case tok_r_curly:  // { a }
       case tok_at:       // { a @
+      case tok_question: // { a ?
         return parseLambdaExpr();
       default:
         goto attrset;

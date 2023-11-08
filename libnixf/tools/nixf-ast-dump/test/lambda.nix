@@ -12,6 +12,20 @@
   # CHECK: Lambda 30
   c = a @ { formal, f ? 1, ... }: 1;
 
+  # CHECK:      Lambda 14
+  # CHECK-NEXT:  LambdaArg 10
+  # CHECK-NEXT:   BracedFormals 10
+  # CHECK-NEXT:    Token 2 {
+  # CHECK-NEXT:    Formals 6
+  # CHECK-NEXT:     Formal 6
+  # CHECK-NEXT:      Token 2 a
+  # CHECK-NEXT:      Token 2 ?
+  # CHECK-NEXT:      Token 2 1
+  # CHECK-NEXT:    Token 2 }
+  # CHECK-NEXT:  Token 2 :
+  # CHECK-NEXT:  Token 2 1
+  quest = { a ? 1 } : 1;
+
   d = { formal } @ a: 1;
 
   e = { formal }: 1;
