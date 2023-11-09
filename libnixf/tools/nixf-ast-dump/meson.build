@@ -1,5 +1,6 @@
 nixf_ast_dump = executable('nixf-ast-dump', ['nixf-ast-dump.cpp'],
-                           dependencies: [ nixfParse ])
+                           dependencies: [ nixfParse ],
+                           install: true)
 
 regression_env = environment()
 
