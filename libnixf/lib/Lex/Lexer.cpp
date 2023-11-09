@@ -210,6 +210,49 @@ const char *Lexer::checkPathStart() {
   return nullptr;
 }
 
+static bool isUriSchemeChar(char Ch) {
+  // These characters are valid URI scheme char.
+  return std::isalnum(Ch) || Ch == '+' || Ch == '-' || Ch == '.';
+}
+
+static bool isUriPathChar(char Ch) {
+  // These characters are valid URI path char.
+  return std::isalnum(Ch) || Ch == '%' || Ch == '/' || Ch == '?' || Ch == ':' ||
+         Ch == '@' || Ch == '&' || Ch == '=' || Ch == '+' || Ch == '$' ||
+         Ch == ',' || Ch == '-' || Ch == '_' || Ch == '.' || Ch == '!' ||
+         Ch == '~' || Ch == '*' || Ch == '\'';
+}
+
+const char *Lexer::checkUriStart() {
+  // URI
+  // [a-zA-Z][a-zA-Z0-9\+\-\.]*\:[a-zA-Z0-9\%\/\?\:\@\&\=\+\$\,\-\_\.\!\~\*\']+
+  //
+
+  // URI, starts with any valid URI scheme char, and must contain a colon
+  // Here, we look ahead characters, the must be valid path char
+  // And also check if it contains a colon.
+  const char *UriCursor = Cur;
+
+  // Skipping any path char.
+  while (!eof(UriCursor) && isUriSchemeChar(*UriCursor))
+    UriCursor++;
+
+  // Check if there is a colon, and also a URI path char right after such colon.
+  // If so, it is a uri
+  if (!eof(UriCursor) && *UriCursor == ':') {
+    UriCursor++;
+    // Now, check if we are on a normal path char.
+    if (!eof(UriCursor) && isUriPathChar(*UriCursor)) {
+      do
+        UriCursor++;
+      while (!eof(UriCursor) && isUriPathChar(*UriCursor));
+      return UriCursor;
+    }
+  }
+
+  return nullptr;
+}
+
 static bool isIdentifierChar(char Ch) {
   return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '_' || Ch == '\'' ||
          Ch == '-';
@@ -371,6 +414,15 @@ TokenView Lexer::lex() {
     }
   }
 
+  // Determine if this is a URI.
+  if (std::isalpha(*Cur)) {
+    if (const char *UriCursor = checkUriStart()) {
+      Cur = UriCursor;
+      Tok = tok_uri;
+      return finishToken();
+    }
+  }
+
   if (std::isdigit(*Cur)) {
     lexNumbers();
     return finishToken();
@@ -378,7 +430,7 @@ TokenView Lexer::lex() {
 
   if (std::isalpha(*Cur) || *Cur == '_') {
 
-    // So, this is not a path, it should be an identifier.
+    // So, this is not a path/URI, it should be an identifier.
     lexIdentifier();
     Tok = tok_id;
     maybeKW();

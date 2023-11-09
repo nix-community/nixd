@@ -718,6 +718,9 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
     return parseAttrSetExpr();
   case tok_path_fragment:
     return parsePath();
+  case tok_uri:
+    consumeOnly();
+    return Tok.get();
   case tok_l_paren:
     return parseParenExpr();
   case tok_kw_let:
@@ -927,7 +930,7 @@ std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
     default:
       return Prefix;
     } // switch
-  }   // while(true)
+  } // while(true)
 }
 
 /// if_expr : 'if' expr 'then' expr 'else' expr

@@ -40,6 +40,8 @@ TOK(quote2) // ''
 
 // Path.
 TOK(path_fragment)
+// URI.
+TOK(uri)
 
 // Interpolation.
 TOK(r_curly)      // {

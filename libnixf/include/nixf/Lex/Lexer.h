@@ -78,6 +78,11 @@ class Lexer {
   /// Otherwise \returns nullptr
   const char *checkPathStart();
 
+  /// Look ahead to see it is a URI.
+  /// If it is a valid URI, \returns ending cursor
+  /// Otherwise \returns nullptr
+  const char *checkUriStart();
+
   /// Should be called after lexing a "raw" identifier, we check if it is a
   /// keyword and make assignment: `Tok <- tok_kw_*`
   void maybeKW();

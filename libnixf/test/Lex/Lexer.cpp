@@ -172,4 +172,14 @@ TEST_F(LexerTest, lexKW) {
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
 
+TEST_F(LexerTest, lexURI) {
+  Lexer Lexer(R"(https://github.com/inclyc/libnixf)", Diag);
+  auto Tokens = collect(Lexer, &Lexer::lex);
+  const TokenKind Match[] = {tok_uri};
+  for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
+    ASSERT_EQ(Tokens[I]->getKind(), Match[I]);
+  }
+  ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
+}
+
 } // namespace nixf
