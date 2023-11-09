@@ -8,6 +8,7 @@
 , ninja
 , nix
 , pkg-config
+, llvmPackages # FileCheck
 }:
 let
   filterMesonBuild = dir: builtins.filterSource
@@ -29,6 +30,7 @@ stdenv.mkDerivation {
   nativeCheckInputs = [
     lit
     gtest
+    llvmPackages.bintools
   ];
 
   doCheck = true;
