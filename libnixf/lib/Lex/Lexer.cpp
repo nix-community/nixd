@@ -405,7 +405,7 @@ TokenView Lexer::lex() {
 
   // Determine if this is a path, or identifier.
   // a/b (including 1/2) should be considered as a whole path, not (a / b)
-  if (isPathChar(*Cur)) {
+  if (isPathChar(*Cur) || *Cur == '/') {
     if (const char *PathCursor = checkPathStart()) {
       // Form a concret token, this is a path part.
       Cur = PathCursor;

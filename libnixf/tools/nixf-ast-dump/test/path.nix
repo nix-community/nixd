@@ -24,4 +24,9 @@
   # CHECK-NEXT:    Token 4 a/a.
   # CHECK-NEXT:   Token 2 b
   stop = a/a/a. b;
+
+  # CHECK:      Path 5
+  # CHECK-NEXT:  Token 2 /
+  # CHECK-NEXT:  Token 3 a/a
+  d = /a/a;
 }
