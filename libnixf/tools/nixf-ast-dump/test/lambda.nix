@@ -30,9 +30,26 @@
 
   e = { formal }: 1;
 
+  # CHECK:      Lambda 29
+  # CHECK-NEXT:  LambdaArg 26
+  # CHECK-NEXT:   BracedFormals 26
+  # CHECK-NEXT:    Token 2 {
+  # CHECK-NEXT:    Formals 22
+  # CHECK-NEXT:     Formal 7
+  # CHECK-NEXT:      Token 7 formal
+  # CHECK-NEXT:     Token 1 ,
+  # CHECK-NEXT:     Formal 4
+  # CHECK-NEXT:      Token 4 ...
+  # CHECK-NEXT:     Token 2 ,
+  # CHECK-NEXT:     Formal 8
+  # CHECK-NEXT:      Token 8 formal2
+  # CHECK-NEXT:    Token 2 }
+  # CHECK-NEXT:  Token 1 :
+  # CHECK-NEXT:  Token 2 1
+  formalElip = { formal, ... , formal2 }: 1;
+
   # DIAG: error: missing seperator `,` between two lambda formals
   # DIAG: fixes:   f = { a, b, x }: 1;
-  # DIAG: note: first formal declares at here
   f = { a, b x }: 1;
 
   # DIAG: error: expected an expression

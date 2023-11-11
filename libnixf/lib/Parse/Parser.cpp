@@ -544,8 +544,15 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
 
 /// formal : ID
 ///        | ID '?' expr
+///        | "..."
+/// Note: we accept "..." as a formal here, but is should be placed at the end
+/// of all formals, we delay this checking into semantic analysis.
 std::shared_ptr<RawNode> Parser::parseFormal() {
   Builder.start(SyntaxKind::SK_Formal);
+  if (peek()->getKind() == tok_ellipsis) {
+    consume();
+    return Builder.finsih();
+  }
   constexpr const char *DefaultExprName = "default expression of the formal";
   assert(peek()->getKind() == tok_id);
   consume();
@@ -572,43 +579,37 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
   return Builder.finsih();
 }
 
-/// formals : formal ',' formals
-///         | formal
-///         |
-///         | '...'
-/// { a, ... }
-/// { a b
-/// { a ? 1
-/// { a ;
+/// formals : formal? (',' formal)*
 std::shared_ptr<RawNode> Parser::parseFormals() {
   Builder.start(SyntaxKind::SK_Formals);
   TokenView Tok1 = peek();
   switch (Tok1->getKind()) {
+  case tok_ellipsis:
   case tok_id: {
     Builder.push(parseFormal());
-    TokenView Tok2 = peek();
-    switch (Tok2->getKind()) {
-    case tok_comma:
-      consume();
-      Builder.push(parseFormals());
-      break;
-    case tok_id: {
-      Diagnostic &D = Diag.diag(Diagnostic::DK_MissingSepFormals,
-                                OffsetRange{Tok1.getTokEnd()});
-      D.note(Note::NK_DeclaresAtHere, Tok1.getTokRange()) << "first formal";
-      D.note(Note::NK_DeclaresAtHere, Tok2.getTokRange()) << "second formal";
-      D.fix(Fix::mkInsertion(Tok1.getTokEnd(), ","));
-      Builder.push(parseFormals());
-      break;
-    }
-    default:
-      break;
-    }
+    assert(LastToken);
+    while (true) {
+      TokenView Tok2 = peek();
+      switch (Tok2->getKind()) {
+      case tok_comma:
+        consume();
+        Builder.push(parseFormal());
+        break;
+      case tok_ellipsis:
+      case tok_id: {
+        Diagnostic &D = Diag.diag(Diagnostic::DK_MissingSepFormals,
+                                  OffsetRange{Tok1.getTokEnd()});
+        D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ","));
+        Builder.push(parseFormals());
+        break;
+      }
+      default:
+        goto finish;
+      } // switch(Tok2->getKind())
+    }   // while(true)
+  finish:
     break;
   }
-  case tok_ellipsis:
-    consume();
-    break;
   default:
     break;
   }
