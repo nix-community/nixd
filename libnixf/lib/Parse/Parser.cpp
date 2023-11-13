@@ -147,7 +147,7 @@ std::shared_ptr<RawNode> Parser::parseInterpolation() {
   } else {
     consume();
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// string_part : ( TokStringPart | interpolation | TokStringEscape )*
@@ -168,7 +168,7 @@ std::shared_ptr<RawNode> Parser::parseStringParts() {
       continue;
     case tok_dquote:
     default:
-      return Builder.finsih();
+      return Builder.finish();
     }
   }
 }
@@ -177,14 +177,14 @@ std::shared_ptr<RawNode> Parser::parseStringParts() {
 std::shared_ptr<RawNode> Parser::parseString() {
   Builder.start(SyntaxKind::SK_String);
   matchBracket(tok_dquote, &Parser::parseStringParts, tok_dquote);
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// ind_string: '' ind_string_parts ''
 std::shared_ptr<RawNode> Parser::parseIndString() {
   Builder.start(SyntaxKind::SK_IndString);
   matchBracket(tok_quote2, &Parser::parseIndStringParts, tok_quote2);
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// ind_string_parts : ( TokStringFragment | interpolation | TokStringEscape )*
@@ -204,7 +204,7 @@ std::shared_ptr<RawNode> Parser::parseIndStringParts() {
       consume();
       continue;
     default:
-      return Builder.finsih();
+      return Builder.finish();
     }
   }
 }
@@ -237,7 +237,7 @@ std::shared_ptr<RawNode> Parser::parsePath() {
     }
   }
 finish:
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// attrname : identifier
@@ -330,7 +330,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
       Diagnostic &D = Diag.diag(DK::DK_UnexpectedText, RM);
       D << "in binding declaration";
       D.fix(Fix::mkRemoval(RM));
-      return Builder.finsih();
+      return Builder.finish();
     }
     }
   }
@@ -384,7 +384,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
     D.note(NK::NK_DeclaresAtHere, AttrRange) << "attrname";
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ";"));
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// inherit :  'inherit' '(' expr ')' inherited_attrs ';'
@@ -430,7 +430,7 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
     }
     Builder.push(std::move(AttrName));
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// attrpath : attrname ('.' attrname)*
@@ -463,7 +463,7 @@ std::shared_ptr<RawNode> Parser::parseAttrPath() {
     }
     Builder.push(std::move(AttrName));
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// binds : ( binding | inherit )*
@@ -485,7 +485,7 @@ std::shared_ptr<RawNode> Parser::parseBinds() {
     }
   }
 finish:
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// attrset_expr : rec? '{' binds '}'
@@ -499,14 +499,14 @@ std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
 
   matchBracket(tok_l_curly, &Parser::parseBinds, tok_r_curly);
 
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// paren_expr : '(' expr ')'
 std::shared_ptr<RawNode> Parser::parseParenExpr() {
   Builder.start(SyntaxKind::SK_Paren);
   matchBracket(tok_l_paren, &Parser::parseExpr, tok_r_paren);
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// legacy_let: `let` `{` binds `}`
@@ -518,7 +518,7 @@ std::shared_ptr<RawNode> Parser::parseLegacyLet() {
   assert(peek()->getKind() == tok_kw_let);
   consume(); // let
   matchBracket(tok_l_curly, &Parser::parseBinds, tok_r_curly);
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// list_body : expr_select*
@@ -531,7 +531,7 @@ std::shared_ptr<RawNode> Parser::parseListBody() {
     else
       break;
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// list : '[' list_body ']'
@@ -539,7 +539,7 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
   Builder.start(SyntaxKind::SK_List);
   assert(peek()->getKind() == tok_l_bracket);
   matchBracket(tok_l_bracket, &Parser::parseListBody, tok_r_bracket);
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// formal : ID
@@ -551,7 +551,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
   Builder.start(SyntaxKind::SK_Formal);
   if (peek()->getKind() == tok_ellipsis) {
     consume();
-    return Builder.finsih();
+    return Builder.finish();
   }
   constexpr const char *DefaultExprName = "default expression of the formal";
   assert(peek()->getKind() == tok_id);
@@ -576,7 +576,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
       addExprWithCheck(DefaultExprName);
     }
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// formals : formal? (',' formal)*
@@ -613,13 +613,13 @@ std::shared_ptr<RawNode> Parser::parseFormals() {
   default:
     break;
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 std::shared_ptr<RawNode> Parser::parseBracedFormals() {
   Builder.start(SyntaxKind::SK_BracedFormals);
   matchBracket(tok_l_curly, &Parser::parseFormals, tok_r_curly);
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// lambda_arg : ID
@@ -661,7 +661,7 @@ std::shared_ptr<RawNode> Parser::parseLambdaArg() {
     __builtin_unreachable();
   }
 
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// lambda_expr : lambda_arg ':' expr
@@ -688,7 +688,7 @@ std::shared_ptr<RawNode> Parser::parseLambdaExpr() {
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), ":"));
   }
   addExprWithCheck("lambda body");
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// simple :  INT
@@ -766,14 +766,14 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
       consume();
       Builder.push(parseExprSelect());
     }
-    return Builder.finsih();
+    return Builder.finish();
   }
   case tok_kw_or:
     Builder.start(SyntaxKind::SK_Call);
     Builder.push(std::move(Simple));
     Diag.diag(DK::DK_OrIdentifier, Tok.getTokRange());
     consume();
-    return Builder.finsih();
+    return Builder.finish();
   default:
     // otherwise, end here.
     return Simple;
@@ -878,14 +878,14 @@ std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
     consume();
     addExprWithCheck("the body of operator `!`",
                      parseExprOpBP(getUnaryBP(tok_op_not)));
-    Prefix = Builder.finsih();
+    Prefix = Builder.finish();
     break;
   case tok_op_negate:
     Builder.start(SyntaxKind::SK_OpNegate);
     consume();
     addExprWithCheck("the body of operator `-`",
                      parseExprOpBP(getUnaryBP(tok_op_negate)));
-    Prefix = Builder.finsih();
+    Prefix = Builder.finish();
     break;
   default:
     Prefix = parseExprApp();
@@ -922,7 +922,7 @@ std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
             Builder.push(Expr);
           else
             diagNullExpr(Diag, LastToken->getTokEnd(), "right hand side");
-          Prefix = Builder.finsih();
+          Prefix = Builder.finish();
         } else {
           return Prefix;
         }
@@ -973,7 +973,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
     D << "`else`";
     D.fix(Fix::mkInsertion(LastToken->getTokEnd(), " else "));
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 std::shared_ptr<RawNode> Parser::parseUnknownUntilGuard() {
@@ -983,7 +983,7 @@ std::shared_ptr<RawNode> Parser::parseUnknownUntilGuard() {
       break;
     consume();
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// let_in_expr :  'let' binds 'in' expr
@@ -1009,7 +1009,7 @@ std::shared_ptr<RawNode> Parser::parseLetInExpr() {
       Diagnostic &D = Diag.diag(DK::DK_Expected, OffsetRange{InsPoint});
       D << "`in`";
       D.fix(Fix::mkInsertion(InsPoint, " in "));
-      return Builder.finsih();
+      return Builder.finish();
     }
     // try to recover from creating unknown node.
     const char *UnkBegin = peek().getTokBegin();
@@ -1037,13 +1037,13 @@ std::shared_ptr<RawNode> Parser::parseLetInExpr() {
       Diagnostic &D = Diag.diag(DK::DK_UnexpectedText, RM);
       D << "in let-in expression";
       D.fix(Fix::mkRemoval(RM));
-      return Builder.finsih();
+      return Builder.finish();
     }
     }
   }
 
   addExprWithCheck("body");
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// assert_expr : 'assert' expr ';' expr
@@ -1059,7 +1059,7 @@ std::shared_ptr<RawNode> Parser::parseAssertExpr() {
 
   addExprWithCheck("assert cond");
 
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// with_expr :  'with' expr ';' expr
@@ -1075,7 +1075,7 @@ std::shared_ptr<RawNode> Parser::parseWithExpr() {
 
   addExprWithCheck("with body");
 
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 /// expr      : lambda_expr
@@ -1168,7 +1168,7 @@ std::shared_ptr<RawNode> Parser::parse() {
     if (peek()->getKind() == tok::tok_eof) {
       Builder.start(SyntaxKind::SK_EOF);
       consume(); // consume eof.
-      Builder.push(Builder.finsih());
+      Builder.push(Builder.finish());
       break;
     }
     if (std::shared_ptr<RawNode> Raw = parseExpr()) {
@@ -1176,10 +1176,10 @@ std::shared_ptr<RawNode> Parser::parse() {
     } else {
       Builder.start(SyntaxKind::SK_Unknown);
       consume(); // consume this unknown token.
-      Builder.push(Builder.finsih());
+      Builder.push(Builder.finish());
     }
   }
-  return Builder.finsih();
+  return Builder.finish();
 }
 
 } // namespace nixf

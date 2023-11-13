@@ -126,7 +126,7 @@ public:
     Stack.top()->emplace_back(std::move(Node));
   }
   void pop() { Stack.top()->pop_back(); }
-  std::shared_ptr<RawTwine> finsih() {
+  std::shared_ptr<RawTwine> finish() {
     RawTwine::LayoutTy Layout = std::move(*Stack.top());
     Stack.pop();
     SyntaxKind Kind = KindStack.top();
