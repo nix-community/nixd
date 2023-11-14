@@ -814,7 +814,9 @@ void Controller::onFormat(
       TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, FormattedCode.value()};
       Reply(std::vector{E});
     } else {
-      Reply(lspserver::error("no formatting response received"));
+      // Suppress the warning, do not pop up
+      // Reply(lspserver::error("no formatting response received"));
+      Reply(std::vector<TextEdit>{});
     }
   };
   boost::asio::post(Pool, std::move(Task));
