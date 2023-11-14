@@ -36,12 +36,11 @@ class Parser {
   friend struct GuardTokensRAII;
   GuardTokensTy GuardTokens;
 
-  std::deque<TokenView> LookAheadBuf;
+  std::deque<TokenAbs> LookAheadBuf;
 
   std::optional<TokenView> LastToken;
 
-  const TokenView &peek(std::size_t N = 0,
-                        TokenView (Lexer::*Ptr)() = &Lexer::lex) {
+  TokenView peek(std::size_t N = 0, TokenAbs (Lexer::*Ptr)() = &Lexer::lex) {
     while (N >= LookAheadBuf.size()) {
       LookAheadBuf.emplace_back((Lex.*Ptr)());
     }
@@ -51,13 +50,15 @@ class Parser {
   void consume() {
     if (LookAheadBuf.empty())
       peek(0);
-    Builder.push(LookAheadBuf.front().get());
-    consumeOnly();
+    Builder.push(LookAheadBuf.front().take());
+    popFront();
   }
 
-  void consumeOnly() {
+  std::unique_ptr<Token> popFront() {
     LastToken = LookAheadBuf.front();
+    std::unique_ptr<Token> Ptr = LookAheadBuf.front().take();
     LookAheadBuf.pop_front();
+    return Ptr;
   }
 
   void resetCur(const char *NewCur) {
@@ -69,7 +70,7 @@ class Parser {
 
   // Private utilities.
   void matchBracket(tok::TokenKind LeftKind,
-                    std::shared_ptr<RawNode> (Parser::*InnerParse)(),
+                    std::unique_ptr<RawNode> (Parser::*InnerParse)(),
                     tok::TokenKind RightKind);
 
   void addExprWithCheck(std::string As) {
@@ -78,50 +79,50 @@ class Parser {
 
   /// Check if \p Expr is nullptr.
   /// Emit diagnostic if so.
-  void addExprWithCheck(std::string As, std::shared_ptr<RawNode> Expr);
+  void addExprWithCheck(std::string As, std::unique_ptr<RawNode> Expr);
 
   // Concret n-terms.
-  std::shared_ptr<RawNode> parseInterpolation();
+  std::unique_ptr<RawNode> parseInterpolation();
 
-  std::shared_ptr<RawNode> parseStringParts();
-  std::shared_ptr<RawNode> parseString();
+  std::unique_ptr<RawNode> parseStringParts();
+  std::unique_ptr<RawNode> parseString();
 
-  std::shared_ptr<RawNode> parseIndString();
-  std::shared_ptr<RawNode> parseIndStringParts();
+  std::unique_ptr<RawNode> parseIndString();
+  std::unique_ptr<RawNode> parseIndStringParts();
 
-  std::shared_ptr<RawNode> parsePath();
-  std::shared_ptr<RawNode> parseAttrPath();
-  std::shared_ptr<RawNode> parseAttrName();
-  std::shared_ptr<RawNode> parseBinding();
-  std::shared_ptr<RawNode> parseInherit();
-  std::shared_ptr<RawNode> parseBinds();
-  std::shared_ptr<RawNode> parseAttrSetExpr();
-  std::shared_ptr<RawNode> parseParenExpr();
-  std::shared_ptr<RawNode> parseLegacyLet();
-  std::shared_ptr<RawNode> parseListExpr();
-  std::shared_ptr<RawNode> parseListBody();
+  std::unique_ptr<RawNode> parsePath();
+  std::unique_ptr<RawNode> parseAttrPath();
+  std::unique_ptr<RawNode> parseAttrName();
+  std::unique_ptr<RawNode> parseBinding();
+  std::unique_ptr<RawNode> parseInherit();
+  std::unique_ptr<RawNode> parseBinds();
+  std::unique_ptr<RawNode> parseAttrSetExpr();
+  std::unique_ptr<RawNode> parseParenExpr();
+  std::unique_ptr<RawNode> parseLegacyLet();
+  std::unique_ptr<RawNode> parseListExpr();
+  std::unique_ptr<RawNode> parseListBody();
 
-  std::shared_ptr<RawNode> parseFormal();
-  std::shared_ptr<RawNode> parseFormals();
-  std::shared_ptr<RawNode> parseBracedFormals();
-  std::shared_ptr<RawNode> parseLambdaArg();
-  std::shared_ptr<RawNode> parseLambdaExpr();
+  std::unique_ptr<RawNode> parseFormal();
+  std::unique_ptr<RawNode> parseFormals();
+  std::unique_ptr<RawNode> parseBracedFormals();
+  std::unique_ptr<RawNode> parseLambdaArg();
+  std::unique_ptr<RawNode> parseLambdaExpr();
 
-  std::shared_ptr<RawNode> parseIfExpr();
-  std::shared_ptr<RawNode> parseAssertExpr();
-  std::shared_ptr<RawNode> parseWithExpr();
-  std::shared_ptr<RawNode> parseLetInExpr();
+  std::unique_ptr<RawNode> parseIfExpr();
+  std::unique_ptr<RawNode> parseAssertExpr();
+  std::unique_ptr<RawNode> parseWithExpr();
+  std::unique_ptr<RawNode> parseLetInExpr();
 
   // Abstract level, these functions may return nullptr.
-  std::shared_ptr<RawNode> parseExprSelect();
-  std::shared_ptr<RawNode> parseExprSimple();
+  std::unique_ptr<RawNode> parseExprSelect();
+  std::unique_ptr<RawNode> parseExprSimple();
 
   /// Parse expr_app
   /// \p Limit of expr_select should be consumed, default to +inf
-  std::shared_ptr<RawNode>
+  std::unique_ptr<RawNode>
   parseExprApp(unsigned Limit = std::numeric_limits<unsigned>::max());
 
-  std::shared_ptr<RawNode> parseExprOp() { return parseExprOpBP(0); }
+  std::unique_ptr<RawNode> parseExprOp() { return parseExprOpBP(0); }
 
   /// \note Pratt Parser.
   /// Pratt, Vaughan. "Top down operator precedence."
@@ -129,12 +130,12 @@ class Parser {
   /// of Programming Languages (1973).
   /// https://web.archive.org/web/20151223215421/http://hall.org.ua/halls/wizzard/pdf/Vaughan.Pratt.TDOP.pdf
   /// \returns expr_op
-  std::shared_ptr<RawNode> parseExprOpBP(unsigned LeftRBP);
+  std::unique_ptr<RawNode> parseExprOpBP(unsigned LeftRBP);
 
-  std::shared_ptr<RawNode> parseExpr();
+  std::unique_ptr<RawNode> parseExpr();
 
   /// Create an "Unknown" with many tokens until \p Predicate does not hold
-  std::shared_ptr<RawNode> parseUnknownUntilGuard();
+  std::unique_ptr<RawNode> parseUnknownUntilGuard();
 
 public:
   explicit Parser(std::string_view Src, DiagnosticEngine &Diag)
@@ -144,7 +145,7 @@ public:
   /// \returns a "ROOT" node
   /// printing this node will exactly get the source file.
   /// \note non-null
-  std::shared_ptr<RawNode> parse();
+  std::unique_ptr<RawNode> parse();
 };
 
 } // namespace nixf

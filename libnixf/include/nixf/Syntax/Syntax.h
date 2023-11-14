@@ -13,16 +13,16 @@ class RawNode;
 
 class Syntax {
 protected:
-  const std::shared_ptr<SyntaxData> Root;
+  const std::unique_ptr<SyntaxData> Root;
   const SyntaxData *Data;
 
 public:
   /// Root & Data must be non-null.
-  Syntax(std::shared_ptr<SyntaxData> Root, const SyntaxData *Data);
+  Syntax(std::unique_ptr<SyntaxData> Root, const SyntaxData *Data);
 
   [[nodiscard]] std::optional<Syntax> getParent() const;
 
-  [[nodiscard]] std::shared_ptr<RawNode> getRaw() const;
+  [[nodiscard]] std::unique_ptr<RawNode> getRaw() const;
 
   [[nodiscard]] SyntaxKind getSyntaxKind() const;
 };
@@ -30,7 +30,7 @@ public:
 class FormalSyntax : public Syntax {
   using Syntax::Syntax;
 
-  [[nodiscard]] std::shared_ptr<SyntaxData> getName() const;
+  [[nodiscard]] std::unique_ptr<SyntaxData> getName() const;
 };
 
 } // namespace nixf

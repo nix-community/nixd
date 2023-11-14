@@ -90,7 +90,7 @@ Diagnostic &diagNullExpr(DiagnosticEngine &Diag, const char *Loc,
 ///
 /// Otherwise the behavior is undefined.
 void Parser::matchBracket(TokenKind LeftKind,
-                          std::shared_ptr<RawNode> (Parser::*InnerParse)(),
+                          std::unique_ptr<RawNode> (Parser::*InnerParse)(),
                           TokenKind RightKind) {
   GuardTokensRAII Guard{GuardTokens, RightKind};
 
@@ -128,7 +128,7 @@ void Parser::matchBracket(TokenKind LeftKind,
   }
 }
 
-void Parser::addExprWithCheck(std::string As, std::shared_ptr<RawNode> Expr) {
+void Parser::addExprWithCheck(std::string As, std::unique_ptr<RawNode> Expr) {
   assert(LastToken);
   if (Expr)
     Builder.push(std::move(Expr));
@@ -137,7 +137,7 @@ void Parser::addExprWithCheck(std::string As, std::shared_ptr<RawNode> Expr) {
 }
 
 /// interpolation : ${ expr }
-std::shared_ptr<RawNode> Parser::parseInterpolation() {
+std::unique_ptr<RawNode> Parser::parseInterpolation() {
   Builder.start(SyntaxKind::SK_Interpolation);
   consume();
   addExprWithCheck("interpolation");
@@ -151,7 +151,7 @@ std::shared_ptr<RawNode> Parser::parseInterpolation() {
 }
 
 /// string_part : ( TokStringPart | interpolation | TokStringEscape )*
-std::shared_ptr<RawNode> Parser::parseStringParts() {
+std::unique_ptr<RawNode> Parser::parseStringParts() {
   Builder.start(SyntaxKind::SK_StringParts);
   while (true) {
     TokenView Tok = peek(0, &Lexer::lexString);
@@ -174,24 +174,24 @@ std::shared_ptr<RawNode> Parser::parseStringParts() {
 }
 
 /// string: '"' string_parts '"'
-std::shared_ptr<RawNode> Parser::parseString() {
+std::unique_ptr<RawNode> Parser::parseString() {
   Builder.start(SyntaxKind::SK_String);
   matchBracket(tok_dquote, &Parser::parseStringParts, tok_dquote);
   return Builder.finish();
 }
 
 /// ind_string: '' ind_string_parts ''
-std::shared_ptr<RawNode> Parser::parseIndString() {
+std::unique_ptr<RawNode> Parser::parseIndString() {
   Builder.start(SyntaxKind::SK_IndString);
   matchBracket(tok_quote2, &Parser::parseIndStringParts, tok_quote2);
   return Builder.finish();
 }
 
 /// ind_string_parts : ( TokStringFragment | interpolation | TokStringEscape )*
-std::shared_ptr<RawNode> Parser::parseIndStringParts() {
+std::unique_ptr<RawNode> Parser::parseIndStringParts() {
   Builder.start(SyntaxKind::SK_IndStringParts);
   while (true) {
-    const TokenView &Tok = peek(0, &Lexer::lexIndString);
+    TokenView Tok = peek(0, &Lexer::lexIndString);
     switch (Tok->getKind()) {
     case tok_dollar_curly: {
       // interpolation, we need to parse a subtree then.
@@ -210,7 +210,7 @@ std::shared_ptr<RawNode> Parser::parseIndStringParts() {
 }
 
 /// path: path_fragment ( path_fragment | interpolation )*
-std::shared_ptr<RawNode> Parser::parsePath() {
+std::unique_ptr<RawNode> Parser::parsePath() {
   Builder.start(SyntaxKind::SK_Path);
 
   assert(peek()->getKind() == tok_path_fragment);
@@ -229,7 +229,7 @@ std::shared_ptr<RawNode> Parser::parsePath() {
       break;
     }
     case tok_path_end: {
-      consumeOnly();
+      popFront();
       goto finish;
     }
     default:
@@ -246,15 +246,14 @@ finish:
 ///          | interpolation
 ///
 /// \note nullable.
-std::shared_ptr<RawNode> Parser::parseAttrName() {
+std::unique_ptr<RawNode> Parser::parseAttrName() {
   TokenView Tok = peek();
   switch (Tok->getKind()) {
   case tok_kw_or:
     Diag.diag(DK::DK_OrIdentifier, Tok.getTokRange());
     [[fallthrough]];
   case tok_id:
-    consumeOnly();
-    return Tok.get();
+    return popFront();
   case tok_dquote:
     return parseString();
   case tok_dollar_curly:
@@ -266,12 +265,12 @@ std::shared_ptr<RawNode> Parser::parseAttrName() {
 
 /// binding : attrpath '=' expr ';'
 /// \note nullable
-std::shared_ptr<RawNode> Parser::parseBinding() {
+std::unique_ptr<RawNode> Parser::parseBinding() {
   GuardTokensRAII EqGuard{GuardTokens, tok_eq};
   GuardTokensRAII SemiGuard{GuardTokens, tok_semi_colon};
   // consume n-term `attrpath` and record its range, used for diagnostics.
   const char *AttrBegin = peek().getTokRange().Begin;
-  std::shared_ptr<RawNode> AttrPath = parseAttrPath();
+  std::unique_ptr<RawNode> AttrPath = parseAttrPath();
   const char *AttrEnd = Lex.cur() - peek()->getLength();
 
   if (!AttrPath)
@@ -283,7 +282,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
   Builder.push(std::move(AttrPath));
   OffsetRange AttrRange{AttrBegin, AttrEnd};
 
-  const TokenView &Tok = peek();
+  TokenView Tok = peek();
   if (Tok->getKind() == tok_eq) {
     consume();
   } else {
@@ -355,9 +354,9 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
   //        ^
   const char *SavedCur = Lex.cur();
 
-  std::shared_ptr<RawNode> Body = parseExpr();
-
-  addExprWithCheck("attr body", Body);
+  std::unique_ptr<RawNode> Body = parseExpr();
+  auto *BodyTwine = dynamic_cast<RawTwine *>(Body.get());
+  addExprWithCheck("attr body", std::move(Body));
   if (peek()->getKind() == tok_semi_colon) {
     consume(); // ;
   } else {
@@ -366,14 +365,13 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
     //            ^
     // if the token is '=', guess that we consumed 'b' as (Call 1 b)
     // this should be an attrname.
-    if (peek()->getKind() == tok_eq && Body &&
-        Body->getSyntaxKind() == SyntaxKind::SK_Call) {
-      auto *BodyTwine = dynamic_cast<RawTwine *>(Body.get());
-      assert(BodyTwine);
+    if (peek()->getKind() == tok_eq && BodyTwine &&
+        BodyTwine->getSyntaxKind() == SyntaxKind::SK_Call) {
+      std::size_t NBody = BodyTwine->getNumChildren();
+      assert(NBody >= 2);
       Builder.pop(); // pop (Call 1 b)
       resetCur(SavedCur);
-      assert(Body->getNumChildren() >= 2);
-      unsigned Limit = Body->getNumChildren() - 1;
+      unsigned Limit = NBody - 1;
       // Now, parse expr_app with without consuming last expr_select.
       Builder.push(parseExprApp(Limit));
     }
@@ -390,7 +388,7 @@ std::shared_ptr<RawNode> Parser::parseBinding() {
 /// inherit :  'inherit' '(' expr ')' inherited_attrs ';'
 ///         |  'inherit' inherited_attrs ';'
 /// inherited_attrs: attrname*
-std::shared_ptr<RawNode> Parser::parseInherit() {
+std::unique_ptr<RawNode> Parser::parseInherit() {
   Builder.start(SyntaxKind::SK_Inherit);
   consume(); // inherit
   TokenView Tok = peek();
@@ -420,7 +418,7 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
       consume();
       break;
     }
-    std::shared_ptr<RawNode> AttrName = parseAttrName();
+    std::unique_ptr<RawNode> AttrName = parseAttrName();
     if (!AttrName) {
       // This is not an attrname. But we haven't meet the ending ';' yet.
       // Missing semi-colon ?   inherit a b c a = 1;
@@ -435,8 +433,8 @@ std::shared_ptr<RawNode> Parser::parseInherit() {
 
 /// attrpath : attrname ('.' attrname)*
 /// \note nullable
-std::shared_ptr<RawNode> Parser::parseAttrPath() {
-  std::shared_ptr<RawNode> AttrName = parseAttrName();
+std::unique_ptr<RawNode> Parser::parseAttrPath() {
+  std::unique_ptr<RawNode> AttrName = parseAttrName();
 
   if (!AttrName)
     return nullptr;
@@ -467,7 +465,7 @@ std::shared_ptr<RawNode> Parser::parseAttrPath() {
 }
 
 /// binds : ( binding | inherit )*
-std::shared_ptr<RawNode> Parser::parseBinds() {
+std::unique_ptr<RawNode> Parser::parseBinds() {
   Builder.start(SyntaxKind::SK_Binds);
   while (true) {
     TokenView Tok = peek();
@@ -476,7 +474,7 @@ std::shared_ptr<RawNode> Parser::parseBinds() {
       Builder.push(parseInherit());
       break;
     default: {
-      std::shared_ptr<RawNode> Binding = parseBinding();
+      std::unique_ptr<RawNode> Binding = parseBinding();
       if (!Binding)
         goto finish;
       Builder.push(std::move(Binding));
@@ -490,7 +488,7 @@ finish:
 
 /// attrset_expr : rec? '{' binds '}'
 /// Implementation assumption: at least rec or '{'
-std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
+std::unique_ptr<RawNode> Parser::parseAttrSetExpr() {
   Builder.start(SyntaxKind::SK_AttrSet);
   TokenView Tok = peek();
   if (Tok->getKind() == tok_kw_rec) {
@@ -503,7 +501,7 @@ std::shared_ptr<RawNode> Parser::parseAttrSetExpr() {
 }
 
 /// paren_expr : '(' expr ')'
-std::shared_ptr<RawNode> Parser::parseParenExpr() {
+std::unique_ptr<RawNode> Parser::parseParenExpr() {
   Builder.start(SyntaxKind::SK_Paren);
   matchBracket(tok_l_paren, &Parser::parseExpr, tok_r_paren);
   return Builder.finish();
@@ -513,7 +511,7 @@ std::shared_ptr<RawNode> Parser::parseParenExpr() {
 /// let {..., body = ...}' -> (rec {..., body = ...}).body'
 ///
 /// TODO: Fix-it: let {..., body = <body-expr>; }' -> (let ... in <body-expr>)
-std::shared_ptr<RawNode> Parser::parseLegacyLet() {
+std::unique_ptr<RawNode> Parser::parseLegacyLet() {
   Builder.start(SyntaxKind::SK_LegacyLet);
   assert(peek()->getKind() == tok_kw_let);
   consume(); // let
@@ -522,10 +520,10 @@ std::shared_ptr<RawNode> Parser::parseLegacyLet() {
 }
 
 /// list_body : expr_select*
-std::shared_ptr<RawNode> Parser::parseListBody() {
+std::unique_ptr<RawNode> Parser::parseListBody() {
   Builder.start(SyntaxKind::SK_ListBody);
   while (true) {
-    std::shared_ptr<RawNode> Expr = parseExprSelect();
+    std::unique_ptr<RawNode> Expr = parseExprSelect();
     if (Expr)
       Builder.push(std::move(Expr));
     else
@@ -535,7 +533,7 @@ std::shared_ptr<RawNode> Parser::parseListBody() {
 }
 
 /// list : '[' list_body ']'
-std::shared_ptr<RawNode> Parser::parseListExpr() {
+std::unique_ptr<RawNode> Parser::parseListExpr() {
   Builder.start(SyntaxKind::SK_List);
   assert(peek()->getKind() == tok_l_bracket);
   matchBracket(tok_l_bracket, &Parser::parseListBody, tok_r_bracket);
@@ -547,7 +545,7 @@ std::shared_ptr<RawNode> Parser::parseListExpr() {
 ///        | "..."
 /// Note: we accept "..." as a formal here, but is should be placed at the end
 /// of all formals, we delay this checking into semantic analysis.
-std::shared_ptr<RawNode> Parser::parseFormal() {
+std::unique_ptr<RawNode> Parser::parseFormal() {
   Builder.start(SyntaxKind::SK_Formal);
   if (peek()->getKind() == tok_ellipsis) {
     consume();
@@ -557,7 +555,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
   assert(peek()->getKind() == tok_id);
   consume();
   assert(LastToken);
-  const TokenView &Tok = peek();
+  TokenView Tok = peek();
   if (Tok->getKind() == tok_question) {
     consume();
     assert(LastToken);
@@ -580,7 +578,7 @@ std::shared_ptr<RawNode> Parser::parseFormal() {
 }
 
 /// formals : formal? (',' formal)*
-std::shared_ptr<RawNode> Parser::parseFormals() {
+std::unique_ptr<RawNode> Parser::parseFormals() {
   Builder.start(SyntaxKind::SK_Formals);
   TokenView Tok1 = peek();
   switch (Tok1->getKind()) {
@@ -616,7 +614,7 @@ std::shared_ptr<RawNode> Parser::parseFormals() {
   return Builder.finish();
 }
 
-std::shared_ptr<RawNode> Parser::parseBracedFormals() {
+std::unique_ptr<RawNode> Parser::parseBracedFormals() {
   Builder.start(SyntaxKind::SK_BracedFormals);
   matchBracket(tok_l_curly, &Parser::parseFormals, tok_r_curly);
   return Builder.finish();
@@ -628,7 +626,7 @@ std::shared_ptr<RawNode> Parser::parseBracedFormals() {
 ///            | '{' formals '}' @ ID
 ///
 /// Assumption: must exists ID or '{'
-std::shared_ptr<RawNode> Parser::parseLambdaArg() {
+std::unique_ptr<RawNode> Parser::parseLambdaArg() {
   Builder.start(SyntaxKind::SK_LambdaArg);
   switch (peek()->getKind()) {
   case tok_id: {
@@ -667,7 +665,7 @@ std::shared_ptr<RawNode> Parser::parseLambdaArg() {
 /// lambda_expr : lambda_arg ':' expr
 ///
 /// Assumption: must exists ID or '{'
-std::shared_ptr<RawNode> Parser::parseLambdaExpr() {
+std::unique_ptr<RawNode> Parser::parseLambdaExpr() {
   Builder.start(SyntaxKind::SK_Lambda);
 
   // lambda_arg ':' expr
@@ -702,14 +700,13 @@ std::shared_ptr<RawNode> Parser::parseLambdaExpr() {
 ///        | legacy_let
 ///        | attrset_expr
 ///        | list
-std::shared_ptr<RawNode> Parser::parseExprSimple() {
+std::unique_ptr<RawNode> Parser::parseExprSimple() {
   TokenView Tok = peek();
   switch (Tok->getKind()) {
   case tok_int:
   case tok_float:
   case tok_id:
-    consumeOnly();
-    return Tok.get();
+    return popFront();
   case tok_dquote:
     return parseString();
   case tok_quote2:
@@ -720,8 +717,7 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
   case tok_path_fragment:
     return parsePath();
   case tok_uri:
-    consumeOnly();
-    return Tok.get();
+    return popFront();
   case tok_l_paren:
     return parseParenExpr();
   case tok_kw_let:
@@ -737,13 +733,13 @@ std::shared_ptr<RawNode> Parser::parseExprSimple() {
 ///             | expr_simple '.' attrpath 'or' expr_select
 ///             | expr_simple 'or' <-- special "apply", 'or' is argument
 ///             | expr_simple
-std::shared_ptr<RawNode> Parser::parseExprSelect() {
+std::unique_ptr<RawNode> Parser::parseExprSelect() {
   // Firstly consume an expr_simple.
-  std::shared_ptr<RawNode> Simple = parseExprSimple();
+  std::unique_ptr<RawNode> Simple = parseExprSimple();
   if (!Simple)
     return nullptr;
   // Now look-ahead, see if we can find '.'/'or'
-  const TokenView &Tok = peek();
+  TokenView Tok = peek();
   switch (Tok->getKind()) {
   case tok_dot: {
     // expr_simple '.' attrpath
@@ -751,7 +747,7 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
     Builder.start(SyntaxKind::SK_Select);
     Builder.push(std::move(Simple));
     consume(); // .
-    std::shared_ptr<RawNode> AttrPath = parseAttrPath();
+    std::unique_ptr<RawNode> AttrPath = parseAttrPath();
     if (!AttrPath) {
       // guess: extra token '.' ?
       // attr. = 1
@@ -781,19 +777,20 @@ std::shared_ptr<RawNode> Parser::parseExprSelect() {
 }
 /// expr_app : expr_app expr_select
 ///            expr_select
-std::shared_ptr<RawNode> Parser::parseExprApp(unsigned Limit) {
-  std::shared_ptr<RawNode> Simple = parseExprSelect();
-  std::vector<std::shared_ptr<RawNode>> V{Simple};
+std::unique_ptr<RawNode> Parser::parseExprApp(unsigned Limit) {
+  std::unique_ptr<RawNode> Simple = parseExprSelect();
+  std::vector<std::unique_ptr<RawNode>> V;
+  V.emplace_back(std::move(Simple));
   // Try to consume next expr_select
   for (unsigned I = 1; I < Limit; I++) {
-    std::shared_ptr<RawNode> Next = parseExprSelect();
+    std::unique_ptr<RawNode> Next = parseExprSelect();
     if (!Next)
       break;
     V.emplace_back(std::move(Next));
   }
   if (V.size() == 1)
-    return Simple;
-  return std::make_shared<RawTwine>(SyntaxKind::SK_Call, std::move(V));
+    return std::move(V.front());
+  return std::make_unique<RawTwine>(SyntaxKind::SK_Call, std::move(V));
 }
 
 /// Operators.
@@ -863,7 +860,7 @@ unsigned getUnaryBP(TokenKind Kind) {
 /// expr_op : '!' expr_op
 ///         | '-' expr_op
 ///         | expr_op BINARY_OP expr_op
-std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
+std::unique_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
   //
   // expr_op OP           expr_op   OP expr_op
   //            ^LeftRBP  ^       ^ LBP
@@ -871,7 +868,7 @@ std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
   //                      | we are here
 
   // Firstly consume an expression.
-  std::shared_ptr<RawNode> Prefix;
+  std::unique_ptr<RawNode> Prefix;
   switch (peek()->getKind()) {
   case tok_op_not:
     Builder.start(SyntaxKind::SK_OpNot);
@@ -916,10 +913,10 @@ std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
             // TODO: emit diagnostic
           }
           Builder.start(SyntaxKind::SK_OpBinary);
-          Builder.push(Prefix);
+          Builder.push(std::move(Prefix));
           consume(); // bin_op
           if (auto Expr = parseExprOpBP(RBP))
-            Builder.push(Expr);
+            Builder.push(std::move(Expr));
           else
             diagNullExpr(Diag, LastToken->getTokEnd(), "right hand side");
           Prefix = Builder.finish();
@@ -935,7 +932,7 @@ std::shared_ptr<RawNode> Parser::parseExprOpBP(unsigned LeftRBP) {
 }
 
 /// if_expr : 'if' expr 'then' expr 'else' expr
-std::shared_ptr<RawNode> Parser::parseIfExpr() {
+std::unique_ptr<RawNode> Parser::parseIfExpr() {
   Builder.start(SyntaxKind::SK_If);
   assert(peek()->getKind() == tok_kw_if);
   consume(); // 'if'
@@ -976,7 +973,7 @@ std::shared_ptr<RawNode> Parser::parseIfExpr() {
   return Builder.finish();
 }
 
-std::shared_ptr<RawNode> Parser::parseUnknownUntilGuard() {
+std::unique_ptr<RawNode> Parser::parseUnknownUntilGuard() {
   Builder.start(SyntaxKind::SK_Unknown);
   while (true) {
     if (GuardTokens[peek()->getKind()] != 0)
@@ -987,7 +984,7 @@ std::shared_ptr<RawNode> Parser::parseUnknownUntilGuard() {
 }
 
 /// let_in_expr :  'let' binds 'in' expr
-std::shared_ptr<RawNode> Parser::parseLetInExpr() {
+std::unique_ptr<RawNode> Parser::parseLetInExpr() {
   GuardTokensRAII InGuard{GuardTokens, tok_kw_in};
   Builder.start(SyntaxKind::SK_Let);
   assert(peek()->getKind() == tok_kw_let);
@@ -1001,7 +998,7 @@ std::shared_ptr<RawNode> Parser::parseLetInExpr() {
     consume(); // in
   } else {
     const char *InsPoint = LastToken->getTokEnd();
-    std::shared_ptr<RawNode> Expr = parseExpr();
+    std::unique_ptr<RawNode> Expr = parseExpr();
     if (Expr) {
       Builder.push(std::move(Expr));
       // let ... expr
@@ -1047,7 +1044,7 @@ std::shared_ptr<RawNode> Parser::parseLetInExpr() {
 }
 
 /// assert_expr : 'assert' expr ';' expr
-std::shared_ptr<RawNode> Parser::parseAssertExpr() {
+std::unique_ptr<RawNode> Parser::parseAssertExpr() {
   assert(peek()->getKind() == tok_kw_assert);
   Builder.start(SyntaxKind::SK_Assert);
   consume(); // assert
@@ -1063,7 +1060,7 @@ std::shared_ptr<RawNode> Parser::parseAssertExpr() {
 }
 
 /// with_expr :  'with' expr ';' expr
-std::shared_ptr<RawNode> Parser::parseWithExpr() {
+std::unique_ptr<RawNode> Parser::parseWithExpr() {
   assert(peek()->getKind() == tok_kw_with);
   Builder.start(SyntaxKind::SK_With);
   consume(); // with
@@ -1097,7 +1094,7 @@ std::shared_ptr<RawNode> Parser::parseWithExpr() {
 /// with_expr :  'with' expr ';' expr
 ///
 /// let_in_expr :  'let' binds 'in' expr
-std::shared_ptr<RawNode> Parser::parseExpr() {
+std::unique_ptr<RawNode> Parser::parseExpr() {
   // { a }
   // { a ,
   // { a ...  without a ','
@@ -1161,7 +1158,7 @@ std::shared_ptr<RawNode> Parser::parseExpr() {
   }
 }
 
-std::shared_ptr<RawNode> Parser::parse() {
+std::unique_ptr<RawNode> Parser::parse() {
   GuardTokensRAII Guard{GuardTokens, tok_eof};
   Builder.start(SyntaxKind::SK_Root);
   while (true) {
@@ -1171,7 +1168,7 @@ std::shared_ptr<RawNode> Parser::parse() {
       Builder.push(Builder.finish());
       break;
     }
-    if (std::shared_ptr<RawNode> Raw = parseExpr()) {
+    if (std::unique_ptr<RawNode> Raw = parseExpr()) {
       Builder.push(std::move(Raw));
     } else {
       Builder.start(SyntaxKind::SK_Unknown);

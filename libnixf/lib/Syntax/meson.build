@@ -5,8 +5,6 @@ libnixfSyntax_inc = nixf_inc
 libnixfSyntax = library('nixfSyntax',
                         'RawSyntax.cpp',
                         'Trivia.cpp',
-                        'Syntax.cpp',
-                        'SyntaxData.cpp',
                         include_directories: libnixfSyntax_inc,
                         dependencies: libnixfSyntax_deps,
                         install: true

@@ -278,7 +278,7 @@ void Lexer::maybeKW() {
 #undef TOK_KEYWORD
 }
 
-TokenView Lexer::lexPath() {
+TokenAbs Lexer::lexPath() {
   // Accept all characters, except ${, or "
   // aaa/b//c
   // Path
@@ -311,7 +311,7 @@ TokenView Lexer::lexPath() {
   return finishToken();
 }
 
-TokenView Lexer::lexString() {
+TokenAbs Lexer::lexString() {
   // Accept all characters, except ${, or "
   startToken();
   if (eof()) {
@@ -359,7 +359,7 @@ TokenView Lexer::lexString() {
   return finishToken();
 }
 
-TokenView Lexer::lexIndString() {
+TokenAbs Lexer::lexIndString() {
   startToken();
   if (eof()) {
     Tok = tok_eof;
@@ -393,7 +393,7 @@ TokenView Lexer::lexIndString() {
   return finishToken();
 }
 
-TokenView Lexer::lex() {
+TokenAbs Lexer::lex() {
   // eat leading trivia
   LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
   startToken();

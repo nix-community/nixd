@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
   std::string Src = SS.str();
   nixf::Parser P(Src, Diags);
 
-  std::shared_ptr<nixf::RawNode> Expr = P.parse();
+  std::unique_ptr<nixf::RawNode> Expr = P.parse();
 
   Expr->dumpAST(std::cout);
 

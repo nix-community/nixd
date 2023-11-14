@@ -1,2 +1,1 @@
 subdir('Lex')
-subdir('Syntax')

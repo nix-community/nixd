@@ -11,10 +11,10 @@ namespace nixf {
 
 using namespace tok;
 
-static auto collect(Lexer &L, TokenView (Lexer::*Ptr)()) {
-  std::vector<TokenView> Ret;
+static auto collect(Lexer &L, TokenAbs (Lexer::*Ptr)()) {
+  std::vector<TokenAbs> Ret;
   while (true) {
-    TokenView Tok = (L.*Ptr)();
+    TokenAbs Tok = (L.*Ptr)();
     if (Tok->getKind() == tok_eof)
       break;
     Ret.emplace_back(std::move(Tok));
@@ -29,28 +29,28 @@ struct LexerTest : testing::Test {
 
 TEST_F(LexerTest, Integer) {
   Lexer Lexer("1", Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer2) {
   Lexer Lexer("1123123", Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer4) {
   Lexer Lexer("00023121123123", Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer5) {
   Lexer Lexer("00023121123123", Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
@@ -59,7 +59,7 @@ TEST_F(LexerTest, Trivia1) {
   std::string Trivia("\r\n /* */# line comment\n\f \v\r \n");
   std::string Src = Trivia + "3";
   Lexer Lexer(Src, Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_int);
   P->getLeadingTrivia()->dump(SS, /*DiscardTrivia=*/false);
   ASSERT_EQ(SS.str(), Trivia);
@@ -73,7 +73,7 @@ TEST_F(LexerTest, TriviaLComment) {
 3
 )",
               Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_int);
   P->getLeadingTrivia()->dump(SS, /*DiscardTrivia=*/false);
   ASSERT_EQ(SS.str(), "# single line comment\n\n");
@@ -86,7 +86,7 @@ TEST_F(LexerTest, TriviaBComment) {
 aaa
 */)";
   Lexer Lexer(Src, Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_eof);
   P->getLeadingTrivia()->dump(SS, /*DiscardTrivia=*/false);
   ASSERT_EQ(SS.str(), "/* block comment\naaa\n*/");
@@ -99,7 +99,7 @@ TEST_F(LexerTest, TriviaBComment2) {
 aaa
 )";
   Lexer Lexer(Src, Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_eof);
   ASSERT_EQ(P->getContent(), "");
   ASSERT_TRUE(!Diag.diags().empty());
@@ -111,7 +111,7 @@ aaa
 
 TEST_F(LexerTest, FloatLeadingZero) {
   Lexer Lexer("00.33", Diag);
-  std::shared_ptr<Token> P = Lexer.lex();
+  std::unique_ptr<Token> P = Lexer.lex().take();
   ASSERT_EQ(P->getKind(), tok_float);
   ASSERT_EQ(P->getContent(), "00.33");
   ASSERT_FALSE(Diag.diags().empty());

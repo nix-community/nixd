@@ -65,7 +65,7 @@ public:
     OS << "\n";
     std::size_t Ch = getNumChildren();
     for (std::size_t I = 0; I < Ch; I++) {
-      std::shared_ptr<RawNode> Ch = getNthChild(I);
+      RawNode *Ch = getNthChild(I);
       if(Ch)
         Ch->dumpAST(OS, DiscardTrivia, Depth + 1);
     }
@@ -78,8 +78,7 @@ public:
   [[nodiscard]] virtual std::size_t getNumChildren() const { return 0; }
 
   /// \returns nth child, nullptr if we cannot find such index
-  [[nodiscard]] virtual std::shared_ptr<RawNode>
-  getNthChild(std::size_t N) const {
+  [[nodiscard]] virtual RawNode *getNthChild(std::size_t N) const {
     return nullptr;
   }
 
@@ -89,15 +88,15 @@ public:
 /// Non-term constructs in a lanugage. They have children
 class RawTwine : public RawNode {
 public:
-  using LayoutTy = std::vector<std::shared_ptr<RawNode>>;
+  using LayoutTy = std::vector<std::unique_ptr<RawNode>>;
 
 private:
   friend class SyntaxView;
 
-  const std::vector<std::shared_ptr<RawNode>> Layout;
+  const std::vector<std::unique_ptr<RawNode>> Layout;
 
 public:
-  RawTwine(SyntaxKind Kind, std::vector<std::shared_ptr<RawNode>> Layout);
+  RawTwine(SyntaxKind Kind, std::vector<std::unique_ptr<RawNode>> Layout);
 
   void dump(std::ostream &OS, bool DiscardTrivia = true) const override;
 
@@ -105,8 +104,7 @@ public:
     return Layout.size();
   }
 
-  [[nodiscard]] std::shared_ptr<RawNode>
-  getNthChild(std::size_t N) const override;
+  [[nodiscard]] RawNode *getNthChild(std::size_t N) const override;
 };
 
 class RawTwineBuilder {
@@ -122,16 +120,16 @@ public:
     KindStack.pop();
     KindStack.push(Kind);
   }
-  void push(std::shared_ptr<RawNode> Node) {
+  void push(std::unique_ptr<RawNode> Node) {
     Stack.top()->emplace_back(std::move(Node));
   }
   void pop() { Stack.top()->pop_back(); }
-  std::shared_ptr<RawTwine> finish() {
+  std::unique_ptr<RawTwine> finish() {
     RawTwine::LayoutTy Layout = std::move(*Stack.top());
     Stack.pop();
     SyntaxKind Kind = KindStack.top();
     KindStack.pop();
-    auto Ret = std::make_shared<RawTwine>(Kind, std::move(Layout));
+    auto Ret = std::make_unique<RawTwine>(Kind, std::move(Layout));
     return Ret;
   }
 };

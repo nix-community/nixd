@@ -4,7 +4,7 @@
 namespace nixf {
 
 RawTwine::RawTwine(SyntaxKind Kind,
-                   std::vector<std::shared_ptr<RawNode>> Layout)
+                   std::vector<std::unique_ptr<RawNode>> Layout)
     : RawNode(Kind), Layout(std::move(Layout)) {
   Length = 0;
   for (const auto &Ch : this->Layout) {
@@ -20,11 +20,10 @@ void RawTwine::dump(std::ostream &OS, bool DiscardTrivia) const {
   }
 };
 
-[[nodiscard]] std::shared_ptr<RawNode>
-RawTwine::getNthChild(std::size_t N) const {
+[[nodiscard]] RawNode *RawTwine::getNthChild(std::size_t N) const {
   if (N > getNumChildren())
     return nullptr;
-  return Layout[N];
+  return Layout[N].get();
 }
 
 } // namespace nixf

@@ -14,24 +14,42 @@ namespace nixf {
 class DiagnosticEngine;
 
 class TokenView {
-  std::shared_ptr<Token> Tok;
+  const Token *Tok;
+  const char *TokBegin;
+  const char *TokEnd;
+
+public:
+  TokenView(const Token *Tok, const char *TB, const char *TE)
+      : Tok(Tok), TokBegin(TB), TokEnd(TE) {}
+
+  const Token *operator->() const { return Tok; }
+  operator const Token *() const { return Tok; }
+
+  [[nodiscard]] const char *getTokBegin() const { return TokBegin; }
+  [[nodiscard]] const char *getTokEnd() const { return TokEnd; }
+
+  [[nodiscard]] OffsetRange getTokRange() const { return {TokBegin, TokEnd}; }
+};
+
+class TokenAbs {
+  std::unique_ptr<Token> Tok;
 
   const char *TokBegin;
   const char *TokEnd;
 
 public:
-  TokenView(std::shared_ptr<Token> Tok, const char *TB, const char *TE)
+  TokenAbs(std::unique_ptr<Token> Tok, const char *TB, const char *TE)
       : Tok(std::move(Tok)), TokBegin(TB), TokEnd(TE) {}
-  operator std::shared_ptr<Token>() const { return Tok; }
 
   [[nodiscard]] const char *getTokBegin() const { return TokBegin; }
   [[nodiscard]] const char *getTokEnd() const { return TokEnd; }
 
-  [[nodiscard]] std::shared_ptr<Token> get() const { return Tok; }
+  [[nodiscard]] std::unique_ptr<Token> take() { return std::move(Tok); }
 
-  std::shared_ptr<Token> operator->() const { return Tok; }
+  operator TokenView() const { return {Tok.get(), TokBegin, TokEnd}; }
 
-  [[nodiscard]] OffsetRange getTokRange() const { return {TokBegin, TokEnd}; }
+  const Token *operator->() const { return Tok.get(); }
+  operator const Token *() const { return Tok.get(); }
 };
 
 class Lexer {
@@ -47,8 +65,8 @@ class Lexer {
     Tok = tok::tok_unknown;
     TokStartPtr = Cur;
   }
-  TokenView finishToken() {
-    auto TokBody = std::make_shared<Token>(Tok, std::string(tokStr()),
+  TokenAbs finishToken() {
+    auto TokBody = std::make_unique<Token>(Tok, std::string(tokStr()),
                                            std::move(LeadingTrivia), nullptr);
 
     return {std::move(TokBody), TokStartPtr, Cur};
@@ -109,10 +127,10 @@ public:
     Cur = NewCur;
   }
 
-  TokenView lex();
-  TokenView lexString();
-  TokenView lexIndString();
-  TokenView lexPath();
+  TokenAbs lex();
+  TokenAbs lexString();
+  TokenAbs lexIndString();
+  TokenAbs lexPath();
 };
 
 } // namespace nixf
