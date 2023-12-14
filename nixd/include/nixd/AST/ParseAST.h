@@ -50,18 +50,9 @@ protected:
 
   void prepareDefRef();
 
-  /// Maps nix expression pointers back, to the name of attribute
-  ///
-  /// { foo  = "bar"; }
-  ///   ^~~ <- ^~~~
-  std::map<const nix::Expr *, nix::Symbol> AttrNamesMap;
-
-  void constructAttrNamesMap();
-
   void staticAnalysis() {
     ParentMap = getParentMap(root());
     prepareDefRef();
-    constructAttrNamesMap();
   }
 
   void bindVarsStatic(const nix::StaticEnv &Env) {
@@ -125,10 +116,6 @@ public:
       return false;
     }
   }
-
-  /// Get the attrpath of the expreesion \p Expr
-  [[nodiscard]] std::vector<std::string>
-  getAttrPath(const nix::Expr *Expr) const;
 
   std::optional<Definition> searchDef(const nix::ExprVar *Var) const;
 

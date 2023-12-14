@@ -143,31 +143,6 @@ void ParseAST::prepareDefRef() {
   V.traverseExpr(root());
 }
 
-void ParseAST::constructAttrNamesMap() {
-  struct VTy : RecursiveASTVisitor<VTy> {
-    ParseAST &This;
-    bool visitExprAttrs(const nix::ExprAttrs *EA) {
-      for (const auto &[Symbol, AttrDef] : EA->attrs) {
-        This.AttrNamesMap[AttrDef.e] = Symbol;
-      }
-      return true;
-    }
-  } V{.This = *this};
-  V.traverseExpr(root());
-}
-
-std::vector<std::string> ParseAST::getAttrPath(const nix::Expr *Expr) const {
-  std::vector<std::string> Result;
-  for (; parent(Expr) != Expr; Expr = parent(Expr)) {
-    if (dynamic_cast<const nix::ExprAttrs *>(parent(Expr))) {
-      auto Symbol = AttrNamesMap.at(Expr);
-      Result.emplace_back(symbols()[Symbol]);
-    }
-  }
-  std::reverse(Result.begin(), Result.end());
-  return Result;
-}
-
 std::optional<ParseAST::Definition>
 ParseAST::searchDef(const nix::ExprVar *Var) const {
   if (Var->fromWith)

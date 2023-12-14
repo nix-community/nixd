@@ -1,8 +1,6 @@
 #include "nixd/Sema/CompletionBuilder.h"
 #include "nixd/AST/ParseAST.h"
 #include "nixd/Nix/Eval.h"
-#include "nixd/Nix/Option.h"
-#include "nixd/Nix/Value.h"
 
 #include "lspserver/Protocol.h"
 
@@ -138,37 +136,4 @@ void CompletionBuilder::addStaticEnv(const nix::SymbolTable &STable,
     addStaticEnv(STable, SEnv);
 }
 
-void CompletionBuilder::addOption(nix::EvalState &State,
-                                  nix::Value &OptionAttrSet,
-                                  const std::vector<std::string> &AttrPath) {
-  using lspserver::MarkupContent;
-  using lspserver::MarkupKind;
-
-  try {
-    nix::Value V = selectAttrPath(State, OptionAttrSet, AttrPath);
-    State.forceValue(V, nix::noPos);
-
-    if (V.type() != nix::ValueType::nAttrs)
-      return;
-
-    if (isOption(State, V))
-      return;
-
-    for (const auto &Attr : *V.attrs) {
-      CompletionItem R;
-      R.label = State.symbols[Attr.name];
-      if (isOption(State, *Attr.value)) {
-        auto Info = optionInfo(State, *Attr.value);
-        R.kind = CompletionItemKind::Constructor;
-        R.detail = Info.Type.value_or("");
-        R.documentation = MarkupContent{MarkupKind::Markdown, Info.mdDoc()};
-      } else {
-        R.kind = CompletionItemKind::Class;
-        R.detail = "{...}";
-      }
-      addItem(std::move(R));
-    }
-  } catch (...) {
-  }
-}
 } // namespace nixd

@@ -2,7 +2,6 @@
 #include "nixd/Nix/Init.h"
 #include "nixd/Nix/Option.h"
 #include "nixd/Nix/Value.h"
-#include "nixd/Sema/CompletionBuilder.h"
 #include "nixd/Server/ConfigSerialization.h"
 #include "nixd/Server/IPCSerialization.h"
 #include "nixd/Support/Diagnostic.h"
@@ -37,19 +36,28 @@ void OptionWorker::onDeclaration(
     return;
 
   try {
-    auto Path = Params.Path;
-    Path.emplace_back("declarations");
+    nix::Value *V = OptionAttrSet;
+    if (!Params.Path.empty()) {
+      auto &Bindings(*OptionIES->getState()->allocBindings(0));
+      V = nix::findAlongAttrPath(*OptionIES->getState(), Params.Path, Bindings,
+                                 *OptionAttrSet)
+              .first;
+    }
 
     auto &State = *OptionIES->getState();
+    State.forceValue(*V, nix::noPos);
 
-    auto VDecl = selectAttrPath(State, *OptionAttrSet, Path);
-    State.forceValue(VDecl, nix::noPos);
+    auto *VDecl = nix::findAlongAttrPath(State, "declarations",
+                                         *State.allocBindings(0), *V)
+                      .first;
+
+    State.forceValue(*VDecl, nix::noPos);
 
     // declarations should be a list containing file paths
-    if (!VDecl.isList())
+    if (!VDecl->isList())
       return;
 
-    for (auto *VFile : VDecl.listItems()) {
+    for (auto *VFile : VDecl->listItems()) {
       State.forceValue(*VFile, nix::noPos);
       if (VFile->type() == nix::ValueType::nString) {
         auto File = VFile->str();
@@ -103,9 +111,54 @@ void OptionWorker::onCompletion(const ipc::AttrPathParams &Params,
   if (!OptionAttrSet)
     return;
 
-  CompletionBuilder Builder;
-  Builder.addOption(*OptionIES->getState(), *OptionAttrSet, Params.Path);
-  RR.Response = Builder.getResult();
+  try {
+    CompletionList List;
+    List.isIncomplete = false;
+    List.items = decltype(CompletionList::items){};
+
+    auto &Items = List.items;
+
+    if (OptionAttrSet->type() == nix::ValueType::nAttrs) {
+      nix::Value *V = OptionAttrSet;
+      if (!Params.Path.empty()) {
+        auto &Bindings(*OptionIES->getState()->allocBindings(0));
+        V = nix::findAlongAttrPath(*OptionIES->getState(), Params.Path,
+                                   Bindings, *OptionAttrSet)
+                .first;
+      }
+
+      OptionIES->getState()->forceValue(*V, nix::noPos);
+
+      if (V->type() != nix::ValueType::nAttrs)
+        return;
+
+      auto &State = *OptionIES->getState();
+
+      if (isOption(State, *V))
+        return;
+
+      for (auto Attr : *V->attrs) {
+        if (isOption(State, *Attr.value)) {
+          auto OI = optionInfo(State, *Attr.value);
+          Items.emplace_back(CompletionItem{
+              .label = State.symbols[Attr.name],
+              .kind = CompletionItemKind::Constructor,
+              .detail = OI.Type.value_or(""),
+              .documentation =
+                  MarkupContent{MarkupKind::Markdown, OI.mdDoc()}});
+        } else {
+          Items.emplace_back(
+              CompletionItem{.label = OptionIES->getState()->symbols[Attr.name],
+                             .kind = CompletionItemKind::Class,
+                             .detail = "{...}",
+                             .documentation = std::nullopt});
+        }
+      }
+      RR.Response = std::move(List);
+    }
+  } catch (std::exception &E) {
+    RR.Response = error(E.what());
+  }
 }
 
 } // namespace nixd
