@@ -37,5 +37,8 @@ backtrace = cpp.find_library('backtrace')
 
 lit = find_program('lit', required: false)
 
+pkgconfig = import('pkgconfig')
+
 subdir('lspserver')
+subdir('libnixt')
 subdir('nixd')
