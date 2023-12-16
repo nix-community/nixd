@@ -7,9 +7,11 @@ libnixtDeps = [ nix_expr, nix_main, nix_cmd, boost ]
 libnixdInc = include_directories('include')
 
 libnixt = library('nixt',
+                  'lib/Deserialize.cpp',
                   'lib/Displacement.cpp',
                   'lib/Kinds.cpp',
                   'lib/ParentMap.cpp',
+                  'lib/Serialize.cpp',
                   include_directories: libnixdInc,
                   dependencies: libnixtDeps,
                   install: true
@@ -29,7 +31,9 @@ nixt = declare_dependency(include_directories: libnixdInc,
 )
 
 libnixt_test_exe = executable('test-libnixt',
+                              'test/Deserialize.cpp',
                               'test/Kinds.cpp',
+                              'test/Serialize.cpp',
                               dependencies: [ gtest_main, nixt ])
 
 test('unit/libnixt', libnixt_test_exe)
