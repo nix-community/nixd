@@ -1,9 +1,3 @@
-project('libnixt',
-        ['c', 'cpp'],
-        default_options : ['cpp_std=gnu++20'],
-        version: 'nightly'
-)
-
 nixf_inc = include_directories('include')
 
 gtest = dependency('gtest')
@@ -15,6 +9,6 @@ lit = find_program('lit', required: false)
 subdir('lib')
 subdir('test')
 
-install_subdir('include', install_dir : 'include/nixf')
+install_subdir('include', install_dir : 'include')
 
 subdir('tools')

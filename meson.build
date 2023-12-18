@@ -40,5 +40,6 @@ lit = find_program('lit', required: false)
 pkgconfig = import('pkgconfig')
 
 subdir('lspserver')
+subdir('libnixf')
 subdir('libnixt')
 subdir('nixd')
