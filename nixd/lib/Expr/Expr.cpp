@@ -1,82 +1,16 @@
 #include "nixd/Expr/Expr.h"
 
+#include <nixt/Displacement.h>
+#include <nixt/Visitor.h>
+
 #include <nix/nixexpr.hh>
 
 #include <algorithm>
 #include <iterator>
+
+using namespace nixt;
+
 namespace nixd {
-
-std::map<const nix::Expr *, const nix::Expr *>
-getParentMap(const nix::Expr *Root) {
-  decltype(getParentMap(nullptr)) Ret;
-  struct VisitorClass : RecursiveASTVisitor<VisitorClass> {
-    /// The parent before traverseExpr
-    const nix::Expr *ParentExpr;
-    decltype(Ret) *CapturedRet;
-
-    bool traverseExpr(const nix::Expr *E) {
-      CapturedRet->insert({E, ParentExpr});
-      const auto *OldParent = ParentExpr;
-      ParentExpr = E; // Set the parent into the visitor, it should be the
-                      // parent when we are traversing child nodes.
-      if (!RecursiveASTVisitor<VisitorClass>::traverseExpr(E))
-        return false;
-
-      // After traversing on childrens finished, set parent expr to previous
-      // parent.
-      ParentExpr = OldParent;
-      return true;
-    }
-
-  } Visitor;
-
-  Visitor.ParentExpr = Root;
-  Visitor.CapturedRet = &Ret;
-
-  Visitor.traverseExpr(Root);
-
-  return Ret; // NRVO
-}
-
-nix::PosIdx getDisplOf(const nix::Expr *E, nix::Displacement Displ) {
-  if (const auto *CE = dynamic_cast<const nix::ExprAttrs *>(E))
-    return getDisplOf(CE, Displ);
-  if (const auto *CE = dynamic_cast<const nix::ExprLet *>(E))
-    return getDisplOf(CE, Displ);
-  if (const auto *CE = dynamic_cast<const nix::ExprLambda *>(E))
-    return getDisplOf(CE, Displ);
-
-  assert(false && "The requested expr is not an env creator");
-  return nix::noPos; // unreachable
-}
-
-nix::PosIdx getDisplOf(const nix::ExprAttrs *E, nix::Displacement Displ) {
-  assert(E->recursive && "Only recursive ExprAttr has displacement values");
-
-  auto DefIt = E->attrs.begin();
-  std::advance(DefIt, Displ);
-
-  return DefIt->second.pos;
-}
-
-nix::PosIdx getDisplOf(const nix::ExprLet *E, nix::Displacement Displ) {
-  auto DefIt = E->attrs->attrs.begin();
-  std::advance(DefIt, Displ);
-
-  return DefIt->second.pos;
-}
-
-nix::PosIdx getDisplOf(const nix::ExprLambda *E, nix::Displacement Displ) {
-  if (E->arg) {
-    if (Displ == 0)
-      // It is just a symbol, so noPos.
-      return nix::noPos;
-    Displ--;
-  }
-
-  assert(E->hasFormals() && "Lambda must has formals to create displ");
-  return E->formals->formals[Displ].pos;
-}
 
 bool isEnvCreated(const nix::Expr *E, const nix::Expr *Child) {
 
@@ -159,11 +93,10 @@ nix::PosIdx searchDefinition(
   if (!EnvExpr)
     return nix::noPos;
 
-  return getDisplOf(EnvExpr, E->displ);
+  return displOf(EnvExpr, E->displ);
 }
 
-void collectSymbols(const nix::Expr *E,
-                    const decltype(getParentMap(nullptr)) &ParentMap,
+void collectSymbols(const nix::Expr *E, const ParentMap &ParentMap,
                     std::vector<nix::Symbol> &R) {
   if (!E)
     return;

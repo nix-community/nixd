@@ -8,6 +8,8 @@
 
 #include "lspserver/LSPServer.h"
 
+#include <nixt/Name.h>
+
 #include <llvm/ADT/StringRef.h>
 
 #include <nix/nixexpr.hh>
@@ -138,7 +140,7 @@ void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
         const auto *Node = AST->lookupContainMin(Params.position);
         if (!Node)
           return;
-        const auto *ExprName = getExprName(Node);
+        const auto *ExprName = nixt::nameOf(Node);
         RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
         auto &HoverText = RR.Response->contents.value;
         if (auto OpV = AST->getValueEval(Node, *IER->Session->getState())) {

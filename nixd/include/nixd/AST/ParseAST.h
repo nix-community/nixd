@@ -6,6 +6,9 @@
 #include "nixd/Parser/Parser.h"
 #include "nixd/Support/Position.h"
 
+#include <nixt/Displacement.h>
+#include <nixt/ParentMap.h>
+
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 #include <optional>
@@ -51,7 +54,7 @@ protected:
   void prepareDefRef();
 
   void staticAnalysis() {
-    ParentMap = getParentMap(root());
+    ParentMap = nixt::parentMap(root());
     prepareDefRef();
   }
 
@@ -136,7 +139,7 @@ public:
 
   [[nodiscard]] Range defRange(Definition Def) const {
     auto [E, Displ] = Def;
-    return nPair(getDisplOf(E, Displ));
+    return nPair(nixt::displOf(E, Displ));
   }
 
   std::optional<lspserver::Range> lRange(const void *Ptr) const noexcept {

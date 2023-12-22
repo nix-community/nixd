@@ -1,5 +1,7 @@
 #include "nixd/Expr/Expr.h"
 
+#include <nixt/Name.h>
+
 #include <nix/canon-path.hh>
 #include <nix/eval.hh>
 #include <nix/nixexpr.hh>
@@ -21,14 +23,14 @@ public:
   }
 };
 
-struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
+struct ASTDump : nixt::RecursiveASTVisitor<ASTDump> {
 
   int Depth = 0;
   std::unique_ptr<nix::EvalState> State;
 
   bool traverseExpr(const nix::Expr *E) {
     Depth++;
-    if (!nixd::RecursiveASTVisitor<ASTDump>::traverseExpr(E))
+    if (!nixt::RecursiveASTVisitor<ASTDump>::traverseExpr(E))
       return false;
     Depth--;
     return true;
@@ -37,7 +39,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
   bool visitExpr(const nix::Expr *E) const {
     for (int I = 0; I < Depth; I++)
       std::cout << " ";
-    std::cout << nixd::getExprName(E) << ": ";
+    std::cout << nixt::nameOf(E) << ": ";
     E->show(State->symbols, std::cout);
     std::cout << "\n";
     return true;

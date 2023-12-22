@@ -11,6 +11,8 @@
 
 #include <cstdint>
 
+using namespace nixt;
+
 namespace nixd {
 
 TEST(Expr, Visitor1) {
@@ -22,7 +24,7 @@ with pkgs;
 a
   )";
   InitNix Inix;
-  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+  struct MyVisitor : RecursiveASTVisitor<MyVisitor> {
     bool VisitedWith = false;
     bool VisitedLet = false;
 
@@ -73,7 +75,7 @@ rec {
 }
   )";
   InitNix N;
-  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+  struct MyVisitor : RecursiveASTVisitor<MyVisitor> {
 #define NIX_EXPR(EXPR) bool Visited##EXPR = false;
 #include "nixd/Expr/Nodes.inc"
 #undef NIX_EXPR
@@ -98,7 +100,7 @@ rec {
 
 TEST(Expr, CallbackRewrite) {
   // Verify that all nodes are converted to our types
-  struct CallbackASTChecker : nixd::RecursiveASTVisitor<CallbackASTChecker>{
+  struct CallbackASTChecker : RecursiveASTVisitor<CallbackASTChecker>{
 
 #define NIX_EXPR(EXPR)                                                         \
   bool visit##EXPR(const nix::EXPR *E) {                                       \
@@ -156,9 +158,9 @@ void mkLookupTest(const char *NixSrc, uint32_t Line, uint32_t Column) {
   auto State = Inix.getDummyState();
   auto *ASTRoot = State->parseExprFromString(NixSrc, nix::CanonPath("/"));
 
-  auto PMap = getParentMap(ASTRoot);
+  auto PMap = parentMap(ASTRoot);
 
-  struct MyVisitor : nixd::RecursiveASTVisitor<MyVisitor> {
+  struct MyVisitor : RecursiveASTVisitor<MyVisitor> {
     decltype(PMap) *CapturedPMap;
     decltype(State) *CapturedState;
 

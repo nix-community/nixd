@@ -4,6 +4,7 @@ libnixdASTDeps = [ nixd_lsp_server
                  , nixdParser
                  , nixdNix
                  , llvm
+                 , nixt
                  ]
 
 libnixdAST = library('nixdAST'

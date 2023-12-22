@@ -3,6 +3,8 @@
 
 #include "lspserver/Protocol.h"
 
+#include <nixt/Visitor.h>
+
 #include <nix/nixexpr.hh>
 #include <nix/symbol-table.hh>
 
@@ -10,6 +12,8 @@
 #include <stdexcept>
 
 namespace nixd {
+
+using nixt::RecursiveASTVisitor;
 
 std::optional<ParseAST::Definition>
 ParseAST::lookupDef(lspserver::Position Desired) const {

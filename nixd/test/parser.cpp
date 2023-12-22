@@ -53,7 +53,7 @@ rec {
   auto Data = nixd::parse(Foo.data(), Foo.length(), CanonPath("/foo"),
                           CanonPath("/bar"), *State);
 
-  struct VTy : nixd::RecursiveASTVisitor<VTy> {
+  struct VTy : nixt::RecursiveASTVisitor<VTy> {
     ParseData *Data;
     int VisitedNodes = 0;
 

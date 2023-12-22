@@ -5,6 +5,9 @@
 #include "nixd/Parser/Parser.h"
 #include "nixd/Support/Position.h"
 
+#include <nixt/Name.h>
+#include <nixt/Visitor.h>
+
 #include <nix/canon-path.hh>
 #include <nix/error.hh>
 #include <nix/nixexpr.hh>
@@ -36,14 +39,14 @@ opt<bool> ShowRange("range", init(false),
 opt<bool> BindVars("bindv", init(false), desc("Do variables name binding"),
                    cat(Misc));
 
-struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
+struct ASTDump : nixt::RecursiveASTVisitor<ASTDump> {
   std::unique_ptr<nixd::ParseData> Data;
 
   int Depth = 0;
 
   bool traverseExpr(const nix::Expr *E) {
     Depth++;
-    if (!nixd::RecursiveASTVisitor<ASTDump>::traverseExpr(E))
+    if (!nixt::RecursiveASTVisitor<ASTDump>::traverseExpr(E))
       return false;
     Depth--;
     return true;
@@ -63,7 +66,7 @@ struct ASTDump : nixd::RecursiveASTVisitor<ASTDump> {
     for (int I = 0; I < Depth; I++) {
       std::cout << " ";
     }
-    std::cout << nixd::getExprName(E) << ": ";
+    std::cout << nixt::nameOf(E) << ": ";
     E->show(*Data->STable, std::cout);
     std::cout << " ";
     if (ShowRange)

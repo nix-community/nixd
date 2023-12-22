@@ -1,4 +1,4 @@
-libnixdExprDeps = nix_all
+libnixdExprDeps = [ nix_all, nixt ]
 
 libnixdExpr = library('nixdExpr'
 , 'Expr.cpp'
