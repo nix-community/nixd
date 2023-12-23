@@ -27,7 +27,7 @@ Some notable features provided by linking with the Nix library include:
 
 ![options-example](https://github.com/nix-community/nixd/assets/36667224/43e00a8e-c2e6-4598-b188-f5e95d708256)
 
-See how to configure option system: https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#options
+See how to configure option system: https://github.com/nix-community/nixd/blob/main/nixd/docs/user-guide.md#options
 
 </details>
 
@@ -39,7 +39,7 @@ See how to configure option system: https://github.com/nix-community/nixd/blob/m
 
 <details><summary>Native cross-file analysis</summary>
 
-![package](docs/images/3e4fc99c-7a20-42be-a337-d1746239c731.png)
+![package](nixd/docs/images/3e4fc99c-7a20-42be-a337-d1746239c731.png)
 
 We support goto-definition on nix derivations!
 Just `Ctrl + click` to see where is a package defined.
@@ -50,37 +50,37 @@ And also for nix lambda:
 
 ![lambda-location](https://github.com/nix-community/nixd/assets/36667224/5792da0b-8152-4e51-9b0e-0387b045eeb5)
 
-See how to configure the evaluator for cross-file analysis: https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#evaluation
+See how to configure the evaluator for cross-file analysis: https://github.com/nix-community/nixd/blob/main/nixd/docs/user-guide.md#evaluation
 
 </details>
 
 <details><summary>Handle evaluations exactly same as nix evaluator</summary>
 
-![infinte-recursion](docs/images/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
+![infinte-recursion](nixd/docs/images/9ed5e08a-e439-4b09-ba78-d83dc0a8a03f.png)
 
 </details>
 
 <details><summary>Support *all* builtins</summary>
 
-![eval-builtin-json](docs/images/59655838-36a8-4145-9717-f2009e0efef9.png)
+![eval-builtin-json](nixd/docs/images/59655838-36a8-4145-9717-f2009e0efef9.png)
 
 And diagnostic:
 
-![eval-builtin-diagnostic](docs/images/f6e10994-41e4-4a03-84a2-ef275fb402fd.png)
+![eval-builtin-diagnostic](nixd/docs/images/f6e10994-41e4-4a03-84a2-ef275fb402fd.png)
 
 </details>
 
 ## Get Started
 
 You can *try nixd without installation*.
-We have tested some working & reproducible [editor environments](/editors/editors.md) and example [configurations & workspaces](/docs/examples).
+We have tested some working & reproducible [editor environments](/nixd/docs/editors/editors.md) and example [configurations & workspaces](/nixd/docs/examples).
 
 ## Resources
 
-- [Editor Setup](docs/editor-setup.md)
-- [User Guide](docs/user-guide.md)
-- [Configuration Examples](docs/examples)
-- [Developers' Manual](docs/dev.md) (internal design, contributing):
+- [Editor Setup](nixd/docs/editor-setup.md)
+- [User Guide](nixd/docs/user-guide.md)
+- [Configuration Examples](nixd/docs/examples)
+- [Developers' Manual](nixd/docs/dev.md) (internal design, contributing):
 - Project matrix room: https://matrix.to/#/#nixd:matrix.org
 
 ## Project Structure
@@ -88,14 +88,13 @@ We have tested some working & reproducible [editor environments](/editors/editor
 ```
 .
 ├── default.nix
-├── docs
-├── editors
 ├── flake.lock
 ├── flake.nix
 ├── LICENSE
 ├── lspserver                          # The C++ library for writing LSP servers.
 ├── meson.build
 ├── nixd                               # Modularized nixd components, test suite, and tools (binary)
+│   ├── docs                           # Documentation
 │   ├── include                        # General header files
 │   ├── lib
 │   │   ├── AST                        # AST library for nix expressions, static analysis (rename, completion, location, range) & evaluation bindings.

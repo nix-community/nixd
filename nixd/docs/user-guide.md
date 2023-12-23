@@ -65,7 +65,7 @@ nix build -L .#
 ### Configuration
 
 
-- [Configuration Examples](/docs/examples)
+- [Configuration Examples](/nixd/docs/examples)
 
 We support LSP standard `workspace/configuration` for server configurations.
 
@@ -317,5 +317,4 @@ So tldr, to use `nixd` in your flake project, you have to:
 1. Turn your project into a legacy one, by using `flake-compat`
 2. Use `inclyc/flake-compat` which will not fetch git repository in nix store
 
-We have a working example [here](/docs/examples/flake/)
-
+We have a working example [here](/nixd/docs/examples/flake/)

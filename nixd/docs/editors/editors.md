@@ -2,7 +2,7 @@
 
 ### VSCodium
 
-We provide a test environment with the *vscode-nix-ide* plugin, and the repository has some [configuration examples](/docs/examples) that you can try.
+We provide a test environment with the *vscode-nix-ide* plugin, and the repository has some [configuration examples](/nixd/docs/examples) that you can try.
 
 Start up the test environment:
 
@@ -23,7 +23,7 @@ $ nvim-lsp /tmp/test/default.nix
 
 ```
 
-tip: If you want to configure lsp itself, see [configuration](/docs/user-guide.md#configuration), and the following tree-like directory
+tip: If you want to configure lsp itself, see [configuration](/nixd/docs/user-guide.md#configuration), and the following tree-like directory
 
 ```console
 # tree -a /tmp/test
