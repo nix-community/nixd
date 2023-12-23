@@ -31,6 +31,7 @@ gtest_main = dependency('gtest_main')
 
 llvm = dependency('llvm')
 boost = dependency('boost')
+fmt = dependency('fmt')
 
 cpp = meson.get_compiler('cpp')
 backtrace = cpp.find_library('backtrace')
@@ -40,5 +41,6 @@ lit = find_program('lit', required: false)
 pkgconfig = import('pkgconfig')
 
 subdir('lspserver')
+subdir('libnixf')
 subdir('libnixt')
 subdir('nixd')
