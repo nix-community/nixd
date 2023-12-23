@@ -50,14 +50,14 @@
           nativeBuildInputs = [
             nixd
             pkgs.nixpkgs-fmt
-            (import ./editors/nvim-lsp.nix { inherit pkgs; })
+            (import ./nixd/docs/editors/nvim-lsp.nix { inherit pkgs; })
           ];
         };
         devShells.vscodium = pkgs.mkShell {
           nativeBuildInputs = [
             nixd
             pkgs.nixpkgs-fmt
-            (import ./editors/vscodium.nix { inherit pkgs; })
+            (import ./nixd/docs/editors/vscodium.nix { inherit pkgs; })
           ];
         };
       };

@@ -7,7 +7,7 @@ Please update this doc (tweaks, tricks, or how to setup for another editor)!
 This is the description about how to setup your editor to use nixd.
 Before you do these steps, please ensure that you have a working nixd binary.
 
-Refer to https://github.com/nix-community/nixd/blob/main/docs/user-guide.md#installation for more information.
+Refer to https://github.com/nix-community/nixd/blob/main/nixd/docs/user-guide.md#installation for more information.
 
 
 ### VSCode
