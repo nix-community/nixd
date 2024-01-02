@@ -1,7 +1,8 @@
-/// Nodes.inc, nix expressions declaration.
 /// \file
-/// This record file provides NIX_EXPR macro that contains all names of
-/// nix::Expr
+/// \brief Nix expressions declaration.
+///
+/// This record file provides `NIX_EXPR` macro that contains all names of
+/// `nix::Expr`
 
 #ifdef NIX_EXPR
 
