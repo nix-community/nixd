@@ -1,5 +1,5 @@
 /// \file
-/// \brief Determine the kind of nix::Expr.
+/// \brief Determine the kind of `nix::Expr`.
 
 #pragma once
 
