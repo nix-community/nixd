@@ -8,7 +8,7 @@ libnixdInc = include_directories('include')
 
 libnixt = library('nixt',
                   'lib/Displacement.cpp',
-                  'lib/Name.cpp',
+                  'lib/Kinds.cpp',
                   'lib/ParentMap.cpp',
                   include_directories: libnixdInc,
                   dependencies: libnixtDeps,
@@ -27,3 +27,9 @@ nixt = declare_dependency(include_directories: libnixdInc,
                           dependencies: libnixtDeps,
                           link_with: libnixt
 )
+
+libnixt_test_exe = executable('test-libnixt',
+                              'test/Kinds.cpp',
+                              dependencies: [ gtest_main, nixt ])
+
+test('unit/libnixt', libnixt_test_exe)
