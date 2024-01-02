@@ -5,7 +5,7 @@ namespace nixt {
 ParentMap parentMap(const nix::Expr *Root) {
   ParentMap Ret;
   struct VisitorClass : RecursiveASTVisitor<VisitorClass> {
-    /// The parent before traverseExpr
+    // The parent before traverseExpr
     const nix::Expr *ParentExpr;
     ParentMap *CapturedRet;
 
