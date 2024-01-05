@@ -23,13 +23,13 @@ Package `nixd` can be found in [nixpkgs](https://github.com/NixOS/nixpkgs), ther
 On NixOS:
 
 ```console
-$ nix-env -iA nixos.nixd
+nix-env -iA nixos.nixd
 ```
 
 On Non NixOS:
 
 ```console
-$ nix-env -iA nixpkgs.nixd
+nix-env -iA nixpkgs.nixd
 ```
 
 </details>
@@ -38,7 +38,7 @@ $ nix-env -iA nixpkgs.nixd
 <summary><b>nix profile</b></summary>
 
 ```console
-$ nix profile install github:nixos/nixpkgs#nixd
+nix profile install github:nixos/nixpkgs#nixd
 ```
 
 </details>
