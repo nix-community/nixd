@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "nix-sema"
+]
+
+resolver = "2"
