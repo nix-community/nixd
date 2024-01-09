@@ -1,8 +1,8 @@
 #pragma once
 
+#include "Token.h"
+
 #include "nixf/Basic/Range.h"
-#include "nixf/Syntax/Token.h"
-#include "nixf/Syntax/Trivia.h"
 
 #include <cassert>
 #include <memory>
@@ -13,45 +13,6 @@ namespace nixf {
 
 class DiagnosticEngine;
 
-class TokenView {
-  const Token *Tok;
-  const char *TokBegin;
-  const char *TokEnd;
-
-public:
-  TokenView(const Token *Tok, const char *TB, const char *TE)
-      : Tok(Tok), TokBegin(TB), TokEnd(TE) {}
-
-  const Token *operator->() const { return Tok; }
-  operator const Token *() const { return Tok; }
-
-  [[nodiscard]] const char *getTokBegin() const { return TokBegin; }
-  [[nodiscard]] const char *getTokEnd() const { return TokEnd; }
-
-  [[nodiscard]] OffsetRange getTokRange() const { return {TokBegin, TokEnd}; }
-};
-
-class TokenAbs {
-  std::unique_ptr<Token> Tok;
-
-  const char *TokBegin;
-  const char *TokEnd;
-
-public:
-  TokenAbs(std::unique_ptr<Token> Tok, const char *TB, const char *TE)
-      : Tok(std::move(Tok)), TokBegin(TB), TokEnd(TE) {}
-
-  [[nodiscard]] const char *getTokBegin() const { return TokBegin; }
-  [[nodiscard]] const char *getTokEnd() const { return TokEnd; }
-
-  [[nodiscard]] std::unique_ptr<Token> take() { return std::move(Tok); }
-
-  operator TokenView() const { return {Tok.get(), TokBegin, TokEnd}; }
-
-  const Token *operator->() const { return Tok.get(); }
-  operator const Token *() const { return Tok.get(); }
-};
-
 class Lexer {
   const std::string_view Src;
   DiagnosticEngine &Diags;
@@ -60,22 +21,16 @@ class Lexer {
   // token recorder
   const char *TokStartPtr;
   tok::TokenKind Tok;
-  std::unique_ptr<Trivia> LeadingTrivia;
   void startToken() {
     Tok = tok::tok_unknown;
     TokStartPtr = Cur;
   }
-  TokenAbs finishToken() {
-    auto TokBody = std::make_unique<Token>(Tok, std::string(tokStr()),
-                                           std::move(LeadingTrivia), nullptr);
+  Token finishToken() { return {Tok, {TokStartPtr, Cur}}; }
 
-    return {std::move(TokBody), TokStartPtr, Cur};
-  }
+  void consumeTrivia();
 
-  Trivia consumeTrivia();
-
-  std::optional<TriviaPiece> tryConsumeWhitespaces();
-  std::optional<TriviaPiece> tryConsumeComments();
+  bool consumeWhitespaces();
+  bool consumeComments();
 
   bool eof(const char *Ptr) { return Ptr >= Src.end(); }
 
@@ -127,10 +82,10 @@ public:
     Cur = NewCur;
   }
 
-  TokenAbs lex();
-  TokenAbs lexString();
-  TokenAbs lexIndString();
-  TokenAbs lexPath();
+  Token lex();
+  Token lexString();
+  Token lexIndString();
+  Token lexPath();
 };
 
 } // namespace nixf

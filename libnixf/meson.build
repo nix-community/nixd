@@ -5,4 +5,4 @@ subdir('test')
 
 install_subdir('include', install_dir : 'include')
 
-subdir('tools')
+# subdir('tools')

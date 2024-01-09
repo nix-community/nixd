@@ -1,8 +1,9 @@
-libnixfParse_deps = [ nixfBasic, nixfSyntax, nixfLex ]
+libnixfParse_deps = [ nixfBasic ]
 
 libnixfParse_inc = nixf_inc
 
 libnixfParse = library('nixfParse',
+                       'Lexer.cpp',
                        'Parser.cpp',
                        include_directories: libnixfParse_inc,
                        dependencies: libnixfParse_deps,
