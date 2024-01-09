@@ -20,3 +20,13 @@ nixfParse = declare_dependency(include_directories: libnixfParse_inc,
                                link_with: libnixfParse,
                                dependencies: libnixfParse_deps
 )
+
+
+
+test('unit/libnixf/Parse',
+    executable('libnixf-Parse',
+        'test/Lexer.cpp',
+        dependencies: [ nixfParse, gtest_main ],
+        include_directories: include_directories('.')
+    )
+)

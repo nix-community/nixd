@@ -1,4 +1,5 @@
-#include "nixf/Parse/Lexer.h"
+#include "Lexer.h"
+
 #include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Parse/Token.h"
 

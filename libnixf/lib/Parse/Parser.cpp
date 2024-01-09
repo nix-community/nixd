@@ -1,11 +1,12 @@
 #pragma once
 
-#include "nixf/Parse/Parser.h"
+#include "Lexer.h"
+
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Basic/Range.h"
-#include "nixf/Parse/Lexer.h"
 #include "nixf/Parse/Nodes.h"
+#include "nixf/Parse/Parser.h"
 #include "nixf/Parse/Token.h"
 
 #include <cassert>
