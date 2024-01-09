@@ -1,6 +1,8 @@
 //! Structured syntax nodes.
 //! They should be able to represent any raw nix syntax.
 
+use std::collections::HashMap;
+
 /// Upstream type defined at [here](https://github.com/NixOS/nix/blob/8e865f3aba526394ca333efe7258bd8db0050fbb/src/libexpr/value.hh#L74)
 pub type NixInt = i64;
 
@@ -20,18 +22,22 @@ pub struct Position {
     pub column: u32,
 }
 
-pub enum Interpolable<'src> {
-    /// The fragment should be **escaped**.
-    /// This is a technical design decision, because "escaping" is tight to lexers.
-    Fragment(&'src str),
-
-    /// String interpolation. ${ expr }
-    Interpolation(RawExpression<'src>),
+pub enum AttrName<'src> {
+    Normal(&'src str),
+    Expr(Box<EvaluableExpression<'src>>),
 }
 
-/// Expressions, they can be evaluated after desugared / lowering.
-pub enum RawExpression<'src> {
-    String(Vec<Interpolable<'src>>),
+pub struct AttrDef<'src> {
+    pub inherited: bool,
+    pub e: Box<EvaluableExpression<'src>>,
+    pub pos: Position,
+    pub displ: Displacement,
+}
+
+pub struct DynamicAttrDef<'src> {
+    pub name_expr: Box<EvaluableExpression<'src>>,
+    pub value_expr: Box<EvaluableExpression<'src>>,
+    pub pos: Position,
 }
 
 /// Evaluable expressions.
@@ -90,9 +96,28 @@ pub enum EvaluableExpression<'src> {
         level: Level,
         displ: Displacement,
     },
-}
 
-pub enum Node<'src> {
-    RawExpression(RawExpression<'src>),
-    EvaluableExpression(EvaluableExpression<'src>),
+    Select {
+        pos: Position,
+
+        /// Selection body.
+        e: Option<Box<EvaluableExpression<'src>>>,
+
+        /// Default expr, e.g. `a.b.c or expr`
+        def: Option<Box<EvaluableExpression<'src>>>,
+
+        attr_path: Vec<AttrName<'src>>,
+    },
+
+    OpHasAttr {
+        e: Box<EvaluableExpression<'src>>,
+        attr_path: Vec<AttrName<'src>>,
+    },
+
+    Attrs {
+        recursive: bool,
+        pos: Position,
+        attrs: HashMap<&'src str, AttrDef<'src>>,
+        dynamic_attrs: Vec<DynamicAttrDef<'src>>,
+    },
 }

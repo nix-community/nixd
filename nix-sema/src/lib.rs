@@ -2,7 +2,17 @@
 //! The library aims to be parser-agnostic, and the design decision is trasform "raw" nix syntax to evaluable nodes.
 //! Transformation could be erroneous and the library try to recover from most cases,
 //! and also attach information for pretty-print or lsp purposes.
-pub mod syntax;
+
+use evaluable::EvaluableExpression;
+use raw::RawExpression;
+
+pub mod evaluable;
+pub mod raw;
+
+pub enum Node<'src> {
+    RawExpression(RawExpression<'src>),
+    EvaluableExpression(EvaluableExpression<'src>),
+}
 
 #[cfg(test)]
 mod tests {
