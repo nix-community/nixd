@@ -1,7 +1,6 @@
 #include "Lexer.h"
 
 #include "nixf/Basic/DiagnosticEngine.h"
-#include "nixf/Parse/Token.h"
 
 #include <cassert>
 #include <cctype>
@@ -262,7 +261,7 @@ void Lexer::maybeKW() {
     Tok = tok_kw_##NAME;                                                       \
     return;                                                                    \
   }
-#include "nixf/Parse/TokenKinds.inc"
+#include "TokenKinds.inc"
 #undef TOK_KEYWORD
 }
 

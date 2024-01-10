@@ -3,7 +3,6 @@
 #include "Lexer.h"
 
 #include "nixf/Basic/DiagnosticEngine.h"
-#include "nixf/Parse/Token.h"
 
 #include <cstddef>
 

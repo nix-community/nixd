@@ -14,6 +14,9 @@ enum TokenKind {
 
 } // namespace tok
 
+/// \brief A token. With it's kind, and the range in source code.
+///
+/// This class is trivially copyable.
 class Token {
   tok::TokenKind Kind;
   OffsetRange Range;

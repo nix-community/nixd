@@ -1,3 +1,5 @@
+/// \file
+/// \brief Parser implementation.
 #pragma once
 
 #include "Lexer.h"
@@ -7,7 +9,6 @@
 #include "nixf/Basic/Range.h"
 #include "nixf/Parse/Nodes.h"
 #include "nixf/Parse/Parser.h"
-#include "nixf/Parse/Token.h"
 
 #include <cassert>
 #include <charconv>

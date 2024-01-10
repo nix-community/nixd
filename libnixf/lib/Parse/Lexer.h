@@ -1,7 +1,15 @@
+/// \file
+/// \brief Lexer declaration. The lexer is a "stateful" lexer and highly tied to
+/// parser.
+///
+/// This should be considered as implementation detail of the parser. So the
+/// header is explicitly made private. Unit tests should be placed in the
+/// lib/Parse/test directory.
 #pragma once
 
+#include "Token.h"
+
 #include "nixf/Basic/Range.h"
-#include "nixf/Parse/Token.h"
 
 #include <cassert>
 #include <memory>
