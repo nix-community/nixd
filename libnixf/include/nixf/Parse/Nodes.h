@@ -15,6 +15,7 @@ public:
     NK_BeginExpr,
     NK_StringParts,
     NK_ExprInt,
+    NK_ExprFloat,
     NK_EndExpr,
   };
 
@@ -47,6 +48,15 @@ public:
   ExprInt(OffsetRange Range, NixInt Value)
       : Expr(NK_ExprInt, Range), Value(Value) {}
   [[nodiscard]] NixInt getValue() const { return Value; }
+};
+
+class ExprFloat : public Expr {
+  NixFloat Value;
+
+public:
+  ExprFloat(OffsetRange Range, NixFloat Value)
+      : Expr(NK_ExprFloat, Range), Value(Value) {}
+  [[nodiscard]] NixFloat getValue() const { return Value; }
 };
 
 class StringPart {

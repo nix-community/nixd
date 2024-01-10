@@ -176,6 +176,13 @@ public:
       assert(Err == std::errc());
       return std::make_unique<ExprInt>(Tok.Range, N);
     }
+    case tok_float: {
+      consume();
+      NixFloat N;
+      auto [_, Err] = std::from_chars(Tok.Range.Begin, Tok.Range.End, N);
+      assert(Err == std::errc());
+      return std::make_unique<ExprFloat>(Tok.Range, N);
+    }
     default:
       return nullptr;
     }
