@@ -17,7 +17,7 @@ static auto collect(Lexer &L, Token (Lexer::*Ptr)()) {
     Token Tok = (L.*Ptr)();
     if (Tok.Kind == tok_eof)
       break;
-    Ret.emplace_back(std::move(Tok));
+    Ret.emplace_back(Tok);
   }
   return Ret;
 }
