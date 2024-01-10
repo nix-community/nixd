@@ -10,6 +10,7 @@
 #include "nixf/Parse/Token.h"
 
 #include <cassert>
+#include <charconv>
 #include <deque>
 #include <memory>
 #include <stack>
@@ -18,7 +19,7 @@
 namespace {
 
 using namespace nixf;
-
+using namespace nixf::tok;
 class RangeBuilder {
   std::stack<const char *> Begins;
 
@@ -118,7 +119,6 @@ public:
   /// They are strings, ind-strings, paths, in nix language.
   /// \note This needs context-switching so look-ahead buf should be cleared.
   std::unique_ptr<InterpolatedParts> parseStringParts() {
-    using namespace tok;
     std::vector<StringPart> Parts;
     RB.push(Lex.cur());
     while (true) {
@@ -154,7 +154,6 @@ public:
   }
 
   std::unique_ptr<Node> parseString() {
-    using namespace tok;
     Token Tok = peek();
     assert(Tok.Kind == tok_dquote);
     // Consume the quote and so make the look-ahead buf empty.
@@ -166,12 +165,26 @@ public:
     popState();
     return nullptr; // TODO!
   }
+
+  std::unique_ptr<Expr> parseExprSimple() {
+    Token Tok = peek();
+    switch (Tok.Kind) {
+    case tok_int: {
+      consume();
+      NixInt N;
+      auto [_, Err] = std::from_chars(Tok.Range.Begin, Tok.Range.End, N);
+      assert(Err == std::errc());
+      return std::make_unique<ExprInt>(Tok.Range, N);
+    }
+    default:
+      return nullptr;
+    }
+  }
+
   std::unique_ptr<Expr> parseExpr() {
-    return nullptr; // TODO!
+    return parseExprSimple(); // TODO!
   }
-  std::unique_ptr<Expr> parse() {
-    return nullptr; // TODO!
-  }
+  std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 
 } // namespace

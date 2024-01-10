@@ -14,6 +14,7 @@ public:
   enum NodeKind {
     NK_BeginExpr,
     NK_StringParts,
+    NK_ExprInt,
     NK_EndExpr,
   };
 
@@ -34,6 +35,18 @@ protected:
   explicit Expr(NodeKind Kind, OffsetRange Range) : Node(Kind, Range) {
     assert(NK_BeginExpr <= Kind && Kind <= NK_EndExpr);
   }
+};
+
+using NixInt = int64_t;
+using NixFloat = double;
+
+class ExprInt : public Expr {
+  NixInt Value;
+
+public:
+  ExprInt(OffsetRange Range, NixInt Value)
+      : Expr(NK_ExprInt, Range), Value(Value) {}
+  [[nodiscard]] NixInt getValue() const { return Value; }
 };
 
 class StringPart {
