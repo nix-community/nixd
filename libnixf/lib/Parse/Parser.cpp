@@ -118,7 +118,7 @@ public:
   ///
   /// They are strings, ind-strings, paths, in nix language.
   /// \note This needs context-switching so look-ahead buf should be cleared.
-  std::unique_ptr<InterpolatedParts> parseStringParts() {
+  std::shared_ptr<InterpolatedParts> parseStringParts() {
     std::vector<StringPart> Parts;
     RB.push(Lex.cur());
     while (true) {
@@ -147,13 +147,13 @@ public:
           Range = RB.finish(LastToken->Range.End);
         else
           Range = RB.pop();
-        return std::make_unique<InterpolatedParts>(Range,
+        return std::make_shared<InterpolatedParts>(Range,
                                                    std::move(Parts)); // TODO!
       }
     }
   }
 
-  std::unique_ptr<Node> parseString() {
+  std::shared_ptr<Node> parseString() {
     Token Tok = peek();
     assert(Tok.Kind == tok_dquote);
     // Consume the quote and so make the look-ahead buf empty.
@@ -166,7 +166,7 @@ public:
     return nullptr; // TODO!
   }
 
-  std::unique_ptr<Expr> parseExprSimple() {
+  std::shared_ptr<Expr> parseExprSimple() {
     Token Tok = peek();
     switch (Tok.Kind) {
     case tok_int: {
@@ -174,30 +174,30 @@ public:
       NixInt N;
       auto [_, Err] = std::from_chars(Tok.Range.Begin, Tok.Range.End, N);
       assert(Err == std::errc());
-      return std::make_unique<ExprInt>(Tok.Range, N);
+      return std::make_shared<ExprInt>(Tok.Range, N);
     }
     case tok_float: {
       consume();
       // libc++ doesn't support std::from_chars for floating point numbers.
       NixFloat N = std::strtof(std::string(Tok.Range.view()).c_str(), nullptr);
-      return std::make_unique<ExprFloat>(Tok.Range, N);
+      return std::make_shared<ExprFloat>(Tok.Range, N);
     }
     default:
       return nullptr;
     }
   }
 
-  std::unique_ptr<Expr> parseExpr() {
+  std::shared_ptr<Expr> parseExpr() {
     return parseExprSimple(); // TODO!
   }
-  std::unique_ptr<Expr> parse() { return parseExpr(); }
+  std::shared_ptr<Expr> parse() { return parseExpr(); }
 };
 
 } // namespace
 
 namespace nixf {
 
-std::unique_ptr<Node> parse(std::string_view Src, DiagnosticEngine &Diag) {
+std::shared_ptr<Node> parse(std::string_view Src, DiagnosticEngine &Diag) {
   Parser P(Src, Diag);
   return P.parse();
 }

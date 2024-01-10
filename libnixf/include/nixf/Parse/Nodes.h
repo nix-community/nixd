@@ -65,14 +65,14 @@ class StringPart {
     SPK_Interpolation,
   } Kind;
   std::string Escaped;
-  std::unique_ptr<Expr> Interpolation;
+  std::shared_ptr<Expr> Interpolation;
 
 public:
   explicit StringPart(std::string Escaped)
       : Kind(SPK_Escaped), Escaped(std::move(Escaped)), Interpolation(nullptr) {
   }
 
-  explicit StringPart(std::unique_ptr<Expr> Expr)
+  explicit StringPart(std::shared_ptr<Expr> Expr)
       : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {}
 
   StringPartKind getKind() { return Kind; }
