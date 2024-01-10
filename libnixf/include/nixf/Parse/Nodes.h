@@ -12,8 +12,8 @@ namespace nixf {
 class Node {
 public:
   enum NodeKind {
+    NK_InterpolableParts,
     NK_BeginExpr,
-    NK_StringParts,
     NK_ExprInt,
     NK_ExprFloat,
     NK_EndExpr,
@@ -78,12 +78,12 @@ public:
   StringPartKind getKind() { return Kind; }
 };
 
-class InterpolatedParts : public Expr {
+class InterpolatedParts : public Node {
   std::vector<StringPart> Fragments;
 
 public:
   InterpolatedParts(OffsetRange Range, std::vector<StringPart> Fragments)
-      : Expr(NK_StringParts, Range), Fragments(std::move(Fragments)) {}
+      : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
 };
 
 } // namespace nixf
