@@ -98,8 +98,8 @@ aaa
   ASSERT_EQ(P.Range.view(), "");
   ASSERT_TRUE(!Diag.diags().empty());
 
-  ASSERT_EQ(std::string(Diag.diags()[0]->format()), "unterminated /* comment");
-  ASSERT_EQ(std::string(Diag.diags()[0]->notes()[0]->format()),
+  ASSERT_EQ(std::string(Diag.diags()[0]->message()), "unterminated /* comment");
+  ASSERT_EQ(std::string(Diag.diags()[0]->notes()[0]->message()),
             "/* comment begins at here");
 }
 
@@ -109,8 +109,9 @@ TEST_F(LexerTest, FloatLeadingZero) {
   ASSERT_EQ(P.Kind, tok_float);
   ASSERT_EQ(P.Range.view(), "00.33");
   ASSERT_FALSE(Diag.diags().empty());
-  ASSERT_EQ(std::string(Diag.diags()[0]->format()),
-            "float begins with extra zeros `00.33` is nixf extension");
+  ASSERT_EQ(std::string(Diag.diags()[0]->message()),
+            "float begins with extra zeros `{}` is nixf extension");
+  ASSERT_EQ(std::string(Diag.diags()[0]->getArgs()[0]), "00.33");
 }
 
 TEST_F(LexerTest, lexString) {

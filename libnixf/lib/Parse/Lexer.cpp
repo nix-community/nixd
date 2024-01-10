@@ -154,7 +154,8 @@ void Lexer::lexNumbers() {
   }
 
   if (tokStr().starts_with("00") && Tok == tok_float)
-    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << tokStr();
+    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2})
+        << std::string(tokStr());
 }
 
 static bool isPathChar(char Ch) {
