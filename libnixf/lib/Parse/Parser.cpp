@@ -178,9 +178,8 @@ public:
     }
     case tok_float: {
       consume();
-      NixFloat N;
-      auto [_, Err] = std::from_chars(Tok.Range.Begin, Tok.Range.End, N);
-      assert(Err == std::errc());
+      // libc++ doesn't support std::from_chars for floating point numbers.
+      NixFloat N = std::strtof(std::string(Tok.Range.view()).c_str(), nullptr);
       return std::make_unique<ExprFloat>(Tok.Range, N);
     }
     default:
