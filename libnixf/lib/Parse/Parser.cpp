@@ -124,7 +124,7 @@ public:
     while (true) {
       // FIXME: maybe create a stack-based state machine?
       assert(LookAheadBuf.empty()); // We are switching contexts.
-      switch (Token Tok = peek(0); Tok.Kind) {
+      switch (Token Tok = peek(0); Tok.getKind()) {
       case tok_dollar_curly: {
         consume();
         assert(LastToken);
@@ -132,7 +132,7 @@ public:
         if (auto Expr = parseExpr())
           Parts.emplace_back(std::move(Expr));
         else
-          diagNullExpr(Diag, LastToken->Range.End, "interpolation");
+          diagNullExpr(Diag, LastToken->getEnd(), "interpolation");
         continue;
       }
       case tok_string_part:
@@ -144,7 +144,7 @@ public:
       default:
         OffsetRange Range;
         if (LastToken)
-          Range = RB.finish(LastToken->Range.End);
+          Range = RB.finish(LastToken->getEnd());
         else
           Range = RB.pop();
         return std::make_shared<InterpolatedParts>(Range,
@@ -155,7 +155,7 @@ public:
 
   std::shared_ptr<Node> parseString() {
     Token Tok = peek();
-    assert(Tok.Kind == tok_dquote);
+    assert(Tok.getKind() == tok_dquote);
     // Consume the quote and so make the look-ahead buf empty.
     consume();
     // Switch to string parsing context.
@@ -168,19 +168,19 @@ public:
 
   std::shared_ptr<Expr> parseExprSimple() {
     Token Tok = peek();
-    switch (Tok.Kind) {
+    switch (Tok.getKind()) {
     case tok_int: {
       consume();
       NixInt N;
-      auto [_, Err] = std::from_chars(Tok.Range.Begin, Tok.Range.End, N);
+      auto [_, Err] = std::from_chars(Tok.getBegin(), Tok.getEnd(), N);
       assert(Err == std::errc());
-      return std::make_shared<ExprInt>(Tok.Range, N);
+      return std::make_shared<ExprInt>(Tok.getRange(), N);
     }
     case tok_float: {
       consume();
       // libc++ doesn't support std::from_chars for floating point numbers.
-      NixFloat N = std::strtof(std::string(Tok.Range.view()).c_str(), nullptr);
-      return std::make_shared<ExprFloat>(Tok.Range, N);
+      NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
+      return std::make_shared<ExprFloat>(Tok.getRange(), N);
     }
     default:
       return nullptr;

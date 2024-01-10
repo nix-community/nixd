@@ -15,7 +15,7 @@ static auto collect(Lexer &L, Token (Lexer::*Ptr)()) {
   std::vector<Token> Ret;
   while (true) {
     Token Tok = (L.*Ptr)();
-    if (Tok.Kind == tok_eof)
+    if (Tok.getKind() == tok_eof)
       break;
     Ret.emplace_back(Tok);
   }
@@ -30,28 +30,28 @@ struct LexerTest : testing::Test {
 TEST_F(LexerTest, Integer) {
   Lexer Lexer("1", Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_int);
+  ASSERT_EQ(P.getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer2) {
   Lexer Lexer("1123123", Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_int);
+  ASSERT_EQ(P.getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer4) {
   Lexer Lexer("00023121123123", Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_int);
+  ASSERT_EQ(P.getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
 TEST_F(LexerTest, Integer5) {
   Lexer Lexer("00023121123123", Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_int);
+  ASSERT_EQ(P.getKind(), tok_int);
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -60,8 +60,8 @@ TEST_F(LexerTest, Trivia1) {
   std::string Src = Trivia + "3";
   Lexer Lexer(Src, Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_int);
-  ASSERT_EQ(P.Range.view(), "3");
+  ASSERT_EQ(P.getKind(), tok_int);
+  ASSERT_EQ(P.view(), "3");
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -72,8 +72,8 @@ TEST_F(LexerTest, TriviaLComment) {
 )",
               Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_int);
-  ASSERT_EQ(P.Range.view(), "3");
+  ASSERT_EQ(P.getKind(), tok_int);
+  ASSERT_EQ(P.view(), "3");
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -83,8 +83,8 @@ aaa
 */)";
   Lexer Lexer(Src, Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_eof);
-  ASSERT_EQ(P.Range.view(), "");
+  ASSERT_EQ(P.getKind(), tok_eof);
+  ASSERT_EQ(P.view(), "");
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -94,8 +94,8 @@ aaa
 )";
   Lexer Lexer(Src, Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_eof);
-  ASSERT_EQ(P.Range.view(), "");
+  ASSERT_EQ(P.getKind(), tok_eof);
+  ASSERT_EQ(P.view(), "");
   ASSERT_TRUE(!Diag.diags().empty());
 
   ASSERT_EQ(std::string(Diag.diags()[0]->message()), "unterminated /* comment");
@@ -106,8 +106,8 @@ aaa
 TEST_F(LexerTest, FloatLeadingZero) {
   Lexer Lexer("00.33", Diag);
   auto P = Lexer.lex();
-  ASSERT_EQ(P.Kind, tok_float);
-  ASSERT_EQ(P.Range.view(), "00.33");
+  ASSERT_EQ(P.getKind(), tok_float);
+  ASSERT_EQ(P.view(), "00.33");
   ASSERT_FALSE(Diag.diags().empty());
   ASSERT_EQ(std::string(Diag.diags()[0]->message()),
             "float begins with extra zeros `{}` is nixf extension");
@@ -133,7 +133,7 @@ TEST_F(LexerTest, lexString) {
   };
   auto Tokens = collect(Lexer, &Lexer::lexString);
   for (size_t I = 0; I < Tokens.size(); I++) {
-    ASSERT_EQ(Tokens[I].Kind, Match[I]);
+    ASSERT_EQ(Tokens[I].getKind(), Match[I]);
   }
   ASSERT_EQ(Tokens.size(), 13);
 }
@@ -148,7 +148,7 @@ TEST_F(LexerTest, lexIDPath) {
   };
   auto Tokens = collect(Lexer, &Lexer::lex);
   for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
-    ASSERT_EQ(Tokens[I].Kind, Match[I]);
+    ASSERT_EQ(Tokens[I].getKind(), Match[I]);
   }
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
@@ -162,7 +162,7 @@ TEST_F(LexerTest, lexKW) {
   };
   auto Tokens = collect(Lexer, &Lexer::lex);
   for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
-    ASSERT_EQ(Tokens[I].Kind, Match[I]);
+    ASSERT_EQ(Tokens[I].getKind(), Match[I]);
   }
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
@@ -172,7 +172,7 @@ TEST_F(LexerTest, lexURI) {
   auto Tokens = collect(Lexer, &Lexer::lex);
   const TokenKind Match[] = {tok_uri};
   for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
-    ASSERT_EQ(Tokens[I].Kind, Match[I]);
+    ASSERT_EQ(Tokens[I].getKind(), Match[I]);
   }
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
