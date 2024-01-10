@@ -9,9 +9,9 @@
 namespace {
 
 using namespace nixf;
+using namespace std::literals;
 
 TEST(Parser, Integer) {
-  using namespace std::literals;
   auto Src = "1"sv;
   DiagnosticEngine Diags;
   auto Expr = nixf::parse(Src, Diags);
@@ -21,7 +21,6 @@ TEST(Parser, Integer) {
 }
 
 TEST(Parser, Float) {
-  using namespace std::literals;
   auto Src = "1.0"sv;
   DiagnosticEngine Diags;
   auto Expr = nixf::parse(Src, Diags);
@@ -33,7 +32,6 @@ TEST(Parser, Float) {
 }
 
 TEST(Parser, FloatLeading) {
-  using namespace std::literals;
   auto Src = "01.0"sv;
   DiagnosticEngine Diags;
   auto Expr = nixf::parse(Src, Diags);
@@ -45,7 +43,6 @@ TEST(Parser, FloatLeading) {
 }
 
 TEST(Parser, FloatLeading00) {
-  using namespace std::literals;
   auto Src = "00.5"sv;
   DiagnosticEngine Diags;
   auto Expr = nixf::parse(Src, Diags);
