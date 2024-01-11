@@ -24,6 +24,7 @@ public:
     NK_BeginExpr,
     NK_ExprInt,
     NK_ExprFloat,
+    NK_ExprString,
     NK_EndExpr,
   };
 
@@ -35,8 +36,10 @@ protected:
   explicit Node(NodeKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
 
 public:
-  NodeKind getKind() { return Kind; }
-  OffsetRange getRange() { return Range; }
+  [[nodiscard]] NodeKind getKind() const { return Kind; }
+  [[nodiscard]] OffsetRange getRange() const { return Range; }
+  [[nodiscard]] const char *getBegin() const { return Range.Begin; }
+  [[nodiscard]] const char *getEnd() const { return Range.End; }
 };
 
 class Expr : public Node {
@@ -92,6 +95,22 @@ class InterpolatedParts : public Node {
 public:
   InterpolatedParts(OffsetRange Range, std::vector<StringPart> Fragments)
       : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
+
+  [[nodiscard]] const std::vector<StringPart> &getFragments() const {
+    return Fragments;
+  };
+};
+
+class ExprString : public Expr {
+  std::shared_ptr<InterpolatedParts> Parts;
+
+public:
+  ExprString(OffsetRange Range, std::shared_ptr<InterpolatedParts> Parts)
+      : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {}
+
+  [[nodiscard]] const std::shared_ptr<InterpolatedParts> &getParts() const {
+    return Parts;
+  }
 };
 
 } // namespace nixf

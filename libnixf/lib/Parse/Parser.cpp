@@ -15,6 +15,7 @@
 #include <deque>
 #include <memory>
 #include <stack>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -28,7 +29,9 @@ public:
   void push(const char *Begin) { Begins.push(Begin); }
   OffsetRange finish(const char *End) {
     assert(!Begins.empty());
-    return {Begins.top(), End};
+    OffsetRange Ret = {Begins.top(), End};
+    Begins.pop();
+    return Ret;
   }
   OffsetRange pop() {
     assert(!Begins.empty());
@@ -64,6 +67,20 @@ private:
   std::optional<Token> LastToken;
   std::stack<ParserState> State;
   RangeBuilder RB;
+
+  class StateRAII {
+    Parser &P;
+
+  public:
+    StateRAII(Parser &P) : P(P) {}
+    ~StateRAII() { P.popState(); }
+  };
+
+  // Note: use `auto` for this type.
+  StateRAII withState(ParserState NewState) {
+    pushState(NewState);
+    return {*this};
+  }
 
   void pushState(ParserState NewState) {
     assert(LookAheadBuf.empty() &&
@@ -123,7 +140,6 @@ public:
     std::vector<StringPart> Parts;
     RB.push(Lex.cur());
     while (true) {
-      // FIXME: maybe create a stack-based state machine?
       assert(LookAheadBuf.empty()); // We are switching contexts.
       switch (Token Tok = peek(0); Tok.getKind()) {
       case tok_dollar_curly: {
@@ -136,7 +152,12 @@ public:
           diagNullExpr(Diag, LastToken->getEnd(), "interpolation");
         continue;
       }
-      case tok_string_part:
+      case tok_string_part: {
+        // If this is a part of string, just push it.
+        Parts.emplace_back(std::string(Tok.view()));
+        consume();
+        continue;
+      }
       case tok_string_escape:
         // If this is a part of string, just push it.
         consume();
@@ -154,17 +175,30 @@ public:
     }
   }
 
-  std::shared_ptr<Node> parseString() {
-    Token Tok = peek();
-    assert(Tok.getKind() == tok_dquote);
+  std::shared_ptr<Expr> parseString() {
+    Token DQuoteStart = peek();
+    assert(DQuoteStart.getKind() == tok_dquote && "should be a dquote");
+    RB.push(DQuoteStart.getBegin());
     // Consume the quote and so make the look-ahead buf empty.
     consume();
-    // Switch to string parsing context.
-    pushState(PS_String);
-    auto Parts = parseStringParts();
-    // TODO: string end
-    popState();
-    return nullptr; // TODO!
+    assert(LastToken && "LastToken should be set after consume()");
+    /* with(PS_String) */ {
+      auto StringState = withState(PS_String);
+      std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
+      if (Token EndTok = peek(); EndTok.getKind() == tok_dquote) {
+        consume();
+        return std::make_shared<ExprString>(RB.finish(EndTok.getEnd()),
+                                            std::move(Parts));
+      }
+      Diagnostic &D =
+          Diag.diag(Diagnostic::DK_Expected, OffsetRange(LastToken->getEnd()));
+      D << "\" to close string literal";
+      D.note(Note::NK_ToMachThis, OffsetRange{DQuoteStart.getBegin()});
+      D.fix(Fix::mkInsertion(LastToken->getEnd(), "\""));
+      return std::make_shared<ExprString>(RB.finish(Parts->getEnd()),
+                                          std::move(Parts));
+
+    } // with(PS_String)
   }
 
   std::shared_ptr<Expr> parseExprSimple() {
@@ -182,6 +216,9 @@ public:
       // libc++ doesn't support std::from_chars for floating point numbers.
       NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
       return std::make_shared<ExprFloat>(Tok.getRange(), N);
+    }
+    case tok_dquote: {
+      return parseString();
     }
     default:
       return nullptr;

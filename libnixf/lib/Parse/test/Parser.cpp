@@ -53,4 +53,17 @@ TEST(Parser, FloatLeading00) {
   ASSERT_EQ(Expr->getRange().view(), Src);
 }
 
+TEST(Parser, StringSimple) {
+  auto Src = R"("aaa")"sv;
+  DiagnosticEngine Diags;
+  auto Expr = nixf::parse(Src, Diags);
+  ASSERT_TRUE(Expr);
+  ASSERT_EQ(Expr->getKind(), Node::NK_ExprString);
+  auto Parts = static_cast<ExprString *>(Expr.get())->getParts();
+  ASSERT_EQ(Parts->getRange().view(), "aaa");
+  ASSERT_EQ(Parts->getFragments().size(), 1);
+  ASSERT_EQ(Diags.diags().size(), 0);
+  ASSERT_EQ(Expr->getRange().view(), Src);
+}
+
 } // namespace
