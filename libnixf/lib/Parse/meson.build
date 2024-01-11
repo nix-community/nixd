@@ -1,8 +1,9 @@
-libnixfParse_deps = [ nixfBasic, nixfSyntax, nixfLex ]
+libnixfParse_deps = [ nixfBasic ]
 
 libnixfParse_inc = nixf_inc
 
 libnixfParse = library('nixfParse',
+                       'Lexer.cpp',
                        'Parser.cpp',
                        include_directories: libnixfParse_inc,
                        dependencies: libnixfParse_deps,
@@ -18,4 +19,15 @@ pkgconfig.generate(name: 'libnixfParse',
 nixfParse = declare_dependency(include_directories: libnixfParse_inc,
                                link_with: libnixfParse,
                                dependencies: libnixfParse_deps
+)
+
+
+
+test('unit/libnixf/Parse',
+    executable('libnixf-Parse',
+        'test/Lexer.cpp',
+        'test/Parser.cpp',
+        dependencies: [ nixfParse, gtest_main ],
+        include_directories: include_directories('.')
+    )
 )

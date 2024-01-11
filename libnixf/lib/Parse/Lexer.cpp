@@ -1,7 +1,6 @@
-#include "nixf/Lex/Lexer.h"
+#include "Lexer.h"
+
 #include "nixf/Basic/DiagnosticEngine.h"
-#include "nixf/Syntax/Token.h"
-#include "nixf/Syntax/Trivia.h"
 
 #include <cassert>
 #include <cctype>
@@ -31,31 +30,25 @@ bool Lexer::prefix(std::string_view Prefix) {
   return false;
 }
 
-std::optional<TriviaPiece> Lexer::tryConsumeWhitespaces() {
+bool Lexer::consumeWhitespaces() {
   if (eof() || !std::isspace(*Cur))
-    return std::nullopt;
-
+    return false;
   const char *Ch = Cur;
-  TriviaKind Kind = spaceTriviaKind(*Cur);
-
   // consume same characters and combine them into a TriviaPiece
   do {
     Cur++;
   } while (Cur != Src.end() && *Cur == *Ch);
-
-  return TriviaPiece(Kind, std::string(Ch, Cur));
+  return true;
 }
 
-std::optional<TriviaPiece> Lexer::tryConsumeComments() {
+bool Lexer::consumeComments() {
   if (eof())
-    return std::nullopt;
+    return false;
 
-  std::string_view Remain = remain();
   const char *BeginPtr = Cur;
 
   if (consumePrefix("/*")) {
     // consume block comments until we meet '*/'
-    constexpr auto Kind = TriviaKind::BlockComment;
     while (true) {
       if (eof()) {
         // there is no '*/' to terminate comments
@@ -68,40 +61,33 @@ std::optional<TriviaPiece> Lexer::tryConsumeComments() {
         Diag.fix(Fix::mkInsertion(R.Begin, "*/"));
 
         // recover
-        return TriviaPiece(Kind, std::string(Remain));
+        return false;
       }
       if (!eof(Cur + 1) && consumePrefix("*/"))
         // we found the ending '*/'
-        return TriviaPiece(Kind, std::string(BeginPtr, Cur));
+        return true;
       Cur++;
     }
   } else if (consumePrefix("#")) {
     // single line comments, consume blocks until we meet EOF or '\n' or '\r'
     while (true) {
       if (eof() || consumeEOL()) {
-        return TriviaPiece(TriviaKind::LineComment, std::string(BeginPtr, Cur));
+        return true;
       }
       Cur++;
     }
   }
-  return std::nullopt;
+  return false;
 }
 
-Trivia Lexer::consumeTrivia() {
-  if (eof())
-    return Trivia({});
-
-  Trivia::TriviaPieces Pieces;
+void Lexer::consumeTrivia() {
   while (true) {
-    if (std::optional<TriviaPiece> OTP = tryConsumeWhitespaces())
-      Pieces.emplace_back(std::move(*OTP));
-    else if (std::optional<TriviaPiece> OTP = tryConsumeComments())
-      Pieces.emplace_back(std::move(*OTP));
-    else
-      break;
+    if (eof())
+      return;
+    if (consumeWhitespaces() || consumeComments())
+      continue;
+    return;
   }
-
-  return Trivia(Pieces);
 }
 
 bool Lexer::lexFloatExp() {
@@ -167,7 +153,8 @@ void Lexer::lexNumbers() {
   }
 
   if (tokStr().starts_with("00") && Tok == tok_float)
-    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2}) << tokStr();
+    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2})
+        << std::string(tokStr());
 }
 
 static bool isPathChar(char Ch) {
@@ -274,11 +261,11 @@ void Lexer::maybeKW() {
     Tok = tok_kw_##NAME;                                                       \
     return;                                                                    \
   }
-#include "nixf/Syntax/TokenKinds.inc"
+#include "TokenKinds.inc"
 #undef TOK_KEYWORD
 }
 
-TokenAbs Lexer::lexPath() {
+Token Lexer::lexPath() {
   // Accept all characters, except ${, or "
   // aaa/b//c
   // Path
@@ -311,7 +298,7 @@ TokenAbs Lexer::lexPath() {
   return finishToken();
 }
 
-TokenAbs Lexer::lexString() {
+Token Lexer::lexString() {
   // Accept all characters, except ${, or "
   startToken();
   if (eof()) {
@@ -359,7 +346,7 @@ TokenAbs Lexer::lexString() {
   return finishToken();
 }
 
-TokenAbs Lexer::lexIndString() {
+Token Lexer::lexIndString() {
   startToken();
   if (eof()) {
     Tok = tok_eof;
@@ -393,9 +380,9 @@ TokenAbs Lexer::lexIndString() {
   return finishToken();
 }
 
-TokenAbs Lexer::lex() {
+Token Lexer::lex() {
   // eat leading trivia
-  LeadingTrivia = std::make_unique<Trivia>(consumeTrivia());
+  consumeTrivia();
   startToken();
 
   if (eof()) {

@@ -56,24 +56,19 @@ public:
 
 class PartialDiagnostic {
 public:
-  virtual const char *format() const {
-    if (Result.empty())
-      Result = fmt::vformat(message(), Args);
-    return Result.c_str();
-  };
-
   [[nodiscard]] virtual const char *message() const = 0;
 
   virtual ~PartialDiagnostic() = default;
 
-  template <class T> PartialDiagnostic &operator<<(const T &Var) {
-    Args.push_back(Var);
+  PartialDiagnostic &operator<<(std::string Var) {
+    Args.emplace_back(std::move(Var));
     return *this;
   }
 
+  [[nodiscard]] const std::vector<std::string> &getArgs() const { return Args; }
+
 protected:
-  mutable std::string Result;
-  fmt::dynamic_format_arg_store<fmt::format_context> Args;
+  std::vector<std::string> Args;
   /// Location of this diagnostic
   OffsetRange Range;
 };
