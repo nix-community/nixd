@@ -25,8 +25,7 @@ cpp = meson.get_compiler('cpp')
 add_project_arguments([
   '-I' + meson.project_build_root(),
   cpp.get_supported_arguments(
-     '-Werror=documentation',
-     '-Werror=implicit-fallthrough'
+     '-Werror=documentation'
   ),
 ], language: 'cpp')
 

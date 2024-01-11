@@ -7,7 +7,8 @@ libnixfParse = library('nixfParse',
                        'Parser.cpp',
                        include_directories: libnixfParse_inc,
                        dependencies: libnixfParse_deps,
-                       install: true
+                       install: true,
+                       cpp_args: [ '-Werror=implicit-fallthrough' ]
 )
 
 pkgconfig.generate(name: 'libnixfParse',
