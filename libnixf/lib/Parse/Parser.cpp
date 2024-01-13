@@ -189,30 +189,32 @@ public:
     }
   }
 
-  std::shared_ptr<Expr> parseString() {
-    Token DQuoteStart = peek();
-    assert(DQuoteStart.kind() == tok_dquote && "should be a dquote");
-    RB.push(DQuoteStart.begin());
+  std::shared_ptr<Expr> parseString(bool IsIndented) {
+    Token Quote = peek();
+    TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
+    std::string QuoteSpel(tok::spelling(QuoteKind));
+    assert(Quote.kind() == QuoteKind && "should be a quote");
+    RB.push(Quote.begin());
     // Consume the quote and so make the look-ahead buf empty.
     consume();
     assert(LastToken && "LastToken should be set after consume()");
-    /* with(PS_String) */ {
-      auto StringState = withState(PS_String);
+    /* with(PS_String / PS_IndString) */ {
+      auto StringState = withState(IsIndented ? PS_IndString : PS_String);
       std::shared_ptr<InterpolatedParts> Parts = parseInterpolableParts();
-      if (Token EndTok = peek(); EndTok.kind() == tok_dquote) {
+      if (Token EndTok = peek(); EndTok.kind() == QuoteKind) {
         consume();
         return std::make_shared<ExprString>(RB.finish(EndTok.end()),
                                             std::move(Parts));
       }
       Diagnostic &D =
           Diag.diag(Diagnostic::DK_Expected, OffsetRange(LastToken->end()));
-      D << "\" to close string literal";
-      D.note(Note::NK_ToMachThis, OffsetRange{DQuoteStart.begin()}) << "\"";
-      D.fix(Fix::mkInsertion(LastToken->end(), "\""));
+      D << QuoteSpel;
+      D.note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
+      D.fix(Fix::mkInsertion(LastToken->end(), QuoteSpel));
       return std::make_shared<ExprString>(RB.finish(Parts->end()),
                                           std::move(Parts));
 
-    } // with(PS_String)
+    } // with(PS_String / PS_IndString)
   }
 
   std::shared_ptr<Expr> parseExprSimple() {
@@ -231,8 +233,10 @@ public:
       NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
       return std::make_shared<ExprFloat>(Tok.range(), N);
     }
-    case tok_dquote:
-      return parseString();
+    case tok_dquote: // "  - normal strings
+      return parseString(/*IsIndented=*/false);
+    case tok_quote2: // '' - indented strings
+      return parseString(/*IsIndented=*/true);
     default:
       return nullptr;
     }

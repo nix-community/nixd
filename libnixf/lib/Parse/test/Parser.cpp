@@ -84,16 +84,23 @@ TEST(Parser, StringMissingDQuote) {
   ASSERT_EQ(D->range().End, Src.begin() + 4);
   ASSERT_EQ(D->kind(), Diagnostic::DK_Expected);
   ASSERT_EQ(D->args().size(), 1);
-  ASSERT_EQ(D->args()[0], "\" to close string literal");
+  ASSERT_EQ(D->args()[0], "\"");
 
   // Check the note.
   ASSERT_EQ(D->notes().size(), 1);
   auto &N = D->notes()[0];
   ASSERT_EQ(N->range().Begin, Src.begin() + 0);
-  ASSERT_EQ(N->range().End, Src.begin() + 0);
+  ASSERT_EQ(N->range().End, Src.begin() + 1);
   ASSERT_EQ(N->kind(), Note::NK_ToMachThis);
   ASSERT_EQ(N->args().size(), 1);
   ASSERT_EQ(N->args()[0], "\"");
+
+  // Check fix-it hints.
+  ASSERT_EQ(D->fixes().size(), 1);
+  const auto &F = D->fixes()[0];
+  ASSERT_EQ(F.oldRange().Begin, Src.begin() + 4);
+  ASSERT_EQ(F.oldRange().End, Src.begin() + 4);
+  ASSERT_EQ(F.newText(), "\"");
 
   ASSERT_EQ(Expr->range().view(), Src);
 }
@@ -114,6 +121,49 @@ TEST(Parser, StringInterpolation) {
 
   ASSERT_EQ(Diags.diags().size(), 0);
   ASSERT_EQ(Expr->range().view(), Src);
+}
+
+TEST(Parser, IndentedString) {
+  auto Src = R"(''aaa
+  foo
+
+  bar
+
+  ${''string''}
+
+  )"sv;
+
+  DiagnosticEngine Diags;
+  auto Expr = nixf::parse(Src, Diags);
+  ASSERT_TRUE(Expr);
+  ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
+  auto Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_EQ(Parts->fragments().size(), 3);
+
+  // Check the diagnostic.
+  ASSERT_EQ(Diags.diags().size(), 1);
+  auto &D = Diags.diags()[0];
+  ASSERT_EQ(D->range().Begin, Src.begin() + 39);
+  ASSERT_EQ(D->range().End, Src.begin() + 39);
+  ASSERT_EQ(D->kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D->args().size(), 1);
+  ASSERT_EQ(D->args()[0], "''");
+
+  // Check the note.
+  ASSERT_EQ(D->notes().size(), 1);
+  auto &N = D->notes()[0];
+  ASSERT_EQ(N->range().Begin, Src.begin() + 0);
+  ASSERT_EQ(N->range().End, Src.begin() + 2);
+  ASSERT_EQ(N->kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N->args().size(), 1);
+  ASSERT_EQ(N->args()[0], "''");
+
+  // Check fix-it hints.
+  ASSERT_EQ(D->fixes().size(), 1);
+  const auto &F = D->fixes()[0];
+  ASSERT_EQ(F.oldRange().Begin, Src.begin() + 39);
+  ASSERT_EQ(F.oldRange().End, Src.begin() + 39);
+  ASSERT_EQ(F.newText(), "''");
 }
 
 } // namespace
