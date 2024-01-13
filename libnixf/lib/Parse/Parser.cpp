@@ -228,9 +228,8 @@ public:
       NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
       return std::make_shared<ExprFloat>(Tok.getRange(), N);
     }
-    case tok_dquote: {
+    case tok_dquote:
       return parseString();
-    }
     default:
       return nullptr;
     }
