@@ -23,10 +23,10 @@ class Token {
 
 public:
   Token(tok::TokenKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
-  [[nodiscard]] const char *getBegin() const { return Range.Begin; }
-  [[nodiscard]] const char *getEnd() const { return Range.End; }
-  [[nodiscard]] tok::TokenKind getKind() const { return Kind; }
-  [[nodiscard]] OffsetRange getRange() const { return Range; }
+  [[nodiscard]] const char *begin() const { return Range.Begin; }
+  [[nodiscard]] const char *end() const { return Range.End; }
+  [[nodiscard]] tok::TokenKind kind() const { return Kind; }
+  [[nodiscard]] OffsetRange range() const { return Range; }
   [[nodiscard]] std::string_view view() const { return Range.view(); }
 };
 
