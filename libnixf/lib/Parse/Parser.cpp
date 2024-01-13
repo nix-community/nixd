@@ -82,15 +82,26 @@ private:
     return {*this};
   }
 
+  /// \brief Reset the lexer cursor to the beginning of the first token.
+  ///
+  /// This is used for error recovery & context switching.
+  void resetLookAheadBuf() {
+    if (!LookAheadBuf.empty()) {
+      Token Tok = LookAheadBuf.front();
+
+      // Reset the lexer cursor at the beginning of the token.
+      Lex.setCur(Tok.getBegin());
+      LookAheadBuf.clear();
+    }
+  }
+
   void pushState(ParserState NewState) {
-    assert(LookAheadBuf.empty() &&
-           "LookAheadBuf should be empty when pushing state");
+    resetLookAheadBuf();
     State.push(NewState);
   }
 
   void popState() {
-    assert(LookAheadBuf.empty() &&
-           "LookAheadBuf should be empty when popping state");
+    resetLookAheadBuf();
     State.pop();
   }
 
@@ -193,9 +204,9 @@ public:
       Diagnostic &D =
           Diag.diag(Diagnostic::DK_Expected, OffsetRange(LastToken->getEnd()));
       D << "\" to close string literal";
-      D.note(Note::NK_ToMachThis, OffsetRange{DQuoteStart.getBegin()});
+      D.note(Note::NK_ToMachThis, OffsetRange{DQuoteStart.getBegin()}) << "\"";
       D.fix(Fix::mkInsertion(LastToken->getEnd(), "\""));
-      return std::make_shared<ExprString>(RB.finish(Parts->getEnd()),
+      return std::make_shared<ExprString>(RB.finish(Parts->end()),
                                           std::move(Parts));
 
     } // with(PS_String)

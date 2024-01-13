@@ -36,10 +36,10 @@ protected:
   explicit Node(NodeKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
 
 public:
-  [[nodiscard]] NodeKind getKind() const { return Kind; }
-  [[nodiscard]] OffsetRange getRange() const { return Range; }
-  [[nodiscard]] const char *getBegin() const { return Range.Begin; }
-  [[nodiscard]] const char *getEnd() const { return Range.End; }
+  [[nodiscard]] NodeKind kind() const { return Kind; }
+  [[nodiscard]] OffsetRange range() const { return Range; }
+  [[nodiscard]] const char *begin() const { return Range.Begin; }
+  [[nodiscard]] const char *end() const { return Range.End; }
 };
 
 class Expr : public Node {
@@ -58,7 +58,7 @@ class ExprInt : public Expr {
 public:
   ExprInt(OffsetRange Range, NixInt Value)
       : Expr(NK_ExprInt, Range), Value(Value) {}
-  [[nodiscard]] NixInt getValue() const { return Value; }
+  [[nodiscard]] NixInt value() const { return Value; }
 };
 
 class ExprFloat : public Expr {
@@ -67,7 +67,7 @@ class ExprFloat : public Expr {
 public:
   ExprFloat(OffsetRange Range, NixFloat Value)
       : Expr(NK_ExprFloat, Range), Value(Value) {}
-  [[nodiscard]] NixFloat getValue() const { return Value; }
+  [[nodiscard]] NixFloat value() const { return Value; }
 };
 
 class StringPart {
@@ -86,7 +86,7 @@ public:
   explicit StringPart(std::shared_ptr<Expr> Expr)
       : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {}
 
-  StringPartKind getKind() { return Kind; }
+  StringPartKind kind() { return Kind; }
 };
 
 class InterpolatedParts : public Node {
@@ -96,7 +96,7 @@ public:
   InterpolatedParts(OffsetRange Range, std::vector<StringPart> Fragments)
       : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
 
-  [[nodiscard]] const std::vector<StringPart> &getFragments() const {
+  [[nodiscard]] const std::vector<StringPart> &fragments() const {
     return Fragments;
   };
 };
@@ -108,7 +108,7 @@ public:
   ExprString(OffsetRange Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {}
 
-  [[nodiscard]] const std::shared_ptr<InterpolatedParts> &getParts() const {
+  [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
     return Parts;
   }
 };
