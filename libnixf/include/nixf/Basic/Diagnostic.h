@@ -65,7 +65,7 @@ public:
     return *this;
   }
 
-  [[nodiscard]] const std::vector<std::string> &getArgs() const { return Args; }
+  [[nodiscard]] const std::vector<std::string> &args() const { return Args; }
 
 protected:
   std::vector<std::string> Args;

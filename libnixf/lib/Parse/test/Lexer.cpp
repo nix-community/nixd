@@ -110,7 +110,7 @@ TEST_F(LexerTest, FloatLeadingZero) {
   ASSERT_FALSE(Diag.diags().empty());
   ASSERT_EQ(std::string(Diag.diags()[0]->message()),
             "float begins with extra zeros `{}` is nixf extension");
-  ASSERT_EQ(std::string(Diag.diags()[0]->getArgs()[0]), "00.33");
+  ASSERT_EQ(std::string(Diag.diags()[0]->args()[0]), "00.33");
 }
 
 TEST_F(LexerTest, lexString) {

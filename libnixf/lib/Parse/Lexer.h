@@ -85,7 +85,7 @@ public:
 
   /// Reset the cursor at source \p offset (zero-based indexing)
   void setCur(const char *NewCur) {
-    assert(NewCur < Src.end());
+    assert(NewCur <= Src.end());
     Cur = NewCur;
   }
 
