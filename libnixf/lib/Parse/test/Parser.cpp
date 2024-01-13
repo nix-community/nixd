@@ -98,4 +98,22 @@ TEST(Parser, StringMissingDQuote) {
   ASSERT_EQ(Expr->range().view(), Src);
 }
 
+TEST(Parser, StringInterpolation) {
+  auto Src = R"("aaa ${1} bbb")"sv;
+  DiagnosticEngine Diags;
+  auto Expr = nixf::parse(Src, Diags);
+  ASSERT_TRUE(Expr);
+  ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
+  auto Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_EQ(Parts->range().view(), "aaa ${1} bbb");
+  ASSERT_EQ(Parts->fragments().size(), 3);
+
+  ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts->fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
+  ASSERT_EQ(Parts->fragments()[2].kind(), InterpolablePart::SPK_Escaped);
+
+  ASSERT_EQ(Diags.diags().size(), 0);
+  ASSERT_EQ(Expr->range().view(), Src);
+}
+
 } // namespace

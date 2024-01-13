@@ -70,33 +70,37 @@ public:
   [[nodiscard]] NixFloat value() const { return Value; }
 };
 
-class StringPart {
-  enum StringPartKind {
+class InterpolablePart {
+public:
+  enum InterpolablePartKind {
     SPK_Escaped,
     SPK_Interpolation,
-  } Kind;
+  };
+
+private:
+  InterpolablePartKind Kind;
   std::string Escaped;
   std::shared_ptr<Expr> Interpolation;
 
 public:
-  explicit StringPart(std::string Escaped)
+  explicit InterpolablePart(std::string Escaped)
       : Kind(SPK_Escaped), Escaped(std::move(Escaped)), Interpolation(nullptr) {
   }
 
-  explicit StringPart(std::shared_ptr<Expr> Expr)
+  explicit InterpolablePart(std::shared_ptr<Expr> Expr)
       : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {}
 
-  StringPartKind kind() { return Kind; }
+  [[nodiscard]] InterpolablePartKind kind() const { return Kind; }
 };
 
 class InterpolatedParts : public Node {
-  std::vector<StringPart> Fragments;
+  std::vector<InterpolablePart> Fragments;
 
 public:
-  InterpolatedParts(OffsetRange Range, std::vector<StringPart> Fragments)
+  InterpolatedParts(OffsetRange Range, std::vector<InterpolablePart> Fragments)
       : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
 
-  [[nodiscard]] const std::vector<StringPart> &fragments() const {
+  [[nodiscard]] const std::vector<InterpolablePart> &fragments() const {
     return Fragments;
   };
 };
