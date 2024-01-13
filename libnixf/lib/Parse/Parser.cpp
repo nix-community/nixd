@@ -147,8 +147,8 @@ public:
   ///
   /// They are strings, ind-strings, paths, in nix language.
   /// \note This needs context-switching so look-ahead buf should be cleared.
-  std::shared_ptr<InterpolatedParts> parseStringParts() {
-    std::vector<StringPart> Parts;
+  std::shared_ptr<InterpolatedParts> parseInterpolableParts() {
+    std::vector<InterpolablePart> Parts;
     RB.push(Lex.cur());
     while (true) {
       assert(LookAheadBuf.empty()); // We are switching contexts.
@@ -156,11 +156,14 @@ public:
       case tok_dollar_curly: {
         consume();
         assert(LastToken);
-        // interpolation, we need to parse a subtree then.
-        if (auto Expr = parseExpr())
-          Parts.emplace_back(std::move(Expr));
-        else
-          diagNullExpr(Diag, LastToken->end(), "interpolation");
+        /* with(PS_Expr) */ {
+          auto ExprState = withState(PS_Expr);
+          // interpolation, we need to parse a subtree then.
+          if (auto Expr = parseExpr())
+            Parts.emplace_back(std::move(Expr));
+          else
+            diagNullExpr(Diag, LastToken->end(), "interpolation");
+        } // with(PS_Expr)
         continue;
       }
       case tok_string_part: {
@@ -195,7 +198,7 @@ public:
     assert(LastToken && "LastToken should be set after consume()");
     /* with(PS_String) */ {
       auto StringState = withState(PS_String);
-      std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
+      std::shared_ptr<InterpolatedParts> Parts = parseInterpolableParts();
       if (Token EndTok = peek(); EndTok.kind() == tok_dquote) {
         consume();
         return std::make_shared<ExprString>(RB.finish(EndTok.end()),
