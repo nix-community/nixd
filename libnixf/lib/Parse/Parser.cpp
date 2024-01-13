@@ -90,7 +90,7 @@ private:
       Token Tok = LookAheadBuf.front();
 
       // Reset the lexer cursor at the beginning of the token.
-      Lex.setCur(Tok.getBegin());
+      Lex.setCur(Tok.begin());
       LookAheadBuf.clear();
     }
   }
@@ -152,7 +152,7 @@ public:
     RB.push(Lex.cur());
     while (true) {
       assert(LookAheadBuf.empty()); // We are switching contexts.
-      switch (Token Tok = peek(0); Tok.getKind()) {
+      switch (Token Tok = peek(0); Tok.kind()) {
       case tok_dollar_curly: {
         consume();
         assert(LastToken);
@@ -160,7 +160,7 @@ public:
         if (auto Expr = parseExpr())
           Parts.emplace_back(std::move(Expr));
         else
-          diagNullExpr(Diag, LastToken->getEnd(), "interpolation");
+          diagNullExpr(Diag, LastToken->end(), "interpolation");
         continue;
       }
       case tok_string_part: {
@@ -177,7 +177,7 @@ public:
       default:
         OffsetRange Range;
         if (LastToken)
-          Range = RB.finish(LastToken->getEnd());
+          Range = RB.finish(LastToken->end());
         else
           Range = RB.pop();
         return std::make_shared<InterpolatedParts>(Range,
@@ -188,24 +188,24 @@ public:
 
   std::shared_ptr<Expr> parseString() {
     Token DQuoteStart = peek();
-    assert(DQuoteStart.getKind() == tok_dquote && "should be a dquote");
-    RB.push(DQuoteStart.getBegin());
+    assert(DQuoteStart.kind() == tok_dquote && "should be a dquote");
+    RB.push(DQuoteStart.begin());
     // Consume the quote and so make the look-ahead buf empty.
     consume();
     assert(LastToken && "LastToken should be set after consume()");
     /* with(PS_String) */ {
       auto StringState = withState(PS_String);
       std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
-      if (Token EndTok = peek(); EndTok.getKind() == tok_dquote) {
+      if (Token EndTok = peek(); EndTok.kind() == tok_dquote) {
         consume();
-        return std::make_shared<ExprString>(RB.finish(EndTok.getEnd()),
+        return std::make_shared<ExprString>(RB.finish(EndTok.end()),
                                             std::move(Parts));
       }
       Diagnostic &D =
-          Diag.diag(Diagnostic::DK_Expected, OffsetRange(LastToken->getEnd()));
+          Diag.diag(Diagnostic::DK_Expected, OffsetRange(LastToken->end()));
       D << "\" to close string literal";
-      D.note(Note::NK_ToMachThis, OffsetRange{DQuoteStart.getBegin()}) << "\"";
-      D.fix(Fix::mkInsertion(LastToken->getEnd(), "\""));
+      D.note(Note::NK_ToMachThis, OffsetRange{DQuoteStart.begin()}) << "\"";
+      D.fix(Fix::mkInsertion(LastToken->end(), "\""));
       return std::make_shared<ExprString>(RB.finish(Parts->end()),
                                           std::move(Parts));
 
@@ -214,19 +214,19 @@ public:
 
   std::shared_ptr<Expr> parseExprSimple() {
     Token Tok = peek();
-    switch (Tok.getKind()) {
+    switch (Tok.kind()) {
     case tok_int: {
       consume();
       NixInt N;
-      auto [_, Err] = std::from_chars(Tok.getBegin(), Tok.getEnd(), N);
+      auto [_, Err] = std::from_chars(Tok.begin(), Tok.end(), N);
       assert(Err == std::errc());
-      return std::make_shared<ExprInt>(Tok.getRange(), N);
+      return std::make_shared<ExprInt>(Tok.range(), N);
     }
     case tok_float: {
       consume();
       // libc++ doesn't support std::from_chars for floating point numbers.
       NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
-      return std::make_shared<ExprFloat>(Tok.getRange(), N);
+      return std::make_shared<ExprFloat>(Tok.range(), N);
     }
     case tok_dquote:
       return parseString();
