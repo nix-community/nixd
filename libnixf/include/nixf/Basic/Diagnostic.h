@@ -50,8 +50,8 @@ public:
     return OldRange.Begin == OldRange.End;
   }
 
-  [[nodiscard]] OffsetRange getOldRange() const { return OldRange; }
-  [[nodiscard]] std::string_view getNewText() const { return NewText; }
+  [[nodiscard]] OffsetRange oldRange() const { return OldRange; }
+  [[nodiscard]] std::string_view newText() const { return NewText; }
 };
 
 class PartialDiagnostic {
@@ -154,7 +154,7 @@ public:
     return *this;
   }
 
-  const std::vector<Fix> &getFixes() { return Fixes; }
+  const std::vector<Fix> &fixes() { return Fixes; }
 
   OffsetRange range() const { return Range; }
 

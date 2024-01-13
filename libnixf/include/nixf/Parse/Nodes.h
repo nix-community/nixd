@@ -25,6 +25,7 @@ public:
     NK_ExprInt,
     NK_ExprFloat,
     NK_ExprString,
+    NK_ExprPath,
     NK_EndExpr,
   };
 
@@ -111,6 +112,18 @@ class ExprString : public Expr {
 public:
   ExprString(OffsetRange Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {}
+
+  [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
+    return Parts;
+  }
+};
+
+class ExprPath : public Expr {
+  std::shared_ptr<InterpolatedParts> Parts;
+
+public:
+  ExprPath(OffsetRange Range, std::shared_ptr<InterpolatedParts> Parts)
+      : Expr(NK_ExprPath, Range), Parts(std::move(Parts)) {}
 
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
     return Parts;
