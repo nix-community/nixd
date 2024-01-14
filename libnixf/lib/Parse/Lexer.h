@@ -109,6 +109,16 @@ class Lexer {
     return Src.substr(Cur.Offset);
   }
 
+  [[nodiscard]] RangeTy curRange() const { return {Cur, Cur}; }
+
+  [[nodiscard]] char peekUnwrap() const { return Src[Cur.Offset]; }
+
+  [[nodiscard]] std::optional<char> peek() const {
+    if (eof())
+      return std::nullopt;
+    return peekUnwrap();
+  }
+
 public:
   Lexer(std::string_view Src, DiagnosticEngine &Diags)
       : Src(Src), Diags(Diags), Cur() {}
@@ -120,16 +130,6 @@ public:
   }
 
   [[nodiscard]] const Point &cur() const { return Cur; }
-
-  [[nodiscard]] RangeTy curRange() const { return {Cur, Cur}; }
-
-  [[nodiscard]] char peekUnwrap() const { return Src[Cur.Offset]; }
-
-  [[nodiscard]] std::optional<char> peek() const {
-    if (eof())
-      return std::nullopt;
-    return peekUnwrap();
-  }
 
   Token lex();
   Token lexString();
