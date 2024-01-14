@@ -123,26 +123,36 @@ public:
     pushState(PS_Expr);
   }
 
+  /// \brief Parse interpolations.
+  ///
+  /// interpolation : "${" expr "}"
+  std::shared_ptr<Expr> parseInterpolation() {
+    assert(peek().kind() == tok_dollar_curly);
+    consume();
+    assert(LastToken);
+    /* with(PS_Expr) */ {
+      auto ExprState = withState(PS_Expr);
+      return parseExpr();
+    } // with(PS_Expr)
+    return nullptr;
+  }
+
   /// \brief Parse interpolable things.
   ///
   /// They are strings, ind-strings, paths, in nix language.
   /// \note This needs context-switching so look-ahead buf should be cleared.
-  std::shared_ptr<InterpolatedParts> parseInterpolableParts() {
+  std::shared_ptr<InterpolatedParts> parseStringParts() {
     std::vector<InterpolablePart> Parts;
     Point PartsBegin = peek().begin();
     while (true) {
       switch (Token Tok = peek(0); Tok.kind()) {
       case tok_dollar_curly: {
-        consume();
-        assert(LastToken);
-        /* with(PS_Expr) */ {
-          auto ExprState = withState(PS_Expr);
-          // interpolation, we need to parse a subtree then.
-          if (auto Expr = parseExpr())
-            Parts.emplace_back(std::move(Expr));
-          else
-            diagNullExpr(Diag, LastToken->end(), "interpolation");
-        } // with(PS_Expr)
+        if (auto Expr = parseInterpolation()) {
+          Parts.emplace_back(std::move(Expr));
+        } else {
+          assert(LastToken); // at least "${"
+          diagNullExpr(Diag, LastToken->end(), "string interpolation");
+        }
         continue;
       }
       case tok_string_part: {
@@ -157,13 +167,13 @@ public:
         // TODO: escape and emplace_back
         continue;
       default:
-        RangeTy Range;
-        if (LastToken)
-          Range = {PartsBegin, LastToken->end()};
-        else
-          Range = {PartsBegin, PartsBegin};
-        return std::make_shared<InterpolatedParts>(Range,
-                                                   std::move(Parts)); // TODO!
+        assert(LastToken && "LastToken should be set in `parseString`");
+        return std::make_shared<InterpolatedParts>(
+            RangeTy{
+                PartsBegin,
+                LastToken->end(),
+            },
+            std::move(Parts)); // TODO!
       }
     }
   }
@@ -178,7 +188,7 @@ public:
     assert(LastToken && "LastToken should be set after consume()");
     /* with(PS_String / PS_IndString) */ {
       auto StringState = withState(IsIndented ? PS_IndString : PS_String);
-      std::shared_ptr<InterpolatedParts> Parts = parseInterpolableParts();
+      std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
       if (Token EndTok = peek(); EndTok.kind() == QuoteKind) {
         consume();
         return std::make_shared<ExprString>(
