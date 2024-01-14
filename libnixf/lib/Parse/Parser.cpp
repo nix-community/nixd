@@ -3,7 +3,6 @@
 #pragma once
 
 #include "Lexer.h"
-#include "RangeBuilder.h"
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/DiagnosticEngine.h"
@@ -48,7 +47,6 @@ private:
   std::deque<Token> LookAheadBuf;
   std::optional<Token> LastToken;
   std::stack<ParserState> State;
-  RangeBuilder RB;
 
   class StateRAII {
     Parser &P;
@@ -131,9 +129,8 @@ public:
   /// \note This needs context-switching so look-ahead buf should be cleared.
   std::shared_ptr<InterpolatedParts> parseInterpolableParts() {
     std::vector<InterpolablePart> Parts;
-    RB.push(Lex.cur());
+    Point PartsBegin = peek().begin();
     while (true) {
-      assert(LookAheadBuf.empty()); // We are switching contexts.
       switch (Token Tok = peek(0); Tok.kind()) {
       case tok_dollar_curly: {
         consume();
@@ -162,9 +159,9 @@ public:
       default:
         RangeTy Range;
         if (LastToken)
-          Range = RB.finish(LastToken->end());
+          Range = {PartsBegin, LastToken->end()};
         else
-          Range = RB.pop();
+          Range = {PartsBegin, PartsBegin};
         return std::make_shared<InterpolatedParts>(Range,
                                                    std::move(Parts)); // TODO!
       }
@@ -176,7 +173,6 @@ public:
     TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
     std::string QuoteSpel(tok::spelling(QuoteKind));
     assert(Quote.kind() == QuoteKind && "should be a quote");
-    RB.push(Quote.begin());
     // Consume the quote and so make the look-ahead buf empty.
     consume();
     assert(LastToken && "LastToken should be set after consume()");
@@ -185,16 +181,24 @@ public:
       std::shared_ptr<InterpolatedParts> Parts = parseInterpolableParts();
       if (Token EndTok = peek(); EndTok.kind() == QuoteKind) {
         consume();
-        return std::make_shared<ExprString>(RB.finish(EndTok.end()),
-                                            std::move(Parts));
+        return std::make_shared<ExprString>(
+            RangeTy{
+                Quote.begin(),
+                EndTok.end(),
+            },
+            std::move(Parts));
       }
       Diagnostic &D =
           Diag.diag(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
       D << QuoteSpel;
       D.note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
       D.fix(Fix::mkInsertion(LastToken->end(), QuoteSpel));
-      return std::make_shared<ExprString>(RB.finish(Parts->end()),
-                                          std::move(Parts));
+      return std::make_shared<ExprString>(
+          RangeTy{
+              Quote.begin(),
+              Parts->end(),
+          },
+          std::move(Parts));
 
     } // with(PS_String / PS_IndString)
   }
