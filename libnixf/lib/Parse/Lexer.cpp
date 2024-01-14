@@ -10,6 +10,34 @@ namespace nixf {
 
 using namespace tok;
 
+namespace {
+
+bool isUriSchemeChar(char Ch) {
+  // These characters are valid URI scheme char.
+  return std::isalnum(Ch) || Ch == '+' || Ch == '-' || Ch == '.';
+}
+
+bool isUriPathChar(char Ch) {
+  // These characters are valid URI path char.
+  return std::isalnum(Ch) || Ch == '%' || Ch == '/' || Ch == '?' || Ch == ':' ||
+         Ch == '@' || Ch == '&' || Ch == '=' || Ch == '+' || Ch == '$' ||
+         Ch == ',' || Ch == '-' || Ch == '_' || Ch == '.' || Ch == '!' ||
+         Ch == '~' || Ch == '*' || Ch == '\'';
+}
+
+bool isPathChar(char Ch) {
+  // These characters are valid path char.
+  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '.' || Ch == '_' ||
+         Ch == '-' || Ch == '+';
+}
+
+bool isIdentifierChar(char Ch) {
+  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '_' || Ch == '\'' ||
+         Ch == '-';
+}
+
+} // namespace
+
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
@@ -53,12 +81,6 @@ bool Lexer::consumeOne(char C) {
     return true;
   }
   return false;
-}
-
-static bool isPathChar(char Ch) {
-  // These characters are valid path char.
-  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '.' || Ch == '_' ||
-         Ch == '-' || Ch == '+';
 }
 
 std::optional<RangeTy> Lexer::consumeManyPathChar() {
@@ -219,19 +241,6 @@ bool Lexer::consumePathStart() {
   return false;
 }
 
-static bool isUriSchemeChar(char Ch) {
-  // These characters are valid URI scheme char.
-  return std::isalnum(Ch) || Ch == '+' || Ch == '-' || Ch == '.';
-}
-
-static bool isUriPathChar(char Ch) {
-  // These characters are valid URI path char.
-  return std::isalnum(Ch) || Ch == '%' || Ch == '/' || Ch == '?' || Ch == ':' ||
-         Ch == '@' || Ch == '&' || Ch == '=' || Ch == '+' || Ch == '$' ||
-         Ch == ',' || Ch == '-' || Ch == '_' || Ch == '.' || Ch == '!' ||
-         Ch == '~' || Ch == '*' || Ch == '\'';
-}
-
 bool Lexer::consumeURI() {
   // URI
   // [a-zA-Z][a-zA-Z0-9\+\-\.]*\:[a-zA-Z0-9\%\/\?\:\@\&\=\+\$\,\-\_\.\!\~\*\']+
@@ -259,11 +268,6 @@ bool Lexer::consumeURI() {
 
   Cur = Saved;
   return false;
-}
-
-static bool isIdentifierChar(char Ch) {
-  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '_' || Ch == '\'' ||
-         Ch == '-';
 }
 
 void Lexer::lexIdentifier() {
