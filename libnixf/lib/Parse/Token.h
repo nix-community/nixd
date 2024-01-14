@@ -38,15 +38,14 @@ constexpr std::string_view spelling(TokenKind Kind) {
 /// This class is trivially copyable.
 class Token {
   tok::TokenKind Kind;
-  OffsetRange Range;
+  RangeTy Range;
 
 public:
-  Token(tok::TokenKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
-  [[nodiscard]] const char *begin() const { return Range.Begin; }
-  [[nodiscard]] const char *end() const { return Range.End; }
+  Token(tok::TokenKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
+  [[nodiscard]] Point begin() const { return Range.begin(); }
+  [[nodiscard]] Point end() const { return Range.end(); }
   [[nodiscard]] tok::TokenKind kind() const { return Kind; }
-  [[nodiscard]] OffsetRange range() const { return Range; }
-  [[nodiscard]] std::string_view view() const { return Range.view(); }
+  [[nodiscard]] RangeTy range() const { return Range; }
 };
 
 } // namespace nixf

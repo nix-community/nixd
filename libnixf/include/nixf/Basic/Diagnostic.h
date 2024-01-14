@@ -23,22 +23,20 @@ namespace nixf {
 /// 1. Insertions: special `OldRange` that `Begin` == `End`.
 /// 2. Removals:   empty `NewText`.
 class Fix {
-  OffsetRange OldRange;
+  RangeTy OldRange;
   std::string NewText;
 
 public:
-  Fix(OffsetRange OldRange, std::string NewText)
+  Fix(RangeTy OldRange, std::string NewText)
       : OldRange(OldRange), NewText(std::move(NewText)) {
-    assert(OldRange.Begin != OldRange.End || !this->NewText.empty());
+    assert(OldRange.begin() != OldRange.end() || !this->NewText.empty());
   }
 
-  static Fix mkInsertion(const char *Loc, std::string NewText) {
-    return {{Loc, Loc}, std::move(NewText)};
+  static Fix mkInsertion(Point P, std::string NewText) {
+    return {{P, P}, std::move(NewText)};
   }
 
-  static Fix mkRemoval(OffsetRange RemovingRange) {
-    return {RemovingRange, ""};
-  }
+  static Fix mkRemoval(RangeTy RemovingRange) { return {RemovingRange, ""}; }
 
   [[nodiscard]] bool isReplace() const {
     return !isRemoval() && !isInsertion();
@@ -47,10 +45,10 @@ public:
   [[nodiscard]] bool isRemoval() const { return NewText.empty(); }
 
   [[nodiscard]] bool isInsertion() const {
-    return OldRange.Begin == OldRange.End;
+    return OldRange.begin() == OldRange.end();
   }
 
-  [[nodiscard]] OffsetRange oldRange() const { return OldRange; }
+  [[nodiscard]] RangeTy oldRange() const { return OldRange; }
   [[nodiscard]] std::string_view newText() const { return NewText; }
 };
 
@@ -70,7 +68,7 @@ public:
 protected:
   std::vector<std::string> Args;
   /// Location of this diagnostic
-  OffsetRange Range;
+  RangeTy Range;
 };
 
 class Note : public PartialDiagnostic {
@@ -82,7 +80,7 @@ public:
 #undef DIAG_NOTE
   };
 
-  Note(NoteKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
+  Note(NoteKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
 
   template <class T> PartialDiagnostic &operator<<(const T &Var) {
     Args.push_back(Var);
@@ -95,11 +93,11 @@ public:
 
   [[nodiscard]] const char *message() const override { return message(kind()); }
 
-  OffsetRange range() const { return Range; }
+  RangeTy range() const { return Range; }
 
 private:
   NoteKind Kind;
-  OffsetRange Range;
+  RangeTy Range;
 };
 
 /// The super class for all diagnostics.
@@ -123,8 +121,7 @@ public:
 #undef DIAG
   };
 
-  Diagnostic(DiagnosticKind Kind, OffsetRange Range)
-      : Kind(Kind), Range(Range) {}
+  Diagnostic(DiagnosticKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
 
   [[nodiscard]] DiagnosticKind kind() const { return Kind; };
 
@@ -143,7 +140,7 @@ public:
 
   [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 
-  Note &note(Note::NoteKind Kind, OffsetRange Range) {
+  Note &note(Note::NoteKind Kind, RangeTy Range) {
     return *Notes.emplace_back(std::make_unique<Note>(Kind, Range));
   }
 
@@ -156,12 +153,12 @@ public:
 
   const std::vector<Fix> &fixes() { return Fixes; }
 
-  OffsetRange range() const { return Range; }
+  [[nodiscard]] RangeTy range() const { return Range; }
 
 private:
   DiagnosticKind Kind;
   /// Location of this diagnostic
-  OffsetRange Range;
+  RangeTy Range;
 
   std::vector<std::unique_ptr<Note>> Notes;
   std::vector<Fix> Fixes;

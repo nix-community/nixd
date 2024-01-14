@@ -5,16 +5,29 @@
 
 namespace nixf {
 
-struct OffsetRange {
-  const char *Begin;
-  const char *End;
+struct Point {
+  int64_t Line;
+  int64_t Column;
+  std::size_t Offset;
+};
 
-  OffsetRange() = default;
+inline bool operator==(const Point &LHS, const Point &RHS) {
+  return LHS.Line == RHS.Line && LHS.Column == RHS.Column &&
+         LHS.Offset == RHS.Offset;
+}
 
-  OffsetRange(const char *Begin, const char *End) : Begin(Begin), End(End) {}
-  explicit OffsetRange(const char *Pos) : Begin(Pos), End(Pos) {}
-  operator std::string_view() const { return {Begin, End}; }
-  [[nodiscard]] std::string_view view() const { return {Begin, End}; }
+class RangeTy {
+  Point Begin;
+  Point End;
+
+public:
+  RangeTy() = default;
+
+  RangeTy(Point Begin, Point End) : Begin(Begin), End(End) {}
+  explicit RangeTy(Point Pos) : Begin(Pos), End(Pos) {}
+
+  [[nodiscard]] Point begin() const { return Begin; }
+  [[nodiscard]] Point end() const { return End; }
 };
 
 } // namespace nixf

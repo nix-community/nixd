@@ -12,6 +12,7 @@
 #include "nixf/Basic/Range.h"
 
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -23,10 +24,25 @@ class DiagnosticEngine;
 class Lexer {
   const std::string_view Src;
   DiagnosticEngine &Diags;
-  const char *Cur;
+
+  Point Cur;
+
+  void consume(std::size_t N = 1) {
+    assert(Cur.Offset + N <= Src.length());
+    // Update Line & Column & Offset
+    for (std::size_t I = 0; I < N; ++I) {
+      if (Src[Cur.Offset + N] == '\n') {
+        ++Cur.Line;
+        Cur.Column = 0;
+      } else {
+        ++Cur.Column;
+      }
+    }
+    Cur.Offset += N;
+  }
 
   // token recorder
-  const char *TokStartPtr;
+  Point TokStartPtr;
   tok::TokenKind Tok;
   void startToken() {
     Tok = tok::tok_unknown;
@@ -39,29 +55,37 @@ class Lexer {
   bool consumeWhitespaces();
   bool consumeComments();
 
-  bool eof(const char *Ptr) { return Ptr >= Src.end(); }
+  [[nodiscard]] bool eof(std::size_t Offset) const {
+    return Offset >= Src.length();
+  }
 
-  bool eof() { return eof(Cur); }
+  [[nodiscard]] bool eof() const { return eof(Cur.Offset); }
 
   bool consumeEOL() { return consumePrefix("\r\n") || consumePrefix("\n"); }
 
   bool lexFloatExp();
 
   // Advance cursor if it starts with prefix, otherwise do nothing
-  bool consumePrefix(std::string_view Prefix);
+  std::optional<RangeTy> consumePrefix(std::string_view Prefix);
+
+  bool consumeOne(char C);
+
+  std::optional<char> consumeOneOf(std::string_view Chars);
+
+  std::optional<RangeTy> consumeManyOf(std::string_view Chars);
+
+  std::optional<RangeTy> consumeManyDigits() {
+    return consumeManyOf("0123456789");
+  }
+
+  std::optional<RangeTy> consumeManyPathChar();
 
   /// Look ahead and check if we has \p Prefix
-  bool prefix(std::string_view Prefix);
+  bool peekPrefix(std::string_view Prefix);
 
-  /// Look ahead to see it is a path, paths has higher priority than identifiers
-  /// If it is a valid path, \returns ending cursor
-  /// Otherwise \returns nullptr
-  const char *checkPathStart();
+  bool consumePathStart();
 
-  /// Look ahead to see it is a URI.
-  /// If it is a valid URI, \returns ending cursor
-  /// Otherwise \returns nullptr
-  const char *checkUriStart();
+  bool consumeURI();
 
   /// Should be called after lexing a "raw" identifier, we check if it is a
   /// keyword and make assignment: `Tok <- tok_kw_*`
@@ -71,22 +95,34 @@ class Lexer {
 
   void lexNumbers();
 
-  [[nodiscard]] std::string_view tokStr() const { return {TokStartPtr, Cur}; }
+  [[nodiscard]] std::string_view tokStr() const {
+    return Src.substr(TokStartPtr.Offset, Cur.Offset - TokStartPtr.Offset);
+  }
 
-  [[nodiscard]] std::string_view remain() const { return {Cur, Src.end()}; }
+  [[nodiscard]] std::string_view remain() const {
+    return Src.substr(Cur.Offset);
+  }
 
 public:
   Lexer(std::string_view Src, DiagnosticEngine &Diags)
-      : Src(Src), Diags(Diags) {
-    Cur = Src.begin();
-  }
-
-  const char *cur() { return Cur; }
+      : Src(Src), Diags(Diags), Cur() {}
 
   /// Reset the cursor at source \p offset (zero-based indexing)
-  void setCur(const char *NewCur) {
-    assert(NewCur <= Src.end());
+  void setPoint(const Point &NewCur) {
+    assert(Src.begin() + NewCur.Offset <= Src.end());
     Cur = NewCur;
+  }
+
+  [[nodiscard]] const Point &cur() const { return Cur; }
+
+  [[nodiscard]] RangeTy curRange() const { return {Cur, Cur}; }
+
+  [[nodiscard]] char peekUnwrap() const { return Src[Cur.Offset]; }
+
+  [[nodiscard]] std::optional<char> peek() const {
+    if (eof())
+      return std::nullopt;
+    return peekUnwrap();
   }
 
   Token lex();

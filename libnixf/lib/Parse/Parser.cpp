@@ -22,24 +22,6 @@ namespace {
 
 using namespace nixf;
 using namespace nixf::tok;
-class RangeBuilder {
-  std::stack<const char *> Begins;
-
-public:
-  void push(const char *Begin) { Begins.push(Begin); }
-  OffsetRange finish(const char *End) {
-    assert(!Begins.empty());
-    OffsetRange Ret = {Begins.top(), End};
-    Begins.pop();
-    return Ret;
-  }
-  OffsetRange pop() {
-    assert(!Begins.empty());
-    const char *Begin = Begins.top();
-    Begins.pop();
-    return {Begin, Begin};
-  }
-};
 
 Diagnostic &diagNullExpr(DiagnosticEngine &Diag, const char *Loc,
                          std::string As) {

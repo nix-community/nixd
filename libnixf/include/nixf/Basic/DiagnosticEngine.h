@@ -7,7 +7,7 @@ namespace nixf {
 
 class DiagnosticEngine {
 public:
-  Diagnostic &diag(Diagnostic::DiagnosticKind Kind, OffsetRange Range) {
+  Diagnostic &diag(Diagnostic::DiagnosticKind Kind, RangeTy Range) {
     auto Diag = std::make_unique<Diagnostic>(Kind, Range);
     Diags.emplace_back(std::move(Diag));
     return *Diags.back();
