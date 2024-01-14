@@ -1,6 +1,7 @@
 #include "Lexer.h"
 
 #include "nixf/Basic/DiagnosticEngine.h"
+#include "nixf/Basic/Range.h"
 
 #include <cassert>
 #include <cctype>
@@ -12,17 +13,70 @@ using namespace tok;
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
-bool Lexer::consumePrefix(std::string_view Prefix) {
-  if (prefix(Prefix)) {
-    Cur += Prefix.length();
+std::optional<RangeTy> Lexer::consumePrefix(std::string_view Prefix) {
+  Point Begin = cur();
+  if (peekPrefix(Prefix)) {
+    consume(Prefix.length());
+    return RangeTy{Begin, cur()};
+  }
+  return std::nullopt;
+}
+
+std::optional<RangeTy> Lexer::consumeManyOf(std::string_view Chars) {
+  if (eof())
+    return std::nullopt;
+  if (Chars.find(peekUnwrap()) != std::string_view::npos) {
+    auto Start = Cur;
+    while (Chars.find(peekUnwrap()) != std::string_view::npos) {
+      consume();
+    }
+    return RangeTy{Start, Cur};
+  }
+  return std::nullopt;
+}
+
+std::optional<char> Lexer::consumeOneOf(std::string_view Chars) {
+  if (eof())
+    return std::nullopt;
+  if (Chars.find(peekUnwrap()) != std::string_view::npos) {
+    consume();
+    return peek();
+  }
+  return std::nullopt;
+}
+
+bool Lexer::consumeOne(char C) {
+  if (eof())
+    return false;
+  if (peek() == C) {
+    consume();
     return true;
   }
   return false;
 }
 
-bool Lexer::prefix(std::string_view Prefix) {
-  // Check [Cur, Cur + Prefix.length)
-  if (Cur + Prefix.length() > Src.end())
+static bool isPathChar(char Ch) {
+  // These characters are valid path char.
+  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '.' || Ch == '_' ||
+         Ch == '-' || Ch == '+';
+}
+
+std::optional<RangeTy> Lexer::consumeManyPathChar() {
+  if (eof())
+    return std::nullopt;
+  if (auto Ch = peek(); Ch && isPathChar(*Ch)) {
+    auto Start = Cur;
+    do {
+      consume();
+      Ch = peek();
+    } while (Ch && isPathChar(*Ch));
+    return RangeTy{Start, Cur};
+  }
+  return std::nullopt;
+}
+
+bool Lexer::peekPrefix(std::string_view Prefix) {
+  if (Cur.Offset + Prefix.length() > Src.length())
     return false;
   if (remain().starts_with(Prefix)) {
     return true;
@@ -31,50 +85,40 @@ bool Lexer::prefix(std::string_view Prefix) {
 }
 
 bool Lexer::consumeWhitespaces() {
-  if (eof() || !std::isspace(*Cur))
+  if (auto Ch = peek(); Ch && !std::isspace(*Ch))
     return false;
-  const char *Ch = Cur;
-  // consume same characters and combine them into a TriviaPiece
   do {
-    Cur++;
-  } while (Cur != Src.end() && *Cur == *Ch);
+    consume();
+  } while (!eof() && std::isspace(peekUnwrap()));
   return true;
 }
 
 bool Lexer::consumeComments() {
   if (eof())
     return false;
-
-  const char *BeginPtr = Cur;
-
-  if (consumePrefix("/*")) {
-    // consume block comments until we meet '*/'
+  if (std::optional<RangeTy> BeginRange = consumePrefix("/*")) {
+    // Consume block comments until we meet '*/'
     while (true) {
       if (eof()) {
-        // there is no '*/' to terminate comments
-        OffsetRange R = {Cur - 1, Cur};
-        OffsetRange B = {BeginPtr, BeginPtr + 2};
-
-        Diagnostic &Diag = Diags.diag(DK::DK_UnterminatedBComment, R);
-
-        Diag.note(NK::NK_BCommentBegin, B);
-        Diag.fix(Fix::mkInsertion(R.Begin, "*/"));
-
-        // recover
-        return false;
-      }
-      if (!eof(Cur + 1) && consumePrefix("*/"))
-        // we found the ending '*/'
+        // There is no '*/' to terminate comments
+        Diagnostic &Diag =
+            Diags.diag(DK::DK_UnterminatedBComment, {cur(), cur()});
+        Diag.note(NK::NK_BCommentBegin, *BeginRange);
+        Diag.fix(Fix::mkInsertion(cur(), "*/"));
         return true;
-      Cur++;
+      }
+      if (consumePrefix("*/"))
+        // We found the ending '*/'
+        return true;
+      consume(); // Consume a character (block comment body).
     }
   } else if (consumePrefix("#")) {
-    // single line comments, consume blocks until we meet EOF or '\n' or '\r'
+    // Single line comments, consume blocks until we meet EOF or '\n' or '\r'
     while (true) {
       if (eof() || consumeEOL()) {
         return true;
       }
-      Cur++;
+      consume(); // Consume a character (single line comment body).
     }
   }
   return false;
@@ -92,21 +136,13 @@ void Lexer::consumeTrivia() {
 
 bool Lexer::lexFloatExp() {
   // accept ([Ee][+-]?[0-9]+)?, the exponential part (after `.` of a float)
-  if (!eof() && (*Cur == 'E' || *Cur == 'e')) {
-    const char *ECh = Cur;
-    Cur++;
+  if (std::optional<char> ECh = consumeOneOf("Ee")) {
     // [+-]?
-    if (!eof() && (*Cur == '+' || *Cur == '-')) {
-      Cur++;
-    }
+    consumeOneOf("+-");
     // [0-9]+
-    if (!eof() && isdigit(*Cur)) {
-      do {
-        Cur++;
-      } while (!eof() && isdigit(*Cur));
-    } else {
+    if (!consumeManyDigits()) {
       // not matching [0-9]+, error
-      Diags.diag(DK::DK_FloatNoExp, {ECh, ECh + 1}) << ECh;
+      Diags.diag(DK::DK_FloatNoExp, curRange()) << std::string(1, *ECh);
       return false;
     }
   }
@@ -133,37 +169,26 @@ void Lexer::lexNumbers() {
   //
   // however, we accept [0-9]+\.[0-9]*([Ee][+-]?[0-9]+)?
   // and issues a warning if it has leading zeros
-  const char *NumStart = Cur;
   // [0-9]+
-  while (!eof() && isdigit(*Cur))
-    Cur++;
-  if (*Cur == '.') {
+  auto Ch = consumeManyDigits();
+  assert(Ch.has_value() && "lexNumbers() must be called with a digit start");
+  if (peek() == '.') {
     // float
     Tok = tok_float;
-    Cur++;
-
+    consume();
     // [0-9]*
-    while (!eof() && isdigit(*Cur))
-      Cur++;
-
+    consumeManyDigits();
     lexFloatExp();
-
+    // Checking that if the float token has leading zeros.
+    std::string_view Prefix = Src.substr(Ch->begin().Offset, 2);
+    if (Prefix.starts_with("0") && Prefix != "0.")
+      Diags.diag(DK::DK_FloatLeadingZero, *Ch) << std::string(Prefix);
   } else {
     Tok = tok_int;
   }
-
-  if (tokStr().starts_with("00") && Tok == tok_float)
-    Diags.diag(DK::DK_FloatLeadingZero, {NumStart, NumStart + 2})
-        << std::string(tokStr());
 }
 
-static bool isPathChar(char Ch) {
-  // These characters are valid path char.
-  return std::isdigit(Ch) || std::isalpha(Ch) || Ch == '.' || Ch == '_' ||
-         Ch == '-' || Ch == '+';
-}
-
-const char *Lexer::checkPathStart() {
+bool Lexer::consumePathStart() {
   // PATH_CHAR   [a-zA-Z0-9\.\_\-\+]
   // PATH        {PATH_CHAR}*(\/{PATH_CHAR}+)+\/?
   // PATH_SEG    {PATH_CHAR}*\/
@@ -172,29 +197,26 @@ const char *Lexer::checkPathStart() {
   // Path, starts with any valid path char, and must contain slashs
   // Here, we look ahead characters, the must be valid path char
   // And also check if it contains a slash.
-  const char *PathCursor = Cur;
+  Point Saved = cur();
 
-  // Skipping any path char.
-  while (!eof(PathCursor) && isPathChar(*PathCursor))
-    PathCursor++;
+  // {PATH_CHAR}*
+  consumeManyPathChar();
 
   // Check if there is a slash, and also a path char right after such slash.
   // If so, it is a path_fragment
-  if (!eof(PathCursor) && *PathCursor == '/') {
-    PathCursor++;
+  if (consumeOne('/')) {
     // Now, check if we are on a normal path char.
-    if (!eof(PathCursor) && isPathChar(*PathCursor)) {
-      return PathCursor;
-    }
+    if (auto Ch = peek(); Ch && isPathChar(*Ch))
+      return true;
     // Or, look ahead to see if is a dollar curly. ${
     // This should be parsed as path-interpolation.
-    if (!eof(PathCursor + 1) && *PathCursor == '$' &&
-        *(PathCursor + 1) == '{') {
-      return PathCursor;
-    }
+    if (peekPrefix("${"))
+      return true;
   }
 
-  return nullptr;
+  // Otherwise, it is not a path, restore cursor.
+  Cur = Saved;
+  return false;
 }
 
 static bool isUriSchemeChar(char Ch) {
@@ -210,34 +232,33 @@ static bool isUriPathChar(char Ch) {
          Ch == '~' || Ch == '*' || Ch == '\'';
 }
 
-const char *Lexer::checkUriStart() {
+bool Lexer::consumeURI() {
   // URI
   // [a-zA-Z][a-zA-Z0-9\+\-\.]*\:[a-zA-Z0-9\%\/\?\:\@\&\=\+\$\,\-\_\.\!\~\*\']+
   //
 
+  Point Saved = cur();
   // URI, starts with any valid URI scheme char, and must contain a colon
   // Here, we look ahead characters, the must be valid path char
   // And also check if it contains a colon.
-  const char *UriCursor = Cur;
 
-  // Skipping any path char.
-  while (!eof(UriCursor) && isUriSchemeChar(*UriCursor))
-    UriCursor++;
+  while (!eof() && isUriSchemeChar(peekUnwrap()))
+    consume();
 
   // Check if there is a colon, and also a URI path char right after such colon.
   // If so, it is a uri
-  if (!eof(UriCursor) && *UriCursor == ':') {
-    UriCursor++;
-    // Now, check if we are on a normal path char.
-    if (!eof(UriCursor) && isUriPathChar(*UriCursor)) {
+  if (!eof() && peekUnwrap() == ':') {
+    consume();
+    if (!eof() && isUriPathChar(peekUnwrap())) {
       do
-        UriCursor++;
-      while (!eof(UriCursor) && isUriPathChar(*UriCursor));
-      return UriCursor;
+        consume();
+      while (!eof() && isUriPathChar(peekUnwrap()));
+      return true;
     }
   }
 
-  return nullptr;
+  Cur = Saved;
+  return false;
 }
 
 static bool isIdentifierChar(char Ch) {
@@ -247,9 +268,9 @@ static bool isIdentifierChar(char Ch) {
 
 void Lexer::lexIdentifier() {
   // identifier: [a-zA-Z_][a-zA-Z0-9_\'\-]*,
-  Cur++;
-  while (!eof() && isIdentifierChar(*Cur))
-    Cur++;
+  consume();
+  while (!eof() && isIdentifierChar(peekUnwrap()))
+    consume();
 }
 
 void Lexer::maybeKW() {
@@ -278,20 +299,20 @@ Token Lexer::lexPath() {
     return finishToken();
   }
 
-  if (*Cur == '$') {
+  if (consumeOne('$')) {
     if (consumePrefix("${")) {
       Tok = tok_dollar_curly;
     }
     return finishToken();
   }
 
-  if (isPathChar(*Cur) || *Cur == '/') {
+  if (isPathChar(peekUnwrap()) || peekUnwrap() == '/') {
     Tok = tok_path_fragment;
-    while (!eof() && (isPathChar(*Cur) || *Cur == '/')) {
+    while (!eof() && (isPathChar(peekUnwrap()) || peekUnwrap() == '/')) {
       // Encountered an interpolation, stop here
-      if (prefix("${"))
+      if (peekPrefix("${"))
         break;
-      Cur++;
+      consume();
     }
     return finishToken();
   }
@@ -305,16 +326,16 @@ Token Lexer::lexString() {
     Tok = tok_eof;
     return finishToken();
   }
-  switch (*Cur) {
+  switch (peekUnwrap()) {
   case '"':
-    Cur++;
+    consume();
     Tok = tok_dquote;
     break;
   case '\\':
     // Consume two characters, for escaping
     // NOTE: we may not want to break out Unicode wchar here, but libexpr does
     // such ignoring
-    Cur += 2;
+    consume(2);
     Tok = tok_string_escape;
     break;
   case '$':
@@ -329,18 +350,18 @@ Token Lexer::lexString() {
     Tok = tok_string_part;
     for (; !eof();) {
       // '\' escape
-      if (*Cur == '\\')
+      if (peekUnwrap() == '\\')
         break;
-      if (*Cur == '"')
+      if (peekUnwrap() == '"')
         break;
       // double-$, or \$, escapes ${.
       // We will handle escaping on Sema
       if (consumePrefix("$${"))
         continue;
       // Encountered a string interpolation, stop here
-      if (prefix("${"))
+      if (peekPrefix("${"))
         break;
-      Cur++;
+      consume();
     }
   }
   return finishToken();
@@ -366,16 +387,16 @@ Token Lexer::lexIndString() {
 
   Tok = tok_string_part;
   for (; !eof();) {
-    if (prefix("''"))
+    if (peekPrefix("''"))
       break;
     // double-$, or \$, escapes ${.
     // We will handle escaping on Sema
     if (consumePrefix("$${"))
       continue;
     // Encountered a string interpolation, stop here
-    if (prefix("${"))
+    if (peekPrefix("${"))
       break;
-    Cur++;
+    consume();
   }
   return finishToken();
 }
@@ -385,37 +406,37 @@ Token Lexer::lex() {
   consumeTrivia();
   startToken();
 
-  if (eof()) {
+  std::optional<char> Ch = peek();
+
+  if (!Ch) {
     Tok = tok_eof;
     return finishToken();
   }
 
   // Determine if this is a path, or identifier.
   // a/b (including 1/2) should be considered as a whole path, not (a / b)
-  if (isPathChar(*Cur) || *Cur == '/') {
-    if (const char *PathCursor = checkPathStart()) {
+  if (isPathChar(*Ch) || *Ch == '/') {
+    if (consumePathStart()) {
       // Form a concret token, this is a path part.
-      Cur = PathCursor;
       Tok = tok_path_fragment;
       return finishToken();
     }
   }
 
   // Determine if this is a URI.
-  if (std::isalpha(*Cur)) {
-    if (const char *UriCursor = checkUriStart()) {
-      Cur = UriCursor;
+  if (std::isalpha(*Ch)) {
+    if (consumeURI()) {
       Tok = tok_uri;
       return finishToken();
     }
   }
 
-  if (std::isdigit(*Cur)) {
+  if (std::isdigit(*Ch)) {
     lexNumbers();
     return finishToken();
   }
 
-  if (std::isalpha(*Cur) || *Cur == '_') {
+  if (std::isalpha(*Ch) || *Ch == '_') {
 
     // So, this is not a path/URI, it should be an identifier.
     lexIdentifier();
@@ -424,7 +445,7 @@ Token Lexer::lex() {
     return finishToken();
   }
 
-  switch (*Cur) {
+  switch (*Ch) {
   case '\'':
     if (consumePrefix("''"))
       Tok = tok_quote2;
@@ -433,7 +454,7 @@ Token Lexer::lex() {
     if (consumePrefix("++")) {
       Tok = tok_op_concat;
     } else {
-      Cur++;
+      consume();
       Tok = tok_op_add;
     }
     break;
@@ -441,19 +462,19 @@ Token Lexer::lex() {
     if (consumePrefix("->")) {
       Tok = tok_op_impl;
     } else {
-      Cur++;
+      consume();
       Tok = tok_op_negate;
     }
     break;
   case '*':
-    Cur++;
+    consume();
     Tok = tok_op_mul;
     break;
   case '/':
     if (consumePrefix("//")) {
       Tok = tok_op_update;
     } else {
-      Cur++;
+      consume();
       Tok = tok_op_div;
     }
     break;
@@ -465,7 +486,7 @@ Token Lexer::lex() {
     if (consumePrefix("!=")) {
       Tok = tok_op_neq;
     } else {
-      Cur++;
+      consume();
       Tok = tok_op_not;
     }
     break;
@@ -473,7 +494,7 @@ Token Lexer::lex() {
     if (consumePrefix("<=")) {
       Tok = tok_op_le;
     } else {
-      Cur++;
+      consume();
       Tok = tok_op_lt;
     }
     break;
@@ -481,7 +502,7 @@ Token Lexer::lex() {
     if (consumePrefix(">=")) {
       Tok = tok_op_ge;
     } else {
-      Cur++;
+      consume();
       Tok = tok_op_gt;
     }
     break;
@@ -492,11 +513,11 @@ Token Lexer::lex() {
     }
     break;
   case '"':
-    Cur++;
+    consume();
     Tok = tok_dquote;
     break;
   case '}':
-    Cur++;
+    consume();
     Tok = tok_r_curly;
     break;
   case '.':
@@ -504,24 +525,24 @@ Token Lexer::lex() {
       Tok = tok_ellipsis;
       break;
     } else {
-      Cur++;
+      consume();
       Tok = tok_dot;
       break;
     }
   case '@':
-    Cur++;
+    consume();
     Tok = tok_at;
     break;
   case ':':
-    Cur++;
+    consume();
     Tok = tok_colon;
     break;
   case '?':
-    Cur++;
+    consume();
     Tok = tok_question;
     break;
   case ';':
-    Cur++;
+    consume();
     Tok = tok_semi_colon;
     break;
   case '=':
@@ -529,32 +550,32 @@ Token Lexer::lex() {
       Tok = tok_op_eq;
       break;
     } else {
-      Cur++;
+      consume();
       Tok = tok_eq;
       break;
     }
   case '{':
-    Cur++;
+    consume();
     Tok = tok_l_curly;
     break;
   case '(':
-    Cur++;
+    consume();
     Tok = tok_l_paren;
     break;
   case ')':
-    Cur++;
+    consume();
     Tok = tok_r_paren;
     break;
   case '[':
-    Cur++;
+    consume();
     Tok = tok_l_bracket;
     break;
   case ']':
-    Cur++;
+    consume();
     Tok = tok_r_bracket;
     break;
   case ',':
-    Cur++;
+    consume();
     Tok = tok_comma;
     break;
   case '$':
@@ -565,7 +586,7 @@ Token Lexer::lex() {
     break;
   }
   if (Tok == tok_unknown)
-    Cur++;
+    consume();
   return finishToken();
 }
 } // namespace nixf
