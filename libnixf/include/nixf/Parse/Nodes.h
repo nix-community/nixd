@@ -92,6 +92,16 @@ public:
       : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {}
 
   [[nodiscard]] InterpolablePartKind kind() const { return Kind; }
+
+  [[nodiscard]] const std::string &escaped() const {
+    assert(Kind == SPK_Escaped);
+    return Escaped;
+  }
+
+  [[nodiscard]] const std::shared_ptr<Expr> &interpolation() const {
+    assert(Kind == SPK_Interpolation);
+    return Interpolation;
+  }
 };
 
 class InterpolatedParts : public Node {

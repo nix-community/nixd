@@ -26,6 +26,10 @@ constexpr std::string_view spelling(TokenKind Kind) {
     return "\"";
   case tok_quote2:
     return "''";
+  case tok_dollar_curly:
+    return "${";
+  case tok_r_curly:
+    return "}";
   default:
     assert(false && "Not yet implemented!");
   }
