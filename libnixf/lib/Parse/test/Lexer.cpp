@@ -60,7 +60,7 @@ TEST_F(LexerTest, Trivia1) {
   Lexer Lexer(Src, Diag);
   auto P = Lexer.lex();
   ASSERT_EQ(P.kind(), tok_int);
-  // ASSERT_EQ(P.view(), "3");
+  ASSERT_EQ(P.view(), "3");
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -72,7 +72,7 @@ TEST_F(LexerTest, TriviaLComment) {
               Diag);
   auto P = Lexer.lex();
   ASSERT_EQ(P.kind(), tok_int);
-  // ASSERT_EQ(P.view(), "3");
+  ASSERT_EQ(P.view(), "3");
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -83,7 +83,7 @@ aaa
   Lexer Lexer(Src, Diag);
   auto P = Lexer.lex();
   ASSERT_EQ(P.kind(), tok_eof);
-  // ASSERT_EQ(P.view(), "");
+  ASSERT_EQ(P.view(), "");
   ASSERT_TRUE(Diag.diags().empty());
 }
 
@@ -94,7 +94,7 @@ aaa
   Lexer Lexer(Src, Diag);
   auto P = Lexer.lex();
   ASSERT_EQ(P.kind(), tok_eof);
-  // ASSERT_EQ(P.view(), "");
+  ASSERT_EQ(P.view(), "");
   ASSERT_TRUE(!Diag.diags().empty());
 
   ASSERT_EQ(std::string(Diag.diags()[0]->message()), "unterminated /* comment");
@@ -106,7 +106,7 @@ TEST_F(LexerTest, FloatLeadingZero) {
   Lexer Lexer("00.33", Diag);
   auto P = Lexer.lex();
   ASSERT_EQ(P.kind(), tok_float);
-  // ASSERT_EQ(P.view(), "00.33");
+  ASSERT_EQ(P.view(), "00.33");
   ASSERT_FALSE(Diag.diags().empty());
   ASSERT_EQ(std::string(Diag.diags()[0]->message()),
             "float begins with extra zeros `{}` is nixf extension");
