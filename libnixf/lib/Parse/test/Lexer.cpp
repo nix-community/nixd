@@ -6,11 +6,12 @@
 
 #include <cstddef>
 
-namespace nixf {
+namespace {
 
+using namespace nixf;
 using namespace tok;
 
-static auto collect(Lexer &L, Token (Lexer::*Ptr)()) {
+auto collect(Lexer &L, Token (Lexer::*Ptr)()) {
   std::vector<Token> Ret;
   while (true) {
     Token Tok = (L.*Ptr)();
@@ -176,4 +177,4 @@ TEST_F(LexerTest, lexURI) {
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
 
-} // namespace nixf
+} // namespace
