@@ -31,21 +31,21 @@ public:
 
 private:
   NodeKind Kind;
-  OffsetRange Range;
+  RangeTy Range;
 
 protected:
-  explicit Node(NodeKind Kind, OffsetRange Range) : Kind(Kind), Range(Range) {}
+  explicit Node(NodeKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
 
 public:
   [[nodiscard]] NodeKind kind() const { return Kind; }
-  [[nodiscard]] OffsetRange range() const { return Range; }
-  [[nodiscard]] const char *begin() const { return Range.Begin; }
-  [[nodiscard]] const char *end() const { return Range.End; }
+  [[nodiscard]] RangeTy range() const { return Range; }
+  [[nodiscard]] Point begin() const { return Range.begin(); }
+  [[nodiscard]] Point end() const { return Range.end(); }
 };
 
 class Expr : public Node {
 protected:
-  explicit Expr(NodeKind Kind, OffsetRange Range) : Node(Kind, Range) {
+  explicit Expr(NodeKind Kind, RangeTy Range) : Node(Kind, Range) {
     assert(NK_BeginExpr <= Kind && Kind <= NK_EndExpr);
   }
 };
@@ -57,7 +57,7 @@ class ExprInt : public Expr {
   NixInt Value;
 
 public:
-  ExprInt(OffsetRange Range, NixInt Value)
+  ExprInt(RangeTy Range, NixInt Value)
       : Expr(NK_ExprInt, Range), Value(Value) {}
   [[nodiscard]] NixInt value() const { return Value; }
 };
@@ -66,7 +66,7 @@ class ExprFloat : public Expr {
   NixFloat Value;
 
 public:
-  ExprFloat(OffsetRange Range, NixFloat Value)
+  ExprFloat(RangeTy Range, NixFloat Value)
       : Expr(NK_ExprFloat, Range), Value(Value) {}
   [[nodiscard]] NixFloat value() const { return Value; }
 };
@@ -98,7 +98,7 @@ class InterpolatedParts : public Node {
   std::vector<InterpolablePart> Fragments;
 
 public:
-  InterpolatedParts(OffsetRange Range, std::vector<InterpolablePart> Fragments)
+  InterpolatedParts(RangeTy Range, std::vector<InterpolablePart> Fragments)
       : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
 
   [[nodiscard]] const std::vector<InterpolablePart> &fragments() const {
@@ -110,7 +110,7 @@ class ExprString : public Expr {
   std::shared_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprString(OffsetRange Range, std::shared_ptr<InterpolatedParts> Parts)
+  ExprString(RangeTy Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {}
 
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
@@ -122,7 +122,7 @@ class ExprPath : public Expr {
   std::shared_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprPath(OffsetRange Range, std::shared_ptr<InterpolatedParts> Parts)
+  ExprPath(RangeTy Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprPath, Range), Parts(std::move(Parts)) {}
 
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {

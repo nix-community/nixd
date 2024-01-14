@@ -48,7 +48,13 @@ class Lexer {
     Tok = tok::tok_unknown;
     TokStartPtr = Cur;
   }
-  Token finishToken() { return {Tok, {TokStartPtr, Cur}}; }
+  Token finishToken() {
+    return {
+        Tok,
+        {TokStartPtr, Cur},
+        Src.substr(TokStartPtr.Offset, Cur.Offset - TokStartPtr.Offset),
+    };
+  }
 
   void consumeTrivia();
 
@@ -108,7 +114,7 @@ public:
       : Src(Src), Diags(Diags), Cur() {}
 
   /// Reset the cursor at source \p offset (zero-based indexing)
-  void setPoint(const Point &NewCur) {
+  void setCur(const Point &NewCur) {
     assert(Src.begin() + NewCur.Offset <= Src.end());
     Cur = NewCur;
   }

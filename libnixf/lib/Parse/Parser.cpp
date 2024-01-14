@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Lexer.h"
+#include "RangeBuilder.h"
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/DiagnosticEngine.h"
@@ -23,9 +24,8 @@ namespace {
 using namespace nixf;
 using namespace nixf::tok;
 
-Diagnostic &diagNullExpr(DiagnosticEngine &Diag, const char *Loc,
-                         std::string As) {
-  Diagnostic &D = Diag.diag(Diagnostic::DK_Expected, OffsetRange(Loc));
+Diagnostic &diagNullExpr(DiagnosticEngine &Diag, Point Loc, std::string As) {
+  Diagnostic &D = Diag.diag(Diagnostic::DK_Expected, RangeTy(Loc));
   D << ("an expression as " + std::move(As));
   D.fix(Fix::mkInsertion(Loc, " expr"));
   return D;
@@ -160,7 +160,7 @@ public:
         // TODO: escape and emplace_back
         continue;
       default:
-        OffsetRange Range;
+        RangeTy Range;
         if (LastToken)
           Range = RB.finish(LastToken->end());
         else
@@ -189,7 +189,7 @@ public:
                                             std::move(Parts));
       }
       Diagnostic &D =
-          Diag.diag(Diagnostic::DK_Expected, OffsetRange(LastToken->end()));
+          Diag.diag(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
       D << QuoteSpel;
       D.note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
       D.fix(Fix::mkInsertion(LastToken->end(), QuoteSpel));
@@ -205,7 +205,7 @@ public:
     case tok_int: {
       consume();
       NixInt N;
-      auto [_, Err] = std::from_chars(Tok.begin(), Tok.end(), N);
+      auto [_, Err] = std::from_chars(Tok.view().begin(), Tok.view().end(), N);
       assert(Err == std::errc());
       return std::make_shared<ExprInt>(Tok.range(), N);
     }
