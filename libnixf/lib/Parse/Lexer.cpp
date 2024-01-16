@@ -299,14 +299,11 @@ Token Lexer::lexPath() {
   startToken();
   Tok = tok_path_end;
   if (eof()) {
-    Tok = tok_eof;
     return finishToken();
   }
 
-  if (consumeOne('$')) {
-    if (consumePrefix("${")) {
-      Tok = tok_dollar_curly;
-    }
+  if (consumePrefix("${")) {
+    Tok = tok_dollar_curly;
     return finishToken();
   }
 

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Lexer.h"
+#include "Token.h"
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/DiagnosticEngine.h"
@@ -123,26 +124,85 @@ public:
     pushState(PS_Expr);
   }
 
+  /// \brief Parse interpolations.
+  ///
+  /// interpolation : "${" expr "}"
+  std::shared_ptr<Expr> parseInterpolation() {
+    Token TokDollarCurly = peek();
+    assert(TokDollarCurly.kind() == tok_dollar_curly);
+    consume(); // ${
+    assert(LastToken);
+    /* with(PS_Expr) */ {
+      auto ExprState = withState(PS_Expr);
+      auto Expr = parseExpr();
+      if (!Expr)
+        diagNullExpr(Diag, LastToken->end(), "interpolation");
+      if (peek().kind() == tok_r_curly) {
+        consume(); // }
+      } else {
+        // expected "}" for interpolation
+        Diagnostic &D =
+            Diag.diag(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
+        D << std::string(tok::spelling(tok_r_curly));
+        D.note(Note::NK_ToMachThis, TokDollarCurly.range())
+            << std::string(tok::spelling(tok_dollar_curly));
+        D.fix(Fix::mkInsertion(LastToken->end(),
+                               std::string(tok::spelling(tok_r_curly))));
+      }
+      return Expr;
+    } // with(PS_Expr)
+    return nullptr;
+  }
+
+  /// \brief Parse paths.
+  ///
+  ///  path : path_fragment (path_fragment)*  path_end
+  /// Context     PS_Expr       PS_Path        PS_Path
+  ///
+  /// The first token, path_fragment is lexed in PS_Expr context, then switch in
+  /// "PS_Path" context. The ending token "path_end" shall be poped with context
+  /// switching.
+  std::shared_ptr<Expr> parseExprPath() {
+    Token Begin = peek();
+    std::vector<InterpolablePart> Fragments;
+    assert(Begin.kind() == tok_path_fragment);
+    Point End;
+    /* with(PS_Path) */ {
+      auto PathState = withState(PS_Path);
+      do {
+        Token Current = peek();
+        Fragments.emplace_back(std::string(Current.view()));
+        consume();
+        End = Current.end();
+        Token Next = peek();
+        if (Next.kind() == tok_path_end)
+          break;
+        if (Next.kind() == tok_dollar_curly) {
+          if (auto Expr = parseInterpolation())
+            Fragments.emplace_back(std::move(Expr));
+          continue;
+        }
+        assert(false && "should be path_end or ${");
+      } while (true);
+    }
+    auto Parts = std::make_shared<InterpolatedParts>(
+        RangeTy{Begin.begin(), End}, std::move(Fragments));
+    return std::make_shared<ExprPath>(RangeTy{Begin.begin(), End},
+                                      std::move(Parts));
+  }
+
   /// \brief Parse interpolable things.
   ///
   /// They are strings, ind-strings, paths, in nix language.
   /// \note This needs context-switching so look-ahead buf should be cleared.
-  std::shared_ptr<InterpolatedParts> parseInterpolableParts() {
+  std::shared_ptr<InterpolatedParts> parseStringParts() {
     std::vector<InterpolablePart> Parts;
     Point PartsBegin = peek().begin();
     while (true) {
       switch (Token Tok = peek(0); Tok.kind()) {
       case tok_dollar_curly: {
-        consume();
-        assert(LastToken);
-        /* with(PS_Expr) */ {
-          auto ExprState = withState(PS_Expr);
-          // interpolation, we need to parse a subtree then.
-          if (auto Expr = parseExpr())
-            Parts.emplace_back(std::move(Expr));
-          else
-            diagNullExpr(Diag, LastToken->end(), "interpolation");
-        } // with(PS_Expr)
+        if (auto Expr = parseInterpolation())
+          Parts.emplace_back(std::move(Expr));
         continue;
       }
       case tok_string_part: {
@@ -157,13 +217,13 @@ public:
         // TODO: escape and emplace_back
         continue;
       default:
-        RangeTy Range;
-        if (LastToken)
-          Range = {PartsBegin, LastToken->end()};
-        else
-          Range = {PartsBegin, PartsBegin};
-        return std::make_shared<InterpolatedParts>(Range,
-                                                   std::move(Parts)); // TODO!
+        assert(LastToken && "LastToken should be set in `parseString`");
+        return std::make_shared<InterpolatedParts>(
+            RangeTy{
+                PartsBegin,
+                LastToken->end(),
+            },
+            std::move(Parts)); // TODO!
       }
     }
   }
@@ -178,7 +238,7 @@ public:
     assert(LastToken && "LastToken should be set after consume()");
     /* with(PS_String / PS_IndString) */ {
       auto StringState = withState(IsIndented ? PS_IndString : PS_String);
-      std::shared_ptr<InterpolatedParts> Parts = parseInterpolableParts();
+      std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
       if (Token EndTok = peek(); EndTok.kind() == QuoteKind) {
         consume();
         return std::make_shared<ExprString>(
@@ -203,6 +263,17 @@ public:
     } // with(PS_String / PS_IndString)
   }
 
+  /// expr_simple :  INT
+  ///             | FLOAT
+  ///             | string
+  ///             | indented_string
+  ///             | path
+  ///             | hpath
+  ///             | uri
+  ///             | '(' expr ')'
+  ///             | legacy_let
+  ///             | attrset_expr
+  ///             | list
   std::shared_ptr<Expr> parseExprSimple() {
     Token Tok = peek();
     switch (Tok.kind()) {
@@ -223,6 +294,8 @@ public:
       return parseString(/*IsIndented=*/false);
     case tok_quote2: // '' - indented strings
       return parseString(/*IsIndented=*/true);
+    case tok_path_fragment:
+      return parseExprPath();
     default:
       return nullptr;
     }
