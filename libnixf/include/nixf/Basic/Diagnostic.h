@@ -10,12 +10,13 @@
 
 #include "Range.h"
 
-#include <fmt/args.h>
-
 #include <cassert>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
+
 namespace nixf {
 
 /// Fix-it hints. Remove the text at `OldRange`, and replace it as `NewText`
