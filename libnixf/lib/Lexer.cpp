@@ -1,7 +1,7 @@
 #include "Lexer.h"
 
-#include "nixf/Basic/DiagnosticEngine.h"
-#include "nixf/Basic/Range.h"
+#include "nixf/DiagnosticEngine.h"
+#include "nixf/Range.h"
 
 #include <cassert>
 #include <cctype>

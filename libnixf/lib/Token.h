@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nixf/Basic/Range.h"
+#include "nixf/Range.h"
 
 #include <cassert>
 #include <string>

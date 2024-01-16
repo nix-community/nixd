@@ -4,12 +4,12 @@
 ///
 /// This should be considered as implementation detail of the parser. So the
 /// header is explicitly made private. Unit tests should be placed in the
-/// lib/Parse/test directory.
+/// lib/test directory.
 #pragma once
 
 #include "Token.h"
 
-#include "nixf/Basic/Range.h"
+#include "nixf/Range.h"
 
 #include <cassert>
 #include <functional>

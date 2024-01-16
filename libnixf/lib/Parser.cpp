@@ -5,11 +5,11 @@
 #include "Lexer.h"
 #include "Token.h"
 
-#include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/DiagnosticEngine.h"
-#include "nixf/Basic/Range.h"
-#include "nixf/Parse/Nodes.h"
-#include "nixf/Parse/Parser.h"
+#include "nixf/Diagnostic.h"
+#include "nixf/DiagnosticEngine.h"
+#include "nixf/Nodes.h"
+#include "nixf/Parser.h"
+#include "nixf/Range.h"
 
 #include <cassert>
 #include <charconv>

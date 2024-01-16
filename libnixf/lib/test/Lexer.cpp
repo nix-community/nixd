@@ -2,7 +2,7 @@
 
 #include "Lexer.h"
 
-#include "nixf/Basic/DiagnosticEngine.h"
+#include "nixf/DiagnosticEngine.h"
 
 #include <cstddef>
 
