@@ -4,9 +4,9 @@ libnixf_inc = include_directories('include')
 
 libnixf = library(
     'nixf',
-    'lib/Basic/Diagnostic.cpp',
-    'lib/Parse/Lexer.cpp',
-    'lib/Parse/Parser.cpp',
+    'src/Basic/Diagnostic.cpp',
+    'src/Parse/Lexer.cpp',
+    'src/Parse/Parser.cpp',
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
@@ -28,10 +28,10 @@ nixf = declare_dependency(
 
 test('unit/libnixf/Parse',
     executable('unit-libnixf-parse',
-        'lib/Parse/test/Lexer.cpp',
-        'lib/Parse/test/Parser.cpp',
+        'test/Parse/Lexer.cpp',
+        'test/Parse/Parser.cpp',
         dependencies: [ nixf, gtest_main ],
-        include_directories: [ 'lib/Parse' ] # Private headers
+        include_directories: [ 'src/Parse' ] # Private headers
     )
 )
 
