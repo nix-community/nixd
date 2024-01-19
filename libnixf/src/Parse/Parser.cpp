@@ -6,7 +6,6 @@
 #include "Token.h"
 
 #include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Basic/Range.h"
 #include "nixf/Parse/Nodes.h"
 #include "nixf/Parse/Parser.h"
@@ -24,8 +23,9 @@ namespace {
 using namespace nixf;
 using namespace nixf::tok;
 
-Diagnostic &diagNullExpr(DiagnosticEngine &Diag, Point Loc, std::string As) {
-  Diagnostic &D = Diag.diag(Diagnostic::DK_Expected, RangeTy(Loc));
+Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, Point Loc,
+                         std::string As) {
+  Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(Loc));
   D << ("an expression as " + std::move(As));
   D.fix(Fix::mkInsertion(Loc, " expr"));
   return D;
@@ -43,7 +43,7 @@ public:
 private:
   std::string_view Src;
   Lexer Lex;
-  DiagnosticEngine &Diag;
+  std::vector<Diagnostic> &Diags;
 
   std::deque<Token> LookAheadBuf;
   std::optional<Token> LastToken;
@@ -119,8 +119,8 @@ private:
   }
 
 public:
-  Parser(std::string_view Src, DiagnosticEngine &Diag)
-      : Src(Src), Lex(Src, Diag), Diag(Diag) {
+  Parser(std::string_view Src, std::vector<Diagnostic> &Diags)
+      : Src(Src), Lex(Src, Diags), Diags(Diags) {
     pushState(PS_Expr);
   }
 
@@ -136,13 +136,13 @@ public:
       auto ExprState = withState(PS_Expr);
       auto Expr = parseExpr();
       if (!Expr)
-        diagNullExpr(Diag, LastToken->end(), "interpolation");
+        diagNullExpr(Diags, LastToken->end(), "interpolation");
       if (peek().kind() == tok_r_curly) {
         consume(); // }
       } else {
         // expected "}" for interpolation
-        Diagnostic &D =
-            Diag.diag(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
+        Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                           RangeTy(LastToken->end()));
         D << std::string(tok::spelling(tok_r_curly));
         D.note(Note::NK_ToMachThis, TokDollarCurly.range())
             << std::string(tok::spelling(tok_dollar_curly));
@@ -248,8 +248,8 @@ public:
             },
             std::move(Parts));
       }
-      Diagnostic &D =
-          Diag.diag(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                         RangeTy(LastToken->end()));
       D << QuoteSpel;
       D.note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
       D.fix(Fix::mkInsertion(LastToken->end(), QuoteSpel));
@@ -311,8 +311,9 @@ public:
 
 namespace nixf {
 
-std::shared_ptr<Node> parse(std::string_view Src, DiagnosticEngine &Diag) {
-  Parser P(Src, Diag);
+std::shared_ptr<Node> parse(std::string_view Src,
+                            std::vector<Diagnostic> &Diags) {
+  Parser P(Src, Diags);
   return P.parse();
 }
 

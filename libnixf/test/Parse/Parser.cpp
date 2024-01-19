@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Basic/Range.h"
 #include "nixf/Parse/Nodes.h"
 #include "nixf/Parse/Parser.h"
@@ -15,7 +14,7 @@ using namespace std::literals;
 
 TEST(Parser, Integer) {
   auto Src = "1"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprInt);
@@ -24,49 +23,49 @@ TEST(Parser, Integer) {
 
 TEST(Parser, Float) {
   auto Src = "1.0"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprFloat);
   ASSERT_EQ(static_cast<ExprFloat *>(Expr.get())->value(), 1.0);
-  ASSERT_EQ(Diags.diags().size(), 0);
+  ASSERT_EQ(Diags.size(), 0);
   ASSERT_TRUE(Expr->range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().end().isAt(0, 3, 3));
 }
 
 TEST(Parser, FloatLeading) {
   auto Src = "01.0"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprFloat);
   ASSERT_EQ(static_cast<ExprFloat *>(Expr.get())->value(), 1.0);
 
   // Check the diagnostic.
-  ASSERT_EQ(Diags.diags().size(), 1);
-  auto &D = Diags.diags()[0];
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
   ASSERT_TRUE(Expr->range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().end().isAt(0, 4, 4));
-  ASSERT_EQ(D->kind(), Diagnostic::DK_FloatLeadingZero);
-  ASSERT_EQ(D->args().size(), 1);
-  ASSERT_EQ(D->args()[0], "01");
+  ASSERT_EQ(D.kind(), Diagnostic::DK_FloatLeadingZero);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], "01");
 }
 
 TEST(Parser, FloatLeading00) {
   auto Src = "00.5"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprFloat);
   ASSERT_EQ(static_cast<ExprFloat *>(Expr.get())->value(), 0.5);
-  ASSERT_EQ(Diags.diags().size(), 1);
+  ASSERT_EQ(Diags.size(), 1);
   ASSERT_TRUE(Expr->range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().end().isAt(0, 4, 4));
 }
 
 TEST(Parser, StringSimple) {
   auto Src = R"("aaa")"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
@@ -74,14 +73,14 @@ TEST(Parser, StringSimple) {
   ASSERT_TRUE(Parts->range().begin().isAt(0, 1, 1));
   ASSERT_TRUE(Parts->range().end().isAt(0, 4, 4));
   ASSERT_EQ(Parts->fragments().size(), 1);
-  ASSERT_EQ(Diags.diags().size(), 0);
+  ASSERT_EQ(Diags.size(), 0);
   ASSERT_TRUE(Expr->range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().end().isAt(0, 5, 5));
 }
 
 TEST(Parser, StringMissingDQuote) {
   auto Src = R"("aaa)"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
@@ -91,26 +90,26 @@ TEST(Parser, StringMissingDQuote) {
   ASSERT_EQ(Parts->fragments().size(), 1);
 
   // Check the diagnostic.
-  ASSERT_EQ(Diags.diags().size(), 1);
-  auto &D = Diags.diags()[0];
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
   ASSERT_TRUE(Expr->range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().end().isAt(0, 4, 4));
-  ASSERT_EQ(D->kind(), Diagnostic::DK_Expected);
-  ASSERT_EQ(D->args().size(), 1);
-  ASSERT_EQ(D->args()[0], "\"");
+  ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], "\"");
 
   // Check the note.
-  ASSERT_EQ(D->notes().size(), 1);
-  auto &N = D->notes()[0];
-  ASSERT_TRUE(N->range().begin().isAt(0, 0, 0));
-  ASSERT_TRUE(N->range().end().isAt(0, 1, 1));
-  ASSERT_EQ(N->kind(), Note::NK_ToMachThis);
-  ASSERT_EQ(N->args().size(), 1);
-  ASSERT_EQ(N->args()[0], "\"");
+  ASSERT_EQ(D.notes().size(), 1);
+  auto &N = D.notes()[0];
+  ASSERT_TRUE(N.range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(N.range().end().isAt(0, 1, 1));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N.args().size(), 1);
+  ASSERT_EQ(N.args()[0], "\"");
 
   // Check fix-it hints.
-  ASSERT_EQ(D->fixes().size(), 1);
-  const auto &F = D->fixes()[0];
+  ASSERT_EQ(D.fixes().size(), 1);
+  const auto &F = D.fixes()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(0, 4, 4));
   ASSERT_TRUE(F.oldRange().end().isAt(0, 4, 4));
   ASSERT_EQ(F.newText(), "\"");
@@ -118,7 +117,7 @@ TEST(Parser, StringMissingDQuote) {
 
 TEST(Parser, StringInterpolation) {
   auto Src = R"("aaa ${1} bbb")"sv;
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
@@ -131,7 +130,7 @@ TEST(Parser, StringInterpolation) {
   ASSERT_EQ(Parts->fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
   ASSERT_EQ(Parts->fragments()[2].kind(), InterpolablePart::SPK_Escaped);
 
-  ASSERT_EQ(Diags.diags().size(), 0);
+  ASSERT_EQ(Diags.size(), 0);
   ASSERT_TRUE(Expr->range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().end().isAt(0, 14, 14));
 }
@@ -146,7 +145,7 @@ TEST(Parser, IndentedString) {
 
   )"sv;
 
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
@@ -154,26 +153,26 @@ TEST(Parser, IndentedString) {
   ASSERT_EQ(Parts->fragments().size(), 3);
 
   // Check the diagnostic.
-  ASSERT_EQ(Diags.diags().size(), 1);
-  auto &D = Diags.diags()[0];
-  ASSERT_TRUE(D->range().begin().isAt(7, 3, 39));
-  ASSERT_TRUE(D->range().end().isAt(7, 3, 39));
-  ASSERT_EQ(D->kind(), Diagnostic::DK_Expected);
-  ASSERT_EQ(D->args().size(), 1);
-  ASSERT_EQ(D->args()[0], "''");
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(7, 3, 39));
+  ASSERT_TRUE(D.range().end().isAt(7, 3, 39));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], "''");
 
   // Check the note.
-  ASSERT_EQ(D->notes().size(), 1);
-  auto &N = D->notes()[0];
-  ASSERT_TRUE(N->range().begin().isAt(0, 0, 0));
-  ASSERT_TRUE(N->range().end().isAt(0, 2, 2));
-  ASSERT_EQ(N->kind(), Note::NK_ToMachThis);
-  ASSERT_EQ(N->args().size(), 1);
-  ASSERT_EQ(N->args()[0], "''");
+  ASSERT_EQ(D.notes().size(), 1);
+  auto &N = D.notes()[0];
+  ASSERT_TRUE(N.range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(N.range().end().isAt(0, 2, 2));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N.args().size(), 1);
+  ASSERT_EQ(N.args()[0], "''");
 
   // Check fix-it hints.
-  ASSERT_EQ(D->fixes().size(), 1);
-  const auto &F = D->fixes()[0];
+  ASSERT_EQ(D.fixes().size(), 1);
+  const auto &F = D.fixes()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(7, 3, 39));
   ASSERT_TRUE(F.oldRange().end().isAt(7, 3, 39));
   ASSERT_EQ(F.newText(), "''");
@@ -182,14 +181,14 @@ TEST(Parser, IndentedString) {
 TEST(Parser, InterpolationOK) {
   auto Src = R"("${1}")"sv;
 
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
   auto Parts = static_cast<ExprString *>(AST.get())->parts();
   ASSERT_EQ(Parts->fragments().size(), 1);
   ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Interpolation);
-  ASSERT_EQ(Diags.diags().size(), 0);
+  ASSERT_EQ(Diags.size(), 0);
 
   // Check the interpolation range
   const std::shared_ptr<Expr> &I = Parts->fragments()[0].interpolation();
@@ -200,35 +199,35 @@ TEST(Parser, InterpolationOK) {
 TEST(Parser, InterpolationNoRCurly) {
   auto Src = R"("${1")"sv;
 
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
   auto Parts = static_cast<ExprString *>(AST.get())->parts();
   ASSERT_EQ(Parts->fragments().size(), 1);
   ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Interpolation);
-  ASSERT_EQ(Diags.diags().size(), 1);
+  ASSERT_EQ(Diags.size(), 1);
 
   // Check the diagnostic.
-  auto &D = Diags.diags()[0];
-  ASSERT_TRUE(D->range().begin().isAt(0, 4, 4));
-  ASSERT_TRUE(D->range().end().isAt(0, 4, 4));
-  ASSERT_EQ(D->kind(), Diagnostic::DK_Expected);
-  ASSERT_EQ(D->args().size(), 1);
-  ASSERT_EQ(D->args()[0], "}");
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 4, 4));
+  ASSERT_TRUE(D.range().end().isAt(0, 4, 4));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], "}");
 
   // Check the note.
-  ASSERT_EQ(D->notes().size(), 1);
-  auto &N = D->notes()[0];
-  ASSERT_TRUE(N->range().begin().isAt(0, 1, 1));
-  ASSERT_TRUE(N->range().end().isAt(0, 3, 3));
-  ASSERT_EQ(N->kind(), Note::NK_ToMachThis);
-  ASSERT_EQ(N->args().size(), 1);
-  ASSERT_EQ(N->args()[0], "${");
+  ASSERT_EQ(D.notes().size(), 1);
+  auto &N = D.notes()[0];
+  ASSERT_TRUE(N.range().begin().isAt(0, 1, 1));
+  ASSERT_TRUE(N.range().end().isAt(0, 3, 3));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N.args().size(), 1);
+  ASSERT_EQ(N.args()[0], "${");
 
   // Check fix-it hints.
-  ASSERT_EQ(D->fixes().size(), 1);
-  const auto &F = D->fixes()[0];
+  ASSERT_EQ(D.fixes().size(), 1);
+  const auto &F = D.fixes()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(0, 4, 4));
   ASSERT_TRUE(F.oldRange().end().isAt(0, 4, 4));
   ASSERT_EQ(F.newText(), "}");
@@ -237,7 +236,7 @@ TEST(Parser, InterpolationNoRCurly) {
 TEST(Parser, InterpolationNullExpr) {
   auto Src = R"("${}")"sv;
 
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
@@ -245,16 +244,16 @@ TEST(Parser, InterpolationNullExpr) {
   ASSERT_EQ(Parts->fragments().size(), 0);
 
   // Check the diagnostic.
-  auto &D = Diags.diags()[0];
-  ASSERT_TRUE(D->range().begin().isAt(0, 3, 3));
-  ASSERT_TRUE(D->range().end().isAt(0, 3, 3));
-  ASSERT_EQ(D->kind(), Diagnostic::DK_Expected);
-  ASSERT_EQ(D->args().size(), 1);
-  ASSERT_EQ(D->args()[0], "an expression as interpolation");
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 3, 3));
+  ASSERT_TRUE(D.range().end().isAt(0, 3, 3));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], "an expression as interpolation");
 
   // Check fix-it hints.
-  ASSERT_EQ(D->fixes().size(), 1);
-  const auto &F = D->fixes()[0];
+  ASSERT_EQ(D.fixes().size(), 1);
+  const auto &F = D.fixes()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(0, 3, 3));
   ASSERT_TRUE(F.oldRange().end().isAt(0, 3, 3));
   ASSERT_EQ(F.newText(), " expr");
@@ -263,7 +262,7 @@ TEST(Parser, InterpolationNullExpr) {
 TEST(Parser, PathOK) {
   auto Src = R"(a/b/c/${"foo"}/d)"sv;
 
-  DiagnosticEngine Diags;
+  std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprPath);

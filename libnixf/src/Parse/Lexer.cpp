@@ -1,6 +1,5 @@
 #include "Lexer.h"
 
-#include "nixf/Basic/DiagnosticEngine.h"
 #include "nixf/Basic/Range.h"
 
 #include <cassert>
@@ -124,7 +123,7 @@ bool Lexer::consumeComments() {
       if (eof()) {
         // There is no '*/' to terminate comments
         Diagnostic &Diag =
-            Diags.diag(DK::DK_UnterminatedBComment, {cur(), cur()});
+            Diags.emplace_back(DK::DK_UnterminatedBComment, RangeTy{cur()});
         Diag.note(NK::NK_BCommentBegin, *BeginRange);
         Diag.fix(Fix::mkInsertion(cur(), "*/"));
         return true;
@@ -164,7 +163,7 @@ bool Lexer::lexFloatExp() {
     // [0-9]+
     if (!consumeManyDigits()) {
       // not matching [0-9]+, error
-      Diags.diag(DK::DK_FloatNoExp, curRange()) << std::string(1, *ECh);
+      Diags.emplace_back(DK::DK_FloatNoExp, curRange()) << std::string(1, *ECh);
       return false;
     }
   }
@@ -204,7 +203,7 @@ void Lexer::lexNumbers() {
     // Checking that if the float token has leading zeros.
     std::string_view Prefix = Src.substr(Ch->begin().Offset, 2);
     if (Prefix.starts_with("0") && Prefix != "0.")
-      Diags.diag(DK::DK_FloatLeadingZero, *Ch) << std::string(Prefix);
+      Diags.emplace_back(DK::DK_FloatLeadingZero, *Ch) << std::string(Prefix);
   } else {
     Tok = tok_int;
   }
