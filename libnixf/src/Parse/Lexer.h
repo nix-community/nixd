@@ -9,6 +9,7 @@
 
 #include "Token.h"
 
+#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Range.h"
 
 #include <cassert>
@@ -19,11 +20,9 @@
 
 namespace nixf {
 
-class DiagnosticEngine;
-
 class Lexer {
   const std::string_view Src;
-  DiagnosticEngine &Diags;
+  std::vector<Diagnostic> &Diags;
 
   Point Cur;
 
@@ -120,7 +119,7 @@ class Lexer {
   }
 
 public:
-  Lexer(std::string_view Src, DiagnosticEngine &Diags)
+  Lexer(std::string_view Src, std::vector<Diagnostic> &Diags)
       : Src(Src), Diags(Diags), Cur() {}
 
   /// Reset the cursor at source \p offset (zero-based indexing)

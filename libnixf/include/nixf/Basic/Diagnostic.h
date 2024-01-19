@@ -142,10 +142,10 @@ public:
   [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 
   Note &note(Note::NoteKind Kind, RangeTy Range) {
-    return *Notes.emplace_back(std::make_unique<Note>(Kind, Range));
+    return Notes.emplace_back(Kind, Range);
   }
 
-  std::vector<std::unique_ptr<Note>> &notes() { return Notes; }
+  std::vector<Note> &notes() { return Notes; }
 
   Diagnostic &fix(Fix F) {
     Fixes.emplace_back(std::move(F));
@@ -161,7 +161,7 @@ private:
   /// Location of this diagnostic
   RangeTy Range;
 
-  std::vector<std::unique_ptr<Note>> Notes;
+  std::vector<Note> Notes;
   std::vector<Fix> Fixes;
 };
 

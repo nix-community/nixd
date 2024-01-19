@@ -7,14 +7,17 @@
 
 #include <memory>
 #include <string_view>
+#include <vector>
 
 namespace nixf {
 
 class Node;
-class DiagnosticEngine;
+class Diagnostic;
 
 /// \brief Parse a string.
-/// \param Diag Diagnostics will be written here.
-std::shared_ptr<Node> parse(std::string_view Src, DiagnosticEngine &Diag);
+/// \param Src The string to parse.
+/// \param Diags Diagnostics will be appended to this vector.
+std::shared_ptr<Node> parse(std::string_view Src,
+                            std::vector<Diagnostic> &Diags);
 
 } // namespace nixf
