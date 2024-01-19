@@ -8,7 +8,7 @@ namespace nixd {
 
 /// \brief Run controller with input & output ports.
 ///
-// The function will return after received "exit"
+/// The function will return after received "exit"
 void runController(std::unique_ptr<lspserver::InboundPort> In,
                    std::unique_ptr<lspserver::OutboundPort> Out);
 
