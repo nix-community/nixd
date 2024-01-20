@@ -26,6 +26,12 @@ CHECK-NEXT:   "id": 0,
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": {
 CHECK-NEXT:     "capabilities": {
+CHECK-NEXT:       "codeActionProvider": {
+CHECK-NEXT:         "codeActionKinds": [
+CHECK-NEXT:           "quickfix"
+CHECK-NEXT:         ],
+CHECK-NEXT:         "resolveProvider": false
+CHECK-NEXT:       },
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,
