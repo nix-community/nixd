@@ -114,6 +114,26 @@ TEST_F(LexerTest, FloatLeadingZero) {
   ASSERT_EQ(std::string(Diags[0].args()[0]), "00");
 }
 
+TEST_F(LexerTest, FloatNoExp_little) {
+  Lexer Lexer("0.33e", Diags);
+  auto P = Lexer.lex();
+  ASSERT_EQ(P.kind(), tok_float);
+  ASSERT_EQ(P.view(), "0.33e");
+  ASSERT_FALSE(Diags.empty());
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_FloatNoExp);
+  ASSERT_EQ(std::string(Diags[0].args()[0]), "e");
+}
+
+TEST_F(LexerTest, FloatNoExp_big) {
+  Lexer Lexer("0.33E", Diags);
+  auto P = Lexer.lex();
+  ASSERT_EQ(P.kind(), tok_float);
+  ASSERT_EQ(P.view(), "0.33E");
+  ASSERT_FALSE(Diags.empty());
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_FloatNoExp);
+  ASSERT_EQ(std::string(Diags[0].args()[0]), "E");
+}
+
 TEST_F(LexerTest, lexString) {
   Lexer Lexer(R"("aa bb \\ \t \" \n ${}")", Diags);
   const TokenKind Match[] = {

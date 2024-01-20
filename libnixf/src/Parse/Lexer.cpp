@@ -66,8 +66,9 @@ std::optional<char> Lexer::consumeOneOf(std::string_view Chars) {
   if (eof())
     return std::nullopt;
   if (Chars.find(peekUnwrap()) != std::string_view::npos) {
+    char Ret = peekUnwrap();
     consume();
-    return peek();
+    return Ret;
   }
   return std::nullopt;
 }
