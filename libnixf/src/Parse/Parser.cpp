@@ -26,7 +26,7 @@ using namespace nixf::tok;
 Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, Point Loc,
                          std::string As) {
   Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(Loc));
-  D << ("an expression as " + std::move(As));
+  D << std::move(As) + " expression";
   D.fix("insert dummy expression").edit(TextEdit::mkInsertion(Loc, " expr"));
   return D;
 }
@@ -263,6 +263,44 @@ public:
     } // with(PS_String / PS_IndString)
   }
 
+  /// '(' expr ')'
+  std::shared_ptr<ExprParen> parseExprParen() {
+    Token L = peek();
+    auto LParen = std::make_shared<Misc>(L.range());
+    assert(L.kind() == tok_l_paren);
+    consume(); // (
+    assert(LastToken && "LastToken should be set after consume()");
+    auto Expr = parseExpr();
+    if (!Expr)
+      diagNullExpr(Diags, LastToken->end(), "parenthesized");
+    if (Token R = peek(); R.kind() == tok_r_paren) {
+      consume(); // )
+      auto RParen = std::make_shared<Misc>(R.range());
+      return std::make_shared<ExprParen>(
+          RangeTy{
+              L.begin(),
+              R.end(),
+          },
+          std::move(Expr), std::move(LParen), std::move(RParen));
+    }
+
+    // Missing ")"
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
+    D << std::string(tok::spelling(tok_r_paren));
+    D.note(Note::NK_ToMachThis, L.range())
+        << std::string(tok::spelling(tok_l_paren));
+    D.fix("insert )")
+        .edit(TextEdit::mkInsertion(LastToken->end(),
+                                    std::string(tok::spelling(tok_r_paren))));
+    return std::make_shared<ExprParen>(
+        RangeTy{
+            L.begin(),
+            LastToken->end(),
+        },
+        std::move(Expr), std::move(LParen), /*RParen=*/nullptr);
+  }
+
   /// expr_simple :  INT
   ///             | FLOAT
   ///             | string
@@ -296,6 +334,8 @@ public:
       return parseString(/*IsIndented=*/true);
     case tok_path_fragment:
       return parseExprPath();
+    case tok_l_paren:
+      return parseExprParen();
     default:
       return nullptr;
     }
