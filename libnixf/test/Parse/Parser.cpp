@@ -155,8 +155,8 @@ TEST(Parser, IndentedString) {
   // Check the diagnostic.
   ASSERT_EQ(Diags.size(), 1);
   auto &D = Diags[0];
-  ASSERT_TRUE(D.range().begin().isAt(7, 3, 39));
-  ASSERT_TRUE(D.range().end().isAt(7, 3, 39));
+  ASSERT_TRUE(D.range().begin().isAt(7, 2, 39));
+  ASSERT_TRUE(D.range().end().isAt(7, 2, 39));
   ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
   ASSERT_EQ(D.args().size(), 1);
   ASSERT_EQ(D.args()[0], "''");
@@ -173,8 +173,8 @@ TEST(Parser, IndentedString) {
   // Check fix-it hints.
   ASSERT_EQ(D.fixes().size(), 1);
   const auto &F = D.fixes()[0];
-  ASSERT_TRUE(F.oldRange().begin().isAt(7, 3, 39));
-  ASSERT_TRUE(F.oldRange().end().isAt(7, 3, 39));
+  ASSERT_TRUE(F.oldRange().begin().isAt(7, 2, 39));
+  ASSERT_TRUE(F.oldRange().end().isAt(7, 2, 39));
   ASSERT_EQ(F.newText(), "''");
 }
 
