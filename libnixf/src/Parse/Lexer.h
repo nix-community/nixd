@@ -30,7 +30,7 @@ class Lexer {
     assert(Cur.Offset + N <= Src.length());
     // Update Line & Column & Offset
     for (std::size_t I = 0; I < N; ++I) {
-      if (Src[Cur.Offset + N] == '\n') {
+      if (Src[Cur.Offset + I] == '\n') {
         ++Cur.Line;
         Cur.Column = 0;
       } else {
