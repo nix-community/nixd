@@ -126,7 +126,7 @@ bool Lexer::consumeComments() {
         Diagnostic &Diag =
             Diags.emplace_back(DK::DK_UnterminatedBComment, RangeTy{cur()});
         Diag.note(NK::NK_BCommentBegin, *BeginRange);
-        Diag.fix(Fix::mkInsertion(cur(), "*/"));
+        Diag.fix("insert */").edit(TextEdit::mkInsertion(cur(), "*/"));
         return true;
       }
       if (consumePrefix("*/"))
