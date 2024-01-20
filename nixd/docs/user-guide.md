@@ -148,6 +148,18 @@ Typically, you can write a nix file, and evaluate the result into `.nixd.json`, 
 nix eval --json --file .nixd.nix > .nixd.json
 ```
 
+`.nixd.json`, the configuration of `nixd`, supports [json schema](https://json-schema.org/).
+So if your editor supports
+[LSP](https://microsoft.github.io/language-server-protocol/implementors/servers/),
+you can get completions, diagnostics and more[^json-schema]:
+
+![completion](https://github.com/nix-community/nixd/assets/32936898/013367c6-63d8-4bba-9057-c5701c2f36c1)
+
+![diagnostic](https://github.com/nix-community/nixd/assets/32936898/d285eb69-f023-4573-a8e5-8d5501ae3d16)
+
+[^json-schema]: These pictures were captured in [neovim](https://neovim.org/)
+with the plugin [coc-json](https://github.com/neoclide/coc-json).
+
 #### Evaluation
 
 ##### Target
