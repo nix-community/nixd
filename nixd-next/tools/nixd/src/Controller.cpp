@@ -2,24 +2,80 @@
 /// \brief Controller. The process interacting with users.
 #include "nixd-config.h"
 
+#include "nixf/Basic/Diagnostic.h"
+#include "nixf/Parse/Parser.h"
+
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Path.h"
+#include "lspserver/Protocol.h"
 #include "lspserver/SourceCode.h"
 
 #include <llvm/Support/JSON.h>
+
+#include <sstream>
 
 namespace {
 
 using namespace lspserver;
 using namespace llvm::json;
 
+Position toLSPPosition(const nixf::Point &P) {
+  return Position{static_cast<int>(P.line()), static_cast<int>(P.column())};
+}
+
+Range toLSPRange(const nixf::RangeTy &R) {
+  return Range{toLSPPosition(R.begin()), toLSPPosition(R.end())};
+}
+
+int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
+  switch (nixf::Diagnostic::severity(Kind)) {
+  case nixf::Diagnostic::DS_Fatal:
+  case nixf::Diagnostic::DS_Error:
+    return 1;
+  case nixf::Diagnostic::DS_Warning:
+    return 2;
+  }
+  assert(false && "Invalid severity");
+}
+
 class Controller : public LSPServer {
   DraftStore Store;
 
-  void addDocument(PathRef File, llvm::StringRef Contents,
-                   llvm::StringRef Version) {
-    Store.addDraft(File, Version, Contents);
+  llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
+      PublishDiagnostic;
+
+  /// Action right after a document is added (including updates).
+  void actOnDocumentAdd(PathRef File, std::optional<int64_t> Version) {
+    auto Draft = Store.getDraft(File);
+    assert(Draft && "Added document is not in the store?");
+    std::vector<nixf::Diagnostic> Diagnostics;
+    nixf::parse(*Draft->Contents, Diagnostics);
+
+    std::vector<Diagnostic> LSPDiags;
+    LSPDiags.reserve(Diagnostics.size());
+    for (const nixf::Diagnostic &D : Diagnostics) {
+      LSPDiags.emplace_back(Diagnostic{
+          .range = toLSPRange(D.range()),
+          .severity = getLSPSeverity(D.kind()),
+          .code = D.sname(),
+          .source = "nixf",
+          .message = D.format(),
+      });
+      for (const nixf::Note &N : D.notes()) {
+        LSPDiags.emplace_back(Diagnostic{
+            .range = toLSPRange(N.range()),
+            .severity = 3,
+            .source = "nixf",
+            .message = N.format(),
+        });
+      }
+    }
+    PublishDiagnostic({
+        .uri = URIForFile::canonicalize(File, File),
+        .diagnostics = std::move(LSPDiags),
+        .version = Version,
+    });
   }
 
   void removeDocument(PathRef File) { Store.removeDraft(File); }
@@ -48,14 +104,18 @@ class Controller : public LSPServer {
     }};
 
     Reply(std::move(Result));
+
+    PublishDiagnostic = mkOutNotifiction<PublishDiagnosticsParams>(
+        "textDocument/publishDiagnostics");
   }
   void onInitialized([[maybe_unused]] const InitializedParams &Params) {}
 
   void onDocumentDidOpen(const DidOpenTextDocumentParams &Params) {
     PathRef File = Params.textDocument.uri.file();
     const std::string &Contents = Params.textDocument.text;
-    addDocument(File, Contents,
-                DraftStore::encodeVersion(Params.textDocument.version));
+    std::optional<int64_t> Version = Params.textDocument.version;
+    Store.addDraft(File, DraftStore::encodeVersion(Version), Contents);
+    actOnDocumentAdd(File, Version);
   }
 
   void onDocumentDidChange(const DidChangeTextDocumentParams &Params) {
@@ -76,9 +136,9 @@ class Controller : public LSPServer {
         return;
       }
     }
-    std::string Version =
-        DraftStore::encodeVersion(Params.textDocument.version);
-    addDocument(File, NewCode, Version);
+    std::optional<int64_t> Version = Params.textDocument.version;
+    Store.addDraft(File, DraftStore::encodeVersion(Version), NewCode);
+    actOnDocumentAdd(File, Version);
   }
 
   void onDocumentDidClose(const DidCloseTextDocumentParams &Params) {
