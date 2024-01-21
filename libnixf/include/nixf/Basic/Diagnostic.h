@@ -19,25 +19,27 @@
 
 namespace nixf {
 
-/// Fix-it hints. Remove the text at `OldRange`, and replace it as `NewText`
+/// Remove the text at `OldRange`, and replace it as `NewText`
 /// Special cases:
 /// 1. Insertions: special `OldRange` that `Begin` == `End`.
 /// 2. Removals:   empty `NewText`.
-class Fix {
+class TextEdit {
   RangeTy OldRange;
   std::string NewText;
 
 public:
-  Fix(RangeTy OldRange, std::string NewText)
+  TextEdit(RangeTy OldRange, std::string NewText)
       : OldRange(OldRange), NewText(std::move(NewText)) {
     assert(OldRange.begin() != OldRange.end() || !this->NewText.empty());
   }
 
-  static Fix mkInsertion(Point P, std::string NewText) {
+  static TextEdit mkInsertion(Point P, std::string NewText) {
     return {{P, P}, std::move(NewText)};
   }
 
-  static Fix mkRemoval(RangeTy RemovingRange) { return {RemovingRange, ""}; }
+  static TextEdit mkRemoval(RangeTy RemovingRange) {
+    return {RemovingRange, ""};
+  }
 
   [[nodiscard]] bool isReplace() const {
     return !isRemoval() && !isInsertion();
@@ -51,6 +53,23 @@ public:
 
   [[nodiscard]] RangeTy oldRange() const { return OldRange; }
   [[nodiscard]] std::string_view newText() const { return NewText; }
+};
+
+class Fix {
+  std::vector<TextEdit> Edits;
+  std::string Message;
+
+public:
+  Fix(std::vector<TextEdit> Edits, std::string Message)
+      : Edits(std::move(Edits)), Message(std::move(Message)) {}
+
+  Fix &edit(TextEdit Edit) {
+    Edits.emplace_back(std::move(Edit));
+    return *this;
+  }
+
+  [[nodiscard]] const std::vector<TextEdit> &edits() const { return Edits; }
+  [[nodiscard]] const std::string &message() const { return Message; }
 };
 
 class PartialDiagnostic {
@@ -147,9 +166,8 @@ public:
 
   std::vector<Note> &notes() { return Notes; }
 
-  Diagnostic &fix(Fix F) {
-    Fixes.emplace_back(std::move(F));
-    return *this;
+  Fix &fix(std::string Message) {
+    return Fixes.emplace_back(Fix{{}, std::move(Message)});
   }
 
   const std::vector<Fix> &fixes() { return Fixes; }

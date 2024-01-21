@@ -27,7 +27,7 @@ Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, Point Loc,
                          std::string As) {
   Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(Loc));
   D << ("an expression as " + std::move(As));
-  D.fix(Fix::mkInsertion(Loc, " expr"));
+  D.fix("insert dummy expression").edit(TextEdit::mkInsertion(Loc, " expr"));
   return D;
 }
 
@@ -146,8 +146,7 @@ public:
         D << std::string(tok::spelling(tok_r_curly));
         D.note(Note::NK_ToMachThis, TokDollarCurly.range())
             << std::string(tok::spelling(tok_dollar_curly));
-        D.fix(Fix::mkInsertion(LastToken->end(),
-                               std::string(tok::spelling(tok_r_curly))));
+        D.fix("insert }").edit(TextEdit::mkInsertion(LastToken->end(), "}"));
       }
       return Expr;
     } // with(PS_Expr)
@@ -252,7 +251,8 @@ public:
                                          RangeTy(LastToken->end()));
       D << QuoteSpel;
       D.note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
-      D.fix(Fix::mkInsertion(LastToken->end(), QuoteSpel));
+      D.fix("insert " + QuoteSpel)
+          .edit(TextEdit::mkInsertion(LastToken->end(), QuoteSpel));
       return std::make_shared<ExprString>(
           RangeTy{
               Quote.begin(),

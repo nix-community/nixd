@@ -109,7 +109,9 @@ TEST(Parser, StringMissingDQuote) {
 
   // Check fix-it hints.
   ASSERT_EQ(D.fixes().size(), 1);
-  const auto &F = D.fixes()[0];
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "insert \"");
+  const auto &F = D.fixes()[0].edits()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(0, 4, 4));
   ASSERT_TRUE(F.oldRange().end().isAt(0, 4, 4));
   ASSERT_EQ(F.newText(), "\"");
@@ -172,7 +174,9 @@ TEST(Parser, IndentedString) {
 
   // Check fix-it hints.
   ASSERT_EQ(D.fixes().size(), 1);
-  const auto &F = D.fixes()[0];
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "insert ''");
+  const auto &F = D.fixes()[0].edits()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(7, 2, 39));
   ASSERT_TRUE(F.oldRange().end().isAt(7, 2, 39));
   ASSERT_EQ(F.newText(), "''");
@@ -227,7 +231,9 @@ TEST(Parser, InterpolationNoRCurly) {
 
   // Check fix-it hints.
   ASSERT_EQ(D.fixes().size(), 1);
-  const auto &F = D.fixes()[0];
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "insert }");
+  const auto &F = D.fixes()[0].edits()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(0, 4, 4));
   ASSERT_TRUE(F.oldRange().end().isAt(0, 4, 4));
   ASSERT_EQ(F.newText(), "}");
@@ -253,7 +259,9 @@ TEST(Parser, InterpolationNullExpr) {
 
   // Check fix-it hints.
   ASSERT_EQ(D.fixes().size(), 1);
-  const auto &F = D.fixes()[0];
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "insert dummy expression");
+  const auto &F = D.fixes()[0].edits()[0];
   ASSERT_TRUE(F.oldRange().begin().isAt(0, 3, 3));
   ASSERT_TRUE(F.oldRange().end().isAt(0, 3, 3));
   ASSERT_EQ(F.newText(), " expr");
