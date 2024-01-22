@@ -164,13 +164,13 @@ public:
     return Notes.emplace_back(Kind, Range);
   }
 
-  std::vector<Note> &notes() { return Notes; }
+  [[nodiscard]] const std::vector<Note> &notes() const { return Notes; }
 
   Fix &fix(std::string Message) {
     return Fixes.emplace_back(Fix{{}, std::move(Message)});
   }
 
-  const std::vector<Fix> &fixes() { return Fixes; }
+  [[nodiscard]] const std::vector<Fix> &fixes() const { return Fixes; }
 
   [[nodiscard]] RangeTy range() const { return Range; }
 
