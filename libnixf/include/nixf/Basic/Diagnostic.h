@@ -83,6 +83,8 @@ public:
     return *this;
   }
 
+  [[nodiscard]] std::string format() const;
+
   [[nodiscard]] const std::vector<std::string> &args() const { return Args; }
 
 protected:

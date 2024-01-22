@@ -26,6 +26,13 @@ nixf = declare_dependency(
     dependencies: libnixf_deps
 )
 
+test('unit/libnixf/Basic',
+    executable('unit-libnixf-basic',
+        'test/Basic/Diagnostic.cpp',
+        dependencies: [ nixf, gtest_main ],
+    )
+)
+
 test('unit/libnixf/Parse',
     executable('unit-libnixf-parse',
         'test/Parse/Lexer.cpp',

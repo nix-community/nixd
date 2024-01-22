@@ -1,5 +1,27 @@
 #include "nixf/Basic/Diagnostic.h"
 
+#include <sstream>
+
+namespace {
+
+std::string simpleFormat(const char *Fmt,
+                         const std::vector<std::string> &Args) {
+  std::stringstream SS;
+  std::size_t ArgIdx = 0;
+  for (const char *Cur = Fmt; *Cur;) {
+    if (*Cur == '{' && *(Cur + 1) == '}') {
+      SS << Args[ArgIdx++];
+      Cur += 2;
+    } else {
+      SS << *Cur;
+      ++Cur;
+    }
+  }
+  return SS.str();
+}
+
+} // namespace
+
 namespace nixf {
 
 nixf::Diagnostic::Severity nixf::Diagnostic::severity(DiagnosticKind Kind) {
@@ -37,6 +59,10 @@ const char *nixf::Note::message(NoteKind Kind) {
 #include "nixf/Basic/NoteKinds.inc"
 #undef DIAG_NOTE
   }
+}
+
+std::string PartialDiagnostic::format() const {
+  return simpleFormat(message(), Args);
 }
 
 } // namespace nixf
