@@ -1,5 +1,5 @@
 
-# RUN: nixd-next --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test < %s | FileCheck %s
 
 <-- initialize(0)
 

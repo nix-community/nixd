@@ -12,8 +12,7 @@ Check basic handshake with the server, i.e. "initialize"
    "params":{
       "processId":123,
       "rootPath":"",
-      "capabilities":{
-      },
+      "capabilities":{ },
       "trace":"off"
    }
 }
@@ -27,28 +26,18 @@ CHECK-NEXT:   "id": 0,
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": {
 CHECK-NEXT:     "capabilities": {
-CHECK-NEXT:       "completionProvider": {
-CHECK-NEXT:         "triggerCharacters": [
-CHECK-NEXT:           "."
-CHECK-NEXT:         ]
-CHECK-NEXT:       },
-CHECK-NEXT:       "declarationProvider": true,
-CHECK-NEXT:       "definitionProvider": true,
-CHECK-NEXT:       "documentFormattingProvider": true,
-CHECK-NEXT:       "documentLinkProvider": {
+CHECK-NEXT:       "codeActionProvider": {
+CHECK-NEXT:         "codeActionKinds": [
+CHECK-NEXT:           "quickfix"
+CHECK-NEXT:         ],
 CHECK-NEXT:         "resolveProvider": false
-CHECK-NEXT:       },
-CHECK-NEXT:       "documentSymbolProvider": true,
-CHECK-NEXT:       "hoverProvider": true,
-CHECK-NEXT:       "renameProvider": {
-CHECK-NEXT:         "prepareProvider": true
 CHECK-NEXT:       },
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,
 CHECK-NEXT:         "save": true
 CHECK-NEXT:       }
-CHECK-NEXT:     },
+CHECK-NEXT:     }
 CHECK-NEXT:     "serverInfo": {
 CHECK-NEXT:       "name": "nixd",
 CHECK-NEXT:       "version": {{.*}}

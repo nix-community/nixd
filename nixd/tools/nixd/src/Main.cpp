@@ -51,7 +51,7 @@ opt<bool> PrettyPrint{"pretty", desc("Pretty-print JSON output"), init(false),
 
 int main(int argc, char *argv[]) {
   SetVersionPrinter([](llvm::raw_ostream &OS) {
-    OS << "nixd-next, version: ";
+    OS << "nixd, version: ";
 #ifdef NIXD_VCS_TAG
     OS << NIXD_VCS_TAG;
 #else
