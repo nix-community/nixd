@@ -41,7 +41,7 @@ CHECK-NEXT:  "params": {
 CHECK-NEXT:    "diagnostics": [
 CHECK-NEXT:      {
 CHECK-NEXT:        "code": "lex-unterminated-bcomment",
-CHECK-NEXT:        "message": "unterminated /* comment",
+CHECK-NEXT:        "message": "unterminated /* comment (fix available)",
 CHECK-NEXT:        "range": {
 CHECK-NEXT:          "end": {
 CHECK-NEXT:            "character": 2,

@@ -39,29 +39,67 @@ int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
   assert(false && "Invalid severity");
 }
 
+/// Holds analyzed information about a document.
+///
+/// TU stands for "Translation Unit".
+class NixTU {
+  std::vector<nixf::Diagnostic> Diagnostics;
+  std::shared_ptr<nixf::Node> AST;
+
+public:
+  NixTU() = default;
+  NixTU(std::vector<nixf::Diagnostic> Diagnostics,
+        std::shared_ptr<nixf::Node> AST)
+      : Diagnostics(std::move(Diagnostics)), AST(std::move(AST)) {}
+
+  [[nodiscard]] const std::vector<nixf::Diagnostic> &diagnostics() const {
+    return Diagnostics;
+  }
+
+  [[nodiscard]] const std::shared_ptr<nixf::Node> &ast() const { return AST; }
+};
+
 class Controller : public LSPServer {
   DraftStore Store;
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
 
+  llvm::StringMap<NixTU> TUs;
+
   /// Action right after a document is added (including updates).
   void actOnDocumentAdd(PathRef File, std::optional<int64_t> Version) {
     auto Draft = Store.getDraft(File);
     assert(Draft && "Added document is not in the store?");
     std::vector<nixf::Diagnostic> Diagnostics;
-    nixf::parse(*Draft->Contents, Diagnostics);
-
+    std::shared_ptr<nixf::Node> AST =
+        nixf::parse(*Draft->Contents, Diagnostics);
     std::vector<Diagnostic> LSPDiags;
     LSPDiags.reserve(Diagnostics.size());
     for (const nixf::Diagnostic &D : Diagnostics) {
+      // Format the message.
+      std::string Message = D.format();
+
+      // Add fix information.
+      if (!D.fixes().empty()) {
+        Message += " (";
+        if (D.fixes().size() == 1) {
+          Message += "fix available";
+        } else {
+          Message += std::to_string(D.fixes().size());
+          Message += " fixes available";
+        }
+        Message += ")";
+      }
+
       LSPDiags.emplace_back(Diagnostic{
           .range = toLSPRange(D.range()),
           .severity = getLSPSeverity(D.kind()),
           .code = D.sname(),
           .source = "nixf",
-          .message = D.format(),
+          .message = Message,
       });
+
       for (const nixf::Note &N : D.notes()) {
         LSPDiags.emplace_back(Diagnostic{
             .range = toLSPRange(N.range()),
@@ -76,6 +114,7 @@ class Controller : public LSPServer {
         .diagnostics = std::move(LSPDiags),
         .version = Version,
     });
+    TUs[File] = NixTU{std::move(Diagnostics), std::move(AST)};
   }
 
   void removeDocument(PathRef File) { Store.removeDraft(File); }
@@ -84,14 +123,19 @@ class Controller : public LSPServer {
       [[maybe_unused]] const InitializeParams &Params, Callback<Value> Reply) {
 
     Object ServerCaps{
-        {
-            {"textDocumentSync",
-             llvm::json::Object{
-                 {"openClose", true},
-                 {"change", (int)TextDocumentSyncKind::Incremental},
-                 {"save", true},
-             }},
-        },
+        {{"textDocumentSync",
+          llvm::json::Object{
+              {"openClose", true},
+              {"change", (int)TextDocumentSyncKind::Incremental},
+              {"save", true},
+          }},
+         {
+             "codeActionProvider",
+             Object{
+                 {"codeActionKinds", Array{CodeAction::QUICKFIX_KIND}},
+                 {"resolveProvider", false},
+             },
+         }},
     };
 
     Object Result{{
@@ -146,6 +190,43 @@ class Controller : public LSPServer {
     removeDocument(File);
   }
 
+  void onCodeAction(const CodeActionParams &Params,
+                    Callback<std::vector<CodeAction>> Reply) {
+    PathRef File = Params.textDocument.uri.file();
+    Range Range = Params.range;
+    const std::vector<nixf::Diagnostic> &Diagnostics = TUs[File].diagnostics();
+    std::vector<CodeAction> Actions;
+    Actions.reserve(Diagnostics.size());
+    for (const nixf::Diagnostic &D : Diagnostics) {
+      // Skip diagnostics that are not in the range.
+      if (!Range.contains(toLSPRange(D.range())))
+        continue;
+
+      // Add fixes.
+      for (const nixf::Fix &F : D.fixes()) {
+        std::vector<TextEdit> Edits;
+        Edits.reserve(F.edits().size());
+        for (const nixf::TextEdit &TE : F.edits()) {
+          Edits.emplace_back(TextEdit{
+              .range = toLSPRange(TE.oldRange()),
+              .newText = std::string(TE.newText()),
+          });
+        }
+        using Changes = std::map<std::string, std::vector<TextEdit>>;
+        std::string FileURI = URIForFile::canonicalize(File, File).uri();
+        WorkspaceEdit WE{.changes = Changes{
+                             {std::move(FileURI), std::move(Edits)},
+                         }};
+        Actions.emplace_back(CodeAction{
+            .title = F.message(),
+            .kind = std::string(CodeAction::QUICKFIX_KIND),
+            .edit = std::move(WE),
+        });
+      }
+    }
+    Reply(std::move(Actions));
+  }
+
 public:
   Controller(std::unique_ptr<InboundPort> In, std::unique_ptr<OutboundPort> Out)
       : LSPServer(std::move(In), std::move(Out)) {
@@ -162,6 +243,10 @@ public:
 
     Registry.addNotification("textDocument/didClose", this,
                              &Controller::onDocumentDidClose);
+
+    // Language Features
+    Registry.addMethod("textDocument/codeAction", this,
+                       &Controller::onCodeAction);
   }
 };
 
