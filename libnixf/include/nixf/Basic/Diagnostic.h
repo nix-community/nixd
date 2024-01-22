@@ -83,6 +83,8 @@ public:
     return *this;
   }
 
+  [[nodiscard]] std::string format() const;
+
   [[nodiscard]] const std::vector<std::string> &args() const { return Args; }
 
 protected:
@@ -148,9 +150,6 @@ public:
   [[nodiscard]] static Severity severity(DiagnosticKind Kind);
 
   [[nodiscard]] static const char *message(DiagnosticKind Kind);
-
-  /// \brief Format the diagnostic message.
-  [[nodiscard]] std::string format() const;
 
   [[nodiscard]] const char *message() const override { return message(kind()); }
 

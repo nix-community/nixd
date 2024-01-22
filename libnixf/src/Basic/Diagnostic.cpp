@@ -61,8 +61,8 @@ const char *nixf::Note::message(NoteKind Kind) {
   }
 }
 
-std::string Diagnostic::format() const {
-  return simpleFormat(message(kind()), Args);
+std::string PartialDiagnostic::format() const {
+  return simpleFormat(message(), Args);
 }
 
 } // namespace nixf
