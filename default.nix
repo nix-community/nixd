@@ -66,7 +66,7 @@ stdenv.mkDerivation {
 
     # Disable nixd regression tests, because it uses some features provided by
     # nix, and does not correctly work in the sandbox
-    meson test --print-errorlogs server regression/nix-ast-dump
+    meson test --print-errorlogs  unit/libnixf/Basic unit/libnixf/Parse unit/libnixt regression/nixd
     runHook postCheck
   '';
 
