@@ -149,6 +149,9 @@ public:
 
   [[nodiscard]] static const char *message(DiagnosticKind Kind);
 
+  /// \brief Format the diagnostic message.
+  [[nodiscard]] std::string format() const;
+
   [[nodiscard]] const char *message() const override { return message(kind()); }
 
   /// Short name, switch name.
