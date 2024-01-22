@@ -21,11 +21,17 @@ class Node {
 public:
   enum NodeKind {
     NK_InterpolableParts,
+
+    /// \brief Misc node, used for parentheses, keywords, etc.
+    /// \see Misc
+    NK_Misc,
+
     NK_BeginExpr,
     NK_ExprInt,
     NK_ExprFloat,
     NK_ExprString,
     NK_ExprPath,
+    NK_ExprParen,
     NK_EndExpr,
   };
 
@@ -138,6 +144,31 @@ public:
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
     return Parts;
   }
+};
+
+/// \brief Misc node, used for parentheses, keywords, etc.
+///
+/// This is used for representing nodes that only location matters.
+/// Might be useful for linting.
+class Misc : public Node {
+public:
+  Misc(RangeTy Range) : Node(NK_Misc, Range) {}
+};
+
+class ExprParen : public Expr {
+  std::shared_ptr<Expr> E;
+  std::shared_ptr<Misc> LParen;
+  std::shared_ptr<Misc> RParen;
+
+public:
+  ExprParen(RangeTy Range, std::shared_ptr<Expr> E,
+            std::shared_ptr<Misc> LParen, std::shared_ptr<Misc> RParen)
+      : Expr(NK_ExprParen, Range), E(std::move(E)), LParen(std::move(LParen)),
+        RParen(std::move(RParen)) {}
+
+  [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
+  [[nodiscard]] const std::shared_ptr<Misc> &lparen() const { return LParen; }
+  [[nodiscard]] const std::shared_ptr<Misc> &rparen() const { return RParen; }
 };
 
 } // namespace nixf
