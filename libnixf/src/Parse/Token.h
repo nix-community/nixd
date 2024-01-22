@@ -28,12 +28,18 @@ constexpr std::string_view spelling(TokenKind Kind) {
     return "''";
   case tok_dollar_curly:
     return "${";
+  case tok_l_curly:
+    return "{";
   case tok_r_curly:
     return "}";
   case tok_l_paren:
     return "(";
   case tok_r_paren:
     return ")";
+  case tok_eq:
+    return "=";
+  case tok_semi_colon:
+    return ";";
   default:
     assert(false && "Not yet implemented!");
   }

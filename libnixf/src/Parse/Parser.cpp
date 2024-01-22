@@ -227,7 +227,7 @@ public:
     }
   }
 
-  std::shared_ptr<Expr> parseString(bool IsIndented) {
+  std::shared_ptr<ExprString> parseString(bool IsIndented) {
     Token Quote = peek();
     TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
     std::string QuoteSpel(tok::spelling(QuoteKind));
@@ -301,6 +301,174 @@ public:
         std::move(Expr), std::move(LParen), /*RParen=*/nullptr);
   }
 
+  // attrname : ID
+  //          | string
+  //          | interpolation
+  std::shared_ptr<AttrName> parseAttrName() {
+    switch (Token Tok = peek(); Tok.kind()) {
+    case tok_kw_or:
+      Diags.emplace_back(Diagnostic::DK_OrIdentifier, Tok.range());
+      [[fallthrough]];
+    case tok_id: {
+      consume();
+      auto ID =
+          std::make_shared<Identifier>(Tok.range(), std::string(Tok.view()));
+      return std::make_shared<AttrName>(std::move(ID), Tok.range());
+    }
+    case tok_dquote: {
+      consume();
+      std::shared_ptr<ExprString> String = parseString(/*IsIndented=*/false);
+      return std::make_shared<AttrName>(std::move(String), Tok.range());
+    }
+    case tok_dollar_curly: {
+      std::shared_ptr<Expr> Expr = parseInterpolation();
+      return std::make_shared<AttrName>(std::move(Expr), Tok.range());
+    }
+    default:
+      return nullptr;
+    }
+  }
+
+  // attrpath : attrname ('.' attrname)*
+  std::shared_ptr<AttrPath> parseAttrPath() {
+    auto First = parseAttrName();
+    if (!First)
+      return nullptr;
+    assert(LastToken && "LastToken should be set after valid attrname");
+    std::vector<std::shared_ptr<AttrName>> AttrNames;
+    AttrNames.emplace_back(std::move(First));
+    Point Begin = peek().begin();
+    while (true) {
+      if (Token Tok = peek(); Tok.kind() == tok_dot) {
+        consume();
+        auto Next = parseAttrName();
+        if (!Next) {
+          // extra ".", consider remove it.
+          Diagnostic &D =
+              Diags.emplace_back(Diagnostic::DK_AttrPathExtraDot, Tok.range());
+          D.fix("remove extra .").edit(TextEdit::mkRemoval(Tok.range()));
+          D.fix("insert dummy attrname")
+              .edit(TextEdit::mkInsertion(Tok.range().end(), R"("dummy")"));
+        }
+        AttrNames.emplace_back(std::move(Next));
+        continue;
+      }
+      break;
+    }
+    return std::make_shared<AttrPath>(
+        RangeTy{
+            Begin,
+            LastToken->end(),
+        },
+        std::move(AttrNames));
+  }
+
+  // binding : attrpath '=' expr ';'
+  std::shared_ptr<Binding> parseBinding() {
+    auto Path = parseAttrPath();
+    if (!Path)
+      return nullptr;
+    assert(LastToken && "LastToken should be set after valid attrpath");
+    if (Token Tok = peek(); Tok.kind() == tok_eq) {
+      consume();
+    } else {
+      // expected "=" for binding
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                         RangeTy(LastToken->end()));
+      D << std::string(tok::spelling(tok_eq));
+      D.fix("insert =").edit(TextEdit::mkInsertion(LastToken->end(), "="));
+    }
+    auto Expr = parseExpr();
+    if (!Expr)
+      diagNullExpr(Diags, LastToken->end(), "binding");
+    if (Token Tok = peek(); Tok.kind() == tok_semi_colon) {
+      consume();
+    } else {
+      // TODO: reset the cursor for error recovery.
+      // (https://github.com/nix-community/nixd/blob/2b0ca8cef0d13823132a52b6cd6f6d7372482664/libnixf/lib/Parse/Parser.cpp#L337)
+      // expected ";" for binding
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                         RangeTy(LastToken->end()));
+      D << std::string(tok::spelling(tok_semi_colon));
+      D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->end(), ";"));
+    }
+    return std::make_shared<Binding>(
+        RangeTy{
+            Path->begin(),
+            LastToken->end(),
+        },
+        std::move(Path), std::move(Expr));
+  }
+
+  // binds : ( binding | inherit )*
+  std::shared_ptr<Binds> parseBinds() {
+    // TODO: curently we don't support inherit
+    auto First = parseBinding();
+    if (!First)
+      return nullptr;
+    assert(LastToken && "LastToken should be set after valid binding");
+    std::vector<std::shared_ptr<Node>> Bindings;
+    Bindings.emplace_back(std::move(First));
+    Point Begin = peek().begin();
+    while (true) {
+      if (auto Next = parseBinding()) {
+        Bindings.emplace_back(std::move(Next));
+        continue;
+      }
+      break;
+    }
+    return std::make_shared<Binds>(
+        RangeTy{
+            Begin,
+            LastToken->end(),
+        },
+        std::move(Bindings));
+  }
+
+  // attrset_expr : REC? '{' binds '}'
+  //
+  // Note: peek `tok_kw_rec` or `tok_l_curly` before calling this function.
+  std::shared_ptr<ExprAttrs> parseExprAttrs() {
+    std::shared_ptr<Misc> Rec;
+
+    // "to match this ..."
+    // if "{" is missing, then use "rec", otherwise use "{"
+    Token Matcher = peek();
+    Point Begin = peek().begin(); // rec or {
+    if (Token Tok = peek(); Tok.kind() == tok_kw_rec) {
+      consume();
+      Rec = std::make_shared<Misc>(Tok.range());
+    }
+    if (Token Tok = peek(); Tok.kind() == tok_l_curly) {
+      // "{" is found, use it as matcher.
+      Matcher = Tok;
+      consume();
+    } else {
+      // expected "{" for attrset
+      Point InsertPoint = LastToken ? LastToken->end() : peek().begin();
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(InsertPoint));
+      D << std::string(tok::spelling(tok_l_curly));
+      D.fix("insert {").edit(TextEdit::mkInsertion(InsertPoint, "{"));
+    }
+    assert(LastToken && "LastToken should be set after valid { or rec");
+    auto Binds = parseBinds();
+    if (Token Tok = peek(); Tok.kind() == tok_r_curly) {
+      consume();
+    } else {
+      // expected "}" for attrset
+      Point InsertPoint = LastToken ? LastToken->end() : peek().begin();
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(InsertPoint));
+      D << std::string(tok::spelling(tok_r_curly));
+      D.note(Note::NK_ToMachThis, Matcher.range())
+          << std::string(tok::spelling(Matcher.kind()));
+      D.fix("insert }").edit(TextEdit::mkInsertion(InsertPoint, "}"));
+    }
+    return std::make_shared<ExprAttrs>(RangeTy{Begin, LastToken->end()},
+                                       std::move(Binds), std::move(Rec));
+  }
+
   /// expr_simple :  INT
   ///             | FLOAT
   ///             | string
@@ -336,6 +504,9 @@ public:
       return parseExprPath();
     case tok_l_paren:
       return parseExprParen();
+    case tok_kw_rec:
+    case tok_l_curly:
+      return parseExprAttrs();
     default:
       return nullptr;
     }
