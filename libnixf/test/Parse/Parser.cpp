@@ -393,4 +393,157 @@ TEST(Parser, ParenNullExpr) {
   ASSERT_EQ(F.newText(), " expr");
 }
 
+TEST(Parser, AttrsOK) {
+  auto Src = R"({})"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 2, 2));
+  ASSERT_FALSE(static_cast<ExprAttrs *>(AST.get())->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, RecAttrsOK) {
+  auto Src = R"(rec { })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 7, 7));
+  ASSERT_TRUE(static_cast<ExprAttrs *>(AST.get())->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, RecAttrsMissingLCurly) {
+  auto Src = R"(rec )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 3, 3));
+  ASSERT_TRUE(static_cast<ExprAttrs *>(AST.get())->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 2);
+  auto &D = Diags;
+  ASSERT_TRUE(D[0].range().begin().isAt(0, 3, 3));
+  ASSERT_TRUE(D[0].range().end().isAt(0, 3, 3));
+  ASSERT_EQ(D[0].kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D[0].args().size(), 1);
+  ASSERT_EQ(D[0].args()[0], "{");
+  ASSERT_TRUE(D[0].range().begin().isAt(0, 3, 3));
+  ASSERT_TRUE(D[0].range().end().isAt(0, 3, 3));
+  ASSERT_EQ(D[1].kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D[1].args().size(), 1);
+  ASSERT_EQ(D[1].args()[0], "}");
+
+  // Check the note.
+  ASSERT_EQ(D[0].notes().size(), 0);
+  ASSERT_EQ(D[1].notes().size(), 1);
+  const auto &N = D[1].notes()[0];
+  ASSERT_TRUE(N.range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(N.range().end().isAt(0, 3, 3));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N.args().size(), 1);
+  ASSERT_EQ(N.args()[0], "rec");
+
+  // Check fix-it hints.
+  ASSERT_EQ(D[0].fixes().size(), 1);
+  ASSERT_EQ(D[0].fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D[0].fixes()[0].message(), "insert {");
+  const auto &F = D[0].fixes()[0].edits()[0];
+  ASSERT_TRUE(F.oldRange().begin().isAt(0, 3, 3));
+  ASSERT_TRUE(F.oldRange().end().isAt(0, 3, 3));
+  ASSERT_EQ(F.newText(), "{");
+
+  ASSERT_EQ(D[1].fixes().size(), 1);
+  ASSERT_EQ(D[1].fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D[1].fixes()[0].message(), "insert }");
+  const auto &F2 = D[1].fixes()[0].edits()[0];
+  ASSERT_TRUE(F2.oldRange().begin().isAt(0, 3, 3));
+  ASSERT_TRUE(F2.oldRange().end().isAt(0, 3, 3));
+  ASSERT_EQ(F2.newText(), "}");
+}
+
+TEST(Parser, AttrsOrID) {
+  auto Src = R"({ or = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 11, 11));
+  ASSERT_FALSE(static_cast<ExprAttrs *>(AST.get())->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 2, 2));
+  ASSERT_TRUE(D.range().end().isAt(0, 4, 4));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_OrIdentifier);
+}
+
+TEST(Parser, AttrsOKSpecialAttr) {
+  auto Src = R"({ a.b."foo".${"bar"} = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 27, 27));
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, AttrsExtraDot) {
+  auto Src = R"({ a.b. = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 13, 13));
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 5, 5));
+  ASSERT_TRUE(D.range().end().isAt(0, 6, 6));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_AttrPathExtraDot);
+
+  // Check that the note is correct.
+  ASSERT_EQ(D.notes().size(), 0);
+
+  // Check fix-it hints.
+  ASSERT_EQ(D.fixes().size(), 2);
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "remove extra .");
+  const auto &F = D.fixes()[0].edits()[0];
+  ASSERT_TRUE(F.oldRange().begin().isAt(0, 5, 5));
+  ASSERT_TRUE(F.oldRange().end().isAt(0, 6, 6));
+  ASSERT_EQ(F.newText(), "");
+
+  ASSERT_EQ(D.fixes()[1].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[1].message(), "insert dummy attrname");
+  const auto &F2 = D.fixes()[1].edits()[0];
+  ASSERT_TRUE(F2.oldRange().begin().isAt(0, 6, 6));
+  ASSERT_TRUE(F2.oldRange().end().isAt(0, 6, 6));
+  ASSERT_EQ(F2.newText(), "\"dummy\"");
+}
+
 } // namespace
