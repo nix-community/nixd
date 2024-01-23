@@ -468,6 +468,7 @@ public:
   }
 
   /// expr_simple :  INT
+  ///             | ID
   ///             | FLOAT
   ///             | string
   ///             | indented_string
@@ -481,6 +482,12 @@ public:
   std::shared_ptr<Expr> parseExprSimple() {
     Token Tok = peek();
     switch (Tok.kind()) {
+    case tok_id: {
+      consume();
+      auto ID =
+          std::make_shared<Identifier>(Tok.range(), std::string(Tok.view()));
+      return std::make_shared<ExprVar>(Tok.range(), std::move(ID));
+    }
     case tok_int: {
       consume();
       NixInt N;
