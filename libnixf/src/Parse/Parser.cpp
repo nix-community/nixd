@@ -445,11 +445,11 @@ public:
       consume();
     } else {
       // expected "{" for attrset
-      Point InsertPoint = LastToken ? LastToken->end() : peek().begin();
-      Diagnostic &D =
-          Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(InsertPoint));
+      assert(LastToken && "LastToken should be set after valid rec");
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                         RangeTy(LastToken->range()));
       D << std::string(tok::spelling(tok_l_curly));
-      D.fix("insert {").edit(TextEdit::mkInsertion(InsertPoint, "{"));
+      D.fix("insert {").edit(TextEdit::mkInsertion(LastToken->end(), "{"));
     }
     assert(LastToken && "LastToken should be set after valid { or rec");
     auto Binds = parseBinds();
@@ -457,13 +457,12 @@ public:
       consume();
     } else {
       // expected "}" for attrset
-      Point InsertPoint = LastToken ? LastToken->end() : peek().begin();
-      Diagnostic &D =
-          Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(InsertPoint));
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                         RangeTy(LastToken->range()));
       D << std::string(tok::spelling(tok_r_curly));
       D.note(Note::NK_ToMachThis, Matcher.range())
           << std::string(tok::spelling(Matcher.kind()));
-      D.fix("insert }").edit(TextEdit::mkInsertion(InsertPoint, "}"));
+      D.fix("insert }").edit(TextEdit::mkInsertion(LastToken->end(), "}"));
     }
     return std::make_shared<ExprAttrs>(RangeTy{Begin, LastToken->end()},
                                        std::move(Binds), std::move(Rec));
