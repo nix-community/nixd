@@ -35,6 +35,7 @@ public:
     NK_BeginExpr,
     NK_ExprInt,
     NK_ExprFloat,
+    NK_ExprVar,
     NK_ExprString,
     NK_ExprPath,
     NK_ExprParen,
@@ -186,6 +187,15 @@ public:
   Identifier(RangeTy Range, std::string Name)
       : Node(NK_Identifer, Range), Name(std::move(Name)) {}
   [[nodiscard]] const std::string &name() const { return Name; }
+};
+
+class ExprVar : public Expr {
+  std::shared_ptr<Identifier> ID;
+
+public:
+  ExprVar(RangeTy Range, std::shared_ptr<Identifier> ID)
+      : Expr(NK_ExprVar, Range), ID(std::move(ID)) {}
+  [[nodiscard]] const std::shared_ptr<Identifier> &id() const { return ID; }
 };
 
 class AttrName : public Node {

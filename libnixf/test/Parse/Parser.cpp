@@ -546,4 +546,18 @@ TEST(Parser, AttrsExtraDot) {
   ASSERT_EQ(F2.newText(), "\"dummy\"");
 }
 
+TEST(Parser, ExprVar) {
+  auto Src = R"(a)"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprVar);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 1, 1));
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
