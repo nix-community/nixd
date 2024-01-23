@@ -476,4 +476,23 @@ TEST(Parser, RecAttrsMissingLCurly) {
   ASSERT_EQ(F2.newText(), "}");
 }
 
+TEST(Parser, AttrsOrID) {
+  auto Src = R"({ or = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 11, 11));
+  ASSERT_FALSE(static_cast<ExprAttrs *>(AST.get())->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 2, 2));
+  ASSERT_TRUE(D.range().end().isAt(0, 4, 4));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_OrIdentifier);
+}
+
 } // namespace
