@@ -25,6 +25,10 @@ public:
   }
   Point() = default;
 
+  Point(const Point &) = default;
+  Point &operator=(const Point &) = default;
+  Point(Point &&) = default;
+
   /// \brief Check if the point is at the given position.
   [[nodiscard]] bool isAt(int64_t Line, int64_t Column,
                           std::size_t Offset) const {

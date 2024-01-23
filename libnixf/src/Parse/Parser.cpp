@@ -14,6 +14,7 @@
 #include <charconv>
 #include <deque>
 #include <memory>
+#include <set>
 #include <stack>
 #include <string>
 #include <string_view>
@@ -48,6 +49,18 @@ private:
   std::deque<Token> LookAheadBuf;
   std::optional<Token> LastToken;
   std::stack<ParserState> State;
+
+  /// \brief Sync tokens for error recovery.
+  ///
+  /// These tokens will be considered as the end of "unknown" node.
+  /// We create "unknown" node for recover from "extra" token error.
+  /// (Also, this node is invisible in the AST)
+  ///
+  /// e.g. { foo....bar = ; }
+  ///            ^~~  remove these tokens
+  ///
+  /// Sync tokenswill not be eat as "unknown".
+  std::multiset<TokenKind> SyncTokens;
 
   class StateRAII {
     Parser &P;
@@ -106,6 +119,85 @@ private:
     return LookAheadBuf[N];
   }
 
+  /// \brief Consume tokens until the next sync token.
+  /// \returns The consumed range. If no token is consumed, return nullopt.
+  std::optional<RangeTy> consumeAsUnknown() {
+    Point Begin = peek().begin();
+    bool Consumed = false;
+    for (Token Tok = peek(); Tok.kind() != tok_eof; Tok = peek()) {
+      if (SyncTokens.contains(Tok.kind()))
+        break;
+      Consumed = true;
+      consume();
+    }
+    if (!Consumed)
+      return std::nullopt;
+    assert(LastToken && "LastToken should be set after consume()");
+    return RangeTy{Begin, LastToken->end()};
+  }
+
+  class SyncRAII {
+    Parser &P;
+    TokenKind Kind;
+
+  public:
+    SyncRAII(Parser &P, TokenKind Kind) : P(P), Kind(Kind) {
+      P.SyncTokens.emplace(Kind);
+    }
+    ~SyncRAII() { P.SyncTokens.erase(Kind); }
+  };
+
+  SyncRAII withSync(TokenKind Kind) { return {*this, Kind}; }
+
+  class ExpectResult {
+    bool Success;
+    std::optional<Token> Tok;
+    Diagnostic *DiagMissing;
+
+  public:
+    ExpectResult(Token Tok) : Success(true), Tok(Tok), DiagMissing(nullptr) {}
+    ExpectResult(Diagnostic *DiagMissing)
+        : Success(false), DiagMissing(DiagMissing) {}
+
+    [[nodiscard]] bool ok() const { return Success; }
+    [[nodiscard]] Token tok() const {
+      assert(Tok);
+      return *Tok;
+    }
+    [[nodiscard]] Diagnostic &diag() const {
+      assert(DiagMissing);
+      return *DiagMissing;
+    }
+  };
+
+  ExpectResult expect(TokenKind Kind) {
+    auto Sync = withSync(Kind);
+    if (Token Tok = peek(); Tok.kind() == Kind) {
+      return Tok;
+    }
+    // UNKNOWN ?
+    // ~~~~~~~ consider remove unexpected text
+    if (std::optional<RangeTy> UnknownRange = consumeAsUnknown()) {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_UnexpectedText, *UnknownRange);
+      D.fix("remove unexpected text").edit(TextEdit::mkRemoval(*UnknownRange));
+
+      if (Token Tok = peek(); Tok.kind() == Kind) {
+        return Tok;
+      }
+      // If the next token is not the expected one, then insert it.
+      // (we have two errors now).
+    }
+    // expected Kind
+    Point Insert = LastToken ? LastToken->end() : peek().begin();
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(Insert));
+    D << std::string(tok::spelling(Kind));
+    D.fix("insert " + std::string(tok::spelling(Kind)))
+        .edit(TextEdit::mkInsertion(Insert, std::string(tok::spelling(Kind))));
+    return {&D};
+  }
+
   void consume() {
     if (LookAheadBuf.empty())
       peek(0);
@@ -131,22 +223,18 @@ public:
     Token TokDollarCurly = peek();
     assert(TokDollarCurly.kind() == tok_dollar_curly);
     consume(); // ${
+    auto Sync = withSync(tok_r_curly);
     assert(LastToken);
     /* with(PS_Expr) */ {
       auto ExprState = withState(PS_Expr);
       auto Expr = parseExpr();
       if (!Expr)
         diagNullExpr(Diags, LastToken->end(), "interpolation");
-      if (peek().kind() == tok_r_curly) {
+      if (ExpectResult ER = expect(tok_r_curly); ER.ok()) {
         consume(); // }
       } else {
-        // expected "}" for interpolation
-        Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                           RangeTy(LastToken->end()));
-        D << std::string(tok::spelling(tok_r_curly));
-        D.note(Note::NK_ToMachThis, TokDollarCurly.range())
+        ER.diag().note(Note::NK_ToMachThis, TokDollarCurly.range())
             << std::string(tok::spelling(tok_dollar_curly));
-        D.fix("insert }").edit(TextEdit::mkInsertion(LastToken->end(), "}"));
       }
       return Expr;
     } // with(PS_Expr)
@@ -234,25 +322,18 @@ public:
     assert(Quote.kind() == QuoteKind && "should be a quote");
     // Consume the quote and so make the look-ahead buf empty.
     consume();
+    auto Sync = withSync(QuoteKind);
     assert(LastToken && "LastToken should be set after consume()");
     /* with(PS_String / PS_IndString) */ {
       auto StringState = withState(IsIndented ? PS_IndString : PS_String);
       std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
-      if (Token EndTok = peek(); EndTok.kind() == QuoteKind) {
+      ExpectResult ER = expect(QuoteKind);
+      if (ER.ok()) {
         consume();
         return std::make_shared<ExprString>(
-            RangeTy{
-                Quote.begin(),
-                EndTok.end(),
-            },
-            std::move(Parts));
+            RangeTy{Quote.begin(), ER.tok().end()}, std::move(Parts));
       }
-      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         RangeTy(LastToken->end()));
-      D << QuoteSpel;
-      D.note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
-      D.fix("insert " + QuoteSpel)
-          .edit(TextEdit::mkInsertion(LastToken->end(), QuoteSpel));
+      ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
       return std::make_shared<ExprString>(
           RangeTy{
               Quote.begin(),
@@ -269,36 +350,24 @@ public:
     auto LParen = std::make_shared<Misc>(L.range());
     assert(L.kind() == tok_l_paren);
     consume(); // (
+    auto Sync = withSync(tok_r_paren);
     assert(LastToken && "LastToken should be set after consume()");
     auto Expr = parseExpr();
     if (!Expr)
       diagNullExpr(Diags, LastToken->end(), "parenthesized");
-    if (Token R = peek(); R.kind() == tok_r_paren) {
-      consume(); // )
-      auto RParen = std::make_shared<Misc>(R.range());
-      return std::make_shared<ExprParen>(
-          RangeTy{
-              L.begin(),
-              R.end(),
-          },
-          std::move(Expr), std::move(LParen), std::move(RParen));
+    ExpectResult ER = expect(tok_r_paren); // )
+    if (ER.ok()) {
+      consume();
+      auto RParen = std::make_shared<Misc>(ER.tok().range());
+      return std::make_shared<ExprParen>(RangeTy{L.begin(), ER.tok().end()},
+                                         std::move(Expr), std::move(LParen),
+                                         std::move(RParen));
     }
-
-    // Missing ")"
-    Diagnostic &D =
-        Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(LastToken->end()));
-    D << std::string(tok::spelling(tok_r_paren));
-    D.note(Note::NK_ToMachThis, L.range())
+    ER.diag().note(Note::NK_ToMachThis, L.range())
         << std::string(tok::spelling(tok_l_paren));
-    D.fix("insert )")
-        .edit(TextEdit::mkInsertion(LastToken->end(),
-                                    std::string(tok::spelling(tok_r_paren))));
-    return std::make_shared<ExprParen>(
-        RangeTy{
-            L.begin(),
-            LastToken->end(),
-        },
-        std::move(Expr), std::move(LParen), /*RParen=*/nullptr);
+    return std::make_shared<ExprParen>(RangeTy{L.begin(), LastToken->end()},
+                                       std::move(Expr), std::move(LParen),
+                                       /*RParen=*/nullptr);
   }
 
   // attrname : ID
@@ -354,12 +423,8 @@ public:
       }
       break;
     }
-    return std::make_shared<AttrPath>(
-        RangeTy{
-            Begin,
-            LastToken->end(),
-        },
-        std::move(AttrNames));
+    return std::make_shared<AttrPath>(RangeTy{Begin, LastToken->end()},
+                                      std::move(AttrNames));
   }
 
   // binding : attrpath '=' expr ';'
@@ -368,15 +433,10 @@ public:
     if (!Path)
       return nullptr;
     assert(LastToken && "LastToken should be set after valid attrpath");
-    if (Token Tok = peek(); Tok.kind() == tok_eq) {
+    auto SyncEq = withSync(tok_eq);
+    auto SyncSemi = withSync(tok_semi_colon);
+    if (ExpectResult ER = expect(tok_eq); ER.ok())
       consume();
-    } else {
-      // expected "=" for binding
-      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         RangeTy(LastToken->end()));
-      D << std::string(tok::spelling(tok_eq));
-      D.fix("insert =").edit(TextEdit::mkInsertion(LastToken->end(), "="));
-    }
     auto Expr = parseExpr();
     if (!Expr)
       diagNullExpr(Diags, LastToken->end(), "binding");
@@ -391,12 +451,8 @@ public:
       D << std::string(tok::spelling(tok_semi_colon));
       D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->end(), ";"));
     }
-    return std::make_shared<Binding>(
-        RangeTy{
-            Path->begin(),
-            LastToken->end(),
-        },
-        std::move(Path), std::move(Expr));
+    return std::make_shared<Binding>(RangeTy{Path->begin(), LastToken->end()},
+                                     std::move(Path), std::move(Expr));
   }
 
   // binds : ( binding | inherit )*
@@ -416,12 +472,8 @@ public:
       }
       break;
     }
-    return std::make_shared<Binds>(
-        RangeTy{
-            Begin,
-            LastToken->end(),
-        },
-        std::move(Bindings));
+    return std::make_shared<Binds>(RangeTy{Begin, LastToken->end()},
+                                   std::move(Bindings));
   }
 
   // attrset_expr : REC? '{' binds '}'
@@ -429,6 +481,8 @@ public:
   // Note: peek `tok_kw_rec` or `tok_l_curly` before calling this function.
   std::shared_ptr<ExprAttrs> parseExprAttrs() {
     std::shared_ptr<Misc> Rec;
+
+    auto Sync = withSync(tok_r_curly);
 
     // "to match this ..."
     // if "{" is missing, then use "rec", otherwise use "{"
@@ -452,17 +506,11 @@ public:
     }
     assert(LastToken && "LastToken should be set after valid { or rec");
     auto Binds = parseBinds();
-    if (Token Tok = peek(); Tok.kind() == tok_r_curly) {
+    if (ExpectResult ER = expect(tok_r_curly); ER.ok())
       consume();
-    } else {
-      // expected "}" for attrset
-      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         RangeTy(LastToken->range()));
-      D << std::string(tok::spelling(tok_r_curly));
-      D.note(Note::NK_ToMachThis, Matcher.range())
+    else
+      ER.diag().note(Note::NK_ToMachThis, Matcher.range())
           << std::string(tok::spelling(Matcher.kind()));
-      D.fix("insert }").edit(TextEdit::mkInsertion(LastToken->end(), "}"));
-    }
     return std::make_shared<ExprAttrs>(RangeTy{Begin, LastToken->end()},
                                        std::move(Binds), std::move(Rec));
   }

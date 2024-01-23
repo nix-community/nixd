@@ -560,4 +560,20 @@ TEST(Parser, ExprVar) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST(Parser, SyncAttrs) {
+  auto Src = R"(
+rec {
+  )))
+  a asd =  1;
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+
+  // TODO!!!
+}
+
 } // namespace
