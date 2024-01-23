@@ -316,7 +316,6 @@ public:
       return std::make_shared<AttrName>(std::move(ID), Tok.range());
     }
     case tok_dquote: {
-      consume();
       std::shared_ptr<ExprString> String = parseString(/*IsIndented=*/false);
       return std::make_shared<AttrName>(std::move(String), Tok.range());
     }
@@ -447,7 +446,7 @@ public:
       // expected "{" for attrset
       assert(LastToken && "LastToken should be set after valid rec");
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         RangeTy(LastToken->range()));
+                                         RangeTy(LastToken->end()));
       D << std::string(tok::spelling(tok_l_curly));
       D.fix("insert {").edit(TextEdit::mkInsertion(LastToken->end(), "{"));
     }

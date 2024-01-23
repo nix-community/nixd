@@ -495,4 +495,55 @@ TEST(Parser, AttrsOrID) {
   ASSERT_EQ(D.kind(), Diagnostic::DK_OrIdentifier);
 }
 
+TEST(Parser, AttrsOKSpecialAttr) {
+  auto Src = R"({ a.b."foo".${"bar"} = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 27, 27));
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, AttrsExtraDot) {
+  auto Src = R"({ a.b. = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 13, 13));
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 5, 5));
+  ASSERT_TRUE(D.range().end().isAt(0, 6, 6));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_AttrPathExtraDot);
+
+  // Check that the note is correct.
+  ASSERT_EQ(D.notes().size(), 0);
+
+  // Check fix-it hints.
+  ASSERT_EQ(D.fixes().size(), 2);
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "remove extra .");
+  const auto &F = D.fixes()[0].edits()[0];
+  ASSERT_TRUE(F.oldRange().begin().isAt(0, 5, 5));
+  ASSERT_TRUE(F.oldRange().end().isAt(0, 6, 6));
+  ASSERT_EQ(F.newText(), "");
+
+  ASSERT_EQ(D.fixes()[1].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[1].message(), "insert dummy attrname");
+  const auto &F2 = D.fixes()[1].edits()[0];
+  ASSERT_TRUE(F2.oldRange().begin().isAt(0, 6, 6));
+  ASSERT_TRUE(F2.oldRange().end().isAt(0, 6, 6));
+  ASSERT_EQ(F2.newText(), "\"dummy\"");
+}
+
 } // namespace
