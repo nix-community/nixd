@@ -306,10 +306,7 @@ public:
       default:
         assert(LastToken && "LastToken should be set in `parseString`");
         return std::make_shared<InterpolatedParts>(
-            RangeTy{
-                PartsBegin,
-                LastToken->end(),
-            },
+            RangeTy{PartsBegin, LastToken->end()},
             std::move(Parts)); // TODO!
       }
     }
@@ -334,11 +331,7 @@ public:
       } else { // NOLINT(readability-else-after-return)
         ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
         return std::make_shared<ExprString>(
-            RangeTy{
-                Quote.begin(),
-                Parts->end(),
-            },
-            std::move(Parts));
+            RangeTy{Quote.begin(), Parts->end()}, std::move(Parts));
       }
 
     } // with(PS_String / PS_IndString)
