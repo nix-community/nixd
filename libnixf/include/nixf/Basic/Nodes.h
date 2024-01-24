@@ -22,26 +22,13 @@ namespace nixf {
 class Node {
 public:
   enum NodeKind {
-    NK_InterpolableParts,
-
-    /// \brief Misc node, used for parentheses, keywords, etc.
-    /// \see Misc
-    NK_Misc,
-
-    NK_Identifer,
-    NK_AttrName,
-    NK_AttrPath,
-    NK_Binding,
-    NK_Binds,
-
+#define NODE(NAME) NK_##NAME,
+#include "nixf/Basic/NodeKinds.inc"
+#undef NODE
     NK_BeginExpr,
-    NK_ExprInt,
-    NK_ExprFloat,
-    NK_ExprVar,
-    NK_ExprString,
-    NK_ExprPath,
-    NK_ExprParen,
-    NK_ExprAttrs,
+#define EXPR(NAME) NK_##NAME,
+#include "nixf/Basic/NodeKinds.inc"
+#undef EXPR
     NK_EndExpr,
   };
 
