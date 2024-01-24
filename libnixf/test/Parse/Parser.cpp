@@ -509,6 +509,45 @@ TEST(Parser, AttrsOKSpecialAttr) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST(Parser, AttrsMissingRCurly) {
+  auto Src = R"(rec { a = 1; )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().end().isAt(0, 12, 12));
+  ASSERT_TRUE(static_cast<ExprAttrs *>(AST.get())->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(0, 12, 12));
+  ASSERT_TRUE(D.range().end().isAt(0, 12, 12));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], "}");
+
+  // Check the note.
+  ASSERT_EQ(D.notes().size(), 1);
+  const auto &N = D.notes()[0];
+  ASSERT_TRUE(N.range().begin().isAt(0, 4, 4));
+  ASSERT_TRUE(N.range().end().isAt(0, 5, 5));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N.args().size(), 1);
+  ASSERT_EQ(N.args()[0], "{");
+
+  // Check fix-it hints.
+  ASSERT_EQ(D.fixes().size(), 1);
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "insert }");
+  const auto &F = D.fixes()[0].edits()[0];
+  ASSERT_TRUE(F.oldRange().begin().isAt(0, 12, 12));
+  ASSERT_TRUE(F.oldRange().end().isAt(0, 12, 12));
+  ASSERT_EQ(F.newText(), "}");
+}
+
 TEST(Parser, AttrsExtraDot) {
   auto Src = R"({ a.b. = 1; })"sv;
 

@@ -492,8 +492,10 @@ public:
       consume();
       Rec = std::make_shared<Misc>(Tok.range());
     }
-    if (ExpectResult ER = expect(tok_l_curly); ER.ok())
+    if (ExpectResult ER = expect(tok_l_curly); ER.ok()) {
       consume();
+      Matcher = ER.tok();
+    }
     assert(LastToken && "LastToken should be set after valid { or rec");
     auto Binds = parseBinds();
     if (ExpectResult ER = expect(tok_r_curly); ER.ok())
