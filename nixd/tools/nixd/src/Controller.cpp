@@ -3,6 +3,8 @@
 #include "nixd-config.h"
 
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Range.h"
 #include "nixf/Parse/Parser.h"
 
 #include "lspserver/DraftStore.h"
@@ -135,7 +137,8 @@ class Controller : public LSPServer {
                  {"codeActionKinds", Array{CodeAction::QUICKFIX_KIND}},
                  {"resolveProvider", false},
              },
-         }},
+         },
+         {"hoverProvider", true}},
     };
 
     Object Result{{
@@ -227,6 +230,27 @@ class Controller : public LSPServer {
     Reply(std::move(Actions));
   }
 
+  void onHover(const TextDocumentPositionParams &Params,
+               Callback<std::optional<Hover>> Reply) {
+    PathRef File = Params.textDocument.uri.file();
+    const std::shared_ptr<nixf::Node> &AST = TUs[File].ast();
+    nixf::Position Pos{Params.position.line, Params.position.character};
+    const nixf::Node *N = AST->descend({Pos, Pos});
+    if (!N) {
+      Reply(std::nullopt);
+      return;
+    }
+    std::string Name = N->name();
+    Reply(Hover{
+        .contents =
+            MarkupContent{
+                .kind = MarkupKind::Markdown,
+                .value = "`" + Name + "`",
+            },
+        .range = toLSPRange(N->range()),
+    });
+  }
+
 public:
   Controller(std::unique_ptr<InboundPort> In, std::unique_ptr<OutboundPort> Out)
       : LSPServer(std::move(In), std::move(Out)) {
@@ -247,6 +271,7 @@ public:
     // Language Features
     Registry.addMethod("textDocument/codeAction", this,
                        &Controller::onCodeAction);
+    Registry.addMethod("textDocument/hover", this, &Controller::onHover);
   }
 };
 
