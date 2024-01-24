@@ -20,11 +20,11 @@ namespace {
 using namespace lspserver;
 using namespace llvm::json;
 
-Position toLSPPosition(const nixf::Point &P) {
+Position toLSPPosition(const nixf::LexerCursor &P) {
   return Position{static_cast<int>(P.line()), static_cast<int>(P.column())};
 }
 
-Range toLSPRange(const nixf::RangeTy &R) {
+Range toLSPRange(const nixf::LexerCursorRange &R) {
   return Range{toLSPPosition(R.begin()), toLSPPosition(R.end())};
 }
 

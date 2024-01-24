@@ -24,7 +24,7 @@ class Lexer {
   const std::string_view Src;
   std::vector<Diagnostic> &Diags;
 
-  Point Cur;
+  LexerCursor Cur;
 
   void consume(std::size_t N = 1) {
     assert(Cur.Offset + N <= Src.length());
@@ -41,7 +41,7 @@ class Lexer {
   }
 
   // token recorder
-  Point TokStartPtr;
+  LexerCursor TokStartPtr;
   tok::TokenKind Tok;
   void startToken() {
     Tok = tok::tok_unknown;
@@ -71,19 +71,19 @@ class Lexer {
   bool lexFloatExp();
 
   // Advance cursor if it starts with prefix, otherwise do nothing
-  std::optional<RangeTy> consumePrefix(std::string_view Prefix);
+  std::optional<LexerCursorRange> consumePrefix(std::string_view Prefix);
 
   bool consumeOne(char C);
 
   std::optional<char> consumeOneOf(std::string_view Chars);
 
-  std::optional<RangeTy> consumeManyOf(std::string_view Chars);
+  std::optional<LexerCursorRange> consumeManyOf(std::string_view Chars);
 
-  std::optional<RangeTy> consumeManyDigits() {
+  std::optional<LexerCursorRange> consumeManyDigits() {
     return consumeManyOf("0123456789");
   }
 
-  std::optional<RangeTy> consumeManyPathChar();
+  std::optional<LexerCursorRange> consumeManyPathChar();
 
   /// Look ahead and check if we has \p Prefix
   bool peekPrefix(std::string_view Prefix);
@@ -108,7 +108,7 @@ class Lexer {
     return Src.substr(Cur.Offset);
   }
 
-  [[nodiscard]] RangeTy curRange() const { return {Cur, Cur}; }
+  [[nodiscard]] LexerCursorRange curRange() const { return {Cur, Cur}; }
 
   [[nodiscard]] char peekUnwrap() const { return Src[Cur.Offset]; }
 
@@ -123,12 +123,12 @@ public:
       : Src(Src), Diags(Diags), Cur() {}
 
   /// Reset the cursor at source \p offset (zero-based indexing)
-  void setCur(const Point &NewCur) {
+  void setCur(const LexerCursor &NewCur) {
     assert(Src.begin() + NewCur.Offset <= Src.end());
     Cur = NewCur;
   }
 
-  [[nodiscard]] const Point &cur() const { return Cur; }
+  [[nodiscard]] const LexerCursor &cur() const { return Cur; }
 
   Token lex();
   Token lexString();

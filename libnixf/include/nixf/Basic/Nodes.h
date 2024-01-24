@@ -45,23 +45,24 @@ public:
 
 private:
   NodeKind Kind;
-  RangeTy Range;
+  LexerCursorRange Range;
 
 protected:
-  explicit Node(NodeKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
+  explicit Node(NodeKind Kind, LexerCursorRange Range)
+      : Kind(Kind), Range(Range) {}
 
 public:
   [[nodiscard]] NodeKind kind() const { return Kind; }
-  [[nodiscard]] RangeTy range() const { return Range; }
-  [[nodiscard]] Point begin() const { return Range.begin(); }
-  [[nodiscard]] Point end() const { return Range.end(); }
+  [[nodiscard]] LexerCursorRange range() const { return Range; }
+  [[nodiscard]] LexerCursor begin() const { return Range.begin(); }
+  [[nodiscard]] LexerCursor end() const { return Range.end(); }
   [[nodiscard]] static const char *name(NodeKind Kind);
   [[nodiscard]] const char *name() const { return name(Kind); }
 };
 
 class Expr : public Node {
 protected:
-  explicit Expr(NodeKind Kind, RangeTy Range) : Node(Kind, Range) {
+  explicit Expr(NodeKind Kind, LexerCursorRange Range) : Node(Kind, Range) {
     assert(NK_BeginExpr <= Kind && Kind <= NK_EndExpr);
   }
 };
@@ -73,7 +74,7 @@ class ExprInt : public Expr {
   NixInt Value;
 
 public:
-  ExprInt(RangeTy Range, NixInt Value)
+  ExprInt(LexerCursorRange Range, NixInt Value)
       : Expr(NK_ExprInt, Range), Value(Value) {}
   [[nodiscard]] NixInt value() const { return Value; }
 };
@@ -82,7 +83,7 @@ class ExprFloat : public Expr {
   NixFloat Value;
 
 public:
-  ExprFloat(RangeTy Range, NixFloat Value)
+  ExprFloat(LexerCursorRange Range, NixFloat Value)
       : Expr(NK_ExprFloat, Range), Value(Value) {}
   [[nodiscard]] NixFloat value() const { return Value; }
 };
@@ -124,7 +125,8 @@ class InterpolatedParts : public Node {
   std::vector<InterpolablePart> Fragments;
 
 public:
-  InterpolatedParts(RangeTy Range, std::vector<InterpolablePart> Fragments)
+  InterpolatedParts(LexerCursorRange Range,
+                    std::vector<InterpolablePart> Fragments)
       : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
 
   [[nodiscard]] const std::vector<InterpolablePart> &fragments() const {
@@ -136,7 +138,7 @@ class ExprString : public Expr {
   std::shared_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprString(RangeTy Range, std::shared_ptr<InterpolatedParts> Parts)
+  ExprString(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {}
 
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
@@ -148,7 +150,7 @@ class ExprPath : public Expr {
   std::shared_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprPath(RangeTy Range, std::shared_ptr<InterpolatedParts> Parts)
+  ExprPath(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprPath, Range), Parts(std::move(Parts)) {}
 
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
@@ -162,7 +164,7 @@ public:
 /// Might be useful for linting.
 class Misc : public Node {
 public:
-  Misc(RangeTy Range) : Node(NK_Misc, Range) {}
+  Misc(LexerCursorRange Range) : Node(NK_Misc, Range) {}
 };
 
 class ExprParen : public Expr {
@@ -171,7 +173,7 @@ class ExprParen : public Expr {
   std::shared_ptr<Misc> RParen;
 
 public:
-  ExprParen(RangeTy Range, std::shared_ptr<Expr> E,
+  ExprParen(LexerCursorRange Range, std::shared_ptr<Expr> E,
             std::shared_ptr<Misc> LParen, std::shared_ptr<Misc> RParen)
       : Expr(NK_ExprParen, Range), E(std::move(E)), LParen(std::move(LParen)),
         RParen(std::move(RParen)) {}
@@ -186,7 +188,7 @@ class Identifier : public Node {
   std::string Name;
 
 public:
-  Identifier(RangeTy Range, std::string Name)
+  Identifier(LexerCursorRange Range, std::string Name)
       : Node(NK_Identifer, Range), Name(std::move(Name)) {}
   [[nodiscard]] const std::string &name() const { return Name; }
 };
@@ -195,7 +197,7 @@ class ExprVar : public Expr {
   std::shared_ptr<Identifier> ID;
 
 public:
-  ExprVar(RangeTy Range, std::shared_ptr<Identifier> ID)
+  ExprVar(LexerCursorRange Range, std::shared_ptr<Identifier> ID)
       : Expr(NK_ExprVar, Range), ID(std::move(ID)) {}
   [[nodiscard]] const std::shared_ptr<Identifier> &id() const { return ID; }
 };
@@ -213,17 +215,17 @@ private:
 public:
   [[nodiscard]] AttrNameKind kind() const { return Kind; }
 
-  AttrName(std::shared_ptr<Identifier> ID, RangeTy Range)
+  AttrName(std::shared_ptr<Identifier> ID, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_ID) {
     this->ID = std::move(ID);
   }
 
-  AttrName(std::shared_ptr<ExprString> String, RangeTy Range)
+  AttrName(std::shared_ptr<ExprString> String, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_String) {
     this->String = std::move(String);
   }
 
-  AttrName(std::shared_ptr<Expr> Interpolation, RangeTy Range)
+  AttrName(std::shared_ptr<Expr> Interpolation, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_Interpolation) {
     this->Interpolation = std::move(Interpolation);
   }
@@ -248,7 +250,7 @@ class AttrPath : public Node {
   std::vector<std::shared_ptr<AttrName>> Names;
 
 public:
-  AttrPath(RangeTy Range, std::vector<std::shared_ptr<AttrName>> Names)
+  AttrPath(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names)
       : Node(NK_AttrPath, Range), Names(std::move(Names)) {}
 
   [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
@@ -261,7 +263,7 @@ class Binding : public Node {
   std::shared_ptr<Expr> Value;
 
 public:
-  Binding(RangeTy Range, std::shared_ptr<AttrPath> Path,
+  Binding(LexerCursorRange Range, std::shared_ptr<AttrPath> Path,
           std::shared_ptr<Expr> Value)
       : Node(NK_Binding, Range), Path(std::move(Path)),
         Value(std::move(Value)) {}
@@ -274,7 +276,7 @@ class Binds : public Node {
   std::vector<std::shared_ptr<Node>> Bindings;
 
 public:
-  Binds(RangeTy Range, std::vector<std::shared_ptr<Node>> Bindings)
+  Binds(LexerCursorRange Range, std::vector<std::shared_ptr<Node>> Bindings)
       : Node(NK_Binds, Range), Bindings(std::move(Bindings)) {}
 
   [[nodiscard]] const std::vector<std::shared_ptr<Node>> &bindings() const {
@@ -287,7 +289,7 @@ class ExprAttrs : public Expr {
   std::shared_ptr<Misc> Rec;
 
 public:
-  ExprAttrs(RangeTy Range, std::shared_ptr<Binds> Body,
+  ExprAttrs(LexerCursorRange Range, std::shared_ptr<Binds> Body,
             std::shared_ptr<Misc> Rec)
       : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)) {}
 

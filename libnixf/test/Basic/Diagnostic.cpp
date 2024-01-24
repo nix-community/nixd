@@ -8,7 +8,7 @@ namespace {
 using namespace nixf;
 
 TEST(Diagostic, Format) {
-  Diagnostic Diag(Diagnostic::DK_UnexpectedBetween, RangeTy{});
+  Diagnostic Diag(Diagnostic::DK_UnexpectedBetween, LexerCursorRange{});
   Diag << "foo"
        << "bar"
        << "baz";

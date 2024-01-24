@@ -53,16 +53,16 @@ constexpr std::string_view spelling(TokenKind Kind) {
 /// This class is trivially copyable.
 class Token {
   tok::TokenKind Kind;
-  RangeTy Range;
+  LexerCursorRange Range;
   std::string_view View;
 
 public:
-  Token(tok::TokenKind Kind, RangeTy Range, std::string_view View)
+  Token(tok::TokenKind Kind, LexerCursorRange Range, std::string_view View)
       : Kind(Kind), Range(Range), View(View) {}
-  [[nodiscard]] Point begin() const { return Range.begin(); }
-  [[nodiscard]] Point end() const { return Range.end(); }
+  [[nodiscard]] LexerCursor begin() const { return Range.begin(); }
+  [[nodiscard]] LexerCursor end() const { return Range.end(); }
   [[nodiscard]] tok::TokenKind kind() const { return Kind; }
-  [[nodiscard]] RangeTy range() const { return Range; }
+  [[nodiscard]] LexerCursorRange range() const { return Range; }
   [[nodiscard]] std::string_view view() const { return View; }
 };
 

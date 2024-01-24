@@ -24,9 +24,10 @@ namespace {
 using namespace nixf;
 using namespace nixf::tok;
 
-Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, Point Loc,
+Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, LexerCursor Loc,
                          std::string As) {
-  Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(Loc));
+  Diagnostic &D =
+      Diags.emplace_back(Diagnostic::DK_Expected, LexerCursorRange(Loc));
   D << std::move(As) + " expression";
   D.fix("insert dummy expression").edit(TextEdit::mkInsertion(Loc, " expr"));
   return D;
@@ -121,8 +122,8 @@ private:
 
   /// \brief Consume tokens until the next sync token.
   /// \returns The consumed range. If no token is consumed, return nullopt.
-  std::optional<RangeTy> consumeAsUnknown() {
-    Point Begin = peek().begin();
+  std::optional<LexerCursorRange> consumeAsUnknown() {
+    LexerCursor Begin = peek().begin();
     bool Consumed = false;
     for (Token Tok = peek(); Tok.kind() != tok_eof; Tok = peek()) {
       if (SyncTokens.contains(Tok.kind()))
@@ -133,7 +134,7 @@ private:
     if (!Consumed)
       return std::nullopt;
     assert(LastToken && "LastToken should be set after consume()");
-    return RangeTy{Begin, LastToken->end()};
+    return LexerCursorRange{Begin, LastToken->end()};
   }
 
   class SyncRAII {
@@ -177,7 +178,7 @@ private:
     }
     // UNKNOWN ?
     // ~~~~~~~ consider remove unexpected text
-    if (std::optional<RangeTy> UnknownRange = consumeAsUnknown()) {
+    if (std::optional<LexerCursorRange> UnknownRange = consumeAsUnknown()) {
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_UnexpectedText, *UnknownRange);
       D.fix("remove unexpected text").edit(TextEdit::mkRemoval(*UnknownRange));
@@ -189,9 +190,9 @@ private:
       // (we have two errors now).
     }
     // expected Kind
-    Point Insert = LastToken ? LastToken->end() : peek().begin();
+    LexerCursor Insert = LastToken ? LastToken->end() : peek().begin();
     Diagnostic &D =
-        Diags.emplace_back(Diagnostic::DK_Expected, RangeTy(Insert));
+        Diags.emplace_back(Diagnostic::DK_Expected, LexerCursorRange(Insert));
     D << std::string(tok::spelling(Kind));
     D.fix("insert " + std::string(tok::spelling(Kind)))
         .edit(TextEdit::mkInsertion(Insert, std::string(tok::spelling(Kind))));
@@ -253,7 +254,7 @@ public:
     Token Begin = peek();
     std::vector<InterpolablePart> Fragments;
     assert(Begin.kind() == tok_path_fragment);
-    Point End;
+    LexerCursor End;
     /* with(PS_Path) */ {
       auto PathState = withState(PS_Path);
       do {
@@ -273,8 +274,8 @@ public:
       } while (true);
     }
     auto Parts = std::make_shared<InterpolatedParts>(
-        RangeTy{Begin.begin(), End}, std::move(Fragments));
-    return std::make_shared<ExprPath>(RangeTy{Begin.begin(), End},
+        LexerCursorRange{Begin.begin(), End}, std::move(Fragments));
+    return std::make_shared<ExprPath>(LexerCursorRange{Begin.begin(), End},
                                       std::move(Parts));
   }
 
@@ -283,7 +284,7 @@ public:
   ///             | STRING_ESCAPE
   std::shared_ptr<InterpolatedParts> parseStringParts() {
     std::vector<InterpolablePart> Parts;
-    Point PartsBegin = peek().begin();
+    LexerCursor PartsBegin = peek().begin();
     while (true) {
       switch (Token Tok = peek(0); Tok.kind()) {
       case tok_dollar_curly: {
@@ -305,7 +306,7 @@ public:
       default:
         assert(LastToken && "LastToken should be set in `parseString`");
         return std::make_shared<InterpolatedParts>(
-            RangeTy{PartsBegin, LastToken->end()},
+            LexerCursorRange{PartsBegin, LastToken->end()},
             std::move(Parts)); // TODO!
       }
     }
@@ -328,11 +329,11 @@ public:
       if (ExpectResult ER = expect(QuoteKind); ER.ok()) {
         consume();
         return std::make_shared<ExprString>(
-            RangeTy{Quote.begin(), ER.tok().end()}, std::move(Parts));
+            LexerCursorRange{Quote.begin(), ER.tok().end()}, std::move(Parts));
       } else { // NOLINT(readability-else-after-return)
         ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
         return std::make_shared<ExprString>(
-            RangeTy{Quote.begin(), Parts->end()}, std::move(Parts));
+            LexerCursorRange{Quote.begin(), Parts->end()}, std::move(Parts));
       }
 
     } // with(PS_String / PS_IndString)
@@ -352,15 +353,16 @@ public:
     if (ExpectResult ER = expect(tok_r_paren); ER.ok()) {
       consume(); // )
       auto RParen = std::make_shared<Misc>(ER.tok().range());
-      return std::make_shared<ExprParen>(RangeTy{L.begin(), ER.tok().end()},
-                                         std::move(Expr), std::move(LParen),
-                                         std::move(RParen));
+      return std::make_shared<ExprParen>(
+          LexerCursorRange{L.begin(), ER.tok().end()}, std::move(Expr),
+          std::move(LParen), std::move(RParen));
     } else { // NOLINT(readability-else-after-return)
       ER.diag().note(Note::NK_ToMachThis, L.range())
           << std::string(tok::spelling(tok_l_paren));
-      return std::make_shared<ExprParen>(RangeTy{L.begin(), LastToken->end()},
-                                         std::move(Expr), std::move(LParen),
-                                         /*RParen=*/nullptr);
+      return std::make_shared<ExprParen>(
+          LexerCursorRange{L.begin(), LastToken->end()}, std::move(Expr),
+          std::move(LParen),
+          /*RParen=*/nullptr);
     }
   }
 
@@ -399,7 +401,7 @@ public:
     assert(LastToken && "LastToken should be set after valid attrname");
     std::vector<std::shared_ptr<AttrName>> AttrNames;
     AttrNames.emplace_back(std::move(First));
-    Point Begin = peek().begin();
+    LexerCursor Begin = peek().begin();
     while (true) {
       if (Token Tok = peek(); Tok.kind() == tok_dot) {
         consume();
@@ -417,7 +419,7 @@ public:
       }
       break;
     }
-    return std::make_shared<AttrPath>(RangeTy{Begin, LastToken->end()},
+    return std::make_shared<AttrPath>(LexerCursorRange{Begin, LastToken->end()},
                                       std::move(AttrNames));
   }
 
@@ -441,12 +443,13 @@ public:
       // (https://github.com/nix-community/nixd/blob/2b0ca8cef0d13823132a52b6cd6f6d7372482664/libnixf/lib/Parse/Parser.cpp#L337)
       // expected ";" for binding
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         RangeTy(LastToken->end()));
+                                         LexerCursorRange(LastToken->end()));
       D << std::string(tok::spelling(tok_semi_colon));
       D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->end(), ";"));
     }
-    return std::make_shared<Binding>(RangeTy{Path->begin(), LastToken->end()},
-                                     std::move(Path), std::move(Expr));
+    return std::make_shared<Binding>(
+        LexerCursorRange{Path->begin(), LastToken->end()}, std::move(Path),
+        std::move(Expr));
   }
 
   /// binds : ( binding | inherit )*
@@ -458,7 +461,7 @@ public:
     assert(LastToken && "LastToken should be set after valid binding");
     std::vector<std::shared_ptr<Node>> Bindings;
     Bindings.emplace_back(std::move(First));
-    Point Begin = peek().begin();
+    LexerCursor Begin = peek().begin();
     while (true) {
       if (auto Next = parseBinding()) {
         Bindings.emplace_back(std::move(Next));
@@ -466,7 +469,7 @@ public:
       }
       break;
     }
-    return std::make_shared<Binds>(RangeTy{Begin, LastToken->end()},
+    return std::make_shared<Binds>(LexerCursorRange{Begin, LastToken->end()},
                                    std::move(Bindings));
   }
 
@@ -481,7 +484,7 @@ public:
     // "to match this ..."
     // if "{" is missing, then use "rec", otherwise use "{"
     Token Matcher = peek();
-    Point Begin = peek().begin(); // rec or {
+    LexerCursor Begin = peek().begin(); // rec or {
     if (Token Tok = peek(); Tok.kind() == tok_kw_rec) {
       consume();
       Rec = std::make_shared<Misc>(Tok.range());
@@ -497,8 +500,9 @@ public:
     else
       ER.diag().note(Note::NK_ToMachThis, Matcher.range())
           << std::string(tok::spelling(Matcher.kind()));
-    return std::make_shared<ExprAttrs>(RangeTy{Begin, LastToken->end()},
-                                       std::move(Binds), std::move(Rec));
+    return std::make_shared<ExprAttrs>(
+        LexerCursorRange{Begin, LastToken->end()}, std::move(Binds),
+        std::move(Rec));
   }
 
   /// expr_simple :  INT
