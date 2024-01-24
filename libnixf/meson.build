@@ -1,4 +1,4 @@
-libnixf_deps = [ ]
+libnixf_deps = [ boost ]
 
 libnixf_inc = include_directories('include')
 
@@ -30,6 +30,7 @@ nixf = declare_dependency(
 test('unit/libnixf/Basic',
     executable('unit-libnixf-basic',
         'test/Basic/Diagnostic.cpp',
+        'test/Basic/Nodes.cpp',
         dependencies: [ nixf, gtest_main ],
     )
 )

@@ -10,6 +10,8 @@
 
 #include "nixf/Basic/Range.h"
 
+#include <boost/container/small_vector.hpp>
+
 #include <cassert>
 #include <memory>
 #include <string>
@@ -54,10 +56,30 @@ protected:
 public:
   [[nodiscard]] NodeKind kind() const { return Kind; }
   [[nodiscard]] LexerCursorRange range() const { return Range; }
+  [[nodiscard]] PositionRange positionRange() const {
+    return Range.positionRange();
+  }
   [[nodiscard]] LexerCursor begin() const { return Range.begin(); }
   [[nodiscard]] LexerCursor end() const { return Range.end(); }
   [[nodiscard]] static const char *name(NodeKind Kind);
   [[nodiscard]] const char *name() const { return name(Kind); }
+
+  using ChildVector = boost::container::small_vector<Node *, 8>;
+
+  [[nodiscard]] virtual ChildVector children() const = 0;
+
+  /// \brief Descendant node that contains the given range.
+  [[nodiscard]] const Node *descend(PositionRange Range) const {
+    if (!positionRange().contains(Range)) {
+      return nullptr;
+    }
+    for (const auto &Child : children()) {
+      if (Child->positionRange().contains(Range)) {
+        return Child->descend(Range);
+      }
+    }
+    return this;
+  }
 };
 
 class Expr : public Node {
@@ -77,6 +99,8 @@ public:
   ExprInt(LexerCursorRange Range, NixInt Value)
       : Expr(NK_ExprInt, Range), Value(Value) {}
   [[nodiscard]] NixInt value() const { return Value; }
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class ExprFloat : public Expr {
@@ -86,6 +110,8 @@ public:
   ExprFloat(LexerCursorRange Range, NixFloat Value)
       : Expr(NK_ExprFloat, Range), Value(Value) {}
   [[nodiscard]] NixFloat value() const { return Value; }
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class InterpolablePart {
@@ -132,6 +158,8 @@ public:
   [[nodiscard]] const std::vector<InterpolablePart> &fragments() const {
     return Fragments;
   };
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class ExprString : public Expr {
@@ -144,6 +172,8 @@ public:
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
     return Parts;
   }
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class ExprPath : public Expr {
@@ -156,6 +186,8 @@ public:
   [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
     return Parts;
   }
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 /// \brief Misc node, used for parentheses, keywords, etc.
@@ -165,6 +197,8 @@ public:
 class Misc : public Node {
 public:
   Misc(LexerCursorRange Range) : Node(NK_Misc, Range) {}
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class ExprParen : public Expr {
@@ -181,6 +215,10 @@ public:
   [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
   [[nodiscard]] const std::shared_ptr<Misc> &lparen() const { return LParen; }
   [[nodiscard]] const std::shared_ptr<Misc> &rparen() const { return RParen; }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {E.get(), LParen.get(), RParen.get()};
+  }
 };
 
 /// \brief Identifier. Variable names, attribute names, etc.
@@ -191,6 +229,8 @@ public:
   Identifier(LexerCursorRange Range, std::string Name)
       : Node(NK_Identifer, Range), Name(std::move(Name)) {}
   [[nodiscard]] const std::string &name() const { return Name; }
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class ExprVar : public Expr {
@@ -200,6 +240,8 @@ public:
   ExprVar(LexerCursorRange Range, std::shared_ptr<Identifier> ID)
       : Expr(NK_ExprVar, Range), ID(std::move(ID)) {}
   [[nodiscard]] const std::shared_ptr<Identifier> &id() const { return ID; }
+
+  [[nodiscard]] ChildVector children() const override { return {ID.get()}; }
 };
 
 class AttrName : public Node {
@@ -244,6 +286,19 @@ public:
     assert(Kind == ANK_String);
     return String;
   }
+
+  [[nodiscard]] ChildVector children() const override {
+    switch (Kind) {
+    case ANK_ID:
+      return {ID.get()};
+    case ANK_String:
+      return {String.get()};
+    case ANK_Interpolation:
+      return {Interpolation.get()};
+    default:
+      assert(false && "invalid AttrNameKind");
+    }
+  }
 };
 
 class AttrPath : public Node {
@@ -255,6 +310,15 @@ public:
 
   [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
     return Names;
+  }
+
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    Children.reserve(Names.size());
+    for (const auto &Name : Names) {
+      Children.push_back(Name.get());
+    }
+    return Children;
   }
 };
 
@@ -270,6 +334,10 @@ public:
 
   [[nodiscard]] const std::shared_ptr<AttrPath> &path() const { return Path; }
   [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {Path.get(), Value.get()};
+  }
 };
 
 class Binds : public Node {
@@ -281,6 +349,15 @@ public:
 
   [[nodiscard]] const std::vector<std::shared_ptr<Node>> &bindings() const {
     return Bindings;
+  }
+
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    Children.reserve(Bindings.size());
+    for (const auto &Binding : Bindings) {
+      Children.push_back(Binding.get());
+    }
+    return Children;
   }
 };
 
@@ -297,6 +374,10 @@ public:
   [[nodiscard]] const std::shared_ptr<Misc> &rec() const { return Rec; }
 
   [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {Body.get(), Rec.get()};
+  }
 };
 
 } // namespace nixf
