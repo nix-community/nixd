@@ -32,6 +32,7 @@ CHECK-NEXT:           "quickfix"
 CHECK-NEXT:         ],
 CHECK-NEXT:         "resolveProvider": false
 CHECK-NEXT:       },
+CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,
