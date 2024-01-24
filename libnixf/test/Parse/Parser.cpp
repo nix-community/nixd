@@ -599,6 +599,35 @@ TEST(Parser, ExprVar) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST(Parser, AttrsBinding) {
+  auto Src = R"(
+{
+  a = 1;
+  b = 2;
+}
+  )";
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(AST->range().begin().isAt(1, 0, 1));
+  ASSERT_TRUE(AST->range().end().isAt(4, 1, 22));
+
+  ASSERT_EQ(Diags.size(), 0);
+
+  // Check the bindings.
+  auto &B = *static_cast<ExprAttrs *>(AST.get());
+  assert(B.binds() && "expected bindings");
+  ASSERT_EQ(B.binds()->bindings().size(), 2);
+  ASSERT_TRUE(B.binds()->bindings()[0]->range().begin().isAt(2, 2, 5));
+  ASSERT_TRUE(B.binds()->bindings()[0]->range().end().isAt(2, 8, 11));
+
+  ASSERT_TRUE(B.binds()->bindings()[1]->range().begin().isAt(3, 2, 14));
+  ASSERT_TRUE(B.binds()->bindings()[1]->range().end().isAt(3, 8, 20));
+}
+
 TEST(Parser, SyncAttrs) {
   auto Src = R"(
 rec {

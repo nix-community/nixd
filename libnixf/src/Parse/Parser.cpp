@@ -398,10 +398,10 @@ public:
     auto First = parseAttrName();
     if (!First)
       return nullptr;
+    LexerCursor Begin = First->begin();
     assert(LastToken && "LastToken should be set after valid attrname");
     std::vector<std::shared_ptr<AttrName>> AttrNames;
     AttrNames.emplace_back(std::move(First));
-    LexerCursor Begin = peek().begin();
     while (true) {
       if (Token Tok = peek(); Tok.kind() == tok_dot) {
         consume();
@@ -460,8 +460,8 @@ public:
       return nullptr;
     assert(LastToken && "LastToken should be set after valid binding");
     std::vector<std::shared_ptr<Node>> Bindings;
+    LexerCursor Begin = First->begin();
     Bindings.emplace_back(std::move(First));
-    LexerCursor Begin = peek().begin();
     while (true) {
       if (auto Next = parseBinding()) {
         Bindings.emplace_back(std::move(Next));
