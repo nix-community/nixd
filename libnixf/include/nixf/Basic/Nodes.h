@@ -61,6 +61,8 @@ public:
       return nullptr;
     }
     for (const auto &Child : children()) {
+      if (!Child)
+        continue;
       if (Child->positionRange().contains(Range)) {
         return Child->descend(Range);
       }
