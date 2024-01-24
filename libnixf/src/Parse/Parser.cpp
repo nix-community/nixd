@@ -492,18 +492,8 @@ public:
       consume();
       Rec = std::make_shared<Misc>(Tok.range());
     }
-    if (Token Tok = peek(); Tok.kind() == tok_l_curly) {
-      // "{" is found, use it as matcher.
-      Matcher = Tok;
+    if (ExpectResult ER = expect(tok_l_curly); ER.ok())
       consume();
-    } else {
-      // expected "{" for attrset
-      assert(LastToken && "LastToken should be set after valid rec");
-      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         RangeTy(LastToken->end()));
-      D << std::string(tok::spelling(tok_l_curly));
-      D.fix("insert {").edit(TextEdit::mkInsertion(LastToken->end(), "{"));
-    }
     assert(LastToken && "LastToken should be set after valid { or rec");
     auto Binds = parseBinds();
     if (ExpectResult ER = expect(tok_r_curly); ER.ok())
