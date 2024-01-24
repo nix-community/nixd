@@ -6,8 +6,8 @@
 #include "Token.h"
 
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Nodes.h"
 #include "nixf/Basic/Range.h"
-#include "nixf/Parse/Nodes.h"
 #include "nixf/Parse/Parser.h"
 
 #include <cassert>

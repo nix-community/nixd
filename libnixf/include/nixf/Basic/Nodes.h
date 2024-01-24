@@ -55,6 +55,8 @@ public:
   [[nodiscard]] RangeTy range() const { return Range; }
   [[nodiscard]] Point begin() const { return Range.begin(); }
   [[nodiscard]] Point end() const { return Range.end(); }
+  [[nodiscard]] static const char *name(NodeKind Kind);
+  [[nodiscard]] const char *name() const { return name(Kind); }
 };
 
 class Expr : public Node {

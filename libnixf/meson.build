@@ -4,6 +4,7 @@ libnixf_inc = include_directories('include')
 
 libnixf = library(
     'nixf',
+    'src/Basic/Nodes.cpp',
     'src/Basic/Diagnostic.cpp',
     'src/Parse/Lexer.cpp',
     'src/Parse/Parser.cpp',
