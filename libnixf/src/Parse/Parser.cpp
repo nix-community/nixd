@@ -327,19 +327,19 @@ public:
     /* with(PS_String / PS_IndString) */ {
       auto StringState = withState(IsIndented ? PS_IndString : PS_String);
       std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
-      ExpectResult ER = expect(QuoteKind);
-      if (ER.ok()) {
+      if (ExpectResult ER = expect(QuoteKind); ER.ok()) {
         consume();
         return std::make_shared<ExprString>(
             RangeTy{Quote.begin(), ER.tok().end()}, std::move(Parts));
+      } else { // NOLINT(readability-else-after-return)
+        ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
+        return std::make_shared<ExprString>(
+            RangeTy{
+                Quote.begin(),
+                Parts->end(),
+            },
+            std::move(Parts));
       }
-      ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
-      return std::make_shared<ExprString>(
-          RangeTy{
-              Quote.begin(),
-              Parts->end(),
-          },
-          std::move(Parts));
 
     } // with(PS_String / PS_IndString)
   }
@@ -355,19 +355,19 @@ public:
     auto Expr = parseExpr();
     if (!Expr)
       diagNullExpr(Diags, LastToken->end(), "parenthesized");
-    ExpectResult ER = expect(tok_r_paren); // )
-    if (ER.ok()) {
-      consume();
+    if (ExpectResult ER = expect(tok_r_paren); ER.ok()) {
+      consume(); // )
       auto RParen = std::make_shared<Misc>(ER.tok().range());
       return std::make_shared<ExprParen>(RangeTy{L.begin(), ER.tok().end()},
                                          std::move(Expr), std::move(LParen),
                                          std::move(RParen));
+    } else { // NOLINT(readability-else-after-return)
+      ER.diag().note(Note::NK_ToMachThis, L.range())
+          << std::string(tok::spelling(tok_l_paren));
+      return std::make_shared<ExprParen>(RangeTy{L.begin(), LastToken->end()},
+                                         std::move(Expr), std::move(LParen),
+                                         /*RParen=*/nullptr);
     }
-    ER.diag().note(Note::NK_ToMachThis, L.range())
-        << std::string(tok::spelling(tok_l_paren));
-    return std::make_shared<ExprParen>(RangeTy{L.begin(), LastToken->end()},
-                                       std::move(Expr), std::move(LParen),
-                                       /*RParen=*/nullptr);
   }
 
   // attrname : ID
