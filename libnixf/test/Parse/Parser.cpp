@@ -628,6 +628,83 @@ TEST(Parser, AttrsBinding) {
   ASSERT_TRUE(B.binds()->bindings()[1]->range().end().isAt(3, 8, 20));
 }
 
+TEST(Parser, AttrsBindingInherit) {
+  auto Src = R"(
+{
+  a = 1;
+  inherit;
+  inherit a;
+  inherit a b;
+  inherit (a) b;
+  inherit (a) a b;
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 0);
+
+  // Check the bindings.
+  const auto &B = static_cast<ExprAttrs *>(AST.get())->binds()->bindings();
+  ASSERT_EQ(B.size(), 6);
+  ASSERT_TRUE(B[0]->range().begin().isAt(2, 2, 5));
+  ASSERT_TRUE(B[0]->range().end().isAt(2, 8, 11));
+  ASSERT_EQ(B[0]->kind(), Node::NK_Binding);
+
+  ASSERT_TRUE(B[1]->range().begin().isAt(3, 2, 14));
+  ASSERT_TRUE(B[1]->range().end().isAt(3, 10, 22));
+  ASSERT_EQ(B[1]->kind(), Node::NK_Inherit);
+  const auto &I = static_cast<Inherit *>(B[1].get());
+  ASSERT_EQ(I->names().size(), 0);
+
+  ASSERT_TRUE(B[2]->range().begin().isAt(4, 2, 25));
+  ASSERT_TRUE(B[2]->range().end().isAt(4, 12, 35));
+  ASSERT_EQ(B[2]->kind(), Node::NK_Inherit);
+  const auto &I2 = static_cast<Inherit *>(B[2].get());
+  ASSERT_EQ(I2->names().size(), 1);
+  ASSERT_TRUE(I2->names()[0]->range().begin().isAt(4, 10, 33));
+  ASSERT_TRUE(I2->names()[0]->range().end().isAt(4, 11, 34));
+  ASSERT_EQ(I2->names()[0]->kind(), AttrName::ANK_ID);
+  ASSERT_EQ(I2->names()[0]->id()->name(), "a");
+  ASSERT_EQ(I2->expr(), nullptr);
+
+  ASSERT_TRUE(B[3]->range().begin().isAt(5, 2, 38));
+  ASSERT_TRUE(B[3]->range().end().isAt(5, 14, 50));
+  ASSERT_EQ(B[3]->kind(), Node::NK_Inherit);
+  const auto &I3 = static_cast<Inherit *>(B[3].get());
+  ASSERT_EQ(I3->names().size(), 2);
+  ASSERT_TRUE(I3->names()[0]->range().begin().isAt(5, 10, 46));
+  ASSERT_TRUE(I3->names()[0]->range().end().isAt(5, 11, 47));
+  ASSERT_EQ(I3->names()[0]->kind(), AttrName::ANK_ID);
+  ASSERT_EQ(I3->names()[0]->id()->name(), "a");
+  ASSERT_TRUE(I3->names()[1]->range().begin().isAt(5, 12, 48));
+  ASSERT_TRUE(I3->names()[1]->range().end().isAt(5, 13, 49));
+  ASSERT_EQ(I3->names()[1]->kind(), AttrName::ANK_ID);
+  ASSERT_EQ(I3->names()[1]->id()->name(), "b");
+  ASSERT_EQ(I3->expr(), nullptr);
+  ASSERT_FALSE(I3->hasExpr());
+
+  ASSERT_TRUE(B[4]->range().begin().isAt(6, 2, 53));
+  ASSERT_TRUE(B[4]->range().end().isAt(6, 16, 67));
+  ASSERT_EQ(B[4]->kind(), Node::NK_Inherit);
+  const auto &I4 = static_cast<Inherit *>(B[4].get());
+  ASSERT_EQ(I4->names().size(), 1);
+  ASSERT_TRUE(I4->names()[0]->range().begin().isAt(6, 14, 65));
+  ASSERT_TRUE(I4->names()[0]->range().end().isAt(6, 15, 66));
+  ASSERT_EQ(I4->names()[0]->kind(), AttrName::ANK_ID);
+  ASSERT_EQ(I4->names()[0]->id()->name(), "b");
+  ASSERT_EQ(I4->expr()->kind(), Node::NK_ExprVar);
+  ASSERT_TRUE(I4->hasExpr());
+
+  const auto &I5 = static_cast<Inherit *>(B[5].get());
+  ASSERT_EQ(I5->names().size(), 2);
+  ASSERT_EQ(I5->names()[0]->id()->name(), "a");
+  ASSERT_EQ(I5->names()[1]->id()->name(), "b");
+  ASSERT_EQ(I5->expr()->kind(), Node::NK_ExprVar);
+  ASSERT_TRUE(I5->hasExpr());
+}
 TEST(Parser, SyncAttrs) {
   auto Src = R"(
 rec {

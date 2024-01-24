@@ -10,6 +10,7 @@ NODE(Identifer)
 NODE(AttrName)
 NODE(AttrPath)
 NODE(Binding)
+NODE(Inherit)
 NODE(Binds)
 
 #endif // NODE

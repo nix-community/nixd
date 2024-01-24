@@ -329,6 +329,34 @@ public:
   }
 };
 
+class Inherit : public Node {
+  std::vector<std::shared_ptr<AttrName>> Names;
+  std::shared_ptr<Expr> E;
+
+public:
+  Inherit(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names,
+          std::shared_ptr<Expr> E)
+      : Node(NK_Inherit, Range), Names(std::move(Names)), E(std::move(E)) {}
+
+  [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
+    return Names;
+  }
+
+  [[nodiscard]] bool hasExpr() { return E != nullptr; }
+
+  [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
+
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    Children.reserve(Names.size() + 1);
+    for (const auto &Name : Names) {
+      Children.push_back(Name.get());
+    }
+    Children.push_back(E.get());
+    return Children;
+  }
+};
+
 class Binds : public Node {
   std::vector<std::shared_ptr<Node>> Bindings;
 
