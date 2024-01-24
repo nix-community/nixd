@@ -59,7 +59,7 @@ private:
   /// e.g. { foo....bar = ; }
   ///            ^~~  remove these tokens
   ///
-  /// Sync tokenswill not be eat as "unknown".
+  /// Sync tokens will not be consumed as "unknown".
   std::multiset<TokenKind> SyncTokens;
 
   class StateRAII {
