@@ -278,10 +278,9 @@ public:
                                       std::move(Parts));
   }
 
-  /// \brief Parse interpolable things.
-  ///
-  /// They are strings, ind-strings, paths, in nix language.
-  /// \note This needs context-switching so look-ahead buf should be cleared.
+  /// string_part : interpolation
+  ///             | STRING_PART
+  ///             | STRING_ESCAPE
   std::shared_ptr<InterpolatedParts> parseStringParts() {
     std::vector<InterpolablePart> Parts;
     Point PartsBegin = peek().begin();
@@ -312,6 +311,8 @@ public:
     }
   }
 
+  /// string : " string_part* "
+  ///        | '' string_part* ''
   std::shared_ptr<ExprString> parseString(bool IsIndented) {
     Token Quote = peek();
     TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
@@ -363,9 +364,9 @@ public:
     }
   }
 
-  // attrname : ID
-  //          | string
-  //          | interpolation
+  /// attrname : ID
+  ///          | string
+  ///          | interpolation
   std::shared_ptr<AttrName> parseAttrName() {
     switch (Token Tok = peek(); Tok.kind()) {
     case tok_kw_or:
@@ -390,7 +391,7 @@ public:
     }
   }
 
-  // attrpath : attrname ('.' attrname)*
+  /// attrpath : attrname ('.' attrname)*
   std::shared_ptr<AttrPath> parseAttrPath() {
     auto First = parseAttrName();
     if (!First)
@@ -420,7 +421,7 @@ public:
                                       std::move(AttrNames));
   }
 
-  // binding : attrpath '=' expr ';'
+  /// binding : attrpath '=' expr ';'
   std::shared_ptr<Binding> parseBinding() {
     auto Path = parseAttrPath();
     if (!Path)
@@ -448,7 +449,7 @@ public:
                                      std::move(Path), std::move(Expr));
   }
 
-  // binds : ( binding | inherit )*
+  /// binds : ( binding | inherit )*
   std::shared_ptr<Binds> parseBinds() {
     // TODO: curently we don't support inherit
     auto First = parseBinding();
@@ -469,9 +470,9 @@ public:
                                    std::move(Bindings));
   }
 
-  // attrset_expr : REC? '{' binds '}'
-  //
-  // Note: peek `tok_kw_rec` or `tok_l_curly` before calling this function.
+  /// attrset_expr : REC? '{' binds '}'
+  ///
+  /// Note: peek `tok_kw_rec` or `tok_l_curly` before calling this function.
   std::shared_ptr<ExprAttrs> parseExprAttrs() {
     std::shared_ptr<Misc> Rec;
 
