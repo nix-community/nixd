@@ -573,7 +573,24 @@ rec {
 
   ASSERT_TRUE(AST);
 
-  // TODO!!!
+  ASSERT_EQ(Diags.size(), 1);
+  const auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(2, 2, 9));
+  ASSERT_TRUE(D.range().end().isAt(3, 13, 26));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_UnexpectedText);
+  ASSERT_EQ(D.args().size(), 0);
+
+  // Check the note.
+  ASSERT_EQ(D.notes().size(), 0);
+
+  // Check fix-it hints.
+  ASSERT_EQ(D.fixes().size(), 1);
+  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
+  ASSERT_EQ(D.fixes()[0].message(), "remove unexpected text");
+  const auto &F = D.fixes()[0].edits()[0];
+  ASSERT_TRUE(F.oldRange().begin().isAt(2, 2, 9));
+  ASSERT_TRUE(F.oldRange().end().isAt(3, 13, 26));
+  ASSERT_EQ(F.newText(), "");
 }
 
 } // namespace
