@@ -100,7 +100,7 @@ TEST(Parser, StringMissingDQuote) {
 
   // Check the note.
   ASSERT_EQ(D.notes().size(), 1);
-  auto &N = D.notes()[0];
+  const auto &N = D.notes()[0];
   ASSERT_TRUE(N.range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(N.range().end().isAt(0, 1, 1));
   ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
@@ -165,7 +165,7 @@ TEST(Parser, IndentedString) {
 
   // Check the note.
   ASSERT_EQ(D.notes().size(), 1);
-  auto &N = D.notes()[0];
+  const auto &N = D.notes()[0];
   ASSERT_TRUE(N.range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(N.range().end().isAt(0, 2, 2));
   ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
@@ -222,7 +222,7 @@ TEST(Parser, InterpolationNoRCurly) {
 
   // Check the note.
   ASSERT_EQ(D.notes().size(), 1);
-  auto &N = D.notes()[0];
+  const auto &N = D.notes()[0];
   ASSERT_TRUE(N.range().begin().isAt(0, 1, 1));
   ASSERT_TRUE(N.range().end().isAt(0, 3, 3));
   ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
@@ -341,7 +341,7 @@ TEST(Parser, ParenExprMissingRParen) {
 
   // Check the note.
   ASSERT_EQ(D.notes().size(), 1);
-  auto &N = D.notes()[0];
+  const auto &N = D.notes()[0];
   ASSERT_TRUE(N.range().begin().isAt(0, 0, 0));
   ASSERT_TRUE(N.range().end().isAt(0, 1, 1));
   ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
@@ -605,7 +605,7 @@ TEST(Parser, AttrsBinding) {
   a = 1;
   b = 2;
 }
-  )";
+  )"sv;
 
   std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
