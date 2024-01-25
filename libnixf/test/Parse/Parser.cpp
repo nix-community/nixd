@@ -790,6 +790,32 @@ TEST(Parser, SyncInherit3) {
   ASSERT_EQ(N.args()[0], "(");
 }
 
+TEST(Parser, InheritMissingSemi) {
+  auto Src = R"(
+{
+  inherit
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().begin().isAt(2, 9, 12));
+  ASSERT_TRUE(D.range().end().isAt(2, 9, 12));
+  ASSERT_EQ(D.kind(), Diagnostic::DK_Expected);
+  ASSERT_EQ(D.args().size(), 1);
+  ASSERT_EQ(D.args()[0], ";");
+  ASSERT_EQ(D.notes().size(), 1);
+  const auto &N = D.notes()[0];
+  ASSERT_TRUE(N.range().begin().isAt(2, 2, 5));
+  ASSERT_TRUE(N.range().end().isAt(2, 9, 12));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+}
+
 TEST(Parser, SyncAttrs) {
   auto Src = R"(
 rec {

@@ -492,7 +492,7 @@ public:
       consume();
     else
       ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
-          << std::string(tok::spelling(tok_semi_colon));
+          << std::string(tok::spelling(tok_kw_inherit));
     return std::make_shared<Inherit>(
         LexerCursorRange{TokInherit.begin(), LastToken->end()},
         std::move(AttrNames), std::move(Expr));
