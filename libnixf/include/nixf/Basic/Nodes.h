@@ -113,15 +113,17 @@ public:
 private:
   InterpolablePartKind Kind;
   std::string Escaped;
-  std::shared_ptr<Expr> Interpolation;
+  std::unique_ptr<Expr> Interpolation;
 
 public:
   explicit InterpolablePart(std::string Escaped)
       : Kind(SPK_Escaped), Escaped(std::move(Escaped)), Interpolation(nullptr) {
   }
 
-  explicit InterpolablePart(std::shared_ptr<Expr> Expr)
-      : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {}
+  explicit InterpolablePart(std::unique_ptr<Expr> Expr)
+      : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {
+    assert(this->Interpolation && "interpolation must not be null");
+  }
 
   [[nodiscard]] InterpolablePartKind kind() const { return Kind; }
 
@@ -130,9 +132,10 @@ public:
     return Escaped;
   }
 
-  [[nodiscard]] const std::shared_ptr<Expr> &interpolation() const {
+  [[nodiscard]] const Expr &interpolation() const {
     assert(Kind == SPK_Interpolation);
-    return Interpolation;
+    assert(Interpolation && "interpolation must not be null");
+    return *Interpolation;
   }
 };
 
@@ -152,28 +155,34 @@ public:
 };
 
 class ExprString : public Expr {
-  std::shared_ptr<InterpolatedParts> Parts;
+  std::unique_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprString(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
-      : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {}
+  ExprString(LexerCursorRange Range, std::unique_ptr<InterpolatedParts> Parts)
+      : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {
+    assert(this->Parts && "parts must not be null");
+  }
 
-  [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
-    return Parts;
+  [[nodiscard]] const InterpolatedParts &parts() const {
+    assert(Parts && "parts must not be null");
+    return *Parts;
   }
 
   [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
 class ExprPath : public Expr {
-  std::shared_ptr<InterpolatedParts> Parts;
+  std::unique_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprPath(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
-      : Expr(NK_ExprPath, Range), Parts(std::move(Parts)) {}
+  ExprPath(LexerCursorRange Range, std::unique_ptr<InterpolatedParts> Parts)
+      : Expr(NK_ExprPath, Range), Parts(std::move(Parts)) {
+    assert(this->Parts && "parts must not be null");
+  }
 
-  [[nodiscard]] const std::shared_ptr<InterpolatedParts> &parts() const {
-    return Parts;
+  [[nodiscard]] const InterpolatedParts &parts() const {
+    assert(Parts && "parts must not be null");
+    return *Parts;
   }
 
   [[nodiscard]] ChildVector children() const override { return {}; }
@@ -191,19 +200,19 @@ public:
 };
 
 class ExprParen : public Expr {
-  std::shared_ptr<Expr> E;
-  std::shared_ptr<Misc> LParen;
-  std::shared_ptr<Misc> RParen;
+  std::unique_ptr<Expr> E;
+  std::unique_ptr<Misc> LParen;
+  std::unique_ptr<Misc> RParen;
 
 public:
-  ExprParen(LexerCursorRange Range, std::shared_ptr<Expr> E,
-            std::shared_ptr<Misc> LParen, std::shared_ptr<Misc> RParen)
+  ExprParen(LexerCursorRange Range, std::unique_ptr<Expr> E,
+            std::unique_ptr<Misc> LParen, std::unique_ptr<Misc> RParen)
       : Expr(NK_ExprParen, Range), E(std::move(E)), LParen(std::move(LParen)),
         RParen(std::move(RParen)) {}
 
-  [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
-  [[nodiscard]] const std::shared_ptr<Misc> &lparen() const { return LParen; }
-  [[nodiscard]] const std::shared_ptr<Misc> &rparen() const { return RParen; }
+  [[nodiscard]] const Expr *expr() const { return E.get(); }
+  [[nodiscard]] const Misc *lparen() const { return LParen.get(); }
+  [[nodiscard]] const Misc *rparen() const { return RParen.get(); }
 
   [[nodiscard]] ChildVector children() const override {
     return {E.get(), LParen.get(), RParen.get()};
@@ -223,12 +232,17 @@ public:
 };
 
 class ExprVar : public Expr {
-  std::shared_ptr<Identifier> ID;
+  std::unique_ptr<Identifier> ID;
 
 public:
-  ExprVar(LexerCursorRange Range, std::shared_ptr<Identifier> ID)
-      : Expr(NK_ExprVar, Range), ID(std::move(ID)) {}
-  [[nodiscard]] const std::shared_ptr<Identifier> &id() const { return ID; }
+  ExprVar(LexerCursorRange Range, std::unique_ptr<Identifier> ID)
+      : Expr(NK_ExprVar, Range), ID(std::move(ID)) {
+    assert(this->ID && "ID must not be null");
+  }
+  [[nodiscard]] const Identifier &id() const {
+    assert(ID && "ID must not be null");
+    return *ID;
+  }
 
   [[nodiscard]] ChildVector children() const override { return {ID.get()}; }
 };
@@ -239,41 +253,47 @@ public:
 
 private:
   AttrNameKind Kind;
-  std::shared_ptr<Identifier> ID;
-  std::shared_ptr<ExprString> String;
-  std::shared_ptr<Expr> Interpolation;
+  std::unique_ptr<Identifier> ID;
+  std::unique_ptr<ExprString> String;
+  std::unique_ptr<Expr> Interpolation;
 
 public:
   [[nodiscard]] AttrNameKind kind() const { return Kind; }
 
-  AttrName(std::shared_ptr<Identifier> ID, LexerCursorRange Range)
+  AttrName(std::unique_ptr<Identifier> ID, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_ID) {
     this->ID = std::move(ID);
+    assert(this->ID && "ID must not be null");
   }
 
-  AttrName(std::shared_ptr<ExprString> String, LexerCursorRange Range)
+  AttrName(std::unique_ptr<ExprString> String, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_String) {
     this->String = std::move(String);
+    assert(this->String && "String must not be null");
   }
 
-  AttrName(std::shared_ptr<Expr> Interpolation, LexerCursorRange Range)
+  AttrName(std::unique_ptr<Expr> Interpolation, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_Interpolation) {
     this->Interpolation = std::move(Interpolation);
+    assert(this->Interpolation && "Interpolation must not be null");
   }
 
-  [[nodiscard]] const std::shared_ptr<Expr> &interpolation() const {
+  [[nodiscard]] const Expr &interpolation() const {
     assert(Kind == ANK_Interpolation);
-    return Interpolation;
+    assert(Interpolation && "Interpolation must not be null");
+    return *Interpolation;
   }
 
-  [[nodiscard]] const std::shared_ptr<Identifier> &id() const {
+  [[nodiscard]] const Identifier &id() const {
     assert(Kind == ANK_ID);
-    return ID;
+    assert(ID && "ID must not be null");
+    return *ID;
   }
 
-  [[nodiscard]] const std::shared_ptr<ExprString> &string() const {
+  [[nodiscard]] const ExprString &string() const {
     assert(Kind == ANK_String);
-    return String;
+    assert(String && "String must not be null");
+    return *String;
   }
 
   [[nodiscard]] ChildVector children() const override {
@@ -292,13 +312,13 @@ public:
 };
 
 class AttrPath : public Node {
-  std::vector<std::shared_ptr<AttrName>> Names;
+  std::vector<std::unique_ptr<AttrName>> Names;
 
 public:
-  AttrPath(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names)
+  AttrPath(LexerCursorRange Range, std::vector<std::unique_ptr<AttrName>> Names)
       : Node(NK_AttrPath, Range), Names(std::move(Names)) {}
 
-  [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
+  [[nodiscard]] const std::vector<std::unique_ptr<AttrName>> &names() const {
     return Names;
   }
 
@@ -313,17 +333,23 @@ public:
 };
 
 class Binding : public Node {
-  std::shared_ptr<AttrPath> Path;
-  std::shared_ptr<Expr> Value;
+  std::unique_ptr<AttrPath> Path;
+  std::unique_ptr<Expr> Value;
 
 public:
-  Binding(LexerCursorRange Range, std::shared_ptr<AttrPath> Path,
-          std::shared_ptr<Expr> Value)
+  Binding(LexerCursorRange Range, std::unique_ptr<AttrPath> Path,
+          std::unique_ptr<Expr> Value)
       : Node(NK_Binding, Range), Path(std::move(Path)),
-        Value(std::move(Value)) {}
+        Value(std::move(Value)) {
+    assert(this->Path && "Path must not be null");
+    // Value can be null, if missing in the syntax.
+  }
 
-  [[nodiscard]] const std::shared_ptr<AttrPath> &path() const { return Path; }
-  [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
+  [[nodiscard]] const AttrPath &path() const {
+    assert(Path && "Path must not be null");
+    return *Path;
+  }
+  [[nodiscard]] const Expr *value() const { return Value.get(); }
 
   [[nodiscard]] ChildVector children() const override {
     return {Path.get(), Value.get()};
@@ -331,21 +357,21 @@ public:
 };
 
 class Inherit : public Node {
-  std::vector<std::shared_ptr<AttrName>> Names;
-  std::shared_ptr<Expr> E;
+  std::vector<std::unique_ptr<AttrName>> Names;
+  std::unique_ptr<Expr> E;
 
 public:
-  Inherit(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names,
-          std::shared_ptr<Expr> E)
+  Inherit(LexerCursorRange Range, std::vector<std::unique_ptr<AttrName>> Names,
+          std::unique_ptr<Expr> E)
       : Node(NK_Inherit, Range), Names(std::move(Names)), E(std::move(E)) {}
 
-  [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
+  [[nodiscard]] const std::vector<std::unique_ptr<AttrName>> &names() const {
     return Names;
   }
 
   [[nodiscard]] bool hasExpr() { return E != nullptr; }
 
-  [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
+  [[nodiscard]] const Expr *expr() const { return E.get(); }
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
@@ -359,13 +385,13 @@ public:
 };
 
 class Binds : public Node {
-  std::vector<std::shared_ptr<Node>> Bindings;
+  std::vector<std::unique_ptr<Node>> Bindings;
 
 public:
-  Binds(LexerCursorRange Range, std::vector<std::shared_ptr<Node>> Bindings)
+  Binds(LexerCursorRange Range, std::vector<std::unique_ptr<Node>> Bindings)
       : Node(NK_Binds, Range), Bindings(std::move(Bindings)) {}
 
-  [[nodiscard]] const std::vector<std::shared_ptr<Node>> &bindings() const {
+  [[nodiscard]] const std::vector<std::unique_ptr<Node>> &bindings() const {
     return Bindings;
   }
 
@@ -380,16 +406,16 @@ public:
 };
 
 class ExprAttrs : public Expr {
-  std::shared_ptr<Binds> Body;
-  std::shared_ptr<Misc> Rec;
+  std::unique_ptr<Binds> Body;
+  std::unique_ptr<Misc> Rec;
 
 public:
-  ExprAttrs(LexerCursorRange Range, std::shared_ptr<Binds> Body,
-            std::shared_ptr<Misc> Rec)
+  ExprAttrs(LexerCursorRange Range, std::unique_ptr<Binds> Body,
+            std::unique_ptr<Misc> Rec)
       : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)) {}
 
-  [[nodiscard]] const std::shared_ptr<Binds> &binds() const { return Body; }
-  [[nodiscard]] const std::shared_ptr<Misc> &rec() const { return Rec; }
+  [[nodiscard]] const Binds *binds() const { return Body.get(); }
+  [[nodiscard]] const Misc *rec() const { return Rec.get(); }
 
   [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
 
