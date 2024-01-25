@@ -37,6 +37,6 @@ DIAG("merge-diff-rec", MergeDiffRec, Warning,
 DIAG("bison", BisonParse, Fatal, "{}")
 DIAG("invalid-float", InvalidFloat, Fatal, "invalid float {}")
 DIAG("invalid-integer", InvalidInteger, Fatal, "invalid integer {}")
-DIAG("dup-formal-arg", DuplicatedAttr, Error, "duplicated attr `{}`")
+DIAG("sema-duplicated-attrname", DuplicatedAttrName, Error, "duplicated attrname `{}`")
 
 #endif // DIAG

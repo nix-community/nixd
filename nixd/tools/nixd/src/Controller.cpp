@@ -6,6 +6,7 @@
 #include "nixf/Basic/Nodes.h"
 #include "nixf/Basic/Range.h"
 #include "nixf/Parse/Parser.h"
+#include "nixf/Sema/Lowering.h"
 
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
@@ -77,6 +78,7 @@ class Controller : public LSPServer {
     std::vector<nixf::Diagnostic> Diagnostics;
     std::unique_ptr<nixf::Node> AST =
         nixf::parse(*Draft->Contents, Diagnostics);
+    nixf::lower(AST.get(), Diagnostics);
     std::vector<Diagnostic> LSPDiags;
     LSPDiags.reserve(Diagnostics.size());
     for (const nixf::Diagnostic &D : Diagnostics) {
