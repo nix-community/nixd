@@ -460,7 +460,13 @@ public:
     if (TokInherit.kind() != tok_kw_inherit)
       return nullptr;
     consume();
-    auto Sync = withSync(tok_semi_colon);
+    auto SyncSemiColon = withSync(tok_semi_colon);
+
+    // These tokens might be consumed as "inherited_attrs"
+    auto SyncID = withSync(tok_id);
+    auto SyncQuote = withSync(tok_dquote);
+    auto SyncDollarCurly = withSync(tok_dollar_curly);
+
     assert(LastToken && "LastToken should be set after consume()");
     std::vector<std::shared_ptr<AttrName>> AttrNames;
     std::shared_ptr<Expr> Expr = nullptr;
