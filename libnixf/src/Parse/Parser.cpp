@@ -452,23 +452,71 @@ public:
         std::move(Expr));
   }
 
-  /// binds : ( binding | inherit )*
-  std::shared_ptr<Binds> parseBinds() {
-    // TODO: curently we don't support inherit
-    auto First = parseBinding();
-    if (!First)
+  /// inherit :  'inherit' '(' expr ')' inherited_attrs ';'
+  ///         |  'inherit' inherited_attrs ';'
+  /// inherited_attrs: attrname*
+  std::shared_ptr<Inherit> parseInherit() {
+    Token TokInherit = peek();
+    if (TokInherit.kind() != tok_kw_inherit)
       return nullptr;
-    assert(LastToken && "LastToken should be set after valid binding");
-    std::vector<std::shared_ptr<Node>> Bindings;
-    LexerCursor Begin = First->begin();
-    Bindings.emplace_back(std::move(First));
+    consume();
+    auto SyncSemiColon = withSync(tok_semi_colon);
+
+    // These tokens might be consumed as "inherited_attrs"
+    auto SyncID = withSync(tok_id);
+    auto SyncQuote = withSync(tok_dquote);
+    auto SyncDollarCurly = withSync(tok_dollar_curly);
+
+    assert(LastToken && "LastToken should be set after consume()");
+    std::vector<std::shared_ptr<AttrName>> AttrNames;
+    std::shared_ptr<Expr> Expr = nullptr;
+    if (Token Tok = peek(); Tok.kind() == tok_l_paren) {
+      consume();
+      Expr = parseExpr();
+      if (!Expr)
+        diagNullExpr(Diags, LastToken->end(), "inherit");
+      if (ExpectResult ER = expect(tok_r_paren); ER.ok())
+        consume();
+      else
+        ER.diag().note(Note::NK_ToMachThis, Tok.range())
+            << std::string(tok::spelling(tok_l_paren));
+    }
     while (true) {
-      if (auto Next = parseBinding()) {
-        Bindings.emplace_back(std::move(Next));
+      if (auto AttrName = parseAttrName()) {
+        AttrNames.emplace_back(std::move(AttrName));
         continue;
       }
       break;
     }
+    if (ExpectResult ER = expect(tok_semi_colon); ER.ok())
+      consume();
+    else
+      ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
+          << std::string(tok::spelling(tok_kw_inherit));
+    return std::make_shared<Inherit>(
+        LexerCursorRange{TokInherit.begin(), LastToken->end()},
+        std::move(AttrNames), std::move(Expr));
+  }
+
+  /// binds : ( binding | inherit )*
+  std::shared_ptr<Binds> parseBinds() {
+    // TODO: curently we don't support inherit
+    LexerCursor Begin = peek().begin();
+    std::vector<std::shared_ptr<Node>> Bindings;
+    while (true) {
+      if (auto Binding = parseBinding()) {
+        Bindings.emplace_back(std::move(Binding));
+        continue;
+      }
+      if (auto Inherit = parseInherit()) {
+        Bindings.emplace_back(std::move(Inherit));
+        continue;
+      }
+      break;
+    }
+    if (Bindings.empty())
+      return nullptr;
+    assert(LastToken && "LastToken should be set after valid binding");
     return std::make_shared<Binds>(LexerCursorRange{Begin, LastToken->end()},
                                    std::move(Bindings));
   }
