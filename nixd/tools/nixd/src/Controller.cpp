@@ -27,7 +27,7 @@ Position toLSPPosition(const nixf::LexerCursor &P) {
 }
 
 Range toLSPRange(const nixf::LexerCursorRange &R) {
-  return Range{toLSPPosition(R.begin()), toLSPPosition(R.end())};
+  return Range{toLSPPosition(R.lCur()), toLSPPosition(R.rCur())};
 }
 
 int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {

@@ -96,25 +96,25 @@ public:
 };
 
 class LexerCursorRange {
-  LexerCursor Begin;
-  LexerCursor End;
+  LexerCursor LCur;
+  LexerCursor RCur;
 
 public:
   LexerCursorRange() = default;
 
-  LexerCursorRange(LexerCursor Begin, LexerCursor End)
-      : Begin(Begin), End(End) {}
-  explicit LexerCursorRange(LexerCursor Pos) : Begin(Pos), End(Pos) {}
+  LexerCursorRange(LexerCursor LCur, LexerCursor RCur)
+      : LCur(LCur), RCur(RCur) {}
+  explicit LexerCursorRange(LexerCursor Pos) : LCur(Pos), RCur(Pos) {}
 
-  [[nodiscard]] LexerCursor begin() const { return Begin; }
-  [[nodiscard]] LexerCursor end() const { return End; }
+  [[nodiscard]] LexerCursor lCur() const { return LCur; }
+  [[nodiscard]] LexerCursor rCur() const { return RCur; }
 
   [[nodiscard]] bool contains(const LexerCursorRange &Pos) const {
-    return positionRange().contains(Pos.positionRange());
+    return range().contains(Pos.range());
   }
 
-  [[nodiscard]] PositionRange positionRange() const {
-    return {Begin.position(), End.position()};
+  [[nodiscard]] PositionRange range() const {
+    return {LCur.position(), RCur.position()};
   }
 };
 

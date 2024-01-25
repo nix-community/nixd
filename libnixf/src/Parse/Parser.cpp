@@ -85,7 +85,7 @@ private:
       Token Tok = LookAheadBuf.front();
 
       // Reset the lexer cursor at the beginning of the token.
-      Lex.setCur(Tok.begin());
+      Lex.setCur(Tok.lCur());
       LookAheadBuf.clear();
     }
   }
@@ -123,7 +123,7 @@ private:
   /// \brief Consume tokens until the next sync token.
   /// \returns The consumed range. If no token is consumed, return nullopt.
   std::optional<LexerCursorRange> consumeAsUnknown() {
-    LexerCursor Begin = peek().begin();
+    LexerCursor Begin = peek().lCur();
     bool Consumed = false;
     for (Token Tok = peek(); Tok.kind() != tok_eof; Tok = peek()) {
       if (SyncTokens.contains(Tok.kind()))
@@ -134,7 +134,7 @@ private:
     if (!Consumed)
       return std::nullopt;
     assert(LastToken && "LastToken should be set after consume()");
-    return LexerCursorRange{Begin, LastToken->end()};
+    return LexerCursorRange{Begin, LastToken->rCur()};
   }
 
   class SyncRAII {
@@ -190,7 +190,7 @@ private:
       // (we have two errors now).
     }
     // expected Kind
-    LexerCursor Insert = LastToken ? LastToken->end() : peek().begin();
+    LexerCursor Insert = LastToken ? LastToken->rCur() : peek().lCur();
     Diagnostic &D =
         Diags.emplace_back(Diagnostic::DK_Expected, LexerCursorRange(Insert));
     D << std::string(tok::spelling(Kind));
@@ -230,7 +230,7 @@ public:
       auto ExprState = withState(PS_Expr);
       auto Expr = parseExpr();
       if (!Expr)
-        diagNullExpr(Diags, LastToken->end(), "interpolation");
+        diagNullExpr(Diags, LastToken->rCur(), "interpolation");
       if (ExpectResult ER = expect(tok_r_curly); ER.ok()) {
         consume(); // }
       } else {
@@ -261,7 +261,7 @@ public:
         Token Current = peek();
         Fragments.emplace_back(std::string(Current.view()));
         consume();
-        End = Current.end();
+        End = Current.rCur();
         Token Next = peek();
         if (Next.kind() == tok_path_end)
           break;
@@ -274,8 +274,8 @@ public:
       } while (true);
     }
     auto Parts = std::make_shared<InterpolatedParts>(
-        LexerCursorRange{Begin.begin(), End}, std::move(Fragments));
-    return std::make_shared<ExprPath>(LexerCursorRange{Begin.begin(), End},
+        LexerCursorRange{Begin.lCur(), End}, std::move(Fragments));
+    return std::make_shared<ExprPath>(LexerCursorRange{Begin.lCur(), End},
                                       std::move(Parts));
   }
 
@@ -284,7 +284,7 @@ public:
   ///             | STRING_ESCAPE
   std::shared_ptr<InterpolatedParts> parseStringParts() {
     std::vector<InterpolablePart> Parts;
-    LexerCursor PartsBegin = peek().begin();
+    LexerCursor PartsBegin = peek().lCur();
     while (true) {
       switch (Token Tok = peek(0); Tok.kind()) {
       case tok_dollar_curly: {
@@ -306,7 +306,7 @@ public:
       default:
         assert(LastToken && "LastToken should be set in `parseString`");
         return std::make_shared<InterpolatedParts>(
-            LexerCursorRange{PartsBegin, LastToken->end()},
+            LexerCursorRange{PartsBegin, LastToken->rCur()},
             std::move(Parts)); // TODO!
       }
     }
@@ -329,11 +329,11 @@ public:
       if (ExpectResult ER = expect(QuoteKind); ER.ok()) {
         consume();
         return std::make_shared<ExprString>(
-            LexerCursorRange{Quote.begin(), ER.tok().end()}, std::move(Parts));
+            LexerCursorRange{Quote.lCur(), ER.tok().rCur()}, std::move(Parts));
       } else { // NOLINT(readability-else-after-return)
         ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
         return std::make_shared<ExprString>(
-            LexerCursorRange{Quote.begin(), Parts->end()}, std::move(Parts));
+            LexerCursorRange{Quote.lCur(), Parts->rCur()}, std::move(Parts));
       }
 
     } // with(PS_String / PS_IndString)
@@ -349,18 +349,18 @@ public:
     assert(LastToken && "LastToken should be set after consume()");
     auto Expr = parseExpr();
     if (!Expr)
-      diagNullExpr(Diags, LastToken->end(), "parenthesized");
+      diagNullExpr(Diags, LastToken->rCur(), "parenthesized");
     if (ExpectResult ER = expect(tok_r_paren); ER.ok()) {
       consume(); // )
       auto RParen = std::make_shared<Misc>(ER.tok().range());
       return std::make_shared<ExprParen>(
-          LexerCursorRange{L.begin(), ER.tok().end()}, std::move(Expr),
+          LexerCursorRange{L.lCur(), ER.tok().rCur()}, std::move(Expr),
           std::move(LParen), std::move(RParen));
     } else { // NOLINT(readability-else-after-return)
       ER.diag().note(Note::NK_ToMachThis, L.range())
           << std::string(tok::spelling(tok_l_paren));
       return std::make_shared<ExprParen>(
-          LexerCursorRange{L.begin(), LastToken->end()}, std::move(Expr),
+          LexerCursorRange{L.lCur(), LastToken->rCur()}, std::move(Expr),
           std::move(LParen),
           /*RParen=*/nullptr);
     }
@@ -398,7 +398,7 @@ public:
     auto First = parseAttrName();
     if (!First)
       return nullptr;
-    LexerCursor Begin = First->begin();
+    LexerCursor Begin = First->lCur();
     assert(LastToken && "LastToken should be set after valid attrname");
     std::vector<std::shared_ptr<AttrName>> AttrNames;
     AttrNames.emplace_back(std::move(First));
@@ -412,15 +412,15 @@ public:
               Diags.emplace_back(Diagnostic::DK_AttrPathExtraDot, Tok.range());
           D.fix("remove extra .").edit(TextEdit::mkRemoval(Tok.range()));
           D.fix("insert dummy attrname")
-              .edit(TextEdit::mkInsertion(Tok.range().end(), R"("dummy")"));
+              .edit(TextEdit::mkInsertion(Tok.rCur(), R"("dummy")"));
         }
         AttrNames.emplace_back(std::move(Next));
         continue;
       }
       break;
     }
-    return std::make_shared<AttrPath>(LexerCursorRange{Begin, LastToken->end()},
-                                      std::move(AttrNames));
+    return std::make_shared<AttrPath>(
+        LexerCursorRange{Begin, LastToken->rCur()}, std::move(AttrNames));
   }
 
   /// binding : attrpath '=' expr ';'
@@ -435,7 +435,7 @@ public:
       consume();
     auto Expr = parseExpr();
     if (!Expr)
-      diagNullExpr(Diags, LastToken->end(), "binding");
+      diagNullExpr(Diags, LastToken->rCur(), "binding");
     if (Token Tok = peek(); Tok.kind() == tok_semi_colon) {
       consume();
     } else {
@@ -443,12 +443,12 @@ public:
       // (https://github.com/nix-community/nixd/blob/2b0ca8cef0d13823132a52b6cd6f6d7372482664/libnixf/lib/Parse/Parser.cpp#L337)
       // expected ";" for binding
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                         LexerCursorRange(LastToken->end()));
+                                         LexerCursorRange(LastToken->rCur()));
       D << std::string(tok::spelling(tok_semi_colon));
-      D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->end(), ";"));
+      D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->rCur(), ";"));
     }
     return std::make_shared<Binding>(
-        LexerCursorRange{Path->begin(), LastToken->end()}, std::move(Path),
+        LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
         std::move(Expr));
   }
 
@@ -474,7 +474,7 @@ public:
       consume();
       Expr = parseExpr();
       if (!Expr)
-        diagNullExpr(Diags, LastToken->end(), "inherit");
+        diagNullExpr(Diags, LastToken->rCur(), "inherit");
       if (ExpectResult ER = expect(tok_r_paren); ER.ok())
         consume();
       else
@@ -494,14 +494,14 @@ public:
       ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
           << std::string(tok::spelling(tok_kw_inherit));
     return std::make_shared<Inherit>(
-        LexerCursorRange{TokInherit.begin(), LastToken->end()},
+        LexerCursorRange{TokInherit.lCur(), LastToken->rCur()},
         std::move(AttrNames), std::move(Expr));
   }
 
   /// binds : ( binding | inherit )*
   std::shared_ptr<Binds> parseBinds() {
     // TODO: curently we don't support inherit
-    LexerCursor Begin = peek().begin();
+    LexerCursor Begin = peek().lCur();
     std::vector<std::shared_ptr<Node>> Bindings;
     while (true) {
       if (auto Binding = parseBinding()) {
@@ -517,7 +517,7 @@ public:
     if (Bindings.empty())
       return nullptr;
     assert(LastToken && "LastToken should be set after valid binding");
-    return std::make_shared<Binds>(LexerCursorRange{Begin, LastToken->end()},
+    return std::make_shared<Binds>(LexerCursorRange{Begin, LastToken->rCur()},
                                    std::move(Bindings));
   }
 
@@ -532,7 +532,7 @@ public:
     // "to match this ..."
     // if "{" is missing, then use "rec", otherwise use "{"
     Token Matcher = peek();
-    LexerCursor Begin = peek().begin(); // rec or {
+    LexerCursor Begin = peek().lCur(); // rec or {
     if (Token Tok = peek(); Tok.kind() == tok_kw_rec) {
       consume();
       Rec = std::make_shared<Misc>(Tok.range());
@@ -549,7 +549,7 @@ public:
       ER.diag().note(Note::NK_ToMachThis, Matcher.range())
           << std::string(tok::spelling(Matcher.kind()));
     return std::make_shared<ExprAttrs>(
-        LexerCursorRange{Begin, LastToken->end()}, std::move(Binds),
+        LexerCursorRange{Begin, LastToken->rCur()}, std::move(Binds),
         std::move(Rec));
   }
 

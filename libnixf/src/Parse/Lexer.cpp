@@ -202,7 +202,7 @@ void Lexer::lexNumbers() {
     consumeManyDigits();
     lexFloatExp();
     // Checking that if the float token has leading zeros.
-    std::string_view Prefix = Src.substr(Ch->begin().Offset, 2);
+    std::string_view Prefix = Src.substr(Ch->lCur().Offset, 2);
     if (Prefix.starts_with("0") && Prefix != "0.")
       Diags.emplace_back(DK::DK_FloatLeadingZero, *Ch) << std::string(Prefix);
   } else {

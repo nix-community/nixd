@@ -30,7 +30,7 @@ class TextEdit {
 public:
   TextEdit(LexerCursorRange OldRange, std::string NewText)
       : OldRange(OldRange), NewText(std::move(NewText)) {
-    assert(OldRange.begin() != OldRange.end() || !this->NewText.empty());
+    assert(OldRange.lCur() != OldRange.rCur() || !this->NewText.empty());
   }
 
   static TextEdit mkInsertion(LexerCursor P, std::string NewText) {
@@ -48,7 +48,7 @@ public:
   [[nodiscard]] bool isRemoval() const { return NewText.empty(); }
 
   [[nodiscard]] bool isInsertion() const {
-    return OldRange.begin() == OldRange.end();
+    return OldRange.lCur() == OldRange.rCur();
   }
 
   [[nodiscard]] LexerCursorRange oldRange() const { return OldRange; }

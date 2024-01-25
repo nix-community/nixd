@@ -43,11 +43,9 @@ protected:
 public:
   [[nodiscard]] NodeKind kind() const { return Kind; }
   [[nodiscard]] LexerCursorRange range() const { return Range; }
-  [[nodiscard]] PositionRange positionRange() const {
-    return Range.positionRange();
-  }
-  [[nodiscard]] LexerCursor begin() const { return Range.begin(); }
-  [[nodiscard]] LexerCursor end() const { return Range.end(); }
+  [[nodiscard]] PositionRange positionRange() const { return Range.range(); }
+  [[nodiscard]] LexerCursor lCur() const { return Range.lCur(); }
+  [[nodiscard]] LexerCursor rCur() const { return Range.rCur(); }
   [[nodiscard]] static const char *name(NodeKind Kind);
   [[nodiscard]] const char *name() const { return name(Kind); }
 

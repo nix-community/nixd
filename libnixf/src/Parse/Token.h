@@ -59,8 +59,8 @@ class Token {
 public:
   Token(tok::TokenKind Kind, LexerCursorRange Range, std::string_view View)
       : Kind(Kind), Range(Range), View(View) {}
-  [[nodiscard]] LexerCursor begin() const { return Range.begin(); }
-  [[nodiscard]] LexerCursor end() const { return Range.end(); }
+  [[nodiscard]] LexerCursor lCur() const { return Range.lCur(); }
+  [[nodiscard]] LexerCursor rCur() const { return Range.rCur(); }
   [[nodiscard]] tok::TokenKind kind() const { return Kind; }
   [[nodiscard]] LexerCursorRange range() const { return Range; }
   [[nodiscard]] std::string_view view() const { return View; }
