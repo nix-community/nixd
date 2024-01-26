@@ -218,7 +218,7 @@ public:
   /// \brief Parse interpolations.
   ///
   /// interpolation : "${" expr "}"
-  std::shared_ptr<Expr> parseInterpolation() {
+  std::unique_ptr<Expr> parseInterpolation() {
     Token TokDollarCurly = peek();
     assert(TokDollarCurly.kind() == tok_dollar_curly);
     consume(); // ${
@@ -248,7 +248,7 @@ public:
   /// The first token, path_fragment is lexed in PS_Expr context, then switch in
   /// "PS_Path" context. The ending token "path_end" shall be poped with context
   /// switching.
-  std::shared_ptr<Expr> parseExprPath() {
+  std::unique_ptr<Expr> parseExprPath() {
     Token Begin = peek();
     std::vector<InterpolablePart> Fragments;
     assert(Begin.kind() == tok_path_fragment);
@@ -271,16 +271,16 @@ public:
         assert(false && "should be path_end or ${");
       } while (true);
     }
-    auto Parts = std::make_shared<InterpolatedParts>(
+    auto Parts = std::make_unique<InterpolatedParts>(
         LexerCursorRange{Begin.lCur(), End}, std::move(Fragments));
-    return std::make_shared<ExprPath>(LexerCursorRange{Begin.lCur(), End},
+    return std::make_unique<ExprPath>(LexerCursorRange{Begin.lCur(), End},
                                       std::move(Parts));
   }
 
   /// string_part : interpolation
   ///             | STRING_PART
   ///             | STRING_ESCAPE
-  std::shared_ptr<InterpolatedParts> parseStringParts() {
+  std::unique_ptr<InterpolatedParts> parseStringParts() {
     std::vector<InterpolablePart> Parts;
     LexerCursor PartsBegin = peek().lCur();
     while (true) {
@@ -303,7 +303,7 @@ public:
         continue;
       default:
         assert(LastToken && "LastToken should be set in `parseString`");
-        return std::make_shared<InterpolatedParts>(
+        return std::make_unique<InterpolatedParts>(
             LexerCursorRange{PartsBegin, LastToken->rCur()},
             std::move(Parts)); // TODO!
       }
@@ -312,7 +312,7 @@ public:
 
   /// string : " string_part* "
   ///        | '' string_part* ''
-  std::shared_ptr<ExprString> parseString(bool IsIndented) {
+  std::unique_ptr<ExprString> parseString(bool IsIndented) {
     Token Quote = peek();
     TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
     std::string QuoteSpel(tok::spelling(QuoteKind));
@@ -323,14 +323,14 @@ public:
     assert(LastToken && "LastToken should be set after consume()");
     /* with(PS_String / PS_IndString) */ {
       auto StringState = withState(IsIndented ? PS_IndString : PS_String);
-      std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
+      std::unique_ptr<InterpolatedParts> Parts = parseStringParts();
       if (ExpectResult ER = expect(QuoteKind); ER.ok()) {
         consume();
-        return std::make_shared<ExprString>(
+        return std::make_unique<ExprString>(
             LexerCursorRange{Quote.lCur(), ER.tok().rCur()}, std::move(Parts));
       } else { // NOLINT(readability-else-after-return)
         ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
-        return std::make_shared<ExprString>(
+        return std::make_unique<ExprString>(
             LexerCursorRange{Quote.lCur(), Parts->rCur()}, std::move(Parts));
       }
 
@@ -338,9 +338,9 @@ public:
   }
 
   /// '(' expr ')'
-  std::shared_ptr<ExprParen> parseExprParen() {
+  std::unique_ptr<ExprParen> parseExprParen() {
     Token L = peek();
-    auto LParen = std::make_shared<Misc>(L.range());
+    auto LParen = std::make_unique<Misc>(L.range());
     assert(L.kind() == tok_l_paren);
     consume(); // (
     auto Sync = withSync(tok_r_paren);
@@ -350,14 +350,14 @@ public:
       diagNullExpr(Diags, LastToken->rCur(), "parenthesized");
     if (ExpectResult ER = expect(tok_r_paren); ER.ok()) {
       consume(); // )
-      auto RParen = std::make_shared<Misc>(ER.tok().range());
-      return std::make_shared<ExprParen>(
+      auto RParen = std::make_unique<Misc>(ER.tok().range());
+      return std::make_unique<ExprParen>(
           LexerCursorRange{L.lCur(), ER.tok().rCur()}, std::move(Expr),
           std::move(LParen), std::move(RParen));
     } else { // NOLINT(readability-else-after-return)
       ER.diag().note(Note::NK_ToMachThis, L.range())
           << std::string(tok::spelling(tok_l_paren));
-      return std::make_shared<ExprParen>(
+      return std::make_unique<ExprParen>(
           LexerCursorRange{L.lCur(), LastToken->rCur()}, std::move(Expr),
           std::move(LParen),
           /*RParen=*/nullptr);
@@ -367,7 +367,7 @@ public:
   /// attrname : ID
   ///          | string
   ///          | interpolation
-  std::shared_ptr<AttrName> parseAttrName() {
+  std::unique_ptr<AttrName> parseAttrName() {
     switch (Token Tok = peek(); Tok.kind()) {
     case tok_kw_or:
       Diags.emplace_back(Diagnostic::DK_OrIdentifier, Tok.range());
@@ -375,16 +375,16 @@ public:
     case tok_id: {
       consume();
       auto ID =
-          std::make_shared<Identifier>(Tok.range(), std::string(Tok.view()));
-      return std::make_shared<AttrName>(std::move(ID), Tok.range());
+          std::make_unique<Identifier>(Tok.range(), std::string(Tok.view()));
+      return std::make_unique<AttrName>(std::move(ID), Tok.range());
     }
     case tok_dquote: {
-      std::shared_ptr<ExprString> String = parseString(/*IsIndented=*/false);
-      return std::make_shared<AttrName>(std::move(String), Tok.range());
+      std::unique_ptr<ExprString> String = parseString(/*IsIndented=*/false);
+      return std::make_unique<AttrName>(std::move(String), Tok.range());
     }
     case tok_dollar_curly: {
-      std::shared_ptr<Expr> Expr = parseInterpolation();
-      return std::make_shared<AttrName>(std::move(Expr), Tok.range());
+      std::unique_ptr<Expr> Expr = parseInterpolation();
+      return std::make_unique<AttrName>(std::move(Expr), Tok.range());
     }
     default:
       return nullptr;
@@ -392,13 +392,13 @@ public:
   }
 
   /// attrpath : attrname ('.' attrname)*
-  std::shared_ptr<AttrPath> parseAttrPath() {
+  std::unique_ptr<AttrPath> parseAttrPath() {
     auto First = parseAttrName();
     if (!First)
       return nullptr;
     LexerCursor Begin = First->lCur();
     assert(LastToken && "LastToken should be set after valid attrname");
-    std::vector<std::shared_ptr<AttrName>> AttrNames;
+    std::vector<std::unique_ptr<AttrName>> AttrNames;
     AttrNames.emplace_back(std::move(First));
     while (true) {
       if (Token Tok = peek(); Tok.kind() == tok_dot) {
@@ -417,12 +417,12 @@ public:
       }
       break;
     }
-    return std::make_shared<AttrPath>(
+    return std::make_unique<AttrPath>(
         LexerCursorRange{Begin, LastToken->rCur()}, std::move(AttrNames));
   }
 
   /// binding : attrpath '=' expr ';'
-  std::shared_ptr<Binding> parseBinding() {
+  std::unique_ptr<Binding> parseBinding() {
     auto Path = parseAttrPath();
     if (!Path)
       return nullptr;
@@ -445,7 +445,7 @@ public:
       D << std::string(tok::spelling(tok_semi_colon));
       D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->rCur(), ";"));
     }
-    return std::make_shared<Binding>(
+    return std::make_unique<Binding>(
         LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
         std::move(Expr));
   }
@@ -453,7 +453,7 @@ public:
   /// inherit :  'inherit' '(' expr ')' inherited_attrs ';'
   ///         |  'inherit' inherited_attrs ';'
   /// inherited_attrs: attrname*
-  std::shared_ptr<Inherit> parseInherit() {
+  std::unique_ptr<Inherit> parseInherit() {
     Token TokInherit = peek();
     if (TokInherit.kind() != tok_kw_inherit)
       return nullptr;
@@ -466,8 +466,8 @@ public:
     auto SyncDollarCurly = withSync(tok_dollar_curly);
 
     assert(LastToken && "LastToken should be set after consume()");
-    std::vector<std::shared_ptr<AttrName>> AttrNames;
-    std::shared_ptr<Expr> Expr = nullptr;
+    std::vector<std::unique_ptr<AttrName>> AttrNames;
+    std::unique_ptr<Expr> Expr = nullptr;
     if (Token Tok = peek(); Tok.kind() == tok_l_paren) {
       consume();
       Expr = parseExpr();
@@ -491,16 +491,16 @@ public:
     else
       ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
           << std::string(tok::spelling(tok_kw_inherit));
-    return std::make_shared<Inherit>(
+    return std::make_unique<Inherit>(
         LexerCursorRange{TokInherit.lCur(), LastToken->rCur()},
         std::move(AttrNames), std::move(Expr));
   }
 
   /// binds : ( binding | inherit )*
-  std::shared_ptr<Binds> parseBinds() {
+  std::unique_ptr<Binds> parseBinds() {
     // TODO: curently we don't support inherit
     LexerCursor Begin = peek().lCur();
-    std::vector<std::shared_ptr<Node>> Bindings;
+    std::vector<std::unique_ptr<Node>> Bindings;
     while (true) {
       if (auto Binding = parseBinding()) {
         Bindings.emplace_back(std::move(Binding));
@@ -515,15 +515,15 @@ public:
     if (Bindings.empty())
       return nullptr;
     assert(LastToken && "LastToken should be set after valid binding");
-    return std::make_shared<Binds>(LexerCursorRange{Begin, LastToken->rCur()},
+    return std::make_unique<Binds>(LexerCursorRange{Begin, LastToken->rCur()},
                                    std::move(Bindings));
   }
 
   /// attrset_expr : REC? '{' binds '}'
   ///
   /// Note: peek `tok_kw_rec` or `tok_l_curly` before calling this function.
-  std::shared_ptr<ExprAttrs> parseExprAttrs() {
-    std::shared_ptr<Misc> Rec;
+  std::unique_ptr<ExprAttrs> parseExprAttrs() {
+    std::unique_ptr<Misc> Rec;
 
     auto Sync = withSync(tok_r_curly);
 
@@ -533,7 +533,7 @@ public:
     LexerCursor Begin = peek().lCur(); // rec or {
     if (Token Tok = peek(); Tok.kind() == tok_kw_rec) {
       consume();
-      Rec = std::make_shared<Misc>(Tok.range());
+      Rec = std::make_unique<Misc>(Tok.range());
     }
     if (ExpectResult ER = expect(tok_l_curly); ER.ok()) {
       consume();
@@ -546,7 +546,7 @@ public:
     else
       ER.diag().note(Note::NK_ToMachThis, Matcher.range())
           << std::string(tok::spelling(Matcher.kind()));
-    return std::make_shared<ExprAttrs>(
+    return std::make_unique<ExprAttrs>(
         LexerCursorRange{Begin, LastToken->rCur()}, std::move(Binds),
         std::move(Rec));
   }
@@ -563,14 +563,14 @@ public:
   ///             | legacy_let
   ///             | attrset_expr
   ///             | list
-  std::shared_ptr<Expr> parseExprSimple() {
+  std::unique_ptr<Expr> parseExprSimple() {
     Token Tok = peek();
     switch (Tok.kind()) {
     case tok_id: {
       consume();
       auto ID =
-          std::make_shared<Identifier>(Tok.range(), std::string(Tok.view()));
-      return std::make_shared<ExprVar>(Tok.range(), std::move(ID));
+          std::make_unique<Identifier>(Tok.range(), std::string(Tok.view()));
+      return std::make_unique<ExprVar>(Tok.range(), std::move(ID));
     }
     case tok_int: {
       consume();
@@ -578,13 +578,13 @@ public:
       std::from_chars_result Result [[maybe_unused]] =
           std::from_chars(Tok.view().begin(), Tok.view().end(), N);
       assert(Result.ec == std::errc() && "should be a valid integer");
-      return std::make_shared<ExprInt>(Tok.range(), N);
+      return std::make_unique<ExprInt>(Tok.range(), N);
     }
     case tok_float: {
       consume();
       // libc++ doesn't support std::from_chars for floating point numbers.
       NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
-      return std::make_shared<ExprFloat>(Tok.range(), N);
+      return std::make_unique<ExprFloat>(Tok.range(), N);
     }
     case tok_dquote: // "  - normal strings
       return parseString(/*IsIndented=*/false);
@@ -602,17 +602,17 @@ public:
     }
   }
 
-  std::shared_ptr<Expr> parseExpr() {
+  std::unique_ptr<Expr> parseExpr() {
     return parseExprSimple(); // TODO!
   }
-  std::shared_ptr<Expr> parse() { return parseExpr(); }
+  std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 
 } // namespace
 
 namespace nixf {
 
-std::shared_ptr<Node> parse(std::string_view Src,
+std::unique_ptr<Node> parse(std::string_view Src,
                             std::vector<Diagnostic> &Diags) {
   Parser P(Src, Diags);
   return P.parse();

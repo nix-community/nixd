@@ -47,19 +47,19 @@ int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
 /// TU stands for "Translation Unit".
 class NixTU {
   std::vector<nixf::Diagnostic> Diagnostics;
-  std::shared_ptr<nixf::Node> AST;
+  std::unique_ptr<nixf::Node> AST;
 
 public:
   NixTU() = default;
   NixTU(std::vector<nixf::Diagnostic> Diagnostics,
-        std::shared_ptr<nixf::Node> AST)
+        std::unique_ptr<nixf::Node> AST)
       : Diagnostics(std::move(Diagnostics)), AST(std::move(AST)) {}
 
   [[nodiscard]] const std::vector<nixf::Diagnostic> &diagnostics() const {
     return Diagnostics;
   }
 
-  [[nodiscard]] const std::shared_ptr<nixf::Node> &ast() const { return AST; }
+  [[nodiscard]] const std::unique_ptr<nixf::Node> &ast() const { return AST; }
 };
 
 class Controller : public LSPServer {
@@ -75,7 +75,7 @@ class Controller : public LSPServer {
     auto Draft = Store.getDraft(File);
     assert(Draft && "Added document is not in the store?");
     std::vector<nixf::Diagnostic> Diagnostics;
-    std::shared_ptr<nixf::Node> AST =
+    std::unique_ptr<nixf::Node> AST =
         nixf::parse(*Draft->Contents, Diagnostics);
     std::vector<Diagnostic> LSPDiags;
     LSPDiags.reserve(Diagnostics.size());
@@ -234,7 +234,7 @@ class Controller : public LSPServer {
   void onHover(const TextDocumentPositionParams &Params,
                Callback<std::optional<Hover>> Reply) {
     PathRef File = Params.textDocument.uri.file();
-    const std::shared_ptr<nixf::Node> &AST = TUs[File].ast();
+    const std::unique_ptr<nixf::Node> &AST = TUs[File].ast();
     nixf::Position Pos{Params.position.line, Params.position.character};
     const nixf::Node *N = AST->descend({Pos, Pos});
     if (!N) {

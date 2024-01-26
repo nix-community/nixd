@@ -69,10 +69,10 @@ TEST(Parser, StringSimple) {
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(Expr.get())->parts();
-  ASSERT_TRUE(Parts->range().lCur().isAt(0, 1, 1));
-  ASSERT_TRUE(Parts->range().rCur().isAt(0, 4, 4));
-  ASSERT_EQ(Parts->fragments().size(), 1);
+  const auto &Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_TRUE(Parts.range().lCur().isAt(0, 1, 1));
+  ASSERT_TRUE(Parts.range().rCur().isAt(0, 4, 4));
+  ASSERT_EQ(Parts.fragments().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
   ASSERT_TRUE(Expr->range().lCur().isAt(0, 0, 0));
   ASSERT_TRUE(Expr->range().rCur().isAt(0, 5, 5));
@@ -84,10 +84,10 @@ TEST(Parser, StringMissingDQuote) {
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(Expr.get())->parts();
-  ASSERT_TRUE(Parts->range().lCur().isAt(0, 1, 1));
-  ASSERT_TRUE(Parts->range().rCur().isAt(0, 4, 4));
-  ASSERT_EQ(Parts->fragments().size(), 1);
+  const auto &Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_TRUE(Parts.range().lCur().isAt(0, 1, 1));
+  ASSERT_TRUE(Parts.range().rCur().isAt(0, 4, 4));
+  ASSERT_EQ(Parts.fragments().size(), 1);
 
   // Check the diagnostic.
   ASSERT_EQ(Diags.size(), 1);
@@ -123,14 +123,14 @@ TEST(Parser, StringInterpolation) {
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(Expr.get())->parts();
-  ASSERT_TRUE(Parts->range().lCur().isAt(0, 1, 1));
-  ASSERT_TRUE(Parts->range().rCur().isAt(0, 13, 13));
-  ASSERT_EQ(Parts->fragments().size(), 3);
+  const auto &Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_TRUE(Parts.range().lCur().isAt(0, 1, 1));
+  ASSERT_TRUE(Parts.range().rCur().isAt(0, 13, 13));
+  ASSERT_EQ(Parts.fragments().size(), 3);
 
-  ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Escaped);
-  ASSERT_EQ(Parts->fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
-  ASSERT_EQ(Parts->fragments()[2].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[0].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
+  ASSERT_EQ(Parts.fragments()[2].kind(), InterpolablePart::SPK_Escaped);
 
   ASSERT_EQ(Diags.size(), 0);
   ASSERT_TRUE(Expr->range().lCur().isAt(0, 0, 0));
@@ -151,8 +151,8 @@ TEST(Parser, IndentedString) {
   auto Expr = nixf::parse(Src, Diags);
   ASSERT_TRUE(Expr);
   ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(Expr.get())->parts();
-  ASSERT_EQ(Parts->fragments().size(), 3);
+  const auto &Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 3);
 
   // Check the diagnostic.
   ASSERT_EQ(Diags.size(), 1);
@@ -189,15 +189,15 @@ TEST(Parser, InterpolationOK) {
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(AST.get())->parts();
-  ASSERT_EQ(Parts->fragments().size(), 1);
-  ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Interpolation);
+  const auto &Parts = static_cast<ExprString *>(AST.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 1);
+  ASSERT_EQ(Parts.fragments()[0].kind(), InterpolablePart::SPK_Interpolation);
   ASSERT_EQ(Diags.size(), 0);
 
   // Check the interpolation range
-  const std::shared_ptr<Expr> &I = Parts->fragments()[0].interpolation();
-  ASSERT_TRUE(I->range().lCur().isAt(0, 3, 3));
-  ASSERT_TRUE(I->range().rCur().isAt(0, 4, 4));
+  const auto &I = Parts.fragments()[0].interpolation();
+  ASSERT_TRUE(I.range().lCur().isAt(0, 3, 3));
+  ASSERT_TRUE(I.range().rCur().isAt(0, 4, 4));
 }
 
 TEST(Parser, InterpolationNoRCurly) {
@@ -207,9 +207,9 @@ TEST(Parser, InterpolationNoRCurly) {
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(AST.get())->parts();
-  ASSERT_EQ(Parts->fragments().size(), 1);
-  ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Interpolation);
+  const auto &Parts = static_cast<ExprString *>(AST.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 1);
+  ASSERT_EQ(Parts.fragments()[0].kind(), InterpolablePart::SPK_Interpolation);
   ASSERT_EQ(Diags.size(), 1);
 
   // Check the diagnostic.
@@ -246,8 +246,8 @@ TEST(Parser, InterpolationNullExpr) {
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
-  auto Parts = static_cast<ExprString *>(AST.get())->parts();
-  ASSERT_EQ(Parts->fragments().size(), 0);
+  const auto &Parts = static_cast<ExprString *>(AST.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 0);
 
   // Check the diagnostic.
   auto &D = Diags[0];
@@ -274,27 +274,27 @@ TEST(Parser, PathOK) {
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprPath);
-  auto Parts = static_cast<ExprPath *>(AST.get())->parts();
-  ASSERT_EQ(Parts->fragments().size(), 3);
+  const auto &Parts = static_cast<ExprPath *>(AST.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 3);
 
   // Check the AST range
   ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
   ASSERT_TRUE(AST->range().rCur().isAt(0, 16, 16));
 
   // Check parts range. Should be the same as AST.
-  ASSERT_TRUE(Parts->range().lCur().isAt(0, 0, 0));
-  ASSERT_TRUE(Parts->range().rCur().isAt(0, 16, 16));
+  ASSERT_TRUE(Parts.range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(Parts.range().rCur().isAt(0, 16, 16));
 
   // Check the first part.
-  ASSERT_EQ(Parts->fragments()[0].kind(), InterpolablePart::SPK_Escaped);
-  ASSERT_EQ(Parts->fragments()[0].escaped(), "a/b/c/");
+  ASSERT_EQ(Parts.fragments()[0].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[0].escaped(), "a/b/c/");
 
   // Check the second part.
-  ASSERT_EQ(Parts->fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
+  ASSERT_EQ(Parts.fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
 
   // Check the third part.
-  ASSERT_EQ(Parts->fragments()[2].kind(), InterpolablePart::SPK_Escaped);
-  ASSERT_EQ(Parts->fragments()[2].escaped(), "/d");
+  ASSERT_EQ(Parts.fragments()[2].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[2].escaped(), "/d");
 }
 
 TEST(Parser, ParenExpr) {
@@ -667,7 +667,7 @@ TEST(Parser, AttrsBindingInherit) {
   ASSERT_TRUE(I2->names()[0]->range().lCur().isAt(4, 10, 33));
   ASSERT_TRUE(I2->names()[0]->range().rCur().isAt(4, 11, 34));
   ASSERT_EQ(I2->names()[0]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I2->names()[0]->id()->name(), "a");
+  ASSERT_EQ(I2->names()[0]->id().name(), "a");
   ASSERT_EQ(I2->expr(), nullptr);
 
   ASSERT_TRUE(B[3]->range().lCur().isAt(5, 2, 38));
@@ -678,11 +678,11 @@ TEST(Parser, AttrsBindingInherit) {
   ASSERT_TRUE(I3->names()[0]->range().lCur().isAt(5, 10, 46));
   ASSERT_TRUE(I3->names()[0]->range().rCur().isAt(5, 11, 47));
   ASSERT_EQ(I3->names()[0]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I3->names()[0]->id()->name(), "a");
+  ASSERT_EQ(I3->names()[0]->id().name(), "a");
   ASSERT_TRUE(I3->names()[1]->range().lCur().isAt(5, 12, 48));
   ASSERT_TRUE(I3->names()[1]->range().rCur().isAt(5, 13, 49));
   ASSERT_EQ(I3->names()[1]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I3->names()[1]->id()->name(), "b");
+  ASSERT_EQ(I3->names()[1]->id().name(), "b");
   ASSERT_EQ(I3->expr(), nullptr);
   ASSERT_FALSE(I3->hasExpr());
 
@@ -694,14 +694,14 @@ TEST(Parser, AttrsBindingInherit) {
   ASSERT_TRUE(I4->names()[0]->range().lCur().isAt(6, 14, 65));
   ASSERT_TRUE(I4->names()[0]->range().rCur().isAt(6, 15, 66));
   ASSERT_EQ(I4->names()[0]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I4->names()[0]->id()->name(), "b");
+  ASSERT_EQ(I4->names()[0]->id().name(), "b");
   ASSERT_EQ(I4->expr()->kind(), Node::NK_ExprVar);
   ASSERT_TRUE(I4->hasExpr());
 
   const auto &I5 = static_cast<Inherit *>(B[5].get());
   ASSERT_EQ(I5->names().size(), 2);
-  ASSERT_EQ(I5->names()[0]->id()->name(), "a");
-  ASSERT_EQ(I5->names()[1]->id()->name(), "b");
+  ASSERT_EQ(I5->names()[0]->id().name(), "a");
+  ASSERT_EQ(I5->names()[1]->id().name(), "b");
   ASSERT_EQ(I5->expr()->kind(), Node::NK_ExprVar);
   ASSERT_TRUE(I5->hasExpr());
 }
