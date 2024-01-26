@@ -31,10 +31,11 @@ public:
   /// not exists, until reached the inner-most attr. Similar to `mkdir -p`.
   ///
   /// \return The selected or created attribute.
-  SemaAttrs *selectOrCreate(SemaAttrs *Attr, const AttrPath &Path);
+  SemaAttrs *selectOrCreate(SemaAttrs &Attr,
+                            const std::vector<std::unique_ptr<AttrName>> &Path);
 
   /// Insert the binding: `AttrPath = E;` into \p Attr
-  void addAttr(SemaAttrs *Attr, const AttrPath &Path,
+  void addAttr(SemaAttrs &Attr, const AttrPath &Path,
                UniqueOrRaw<Evaluable, SemaAttrs> E);
 
   /// \brief Perform lowering.

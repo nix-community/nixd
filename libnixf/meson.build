@@ -49,6 +49,7 @@ test('unit/libnixf/Sema',
     executable('unit-libnixf-sema',
         'test/Sema/Lowering.cpp',
         dependencies: [ nixf, gtest_main ],
+        include_directories: [ 'src/Sema' ] # Private headers
     )
 )
 
