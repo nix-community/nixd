@@ -33,6 +33,23 @@ add_project_arguments([
   ),
 ], language: 'cpp')
 
+if get_option('buildtype').startswith('debug')
+  add_project_arguments([
+    cpp.get_supported_arguments(
+      '-Werror=return-type',
+    ),
+  ], language: 'cpp')
+endif
+
+if get_option('buildtype').startswith('release')
+  add_project_arguments([
+    cpp.get_supported_arguments(
+      '-Wno-return-type',
+      '-Wno-maybe-uninitialized',
+      '-Wno-unused-variable',
+    ),
+  ], language: 'cpp')
+endif
 
 
 gtest = dependency('gtest')
