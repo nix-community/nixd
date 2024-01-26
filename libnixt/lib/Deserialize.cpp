@@ -119,11 +119,13 @@ template <> nix::Pos::Origin consume<nix::Pos::Origin>(BytesRef &Data) {
     assert(false && "Unknown origin");
     break;
   }
+  assert(false && "unreachable");
+  __builtin_unreachable();
 }
 
 nix::Expr *consumeAST(BytesRef &Data, PtrPool<nix::Expr> &Pool,
                       nix::PosTable &PTable, nix::SymbolTable &STable) {
-  auto Header = consume<ASTHeader>(Data);
+  auto Header [[maybe_unused]] = consume<ASTHeader>(Data);
   assert(std::memcmp(Header.Magic, "\x7FNixAST\0", 8) == 0);
   assert(Header.Version == 1);
   auto Origin = consume<nix::Pos::Origin>(Data);
