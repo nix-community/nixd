@@ -39,6 +39,7 @@ int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
     return 2;
   }
   assert(false && "Invalid severity");
+  __builtin_unreachable();
 }
 
 /// Holds analyzed information about a document.

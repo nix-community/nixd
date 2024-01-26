@@ -53,6 +53,8 @@ public:
 
   [[nodiscard]] virtual ChildVector children() const = 0;
 
+  virtual ~Node() = default;
+
   /// \brief Descendant node that contains the given range.
   [[nodiscard]] const Node *descend(PositionRange Range) const {
     if (!positionRange().contains(Range)) {
@@ -285,6 +287,7 @@ public:
     default:
       assert(false && "invalid AttrNameKind");
     }
+    __builtin_unreachable();
   }
 };
 

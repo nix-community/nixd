@@ -16,6 +16,8 @@ namespace nixf {
   default:
     assert(false && "Not yet implemented!");
   }
+  assert(false && "Not yet implemented!");
+  __builtin_unreachable();
 }
 
 } // namespace nixf

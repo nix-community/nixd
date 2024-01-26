@@ -1,7 +1,5 @@
 /// \file
 /// \brief Parser implementation.
-#pragma once
-
 #include "Lexer.h"
 #include "Token.h"
 
@@ -577,8 +575,9 @@ public:
     case tok_int: {
       consume();
       NixInt N;
-      auto [_, Err] = std::from_chars(Tok.view().begin(), Tok.view().end(), N);
-      assert(Err == std::errc());
+      std::from_chars_result Result [[maybe_unused]] =
+          std::from_chars(Tok.view().begin(), Tok.view().end(), N);
+      assert(Result.ec == std::errc() && "should be a valid integer");
       return std::make_shared<ExprInt>(Tok.range(), N);
     }
     case tok_float: {
