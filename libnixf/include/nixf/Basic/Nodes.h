@@ -560,10 +560,33 @@ public:
     [[nodiscard]] Evaluable &key() const { return *Key.getRaw(); }
     [[nodiscard]] Evaluable &value() const { return *Value.getRaw(); }
   };
+
+private:
   std::map<std::string, AttrBody> Attrs;
   std::vector<DynamicAttr> DynamicAttrs;
 
-  explicit SemaAttrs(const Node *Syntax) : SemaNode(SK_Attrs, Syntax) {}
+  bool Recursive;
+
+public:
+  explicit SemaAttrs(const Node *Syntax, bool Recursive)
+      : SemaNode(SK_Attrs, Syntax), Recursive(Recursive) {}
+  SemaAttrs(const Node *Syntax, std::map<std::string, AttrBody> Attrs,
+            std::vector<DynamicAttr> DynamicAttrs, bool Recursive)
+      : SemaNode(SK_Attrs, Syntax), Attrs(std::move(Attrs)),
+        DynamicAttrs(std::move(DynamicAttrs)), Recursive(Recursive) {}
+
+  /// \brief Static attributes, do not require evaluation to get the key.
+  ///
+  /// e.g. `{ a = 1; b = 2; }`
+  std::map<std::string, AttrBody> &staticAttrs() { return Attrs; }
+
+  /// \brief Dynamic attributes, require evaluation to get the key.
+  ///
+  /// e.g. `{ "${asdasda}" = "asdasd"; }`
+  std::vector<DynamicAttr> &dynamicAttrs() { return DynamicAttrs; }
+
+  /// \brief If the attribute set is `rec`.
+  [[nodiscard]] bool isRecursive() const { return Recursive; }
 
   [[nodiscard]] const Node *syntax() const override {
     return SemaNode::syntax();

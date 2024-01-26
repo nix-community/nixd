@@ -23,6 +23,9 @@ TEST_F(Lowering, dupAttr) {
 
   auto AST = nixf::parse(Src, Diags);
   lower(AST.get(), Diags);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  auto *E = static_cast<ExprAttrs *>(AST.get());
 }
 
 } // namespace
