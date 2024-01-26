@@ -1,7 +1,5 @@
 /// \file
 /// \brief Parser implementation.
-#pragma once
-
 #include "Lexer.h"
 #include "Token.h"
 

@@ -26,7 +26,9 @@ add_project_arguments([
   '-I' + meson.project_build_root(),
   cpp.get_supported_arguments(
      '-Werror=documentation',
-     '-Werror=delete-non-abstract-non-virtual-dtor'
+     '-Werror=delete-non-abstract-non-virtual-dtor',
+     '-Werror=pragma-once-outside-header',
+     '-Wno-unused-parameter',
   ),
 ], language: 'cpp')
 
