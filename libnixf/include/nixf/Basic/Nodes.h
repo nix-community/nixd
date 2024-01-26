@@ -287,6 +287,7 @@ public:
     default:
       assert(false && "invalid AttrNameKind");
     }
+    __builtin_unreachable();
   }
 };
 
