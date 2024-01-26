@@ -575,7 +575,7 @@ public:
     case tok_int: {
       consume();
       NixInt N;
-      std::from_chars_result Result =
+      std::from_chars_result Result [[maybe_unused]] =
           std::from_chars(Tok.view().begin(), Tok.view().end(), N);
       assert(Result.ec == std::errc() && "should be a valid integer");
       return std::make_shared<ExprInt>(Tok.range(), N);
