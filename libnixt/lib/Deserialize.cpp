@@ -84,6 +84,8 @@ public:
       assert(false && "Unknown kind");
       break;
     }
+    assert(false && "unreachable");
+    __builtin_unreachable();
   }
 
   [[nodiscard]] BytesRef getBytesRef() const { return Cur; }
