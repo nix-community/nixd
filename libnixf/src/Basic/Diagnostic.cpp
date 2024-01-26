@@ -33,6 +33,7 @@ nixf::Diagnostic::Severity nixf::Diagnostic::severity(DiagnosticKind Kind) {
 #undef DIAG
   }
   assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 const char *nixf::Diagnostic::message(DiagnosticKind Kind) {
   switch (Kind) {
@@ -43,6 +44,7 @@ const char *nixf::Diagnostic::message(DiagnosticKind Kind) {
 #undef DIAG
   }
   assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 const char *nixf::Diagnostic::sname(DiagnosticKind Kind) {
   switch (Kind) {
@@ -53,6 +55,7 @@ const char *nixf::Diagnostic::sname(DiagnosticKind Kind) {
 #undef DIAG
   }
   assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 const char *nixf::Note::message(NoteKind Kind) {
   switch (Kind) {
@@ -63,6 +66,7 @@ const char *nixf::Note::message(NoteKind Kind) {
 #undef DIAG_NOTE
   }
   assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 
 std::string PartialDiagnostic::format() const {
