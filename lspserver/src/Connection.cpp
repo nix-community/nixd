@@ -214,6 +214,7 @@ bool InboundPort::readMessage(std::string &JSONString) {
     break;
   }
   assert(false && "Invalid stream style");
+  __builtin_unreachable();
 }
 
 void InboundPort::loop(MessageHandler &Handler) {
