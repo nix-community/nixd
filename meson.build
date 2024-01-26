@@ -29,6 +29,7 @@ add_project_arguments([
      '-Werror=delete-non-abstract-non-virtual-dtor',
      '-Werror=pragma-once-outside-header',
      '-Wno-unused-parameter',
+     '-Wno-missing-field-initializers',
   ),
 ], language: 'cpp')
 
