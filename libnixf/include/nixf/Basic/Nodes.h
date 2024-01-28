@@ -9,15 +9,35 @@
 #pragma once
 
 #include "nixf/Basic/Range.h"
+#include "nixf/Basic/UniqueOrRaw.h"
 
 #include <boost/container/small_vector.hpp>
 
 #include <cassert>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
 namespace nixf {
+
+class Node;
+
+class HaveSyntax {
+public:
+  virtual ~HaveSyntax() = default;
+
+  /// \brief The syntax node before lowering.
+  ///
+  /// Nullable, because nodes may be created implicitly (e.g. nested keys).
+  [[nodiscard]] virtual const Node *syntax() const = 0;
+};
+
+/// \brief Evaluable nodes, after lowering.
+///
+/// In libnixf, we do not evaluate the code actually, instead they will
+/// be serialized into byte-codes, and then evaluated by C++ nix, via IPC.
+class Evaluable : public HaveSyntax {};
 
 class Node {
 public:
@@ -71,11 +91,14 @@ public:
   }
 };
 
-class Expr : public Node {
+class Expr : public Node, public Evaluable {
 protected:
   explicit Expr(NodeKind Kind, LexerCursorRange Range) : Node(Kind, Range) {
     assert(NK_BeginExpr <= Kind && Kind <= NK_EndExpr);
   }
+
+public:
+  [[nodiscard]] const Node *syntax() const override { return this; }
 };
 
 using NixInt = int64_t;
@@ -144,12 +167,21 @@ class InterpolatedParts : public Node {
 
 public:
   InterpolatedParts(LexerCursorRange Range,
-                    std::vector<InterpolablePart> Fragments)
-      : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {}
+                    std::vector<InterpolablePart> Fragments);
 
   [[nodiscard]] const std::vector<InterpolablePart> &fragments() const {
     return Fragments;
   };
+
+  [[nodiscard]] bool isLiteral() const {
+    return Fragments.size() == 1 &&
+           Fragments[0].kind() == InterpolablePart::SPK_Escaped;
+  }
+
+  [[nodiscard]] const std::string &literal() const {
+    assert(isLiteral() && "must be a literal");
+    return Fragments[0].escaped();
+  }
 
   [[nodiscard]] ChildVector children() const override { return {}; }
 };
@@ -166,6 +198,16 @@ public:
   [[nodiscard]] const InterpolatedParts &parts() const {
     assert(Parts && "parts must not be null");
     return *Parts;
+  }
+
+  [[nodiscard]] bool isLiteral() const {
+    assert(Parts && "parts must not be null");
+    return Parts->isLiteral();
+  }
+
+  [[nodiscard]] const std::string &literal() const {
+    assert(Parts && "parts must not be null");
+    return Parts->literal();
   }
 
   [[nodiscard]] ChildVector children() const override { return {}; }
@@ -247,7 +289,7 @@ public:
   [[nodiscard]] ChildVector children() const override { return {ID.get()}; }
 };
 
-class AttrName : public Node {
+class AttrName : public Node, public Evaluable {
 public:
   enum AttrNameKind { ANK_ID, ANK_String, ANK_Interpolation };
 
@@ -276,6 +318,24 @@ public:
       : Node(NK_AttrName, Range), Kind(ANK_Interpolation) {
     this->Interpolation = std::move(Interpolation);
     assert(this->Interpolation && "Interpolation must not be null");
+  }
+
+  [[nodiscard]] bool isStatic() const {
+    if (Kind == ANK_ID)
+      return true;
+    if (Kind == ANK_Interpolation)
+      return false;
+
+    assert(Kind == ANK_String);
+    return string().isLiteral();
+  }
+
+  [[nodiscard]] const std::string &staticName() const {
+    assert(isStatic() && "must be static");
+    if (Kind == ANK_ID)
+      return id().name();
+    assert(Kind == ANK_String);
+    return string().literal();
   }
 
   [[nodiscard]] const Expr &interpolation() const {
@@ -309,6 +369,8 @@ public:
     }
     __builtin_unreachable();
   }
+
+  [[nodiscard]] const Node *syntax() const override { return this; }
 };
 
 class AttrPath : public Node {
@@ -349,7 +411,7 @@ public:
     assert(Path && "Path must not be null");
     return *Path;
   }
-  [[nodiscard]] const Expr *value() const { return Value.get(); }
+  [[nodiscard]] Expr *value() const { return Value.get(); }
 
   [[nodiscard]] ChildVector children() const override {
     return {Path.get(), Value.get()};
@@ -371,7 +433,7 @@ public:
 
   [[nodiscard]] bool hasExpr() { return E != nullptr; }
 
-  [[nodiscard]] const Expr *expr() const { return E.get(); }
+  [[nodiscard]] Expr *expr() const { return E.get(); }
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
@@ -405,23 +467,168 @@ public:
   }
 };
 
+class SemaAttrs;
+
 class ExprAttrs : public Expr {
   std::unique_ptr<Binds> Body;
   std::unique_ptr<Misc> Rec;
+
+  std::unique_ptr<SemaAttrs> Sema;
 
 public:
   ExprAttrs(LexerCursorRange Range, std::unique_ptr<Binds> Body,
             std::unique_ptr<Misc> Rec)
       : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)) {}
 
-  [[nodiscard]] const Binds *binds() const { return Body.get(); }
-  [[nodiscard]] const Misc *rec() const { return Rec.get(); }
+  [[nodiscard]] Binds *binds() const { return Body.get(); }
+  [[nodiscard]] Misc *rec() const { return Rec.get(); }
 
   [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
 
   [[nodiscard]] ChildVector children() const override {
     return {Body.get(), Rec.get()};
   }
+
+  void addSema(std::unique_ptr<SemaAttrs> Sema) {
+    this->Sema = std::move(Sema);
+  }
+
+  [[nodiscard]] const SemaAttrs &sema() const {
+    assert(Sema);
+    return *Sema;
+  }
+
+  [[nodiscard]] const Node *syntax() const override { return this; }
+};
+
+//===----------------------------------------------------------------------===//
+// Semantic nodes
+//===----------------------------------------------------------------------===//
+
+/// \brief Semantic nodes, weak reference to syntax nodes.
+///
+/// These are nodes cannot implement `Evaluable` directly, and requires some
+/// effort to do lowering. For example, \p ExprAttrs.
+///
+/// If it is easy to match `Evaluable`, then it should be implemented in syntax
+/// nodes, instead of creating nodes here.
+///
+/// For example, \p ExprInt, \p ExprFloat.
+class SemaNode : public HaveSyntax {
+public:
+  enum SemaKinds {
+    SK_Attrs,
+  };
+
+private:
+  SemaKinds Kind;
+  const Node *Syntax;
+
+protected:
+  SemaNode(SemaKinds Kind, const Node *Syntax) : Kind(Kind), Syntax(Syntax) {}
+
+public:
+  /// \brief Get the kind of the node (RTTI).
+  [[nodiscard]] SemaKinds kind() const { return Kind; }
+
+  [[nodiscard]] const Node *syntax() const override { return Syntax; }
+};
+
+/// \brief Attribute set after lowering.
+///
+/// Represeting the attribute set suitable for variable lookups, evaluation.
+///
+/// The attrset cannot have duplicate keys, and keys will be desugared to strict
+/// K-V form.
+///
+/// e.g. `{ a.b.c = 1 }` -> `{ a = { b = { c = 1; }; }; }`
+class SemaAttrs : public SemaNode, public Evaluable {
+public:
+  class AttrBody;
+
+  class DynamicAttr {
+    UniqueOrRaw<Evaluable> Key;
+    UniqueOrRaw<Evaluable> Value;
+
+  public:
+    /// \note \p Key and \p Value must not be null.
+    DynamicAttr(UniqueOrRaw<Evaluable> Key, UniqueOrRaw<Evaluable> Value)
+        : Key(std::move(Key)), Value(std::move(Value)) {
+      assert(this->Key.getRaw() && "Key must not be null");
+      assert(this->Value.getRaw() && "Value must not be null");
+    }
+    [[nodiscard]] Evaluable &key() const { return *Key.getRaw(); }
+    [[nodiscard]] Evaluable &value() const { return *Value.getRaw(); }
+  };
+
+private:
+  std::map<std::string, AttrBody> Attrs;
+  std::vector<DynamicAttr> DynamicAttrs;
+
+  bool Recursive;
+
+public:
+  explicit SemaAttrs(const Node *Syntax, bool Recursive)
+      : SemaNode(SK_Attrs, Syntax), Recursive(Recursive) {}
+  SemaAttrs(const Node *Syntax, std::map<std::string, AttrBody> Attrs,
+            std::vector<DynamicAttr> DynamicAttrs, bool Recursive)
+      : SemaNode(SK_Attrs, Syntax), Attrs(std::move(Attrs)),
+        DynamicAttrs(std::move(DynamicAttrs)), Recursive(Recursive) {}
+
+  /// \brief Static attributes, do not require evaluation to get the key.
+  ///
+  /// e.g. `{ a = 1; b = 2; }`
+  std::map<std::string, AttrBody> &staticAttrs() { return Attrs; }
+
+  /// \brief Dynamic attributes, require evaluation to get the key.
+  ///
+  /// e.g. `{ "${asdasda}" = "asdasd"; }`
+  std::vector<DynamicAttr> &dynamicAttrs() { return DynamicAttrs; }
+
+  /// \brief If the attribute set is `rec`.
+  [[nodiscard]] bool isRecursive() const { return Recursive; }
+
+  [[nodiscard]] const Node *syntax() const override {
+    return SemaNode::syntax();
+  }
+};
+
+class SemaAttrs::AttrBody {
+  bool Inherited;
+
+  AttrName *Name;
+
+  UniqueOrRaw<Evaluable, SemaAttrs> E;
+
+public:
+  /// \note \p E, \p Name must not be null.
+  AttrBody(bool Inherited, AttrName *Name, UniqueOrRaw<Evaluable, SemaAttrs> E)
+      : Inherited(Inherited), Name(Name), E(std::move(E)) {
+    assert(this->Name && "Name must not be null");
+    assert(this->E.getRaw() && "E must not be null");
+  }
+
+  AttrBody() : Inherited(false), E(nullptr) {}
+
+  /// \brief If the attribute is `inherit`ed.
+  [[nodiscard]] bool inherited() const { return Inherited; }
+
+  /// \brief The attribute value, to be evaluated.
+  ///
+  /// For `inherit`,
+  ///
+  ///  -  inherit (expr) a -> (Select Expr Symbol("a"))
+  ///  -  inherit a        -> Variable("a")
+  ///
+  /// For normal attr,
+  ///
+  ///  -  a = 1            -> ExprInt(1)
+  [[nodiscard]] Evaluable &expr() const { return *E.getRaw(); }
+
+  [[nodiscard]] SemaAttrs *attrs() const { return E.getUnique(); }
+
+  /// \brief The syntax node of the attribute name.
+  [[nodiscard]] AttrName &name() const { return *Name; }
 };
 
 } // namespace nixf

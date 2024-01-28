@@ -20,4 +20,28 @@ namespace nixf {
   __builtin_unreachable();
 }
 
+InterpolatedParts::InterpolatedParts(LexerCursorRange Range,
+                                     std::vector<InterpolablePart> Fragments)
+    : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {
+
+  if (this->Fragments.empty())
+    return;
+
+  // Check if the fragment forms a string literal (i.e. no interpolation)
+  for (const InterpolablePart &Frag : this->Fragments) {
+    if (Frag.kind() == InterpolablePart::SPK_Interpolation)
+      return;
+  }
+
+  // Concatenate the fragments into a singe "Escaped"
+  std::string Escaped;
+  for (const InterpolablePart &Frag : this->Fragments) {
+    assert(Frag.kind() == InterpolablePart::SPK_Escaped &&
+           "Only Escaped fragments can be concatenated");
+    Escaped += Frag.escaped();
+  }
+  this->Fragments.clear();
+  this->Fragments.emplace_back(std::move(Escaped));
+}
+
 } // namespace nixf

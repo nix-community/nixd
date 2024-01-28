@@ -8,6 +8,7 @@ libnixf = library(
     'src/Basic/Diagnostic.cpp',
     'src/Parse/Lexer.cpp',
     'src/Parse/Parser.cpp',
+    'src/Sema/Lowering.cpp',
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
@@ -41,6 +42,14 @@ test('unit/libnixf/Parse',
         'test/Parse/Parser.cpp',
         dependencies: [ nixf, gtest_main ],
         include_directories: [ 'src/Parse' ] # Private headers
+    )
+)
+
+test('unit/libnixf/Sema',
+    executable('unit-libnixf-sema',
+        'test/Sema/Lowering.cpp',
+        dependencies: [ nixf, gtest_main ],
+        include_directories: [ 'src/Sema' ] # Private headers
     )
 )
 
