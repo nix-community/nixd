@@ -33,10 +33,12 @@ void Parser::pushState(ParserState NewState) {
   resetLookAheadBuf();
   State.push(NewState);
 }
+
 void Parser::popState() {
   resetLookAheadBuf();
   State.pop();
 }
+
 Parser::StateRAII Parser::withState(ParserState NewState) {
   pushState(NewState);
   return {*this};
@@ -111,6 +113,7 @@ Token Parser::peek(std::size_t N) {
   }
   return LookAheadBuf[N];
 }
+
 std::optional<LexerCursorRange> Parser::consumeAsUnknown() {
   LexerCursor Begin = peek().lCur();
   bool Consumed = false;
@@ -125,6 +128,7 @@ std::optional<LexerCursorRange> Parser::consumeAsUnknown() {
   assert(LastToken && "LastToken should be set after consume()");
   return LexerCursorRange{Begin, LastToken->rCur()};
 }
+
 Parser::ExpectResult Parser::expect(TokenKind Kind) {
   auto Sync = withSync(Kind);
   if (Token Tok = peek(); Tok.kind() == Kind) {
@@ -152,6 +156,7 @@ Parser::ExpectResult Parser::expect(TokenKind Kind) {
       .edit(TextEdit::mkInsertion(Insert, std::string(tok::spelling(Kind))));
   return {&D};
 }
+
 std::unique_ptr<Expr> Parser::parseInterpolation() {
   Token TokDollarCurly = peek();
   assert(TokDollarCurly.kind() == tok_dollar_curly);
@@ -173,6 +178,7 @@ std::unique_ptr<Expr> Parser::parseInterpolation() {
   } // with(PS_Expr)
   return nullptr;
 }
+
 std::unique_ptr<Expr> Parser::parseExprPath() {
   Token Begin = peek();
   std::vector<InterpolablePart> Fragments;
@@ -201,6 +207,7 @@ std::unique_ptr<Expr> Parser::parseExprPath() {
   return std::make_unique<ExprPath>(LexerCursorRange{Begin.lCur(), End},
                                     std::move(Parts));
 }
+
 std::unique_ptr<InterpolatedParts> Parser::parseStringParts() {
   std::vector<InterpolablePart> Parts;
   LexerCursor PartsBegin = peek().lCur();
@@ -230,6 +237,7 @@ std::unique_ptr<InterpolatedParts> Parser::parseStringParts() {
     }
   }
 }
+
 std::unique_ptr<ExprString> Parser::parseString(bool IsIndented) {
   Token Quote = peek();
   TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
@@ -254,6 +262,7 @@ std::unique_ptr<ExprString> Parser::parseString(bool IsIndented) {
 
   } // with(PS_String / PS_IndString)
 }
+
 std::unique_ptr<ExprParen> Parser::parseExprParen() {
   Token L = peek();
   auto LParen = std::make_unique<Misc>(L.range());
@@ -279,6 +288,7 @@ std::unique_ptr<ExprParen> Parser::parseExprParen() {
         /*RParen=*/nullptr);
   }
 }
+
 std::unique_ptr<AttrName> Parser::parseAttrName() {
   switch (Token Tok = peek(); Tok.kind()) {
   case tok_kw_or:
@@ -302,6 +312,7 @@ std::unique_ptr<AttrName> Parser::parseAttrName() {
     return nullptr;
   }
 }
+
 std::unique_ptr<AttrPath> Parser::parseAttrPath() {
   auto First = parseAttrName();
   if (!First)
@@ -330,6 +341,7 @@ std::unique_ptr<AttrPath> Parser::parseAttrPath() {
   return std::make_unique<AttrPath>(LexerCursorRange{Begin, LastToken->rCur()},
                                     std::move(AttrNames));
 }
+
 std::unique_ptr<Binding> Parser::parseBinding() {
   auto Path = parseAttrPath();
   if (!Path)
@@ -357,6 +369,7 @@ std::unique_ptr<Binding> Parser::parseBinding() {
       LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
       std::move(Expr));
 }
+
 std::unique_ptr<Inherit> Parser::parseInherit() {
   Token TokInherit = peek();
   if (TokInherit.kind() != tok_kw_inherit)
@@ -399,6 +412,7 @@ std::unique_ptr<Inherit> Parser::parseInherit() {
       LexerCursorRange{TokInherit.lCur(), LastToken->rCur()},
       std::move(AttrNames), std::move(Expr));
 }
+
 std::unique_ptr<Binds> Parser::parseBinds() {
   // TODO: curently we don't support inherit
   LexerCursor Begin = peek().lCur();
@@ -420,6 +434,7 @@ std::unique_ptr<Binds> Parser::parseBinds() {
   return std::make_unique<Binds>(LexerCursorRange{Begin, LastToken->rCur()},
                                  std::move(Bindings));
 }
+
 std::unique_ptr<ExprAttrs> Parser::parseExprAttrs() {
   std::unique_ptr<Misc> Rec;
 
@@ -447,6 +462,7 @@ std::unique_ptr<ExprAttrs> Parser::parseExprAttrs() {
   return std::make_unique<ExprAttrs>(LexerCursorRange{Begin, LastToken->rCur()},
                                      std::move(Binds), std::move(Rec));
 }
+
 std::unique_ptr<Expr> Parser::parseExprSimple() {
   Token Tok = peek();
   switch (Tok.kind()) {
