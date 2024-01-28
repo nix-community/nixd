@@ -501,6 +501,33 @@ public:
   [[nodiscard]] const Node *syntax() const override { return this; }
 };
 
+class ExprSelect : public Expr {
+  std::unique_ptr<Expr> E;
+  std::unique_ptr<AttrPath> Path;
+  std::unique_ptr<Expr> Default;
+
+public:
+  ExprSelect(LexerCursorRange Range, std::unique_ptr<Expr> E,
+             std::unique_ptr<AttrPath> Path, std::unique_ptr<Expr> Default)
+      : Expr(NK_ExprSelect, Range), E(std::move(E)), Path(std::move(Path)),
+        Default(std::move(Default)) {
+    assert(this->E && "E must not be null");
+  }
+
+  [[nodiscard]] Expr &expr() const {
+    assert(E && "E must not be null");
+    return *E;
+  }
+
+  [[nodiscard]] Expr *defaultExpr() const { return Default.get(); }
+
+  [[nodiscard]] AttrPath *path() const { return Path.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {E.get(), Path.get()};
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Semantic nodes
 //===----------------------------------------------------------------------===//

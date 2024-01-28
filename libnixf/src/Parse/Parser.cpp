@@ -1,6 +1,7 @@
 /// \file
 /// \brief Parser implementation.
 #include "Parser.h"
+#include "src/Parse/Token.h"
 
 #include <charconv>
 
@@ -500,6 +501,52 @@ std::unique_ptr<Expr> Parser::parseExprSimple() {
   default:
     return nullptr;
   }
+}
+
+std::unique_ptr<Expr> Parser::parseExprSelect() {
+  std::unique_ptr<Expr> Expr = parseExprSimple();
+  if (!Expr)
+    return nullptr;
+  assert(LastToken && "LastToken should be set after valid expr");
+  LexerCursor Begin = Expr->lCur();
+
+  Token Tok = peek();
+  if (Tok.kind() != tok_dot) {
+    // expr_select : expr_simple
+    return Expr;
+  }
+
+  // expr_select : expr_simple '.' attrpath
+  //             | expr_simple '.' attrpath 'or' expr_select
+  consume(); // .
+  auto Path = parseAttrPath();
+  if (!Path) {
+    // extra ".", consider remove it.
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_SelectExtraDot, Tok.range());
+    D.fix("remove extra .").edit(TextEdit::mkRemoval(Tok.range()));
+    D.fix("insert dummy attrpath")
+        .edit(TextEdit::mkInsertion(Tok.rCur(), R"("dummy")"));
+  }
+
+  Token TokOr = peek();
+  if (TokOr.kind() != tok_kw_or) {
+    // expr_select : expr_simple '.' attrpath
+    return std::make_unique<ExprSelect>(
+        LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
+        std::move(Path), /*Default=*/nullptr);
+  }
+
+  // expr_select : expr_simple '.' attrpath 'or' expr_select
+  consume(); // `or`
+  auto Default = parseExprSelect();
+  if (!Default) {
+    Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "default");
+    D.fix("remove `or` keyword").edit(TextEdit::mkRemoval(TokOr.range()));
+  }
+  return std::make_unique<ExprSelect>(
+      LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
+      std::move(Path), std::move(Default));
 }
 
 } // namespace nixf
