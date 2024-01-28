@@ -1,13 +1,8 @@
 /// \file
 /// \brief Semantic lowering of AST nodes.
 ///
-/// This file implements the lowering of AST nodes *in place*.
-///
 /// Syntax AST nodes are lowered to semantic AST nodes. They share part of the
 /// nodes actually, for example `ExprInt`.
-///
-/// The lowering is done in place, so the AST nodes are mutated.
-///
 
 #include <utility>
 
