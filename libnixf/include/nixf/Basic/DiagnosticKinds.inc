@@ -10,6 +10,7 @@ DIAG("lex-float-leading-zero", FloatLeadingZero, Warning,
      "float begins with extra zeros `{}` is nixf extension")
 DIAG("parse-expected", Expected, Error, "expected {}")
 DIAG("parse-attrpath-extra-dot", AttrPathExtraDot, Error, "extra `.` at the end of attrpath")
+DIAG("parse-select-extra-dot", SelectExtraDot, Error, "extra `.` after expression, but missing attrpath")
 DIAG("parse-unexpected-between", UnexpectedBetween, Error, "unexpected {} between {} and {}")
 DIAG("parse-unexpected", UnexpectedText, Error, "unexpected text")
 DIAG("parse-missing-sep-formals", MissingSepFormals, Error, "missing seperator `,` between two lambda formals")

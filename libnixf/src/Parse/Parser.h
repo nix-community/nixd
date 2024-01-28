@@ -155,8 +155,16 @@ public:
   ///             | list
   std::unique_ptr<Expr> parseExprSimple();
 
+  /// \code
+  /// expr_select : expr_simple '.' attrpath
+  ///             | expr_simple '.' attrpath 'or' expr_select
+  ///             | expr_simple 'or' <-- special "apply", 'or' is argument
+  ///             | expr_simple
+  /// \endcode
+  std::unique_ptr<Expr> parseExprSelect();
+
   std::unique_ptr<Expr> parseExpr() {
-    return parseExprSimple(); // TODO!
+    return parseExprSelect(); // TODO!
   }
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
