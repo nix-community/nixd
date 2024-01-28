@@ -497,6 +497,8 @@ std::unique_ptr<Expr> Parser::parseExprSimple() {
   case tok_kw_rec:
   case tok_l_curly:
     return parseExprAttrs();
+  case tok_l_bracket:
+    return parseExprList();
   default:
     return nullptr;
   }
@@ -567,6 +569,32 @@ std::unique_ptr<Expr> Parser::parseExprApp(int Limit) {
   return std::make_unique<ExprCall>(
       LexerCursorRange{Fn->lCur(), Args.back()->rCur()}, std::move(Fn),
       std::move(Args));
+}
+
+std::unique_ptr<ExprList> Parser::parseExprList() {
+  Token Tok = peek();
+  if (Tok.kind() != tok_l_bracket)
+    return nullptr;
+  consume(); // [
+  auto Sync = withSync(tok_r_bracket);
+  assert(LastToken && "LastToken should be set after consume()");
+  LexerCursor Begin = Tok.lCur();
+  std::vector<std::unique_ptr<Expr>> Exprs;
+  while (true) {
+    if (Token Tok = peek(); Tok.kind() == tok_r_bracket)
+      break;
+    std::unique_ptr<Expr> Expr = parseExprSelect();
+    if (!Expr)
+      break;
+    Exprs.emplace_back(std::move(Expr));
+  }
+  if (ExpectResult ER = expect(tok_r_bracket); ER.ok())
+    consume();
+  else
+    ER.diag().note(Note::NK_ToMachThis, Tok.range())
+        << std::string(tok::spelling(tok_l_bracket));
+  return std::make_unique<ExprList>(LexerCursorRange{Begin, LastToken->rCur()},
+                                    std::move(Exprs));
 }
 
 } // namespace nixf

@@ -40,6 +40,10 @@ constexpr std::string_view spelling(TokenKind Kind) {
     return "=";
   case tok_semi_colon:
     return ";";
+  case tok_l_bracket:
+    return "[";
+  case tok_r_bracket:
+    return "]";
   default:
     assert(false && "Not yet implemented!");
   }

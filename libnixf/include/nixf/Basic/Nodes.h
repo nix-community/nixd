@@ -584,6 +584,31 @@ public:
   }
 };
 
+class ExprList : public Expr {
+  std::vector<std::unique_ptr<Expr>> Elements;
+
+public:
+  ExprList(LexerCursorRange Range, std::vector<std::unique_ptr<Expr>> Elements)
+      : Expr(NK_ExprList, Range), Elements(std::move(Elements)) {}
+
+  [[nodiscard]] const std::vector<std::unique_ptr<Expr>> &elements() const {
+    return Elements;
+  }
+
+  [[nodiscard]] std::vector<std::unique_ptr<Expr>> &elements() {
+    return Elements;
+  }
+
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    Children.reserve(Elements.size());
+    for (const auto &Element : Elements) {
+      Children.emplace_back(Element.get());
+    }
+    return Children;
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Semantic nodes
 //===----------------------------------------------------------------------===//
