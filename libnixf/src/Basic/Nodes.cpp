@@ -23,6 +23,10 @@ namespace nixf {
 InterpolatedParts::InterpolatedParts(LexerCursorRange Range,
                                      std::vector<InterpolablePart> Fragments)
     : Node(NK_InterpolableParts, Range), Fragments(std::move(Fragments)) {
+
+  if (this->Fragments.empty())
+    return;
+
   // Check if the fragment forms a string literal (i.e. no interpolation)
   for (const InterpolablePart &Frag : this->Fragments) {
     if (Frag.kind() == InterpolablePart::SPK_Interpolation)
@@ -36,8 +40,8 @@ InterpolatedParts::InterpolatedParts(LexerCursorRange Range,
            "Only Escaped fragments can be concatenated");
     Escaped += Frag.escaped();
   }
-  Fragments.clear();
-  Fragments.emplace_back(std::move(Escaped));
+  this->Fragments.clear();
+  this->Fragments.emplace_back(std::move(Escaped));
 }
 
 } // namespace nixf

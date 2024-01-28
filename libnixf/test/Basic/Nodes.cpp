@@ -2,6 +2,7 @@
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Range.h"
 #include "nixf/Parse/Parser.h"
 
 namespace {
@@ -16,6 +17,22 @@ TEST(Node, Descend) {
 
   ASSERT_EQ(Root->descend({{0, 2}, {0, 2}})->kind(), Node::NK_Identifer);
   ASSERT_EQ(Root->descend({{0, 2}, {0, 4}})->kind(), Node::NK_Binding);
+}
+
+TEST(Node, InterpolateLiteral) {
+  std::vector<InterpolablePart> Fragments;
+  Fragments.emplace_back("foo");
+  Fragments.emplace_back("bar");
+  InterpolatedParts Parts(LexerCursorRange{}, std::move(Fragments));
+  ASSERT_TRUE(Parts.isLiteral());
+  ASSERT_EQ(Parts.literal(), "foobar");
+}
+
+TEST(Node, InterpolateLiteralFalse) {
+  std::vector<InterpolablePart> Fragments;
+  Fragments.emplace_back(std::make_unique<ExprInt>(LexerCursorRange{}, 1));
+  InterpolatedParts Parts(LexerCursorRange{}, std::move(Fragments));
+  ASSERT_FALSE(Parts.isLiteral());
 }
 
 } // namespace
