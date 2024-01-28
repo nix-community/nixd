@@ -2,6 +2,8 @@
 /// \brief Parser implementation.
 #include "Parser.h"
 
+#include <charconv>
+
 namespace {
 
 using namespace nixf;
