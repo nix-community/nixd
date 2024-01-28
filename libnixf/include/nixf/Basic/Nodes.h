@@ -99,6 +99,30 @@ protected:
 
 public:
   [[nodiscard]] const Node *syntax() const override { return this; }
+
+  static bool classof(const Node *N) { return isExpr(N->kind()); }
+
+  static bool isExpr(NodeKind Kind) {
+    return NK_BeginExpr <= Kind && Kind <= NK_EndExpr;
+  }
+
+  /// \returns true if the expression might be evaluated to lambda.
+  static bool maybeLambda(NodeKind Kind) {
+    if (!isExpr(Kind))
+      return false;
+    switch (Kind) {
+    case Node::NK_ExprInt:
+    case Node::NK_ExprFloat:
+    case Node::NK_ExprAttrs:
+    case Node::NK_ExprString:
+    case Node::NK_ExprPath:
+      return false;
+    default:
+      return true;
+    }
+  }
+
+  [[nodiscard]] bool maybeLambda() const { return maybeLambda(kind()); }
 };
 
 using NixInt = int64_t;
@@ -525,6 +549,38 @@ public:
 
   [[nodiscard]] ChildVector children() const override {
     return {E.get(), Path.get()};
+  }
+};
+
+/// A call/apply to some function.
+class ExprCall : public Expr {
+  std::unique_ptr<Expr> Fn;
+  std::vector<std::unique_ptr<Expr>> Args;
+
+public:
+  ExprCall(LexerCursorRange Range, std::unique_ptr<Expr> Fn,
+           std::vector<std::unique_ptr<Expr>> Args)
+      : Expr(NK_ExprCall, Range), Fn(std::move(Fn)), Args(std::move(Args)) {
+    assert(this->Fn && "Fn must not be null");
+  }
+
+  [[nodiscard]] Expr &fn() const {
+    assert(Fn && "Fn must not be null");
+    return *Fn;
+  }
+  std::vector<std::unique_ptr<Expr>> &args() { return Args; }
+
+  [[nodiscard]] const std::vector<std::unique_ptr<Expr>> &args() const {
+    return Args;
+  }
+
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    Children.reserve(Args.size());
+    for (const auto &Member : Args) {
+      Children.emplace_back(Member.get());
+    }
+    return Children;
   }
 };
 

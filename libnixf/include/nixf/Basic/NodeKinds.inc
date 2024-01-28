@@ -27,5 +27,6 @@ EXPR(ExprPath)
 EXPR(ExprParen)
 EXPR(ExprAttrs)
 EXPR(ExprSelect)
+EXPR(ExprCall)
 
 #endif // EXPR

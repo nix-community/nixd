@@ -711,7 +711,7 @@ TEST(Parser, AttrsBindingInherit) {
 TEST(Parser, SyncInherit) {
   auto Src = R"(
 {
-  inherit (foo a b;
+  inherit (111 a b;
 }
   )"sv;
 
@@ -739,7 +739,7 @@ TEST(Parser, SyncInherit) {
 TEST(Parser, SyncInherit2) {
   auto Src = R"(
 {
-  inherit (foo "a" b;
+  inherit (111 "a" b;
 }
   )"sv;
 
