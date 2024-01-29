@@ -984,4 +984,26 @@ TEST(Parser, ParseExprApp) {
   ASSERT_EQ(A->args().size(), 1);
 }
 
+TEST(Parser, ParseExprList) {
+  auto Src = R"([1 2 3])"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExprList();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprList);
+  ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().rCur().isAt(0, 7, 7));
+
+  const auto &L = static_cast<ExprList *>(AST.get());
+
+  ASSERT_EQ(L->elements().size(), 3);
+  ASSERT_TRUE(L->elements()[0]->range().lCur().isAt(0, 1, 1));
+  ASSERT_TRUE(L->elements()[0]->range().rCur().isAt(0, 2, 2));
+  ASSERT_EQ(L->elements()[0]->kind(), Node::NK_ExprInt);
+}
+
 } // namespace
