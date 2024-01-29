@@ -97,20 +97,42 @@ class Controller : public LSPServer {
         Message += ")";
       }
 
-      LSPDiags.emplace_back(Diagnostic{
+      Diagnostic &Diag = LSPDiags.emplace_back(Diagnostic{
           .range = toLSPRange(D.range()),
           .severity = getLSPSeverity(D.kind()),
           .code = D.sname(),
           .source = "nixf",
           .message = Message,
+          .relatedInformation = std::vector<DiagnosticRelatedInformation>{},
       });
 
+      assert(Diag.relatedInformation && "Must be initialized");
+      Diag.relatedInformation->reserve(D.notes().size());
       for (const nixf::Note &N : D.notes()) {
+        Diag.relatedInformation->emplace_back(DiagnosticRelatedInformation{
+            .location =
+                Location{
+                    .uri = URIForFile::canonicalize(File, File),
+                    .range = toLSPRange(N.range()),
+                },
+            .message = N.format(),
+        });
         LSPDiags.emplace_back(Diagnostic{
             .range = toLSPRange(N.range()),
-            .severity = 3,
+            .severity = 4,
+            .code = N.sname(),
             .source = "nixf",
             .message = N.format(),
+            .relatedInformation =
+                std::vector<DiagnosticRelatedInformation>{
+                    DiagnosticRelatedInformation{
+                        .location =
+                            Location{
+                                .uri = URIForFile::canonicalize(File, File),
+                                .range = Diag.range,
+                            },
+                        .message = "original diagnostic",
+                    }},
         });
       }
     }
