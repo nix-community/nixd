@@ -109,6 +109,10 @@ public:
     return *this;
   }
 
+  [[nodiscard]] static const char *sname(NoteKind Kind);
+
+  [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
+
   NoteKind kind() const { return Kind; }
 
   [[nodiscard]] static const char *message(NoteKind Kind);

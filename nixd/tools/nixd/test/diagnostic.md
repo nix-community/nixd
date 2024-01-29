@@ -52,10 +52,29 @@ CHECK-NEXT:            "character": 2,
 CHECK-NEXT:            "line": 0
 CHECK-NEXT:          }
 CHECK-NEXT:        },
+CHECK-NEXT:        "relatedInformation": [
+CHECK-NEXT:          {
+CHECK-NEXT:            "location": {
+CHECK-NEXT:              "range": {
+CHECK-NEXT:                "end": {
+CHECK-NEXT:                  "character": 2,
+CHECK-NEXT:                  "line": 0
+CHECK-NEXT:                },
+CHECK-NEXT:                "start": {
+CHECK-NEXT:                  "character": 0,
+CHECK-NEXT:                  "line": 0
+CHECK-NEXT:                }
+CHECK-NEXT:              },
+CHECK-NEXT:              "uri": "file:///basic.nix"
+CHECK-NEXT:            },
+CHECK-NEXT:            "message": "/* comment begins at here"
+CHECK-NEXT:          }
+CHECK-NEXT:        ],
 CHECK-NEXT:        "severity": 1,
 CHECK-NEXT:        "source": "nixf"
 CHECK-NEXT:      },
 CHECK-NEXT:      {
+CHECK-NEXT:        "code": "note-bcomment-begin",
 CHECK-NEXT:        "message": "/* comment begins at here",
 CHECK-NEXT:        "range": {
 CHECK-NEXT:          "end": {
@@ -67,11 +86,30 @@ CHECK-NEXT:            "character": 0,
 CHECK-NEXT:            "line": 0
 CHECK-NEXT:          }
 CHECK-NEXT:        },
-CHECK-NEXT:        "severity": 3,
+CHECK-NEXT:        "relatedInformation": [
+CHECK-NEXT:          {
+CHECK-NEXT:            "location": {
+CHECK-NEXT:              "range": {
+CHECK-NEXT:                "end": {
+CHECK-NEXT:                  "character": 2,
+CHECK-NEXT:                  "line": 0
+CHECK-NEXT:                },
+CHECK-NEXT:                "start": {
+CHECK-NEXT:                  "character": 2,
+CHECK-NEXT:                  "line": 0
+CHECK-NEXT:                }
+CHECK-NEXT:              },
+CHECK-NEXT:              "uri": "file:///basic.nix"
+CHECK-NEXT:            },
+CHECK-NEXT:            "message": "original diagnostic"
+CHECK-NEXT:          }
+CHECK-NEXT:        ],
+CHECK-NEXT:        "severity": 4,
 CHECK-NEXT:        "source": "nixf"
 CHECK-NEXT:      }
 CHECK-NEXT:    ],
 CHECK-NEXT:    "uri": "file:///basic.nix",
+CHECK-NEXT:    "version": 1
 ```
 
 
