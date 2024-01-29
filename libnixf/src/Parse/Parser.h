@@ -173,6 +173,11 @@ public:
   /// e.g. `Fn A1 A2 A3` with Limit = 2 will be parsed as `((Fn A1 A2) A3)`
   std::unique_ptr<Expr> parseExprApp(int Limit = INT_MAX);
 
+  /// \code
+  /// expr_list : '[' expr_select* ']'
+  /// \endcode
+  std::unique_ptr<ExprList> parseExprList();
+
   std::unique_ptr<Expr> parseExpr() {
     return parseExprApp(); // TODO!
   }

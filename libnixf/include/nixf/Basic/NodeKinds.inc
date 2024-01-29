@@ -28,5 +28,6 @@ EXPR(ExprParen)
 EXPR(ExprAttrs)
 EXPR(ExprSelect)
 EXPR(ExprCall)
+EXPR(ExprList)
 
 #endif // EXPR
