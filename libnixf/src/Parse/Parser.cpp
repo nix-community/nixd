@@ -1,6 +1,7 @@
 /// \file
 /// \brief Parser implementation.
 #include "Parser.h"
+#include "nixf/Basic/Nodes.h"
 
 #include <charconv>
 
@@ -157,7 +158,7 @@ Parser::ExpectResult Parser::expect(TokenKind Kind) {
   return {&D};
 }
 
-std::unique_ptr<Expr> Parser::parseInterpolation() {
+std::unique_ptr<Interpolation> Parser::parseInterpolation() {
   Token TokDollarCurly = peek();
   assert(TokDollarCurly.kind() == tok_dollar_curly);
   consume(); // ${
@@ -174,9 +175,10 @@ std::unique_ptr<Expr> Parser::parseInterpolation() {
       ER.diag().note(Note::NK_ToMachThis, TokDollarCurly.range())
           << std::string(tok::spelling(tok_dollar_curly));
     }
-    return Expr;
+    return std::make_unique<Interpolation>(
+        LexerCursorRange{TokDollarCurly.lCur(), LastToken->rCur()},
+        std::move(Expr));
   } // with(PS_Expr)
-  return nullptr;
 }
 
 std::unique_ptr<Expr> Parser::parseExprPath() {
@@ -305,7 +307,7 @@ std::unique_ptr<AttrName> Parser::parseAttrName() {
     return std::make_unique<AttrName>(std::move(String));
   }
   case tok_dollar_curly: {
-    std::unique_ptr<Expr> Expr = parseInterpolation();
+    std::unique_ptr<Interpolation> Expr = parseInterpolation();
     return std::make_unique<AttrName>(std::move(Expr));
   }
   default:

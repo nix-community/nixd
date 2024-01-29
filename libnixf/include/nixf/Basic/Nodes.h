@@ -150,6 +150,19 @@ public:
   [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
+/// \brief `${expr}` construct
+class Interpolation : public Node {
+  std::unique_ptr<Expr> E;
+
+public:
+  Interpolation(LexerCursorRange Range, std::unique_ptr<Expr> E)
+      : Node(NK_Interpolation, Range), E(std::move(E)) {}
+
+  [[nodiscard]] Expr *expr() const { return E.get(); }
+
+  [[nodiscard]] ChildVector children() const override { return {E.get()}; }
+};
+
 class InterpolablePart {
 public:
   enum InterpolablePartKind {
@@ -160,16 +173,15 @@ public:
 private:
   InterpolablePartKind Kind;
   std::string Escaped;
-  std::unique_ptr<Expr> Interpolation;
+  std::unique_ptr<Interpolation> Interp;
 
 public:
   explicit InterpolablePart(std::string Escaped)
-      : Kind(SPK_Escaped), Escaped(std::move(Escaped)), Interpolation(nullptr) {
-  }
+      : Kind(SPK_Escaped), Escaped(std::move(Escaped)), Interp(nullptr) {}
 
-  explicit InterpolablePart(std::unique_ptr<Expr> Expr)
-      : Kind(SPK_Interpolation), Interpolation(std::move(Expr)) {
-    assert(this->Interpolation && "interpolation must not be null");
+  explicit InterpolablePart(std::unique_ptr<Interpolation> Interp)
+      : Kind(SPK_Interpolation), Interp(std::move(Interp)) {
+    assert(this->Interp && "interpolation must not be null");
   }
 
   [[nodiscard]] InterpolablePartKind kind() const { return Kind; }
@@ -179,10 +191,10 @@ public:
     return Escaped;
   }
 
-  [[nodiscard]] const Expr &interpolation() const {
+  [[nodiscard]] Interpolation &interpolation() const {
     assert(Kind == SPK_Interpolation);
-    assert(Interpolation && "interpolation must not be null");
-    return *Interpolation;
+    assert(Interp && "interpolation must not be null");
+    return *Interp;
   }
 };
 
@@ -321,7 +333,7 @@ private:
   AttrNameKind Kind;
   std::unique_ptr<Identifier> ID;
   std::unique_ptr<ExprString> String;
-  std::unique_ptr<Expr> Interpolation;
+  std::unique_ptr<Interpolation> Interp;
 
 public:
   [[nodiscard]] AttrNameKind kind() const { return Kind; }
@@ -338,10 +350,10 @@ public:
     assert(this->String && "String must not be null");
   }
 
-  AttrName(std::unique_ptr<Expr> Interpolation)
-      : Node(NK_AttrName, Interpolation->range()), Kind(ANK_Interpolation),
-        Interpolation(std::move(Interpolation)) {
-    assert(this->Interpolation && "Interpolation must not be null");
+  AttrName(std::unique_ptr<Interpolation> Interp)
+      : Node(NK_AttrName, Interp->range()), Kind(ANK_Interpolation),
+        Interp(std::move(Interp)) {
+    assert(this->Interp && "Interpolation must not be null");
   }
 
   [[nodiscard]] bool isStatic() const {
@@ -362,10 +374,10 @@ public:
     return string().literal();
   }
 
-  [[nodiscard]] const Expr &interpolation() const {
+  [[nodiscard]] const Interpolation &interpolation() const {
     assert(Kind == ANK_Interpolation);
-    assert(Interpolation && "Interpolation must not be null");
-    return *Interpolation;
+    assert(Interp && "Interpolation must not be null");
+    return *Interp;
   }
 
   [[nodiscard]] const Identifier &id() const {
@@ -387,7 +399,7 @@ public:
     case ANK_String:
       return {String.get()};
     case ANK_Interpolation:
-      return {Interpolation.get()};
+      return {Interp.get()};
     default:
       assert(false && "invalid AttrNameKind");
     }

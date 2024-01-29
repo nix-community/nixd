@@ -198,8 +198,8 @@ TEST(Parser, InterpolationOK) {
 
   // Check the interpolation range
   const auto &I = Parts.fragments()[0].interpolation();
-  ASSERT_TRUE(I.range().lCur().isAt(0, 3, 3));
-  ASSERT_TRUE(I.range().rCur().isAt(0, 4, 4));
+  ASSERT_TRUE(I.range().lCur().isAt(0, 1, 1));
+  ASSERT_TRUE(I.range().rCur().isAt(0, 5, 5));
 }
 
 TEST(Parser, InterpolationNoRCurly) {
@@ -249,7 +249,7 @@ TEST(Parser, InterpolationNullExpr) {
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprString);
   const auto &Parts = static_cast<ExprString *>(AST.get())->parts();
-  ASSERT_EQ(Parts.fragments().size(), 0);
+  ASSERT_EQ(Parts.fragments().size(), 1);
 
   // Check the diagnostic.
   auto &D = Diags[0];
@@ -1059,9 +1059,8 @@ TEST(Parser, ParseAttrName_ExprRange) {
   Parser P(Src, Diags);
   auto AST = P.parseAttrName();
 
-  // FIXME: we may care about the ${ and } also.
-  ASSERT_TRUE(AST->range().lCur().isAt(0, 2, 2));
-  ASSERT_TRUE(AST->range().rCur().isAt(0, 4, 4));
+  ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().rCur().isAt(0, 5, 5));
 }
 
 } // namespace

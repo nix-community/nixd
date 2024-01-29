@@ -1,6 +1,9 @@
 /// provides NODE(NAME) EXPR(NAME)
 
 #ifdef NODE
+
+/// ${ expr }
+NODE(Interpolation)
 NODE(InterpolableParts)
 
 /// \brief Misc node used for parentheses keywords etc.
