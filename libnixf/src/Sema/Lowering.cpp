@@ -5,6 +5,9 @@
 
 #include "Lowering.h"
 
+#include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Nodes.h"
+
 namespace nixf {
 
 void lower(Node *AST, std::vector<Diagnostic> &Diags) {
@@ -123,12 +126,40 @@ void Lowering::lower(Node *AST) {
   }
 }
 
+void Lowering::lowerInheritName(SemaAttrs &Attr, AttrName *Name, Expr *E) {
+  if (!Name)
+    return;
+  if (!Name->isStatic()) {
+    // Not allowed to have dynamic attrname in inherit.
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_DynamicInherit, Name->range());
+    D.fix("remove dynamic attrname").edit(TextEdit::mkRemoval(Name->range()));
+    return;
+  }
+  // Check duplicated attrname.
+  if (Attr.staticAttrs().contains(Name->staticName())) {
+    dupAttr(Name->staticName(), Name->range(),
+            Attr.staticAttrs()[Name->staticName()].name().range());
+    return;
+  }
+  // Insert the attr.
+  Attr.staticAttrs()[Name->staticName()] =
+      SemaAttrs::AttrBody(/*Inherited=*/true, Name, E);
+}
+
+void Lowering::lowerInherit(SemaAttrs &Attr, const Inherit &Inherit) {
+  for (const std::unique_ptr<AttrName> &Name : Inherit.names()) {
+    lowerInheritName(Attr, Name.get(), Inherit.expr());
+  }
+}
+
 void Lowering::lowerBinds(Binds &B, SemaAttrs &SA) {
   for (const std::unique_ptr<Node> &Bind : B.bindings()) {
     assert(Bind && "Bind is not null");
     switch (Bind->kind()) {
     case Node::NK_Inherit: {
-      assert(false && "Not yet implemented");
+      auto *N = static_cast<Inherit *>(Bind.get());
+      lowerInherit(SA, *N);
       break;
     }
     case Node::NK_Binding: {
