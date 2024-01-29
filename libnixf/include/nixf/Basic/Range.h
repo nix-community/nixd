@@ -69,6 +69,13 @@ public:
   }
   LexerCursor() = default;
 
+  /// \brief Create a cursor at the given position. (Line, Column, Offset)
+  /// \note This function  does not guarantee the correctness of Line & Column.
+  [[nodiscard]] static LexerCursor unsafeCreate(int64_t Line, int64_t Column,
+                                                std::size_t Offset) {
+    return {Line, Column, Offset};
+  }
+
   LexerCursor(const LexerCursor &) = default;
   LexerCursor &operator=(const LexerCursor &) = default;
   LexerCursor(LexerCursor &&) = default;

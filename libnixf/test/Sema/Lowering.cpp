@@ -129,4 +129,53 @@ TEST_F(LoweringTest, insertAttrNullptr) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(LoweringTest, inheritName) {
+  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  auto Name = getStaticName("a");
+
+  L.lowerInheritName(Attr, Name.get(), nullptr);
+  ASSERT_EQ(Attr.staticAttrs().size(), 1);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(LoweringTest, inheritNameNullptr) {
+  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  auto Name = getStaticName("a");
+
+  L.lowerInheritName(Attr, nullptr, nullptr);
+  ASSERT_EQ(Attr.staticAttrs().size(), 0);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(LoweringTest, inheritNameDynamic) {
+  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  auto Name = getDynamicName(
+      {LexerCursor::unsafeCreate(0, 0, 1), LexerCursor::unsafeCreate(0, 1, 2)});
+
+  L.lowerInheritName(Attr, Name.get(), nullptr);
+  ASSERT_EQ(Attr.staticAttrs().size(), 0);
+  ASSERT_EQ(Attr.dynamicAttrs().size(), 0);
+  ASSERT_EQ(Diags.size(), 1);
+
+  const Diagnostic &D = Diags.front();
+  ASSERT_EQ(D.kind(), Diagnostic::DK_DynamicInherit);
+  ASSERT_TRUE(D.range().lCur().isAt(0, 0, 1));
+  ASSERT_EQ(D.fixes().size(), 1);
+  ASSERT_EQ(D.fixes().front().edits().size(), 1);
+  ASSERT_TRUE(D.fixes().front().edits().front().isRemoval());
+}
+
+TEST_F(LoweringTest, inheritNameDuplicated) {
+  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  auto Name = getStaticName("a");
+  Attr.staticAttrs()["a"] = SemaAttrs::AttrBody(/*Inherited=*/true, Name.get(),
+                                                std::make_unique<SemaAttrs>(
+                                                    /*Syntax=*/nullptr,
+                                                    /*Recursive=*/false));
+
+  L.lowerInheritName(Attr, Name.get(), nullptr);
+  ASSERT_EQ(Attr.staticAttrs().size(), 1);
+  ASSERT_EQ(Diags.size(), 1);
+}
+
 } // namespace
