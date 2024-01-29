@@ -24,6 +24,18 @@ std::string simpleFormat(const char *Fmt,
 
 namespace nixf {
 
+const char *nixf::Note::sname(NoteKind Kind) {
+  switch (Kind) {
+#define DIAG_NOTE(SNAME, CNAME, MESSAGE)                                       \
+  case NK_##CNAME:                                                             \
+    return SNAME;
+#include "nixf/Basic/NoteKinds.inc"
+#undef DIAG_NOTE
+  }
+  assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
+}
+
 nixf::Diagnostic::Severity nixf::Diagnostic::severity(DiagnosticKind Kind) {
   switch (Kind) {
 #define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
