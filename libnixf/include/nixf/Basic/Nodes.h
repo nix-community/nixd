@@ -332,15 +332,15 @@ public:
     assert(this->ID && "ID must not be null");
   }
 
-  AttrName(std::unique_ptr<ExprString> String, LexerCursorRange Range)
-      : Node(NK_AttrName, Range), Kind(ANK_String) {
-    this->String = std::move(String);
+  AttrName(std::unique_ptr<ExprString> String)
+      : Node(NK_AttrName, String->range()), Kind(ANK_String),
+        String(std::move(String)) {
     assert(this->String && "String must not be null");
   }
 
-  AttrName(std::unique_ptr<Expr> Interpolation, LexerCursorRange Range)
-      : Node(NK_AttrName, Range), Kind(ANK_Interpolation) {
-    this->Interpolation = std::move(Interpolation);
+  AttrName(std::unique_ptr<Expr> Interpolation)
+      : Node(NK_AttrName, Interpolation->range()), Kind(ANK_Interpolation),
+        Interpolation(std::move(Interpolation)) {
     assert(this->Interpolation && "Interpolation must not be null");
   }
 
@@ -713,13 +713,21 @@ public:
   AttrBody(bool Inherited, AttrName *Name, UniqueOrRaw<Evaluable, SemaAttrs> E)
       : Inherited(Inherited), Name(Name), E(std::move(E)) {
     assert(this->Name && "Name must not be null");
-    assert(this->E.getRaw() && "E must not be null");
+    if (!Inherited)
+      assert(this->E.getRaw() && "E must not be null");
   }
 
   AttrBody() : Inherited(false), E(nullptr) {}
 
   /// \brief If the attribute is `inherit`ed.
   [[nodiscard]] bool inherited() const { return Inherited; }
+
+  /// For `inherit` attr, the expression might be desugared into a "Select".
+  /// This however might be null, e.g. `{ inherit a; }`
+  [[nodiscard]] Evaluable *inheritedExpr() {
+    assert(Inherited && "must be inherited");
+    return E.getRaw();
+  }
 
   /// \brief The attribute value, to be evaluated.
   ///
@@ -731,7 +739,10 @@ public:
   /// For normal attr,
   ///
   ///  -  a = 1            -> ExprInt(1)
-  [[nodiscard]] Evaluable &expr() const { return *E.getRaw(); }
+  [[nodiscard]] Evaluable &expr() const {
+    assert(!Inherited && "must not be inherited");
+    return *E.getRaw();
+  }
 
   [[nodiscard]] SemaAttrs *attrs() const { return E.getUnique(); }
 

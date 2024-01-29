@@ -302,11 +302,11 @@ std::unique_ptr<AttrName> Parser::parseAttrName() {
   }
   case tok_dquote: {
     std::unique_ptr<ExprString> String = parseString(/*IsIndented=*/false);
-    return std::make_unique<AttrName>(std::move(String), Tok.range());
+    return std::make_unique<AttrName>(std::move(String));
   }
   case tok_dollar_curly: {
     std::unique_ptr<Expr> Expr = parseInterpolation();
-    return std::make_unique<AttrName>(std::move(Expr), Tok.range());
+    return std::make_unique<AttrName>(std::move(Expr));
   }
   default:
     return nullptr;

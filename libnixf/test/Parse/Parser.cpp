@@ -1041,4 +1041,27 @@ TEST(Parser, ParseExprListMissingRBracket) {
   ASSERT_EQ(F.newText(), "]");
 }
 
+TEST(Parser, ParseAttrName_StringRange) {
+  auto Src = R"("aaa")"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseAttrName();
+
+  ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().rCur().isAt(0, 5, 5));
+}
+
+TEST(Parser, ParseAttrName_ExprRange) {
+  auto Src = R"(${11})"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseAttrName();
+
+  // FIXME: we may care about the ${ and } also.
+  ASSERT_TRUE(AST->range().lCur().isAt(0, 2, 2));
+  ASSERT_TRUE(AST->range().rCur().isAt(0, 4, 4));
+}
+
 } // namespace
