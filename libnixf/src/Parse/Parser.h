@@ -6,6 +6,7 @@
 
 #include "nixf/Basic/Nodes.h"
 
+#include <climits>
 #include <deque>
 #include <set>
 #include <stack>
@@ -163,8 +164,17 @@ public:
   /// \endcode
   std::unique_ptr<Expr> parseExprSelect();
 
+  /// \code
+  /// expr_app : expr_app expr_select
+  ///          | expr_select
+  /// \endcode
+  ///
+  /// Consume at most \p Limit number of `expr_select` as arguments
+  /// e.g. `Fn A1 A2 A3` with Limit = 2 will be parsed as `((Fn A1 A2) A3)`
+  std::unique_ptr<Expr> parseExprApp(int Limit = INT_MAX);
+
   std::unique_ptr<Expr> parseExpr() {
-    return parseExprSelect(); // TODO!
+    return parseExprApp(); // TODO!
   }
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };

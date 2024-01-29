@@ -711,7 +711,7 @@ TEST(Parser, AttrsBindingInherit) {
 TEST(Parser, SyncInherit) {
   auto Src = R"(
 {
-  inherit (foo a b;
+  inherit (111 a b;
 }
   )"sv;
 
@@ -739,7 +739,7 @@ TEST(Parser, SyncInherit) {
 TEST(Parser, SyncInherit2) {
   auto Src = R"(
 {
-  inherit (foo "a" b;
+  inherit (111 "a" b;
 }
   )"sv;
 
@@ -959,6 +959,29 @@ TEST(Parser, SelectExtraOr) {
   const auto &F = Diags[0].fixes()[1].edits()[0];
   ASSERT_TRUE(F.oldRange().lCur().isAt(0, 4, 4));
   ASSERT_TRUE(F.oldRange().rCur().isAt(0, 6, 6));
+}
+
+TEST(Parser, ParseExprApp) {
+  auto Src = R"(a b)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExprApp();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprCall);
+  ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->range().rCur().isAt(0, 3, 3));
+
+  const auto &A = static_cast<ExprCall *>(AST.get());
+
+  ASSERT_TRUE(A->fn().range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(A->fn().range().rCur().isAt(0, 1, 1));
+  ASSERT_EQ(A->fn().kind(), Node::NK_ExprVar);
+
+  ASSERT_EQ(A->args().size(), 1);
 }
 
 } // namespace

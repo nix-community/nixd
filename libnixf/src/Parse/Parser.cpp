@@ -1,7 +1,6 @@
 /// \file
 /// \brief Parser implementation.
 #include "Parser.h"
-#include "src/Parse/Token.h"
 
 #include <charconv>
 
@@ -547,6 +546,27 @@ std::unique_ptr<Expr> Parser::parseExprSelect() {
   return std::make_unique<ExprSelect>(
       LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
       std::move(Path), std::move(Default));
+}
+
+std::unique_ptr<Expr> Parser::parseExprApp(int Limit) {
+  std::unique_ptr<Expr> Fn = parseExprSelect();
+  // If fn cannot be evaluated to lambda, exit early.
+  if (!Fn || !Fn->maybeLambda())
+    return Fn;
+
+  std::vector<std::unique_ptr<Expr>> Args;
+  while (Limit--) {
+    std::unique_ptr<Expr> Arg = parseExprSelect();
+    if (!Arg)
+      break;
+    Args.emplace_back(std::move(Arg));
+  }
+
+  if (Args.empty())
+    return Fn;
+  return std::make_unique<ExprCall>(
+      LexerCursorRange{Fn->lCur(), Args.back()->rCur()}, std::move(Fn),
+      std::move(Args));
 }
 
 } // namespace nixf
