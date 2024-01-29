@@ -1006,4 +1006,39 @@ TEST(Parser, ParseExprList) {
   ASSERT_EQ(L->elements()[0]->kind(), Node::NK_ExprInt);
 }
 
+TEST(Parser, ParseExprListMissingRBracket) {
+  auto Src = R"([1 2 3)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExprList();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_Expected);
+  ASSERT_TRUE(Diags[0].range().lCur().isAt(0, 6, 6));
+  ASSERT_TRUE(Diags[0].range().rCur().isAt(0, 6, 6));
+  ASSERT_EQ(Diags[0].args().size(), 1);
+  ASSERT_EQ(Diags[0].args()[0], "]");
+
+  // Check the note.
+  ASSERT_EQ(Diags[0].notes().size(), 1);
+  const auto &N = Diags[0].notes()[0];
+  ASSERT_TRUE(N.range().lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(N.range().rCur().isAt(0, 1, 1));
+  ASSERT_EQ(N.kind(), Note::NK_ToMachThis);
+  ASSERT_EQ(N.args().size(), 1);
+  ASSERT_EQ(N.args()[0], "[");
+
+  // Check fix-it hints.
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].message(), "insert ]");
+  const auto &F = Diags[0].fixes()[0].edits()[0];
+  ASSERT_TRUE(F.oldRange().lCur().isAt(0, 6, 6));
+  ASSERT_TRUE(F.oldRange().rCur().isAt(0, 6, 6));
+  ASSERT_EQ(F.newText(), "]");
+}
+
 } // namespace
