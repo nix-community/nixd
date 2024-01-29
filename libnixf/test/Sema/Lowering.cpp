@@ -22,7 +22,7 @@ public:
 };
 
 std::unique_ptr<AttrName> getDynamicName(LexerCursorRange Range = {}) {
-  return std::make_unique<AttrName>(std::make_unique<ExprInt>(Range, 1), Range);
+  return std::make_unique<AttrName>(std::make_unique<ExprInt>(Range, 1));
 }
 
 std::unique_ptr<AttrName> getStaticName(std::string Name,
