@@ -30,7 +30,8 @@ TEST(Node, InterpolateLiteral) {
 
 TEST(Node, InterpolateLiteralFalse) {
   std::vector<InterpolablePart> Fragments;
-  Fragments.emplace_back(std::make_unique<ExprInt>(LexerCursorRange{}, 1));
+  Fragments.emplace_back(
+      std::make_unique<Interpolation>(LexerCursorRange{}, nullptr));
   InterpolatedParts Parts(LexerCursorRange{}, std::move(Fragments));
   ASSERT_FALSE(Parts.isLiteral());
 }

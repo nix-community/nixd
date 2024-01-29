@@ -94,7 +94,7 @@ public:
   /// \brief Parse interpolations.
   ///
   /// interpolation : "${" expr "}"
-  std::unique_ptr<Expr> parseInterpolation();
+  std::unique_ptr<Interpolation> parseInterpolation();
 
   /// \brief Parse paths.
   ///

@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <memory>
 
 #include "Lowering.h"
 
@@ -22,7 +23,8 @@ public:
 };
 
 std::unique_ptr<AttrName> getDynamicName(LexerCursorRange Range = {}) {
-  return std::make_unique<AttrName>(std::make_unique<ExprInt>(Range, 1));
+  return std::make_unique<AttrName>(
+      std::make_unique<Interpolation>(Range, nullptr));
 }
 
 std::unique_ptr<AttrName> getStaticName(std::string Name,
