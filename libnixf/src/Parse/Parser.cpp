@@ -141,6 +141,7 @@ Parser::ExpectResult Parser::expect(TokenKind Kind) {
     Diagnostic &D =
         Diags.emplace_back(Diagnostic::DK_UnexpectedText, *UnknownRange);
     D.fix("remove unexpected text").edit(TextEdit::mkRemoval(*UnknownRange));
+    D.tag(DiagnosticTag::Striked);
 
     if (Token Tok = peek(); Tok.kind() == Kind) {
       return Tok;
