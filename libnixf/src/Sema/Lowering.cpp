@@ -134,6 +134,7 @@ void Lowering::lowerInheritName(SemaAttrs &Attr, AttrName *Name, Expr *E) {
     Diagnostic &D =
         Diags.emplace_back(Diagnostic::DK_DynamicInherit, Name->range());
     D.fix("remove dynamic attrname").edit(TextEdit::mkRemoval(Name->range()));
+    D.tag(DiagnosticTag::Striked);
     return;
   }
   // Check duplicated attrname.

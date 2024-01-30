@@ -163,6 +163,9 @@ TEST_F(LoweringTest, inheritNameDynamic) {
   ASSERT_EQ(D.fixes().size(), 1);
   ASSERT_EQ(D.fixes().front().edits().size(), 1);
   ASSERT_TRUE(D.fixes().front().edits().front().isRemoval());
+
+  ASSERT_EQ(D.tags().size(), 1);
+  ASSERT_EQ(D.tags().front(), DiagnosticTag::Striked);
 }
 
 TEST_F(LoweringTest, inheritNameDuplicated) {
