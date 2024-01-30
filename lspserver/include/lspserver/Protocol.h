@@ -179,6 +179,11 @@ struct Range {
   Range operator/(const Range &RHS) const {
     return {std::min(start, RHS.start), std::max(end, RHS.end)};
   }
+
+  /// \returns true if the ranges overlap.
+  [[nodiscard]] bool overlap(const Range &RHS) const {
+    return start <= RHS.end && RHS.start <= end;
+  }
 };
 bool fromJSON(const llvm::json::Value &, Range &, llvm::json::Path);
 llvm::json::Value toJSON(const Range &);

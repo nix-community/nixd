@@ -245,8 +245,8 @@ class Controller : public LSPServer {
     std::vector<CodeAction> Actions;
     Actions.reserve(Diagnostics.size());
     for (const nixf::Diagnostic &D : Diagnostics) {
-      // Skip diagnostics that are not in the range.
-      if (!Range.contains(toLSPRange(D.range())))
+      auto DRange = toLSPRange(D.range());
+      if (!Range.overlap(DRange))
         continue;
 
       // Add fixes.
