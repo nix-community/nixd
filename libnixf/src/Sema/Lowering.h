@@ -36,6 +36,10 @@ public:
   /// \brief Perform lowering.
   void lower(Node *AST);
 
+  void lowerInheritName(SemaAttrs &Attr, AttrName *Name, Expr *E);
+
+  void lowerInherit(SemaAttrs &Attr, const Inherit &Inherit);
+
   void lowerBinds(Binds &B, SemaAttrs &SA);
 
   void lowerExprAttrs(ExprAttrs &Attrs);

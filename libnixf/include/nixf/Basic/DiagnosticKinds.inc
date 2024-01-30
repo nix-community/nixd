@@ -16,8 +16,6 @@ DIAG("parse-unexpected", UnexpectedText, Error, "unexpected text")
 DIAG("parse-missing-sep-formals", MissingSepFormals, Error, "missing seperator `,` between two lambda formals")
 DIAG("let-dynamic", LetDynamic, Error,
      "dynamic attributes are not allowed in let ... in ... expression")
-DIAG("inherit-dynamic", InheritDynamic, Error,
-     "dynamic attributes are not allowed in inherit")
 DIAG("empty-inherit", EmptyInherit, Warning, "empty inherit expression")
 DIAG("or-identifier", OrIdentifier, Warning,
      "keyword `or` used as an identifier")
@@ -39,5 +37,7 @@ DIAG("bison", BisonParse, Fatal, "{}")
 DIAG("invalid-float", InvalidFloat, Fatal, "invalid float {}")
 DIAG("invalid-integer", InvalidInteger, Fatal, "invalid integer {}")
 DIAG("sema-duplicated-attrname", DuplicatedAttrName, Error, "duplicated attrname `{}`")
+DIAG("sema-dynamic-inherit", DynamicInherit, Error,
+     "dynamic attributes are not allowed in inherit")
 
 #endif // DIAG
