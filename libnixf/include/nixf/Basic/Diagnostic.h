@@ -72,6 +72,11 @@ public:
   [[nodiscard]] const std::string &message() const { return Message; }
 };
 
+enum class DiagnosticTag {
+  Faded,
+  Striked,
+};
+
 class PartialDiagnostic {
 public:
   [[nodiscard]] virtual const char *message() const = 0;
@@ -87,7 +92,21 @@ public:
 
   [[nodiscard]] const std::vector<std::string> &args() const { return Args; }
 
+  std::vector<std::string> &args() { return Args; }
+
+  void tag(DiagnosticTag Tag) { Tags.push_back(Tag); }
+
+  [[nodiscard]] const std::vector<DiagnosticTag> &tags() const { return Tags; }
+
+  [[nodiscard]] LexerCursorRange range() const { return Range; }
+
 protected:
+  PartialDiagnostic() = default;
+
+  PartialDiagnostic(LexerCursorRange Range) : Range(Range) {}
+
+private:
+  std::vector<DiagnosticTag> Tags;
   std::vector<std::string> Args;
   /// Location of this diagnostic
   LexerCursorRange Range;
@@ -102,10 +121,11 @@ public:
 #undef DIAG_NOTE
   };
 
-  Note(NoteKind Kind, LexerCursorRange Range) : Kind(Kind), Range(Range) {}
+  Note(NoteKind Kind, LexerCursorRange Range)
+      : PartialDiagnostic(Range), Kind(Kind) {}
 
   template <class T> PartialDiagnostic &operator<<(const T &Var) {
-    Args.push_back(Var);
+    args().push_back(Var);
     return *this;
   }
 
@@ -119,11 +139,8 @@ public:
 
   [[nodiscard]] const char *message() const override { return message(kind()); }
 
-  LexerCursorRange range() const { return Range; }
-
 private:
   NoteKind Kind;
-  LexerCursorRange Range;
 };
 
 /// The super class for all diagnostics.
@@ -148,7 +165,7 @@ public:
   };
 
   Diagnostic(DiagnosticKind Kind, LexerCursorRange Range)
-      : Kind(Kind), Range(Range) {}
+      : PartialDiagnostic(Range), Kind(Kind) {}
 
   [[nodiscard]] DiagnosticKind kind() const { return Kind; };
 
@@ -179,12 +196,8 @@ public:
 
   [[nodiscard]] const std::vector<Fix> &fixes() const { return Fixes; }
 
-  [[nodiscard]] LexerCursorRange range() const { return Range; }
-
 private:
   DiagnosticKind Kind;
-  /// Location of this diagnostic
-  LexerCursorRange Range;
 
   std::vector<Note> Notes;
   std::vector<Fix> Fixes;
