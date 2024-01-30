@@ -93,48 +93,68 @@ public:
 
   /// \brief Parse interpolations.
   ///
+  /// \code
   /// interpolation : "${" expr "}"
+  /// \endcode
   std::unique_ptr<Interpolation> parseInterpolation();
 
   /// \brief Parse paths.
   ///
+  /// \code
   ///  path : path_fragment (path_fragment)*  path_end
   /// Context     PS_Expr       PS_Path        PS_Path
+  /// \endcode
   ///
   /// The first token, path_fragment is lexed in PS_Expr context, then switch in
   /// "PS_Path" context. The ending token "path_end" shall be poped with context
   /// switching.
   std::unique_ptr<Expr> parseExprPath();
 
+  /// \code
   /// string_part : interpolation
   ///             | STRING_PART
   ///             | STRING_ESCAPE
+  /// \endcode
   std::unique_ptr<InterpolatedParts> parseStringParts();
 
+  /// \code
   /// string : " string_part* "
   ///        | '' string_part* ''
+  /// \endcode
   std::unique_ptr<ExprString> parseString(bool IsIndented);
 
+  /// \code
   /// '(' expr ')'
+  /// \endcode
   std::unique_ptr<ExprParen> parseExprParen();
 
+  /// \code
   /// attrname : ID
   ///          | string
   ///          | interpolation
+  /// \endcode
   std::unique_ptr<AttrName> parseAttrName();
 
+  /// \code
   /// attrpath : attrname ('.' attrname)*
+  /// \endcode
   std::unique_ptr<AttrPath> parseAttrPath();
 
+  /// \code
   /// binding : attrpath '=' expr ';'
+  /// \endcode
   std::unique_ptr<Binding> parseBinding();
 
+  /// \code
   /// inherit :  'inherit' '(' expr ')' inherited_attrs ';'
   ///         |  'inherit' inherited_attrs ';'
   /// inherited_attrs: attrname*
+  /// \endcode
   std::unique_ptr<Inherit> parseInherit();
 
+  /// \code
   /// binds : ( binding | inherit )*
+  /// \endcode
   std::unique_ptr<Binds> parseBinds();
 
   /// attrset_expr : REC? '{' binds '}'
@@ -142,6 +162,7 @@ public:
   /// Note: peek `tok_kw_rec` or `tok_l_curly` before calling this function.
   std::unique_ptr<ExprAttrs> parseExprAttrs();
 
+  /// \code
   /// expr_simple :  INT
   ///             | ID
   ///             | FLOAT
@@ -154,6 +175,7 @@ public:
   ///             | legacy_let
   ///             | attrset_expr
   ///             | list
+  /// \endcode
   std::unique_ptr<Expr> parseExprSimple();
 
   /// \code
