@@ -43,6 +43,23 @@ int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
   __builtin_unreachable();
 }
 
+llvm::SmallVector<lspserver::DiagnosticTag, 1>
+toLSPTags(const std::vector<nixf::DiagnosticTag> &Tags) {
+  llvm::SmallVector<lspserver::DiagnosticTag, 1> Result;
+  Result.reserve(Tags.size());
+  for (const nixf::DiagnosticTag &Tag : Tags) {
+    switch (Tag) {
+    case nixf::DiagnosticTag::Faded:
+      Result.emplace_back(DiagnosticTag::Unnecessary);
+      break;
+    case nixf::DiagnosticTag::Striked:
+      Result.emplace_back(DiagnosticTag::Deprecated);
+      break;
+    }
+  }
+  return Result;
+}
+
 /// Holds analyzed information about a document.
 ///
 /// TU stands for "Translation Unit".
@@ -103,6 +120,7 @@ class Controller : public LSPServer {
           .code = D.sname(),
           .source = "nixf",
           .message = Message,
+          .tags = toLSPTags(D.tags()),
           .relatedInformation = std::vector<DiagnosticRelatedInformation>{},
       });
 
@@ -123,6 +141,7 @@ class Controller : public LSPServer {
             .code = N.sname(),
             .source = "nixf",
             .message = N.format(),
+            .tags = toLSPTags(N.tags()),
             .relatedInformation =
                 std::vector<DiagnosticRelatedInformation>{
                     DiagnosticRelatedInformation{
