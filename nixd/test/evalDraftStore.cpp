@@ -31,9 +31,9 @@ TEST(EvalDraftStore, NoError) {
   auto EA = ILR.Forest.at(VirtualTestPath);
   auto ERoot = EA->getValue(EA->root());
 
-  ASSERT_TRUE(ERoot.isTrivial());
-  ASSERT_EQ(ERoot.type(), nix::ValueType::nInt);
-  ASSERT_EQ(ERoot.integer, 1);
+  ASSERT_TRUE(ERoot->isTrivial());
+  ASSERT_EQ(ERoot->type(), nix::ValueType::nInt);
+  ASSERT_EQ(ERoot->integer, 1);
 }
 
 TEST(EvalDraftStore, IgnoreParseError) {

@@ -13,6 +13,7 @@ Checks: >
   -misc-non-private-member-variables-in-classes,
   -misc-no-recursion,
   -modernize-use-trailing-return-type,
+  -modernize-avoid-c-arrays,
   -readability-braces-around-statements,
   -readability-magic-numbers,
   -readability-named-parameter,

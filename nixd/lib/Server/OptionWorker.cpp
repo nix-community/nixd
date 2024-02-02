@@ -106,7 +106,6 @@ void OptionWorker::onEvalOptionSet(
 void OptionWorker::onCompletion(const ipc::AttrPathParams &Params,
                                 lspserver::Callback<llvm::json::Value> Reply) {
   using namespace lspserver;
-  using namespace nix::nixd;
   ReplyRAII<CompletionList> RR(std::move(Reply));
 
   if (!OptionAttrSet)

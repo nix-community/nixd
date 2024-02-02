@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-namespace nix::nixd {
+namespace nixd {
 struct OptionInfo {
   std::optional<std::string> Type;
   std::optional<std::string> Description;
@@ -15,4 +15,4 @@ struct OptionInfo {
 };
 
 OptionInfo optionInfo(nix::EvalState &State, nix::Value &V);
-} // namespace nix::nixd
+} // namespace nixd

@@ -11,16 +11,14 @@ For vim users:
 do not:
 
 ```
-vi nixd/docs/examples/options/nixos/module.nix
+vi nixd/nixd/docs/examples/options/nixos/module.nix
 ```
 
 instead:
 
 ```
-cd nixd/docs/examples/options/nixos
+cd nixd/nixd/docs/examples/options/nixos
 vi module.nix
 ```
 
 For vscode users: please open each folder as your "workspace".
-
-

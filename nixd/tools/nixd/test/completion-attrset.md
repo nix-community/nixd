@@ -46,34 +46,6 @@ Complete this file:
 ```json
 {
     "jsonrpc": "2.0",
-    "method": "textDocument/didChange",
-    "params": {
-        "textDocument": {
-            "uri": "file:///foo.nix",
-            "version": 2
-        },
-        "contentChanges": [
-            {
-                "range": {
-                    "start": {
-                        "line": 3,
-                        "character": 1
-                    },
-                    "end": {
-                        "line": 3,
-                        "character": 1
-                    }
-                },
-                "rangeLength": 0,
-                "text": "."
-            }
-        ]
-    }
-}
-```
-```json
-{
-    "jsonrpc": "2.0",
     "id": 1,
     "method": "textDocument/completion",
     "params": {

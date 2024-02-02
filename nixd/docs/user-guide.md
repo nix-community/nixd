@@ -23,13 +23,13 @@ Package `nixd` can be found in [nixpkgs](https://github.com/NixOS/nixpkgs), ther
 On NixOS:
 
 ```console
-$ nix-env -iA nixos.nixd
+nix-env -iA nixos.nixd
 ```
 
 On Non NixOS:
 
 ```console
-$ nix-env -iA nixpkgs.nixd
+nix-env -iA nixpkgs.nixd
 ```
 
 </details>
@@ -38,7 +38,7 @@ $ nix-env -iA nixpkgs.nixd
 <summary><b>nix profile</b></summary>
 
 ```console
-$ nix profile install github:nixos/nixpkgs#nixd
+nix profile install github:nixos/nixpkgs#nixd
 ```
 
 </details>
@@ -65,7 +65,7 @@ nix build -L .#
 ### Configuration
 
 
-- [Configuration Examples](/docs/examples)
+- [Configuration Examples](/nixd/docs/examples)
 
 We support LSP standard `workspace/configuration` for server configurations.
 
@@ -147,6 +147,18 @@ Typically, you can write a nix file, and evaluate the result into `.nixd.json`, 
 ```console
 nix eval --json --file .nixd.nix > .nixd.json
 ```
+
+`.nixd.json`, the configuration of `nixd`, supports [json schema](https://json-schema.org/).
+So if your editor supports
+[LSP](https://microsoft.github.io/language-server-protocol/implementors/servers/),
+you can get completions, diagnostics and more[^json-schema]:
+
+![completion](https://github.com/nix-community/nixd/assets/32936898/013367c6-63d8-4bba-9057-c5701c2f36c1)
+
+![diagnostic](https://github.com/nix-community/nixd/assets/32936898/d285eb69-f023-4573-a8e5-8d5501ae3d16)
+
+[^json-schema]: These pictures were captured in [neovim](https://neovim.org/)
+with the plugin [coc-json](https://github.com/neoclide/coc-json).
 
 #### Evaluation
 
@@ -317,5 +329,4 @@ So tldr, to use `nixd` in your flake project, you have to:
 1. Turn your project into a legacy one, by using `flake-compat`
 2. Use `inclyc/flake-compat` which will not fetch git repository in nix store
 
-We have a working example [here](/docs/examples/flake/)
-
+We have a working example [here](/nixd/docs/examples/flake/)

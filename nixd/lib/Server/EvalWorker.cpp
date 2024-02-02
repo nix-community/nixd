@@ -8,6 +8,10 @@
 
 #include "lspserver/LSPServer.h"
 
+#include <llvm/ADT/StringRef.h>
+
+#include <nix/nixexpr.hh>
+
 namespace nixd {
 
 EvalWorker::EvalWorker(std::unique_ptr<lspserver::InboundPort> In,
@@ -92,37 +96,35 @@ void EvalWorker::onDefinition(
 
         // If the expression evaluates to a "derivation", try to bring our user
         // to the location which defines the package.
-        try {
-          auto V = AST->getValueEval(Node, *State);
-          if (nix::nixd::isDerivation(*State, V)) {
-            if (auto S = nix::nixd::attrPathStr(*State, V, "meta.position")) {
-              llvm::StringRef PositionStr = S.value();
-              auto [Path, LineStr] = PositionStr.split(':');
-              int Line;
-              if (LLVM_LIKELY(!LineStr.getAsInteger(10, Line))) {
-                lspserver::Position Position{.line = Line, .character = 0};
-                RR.Response = Location{URIForFile::canonicalize(Path, Path),
-                                       {Position, Position}};
-                return;
-              }
-            }
-          } else {
-            // There is a value avaiable, this might be useful for locations
-            auto P = V.determinePos(nix::noPos);
-            if (P != nix::noPos) {
-              auto Pos = State->positions[P];
-              if (auto *SourcePath =
-                      std::get_if<nix::SourcePath>(&Pos.origin)) {
-                auto Path = SourcePath->to_string();
-                lspserver::Position Position = toLSPPos(State->positions[P]);
-                RR.Response = Location{URIForFile::canonicalize(Path, Path),
-                                       {Position, Position}};
-                return;
-              }
+        auto OpV = AST->getValueEval(Node, *State);
+        if (!OpV)
+          return;
+
+        auto V = *OpV;
+        if (isDerivation(*State, V)) {
+          if (auto OpPosStr = attrPathStr(*State, V, "meta.position")) {
+            auto [Path, LineStr] = llvm::StringRef(*OpPosStr).split(':');
+            int Line;
+            if (LLVM_LIKELY(!LineStr.getAsInteger(10, Line))) {
+              lspserver::Position Position{.line = Line, .character = 0};
+              RR.Response = Location{URIForFile::canonicalize(Path, Path),
+                                     {Position, Position}};
+              return;
             }
           }
-        } catch (...) {
-          lspserver::vlog("no associated value on this expression");
+        } else {
+          // There is a value avaiable, this might be useful for locations
+          auto P = V.determinePos(nix::noPos);
+          if (P != nix::noPos) {
+            auto Pos = State->positions[P];
+            if (auto *SourcePath = std::get_if<nix::SourcePath>(&Pos.origin)) {
+              auto Path = SourcePath->to_string();
+              lspserver::Position Position = toLSPPos(State->positions[P]);
+              RR.Response = Location{URIForFile::canonicalize(Path, Path),
+                                     {Position, Position}};
+              return;
+            }
+          }
         }
       });
 }
@@ -139,14 +141,13 @@ void EvalWorker::onHover(const lspserver::TextDocumentPositionParams &Params,
         const auto *ExprName = getExprName(Node);
         RR.Response = Hover{{MarkupKind::Markdown, ""}, std::nullopt};
         auto &HoverText = RR.Response->contents.value;
-        try {
-          auto Value = AST->getValueEval(Node, *IER->Session->getState());
+        if (auto OpV = AST->getValueEval(Node, *IER->Session->getState())) {
           std::stringstream Res{};
-          nix::nixd::PrintDepth = 3;
-          Value.print(IER->Session->getState()->symbols, Res);
+          PrintDepth = 3;
+          OpV->print(IER->Session->getState()->symbols, Res);
           HoverText =
               llvm::formatv("## {0} \n Value: `{1}`", ExprName, Res.str());
-        } catch (const std::out_of_range &) {
+        } else {
           // No such value, just reply dummy item
           std::stringstream NodeOut;
           Node->show(IER->Session->getState()->symbols, NodeOut);
@@ -172,6 +173,11 @@ void EvalWorker::onCompletion(const lspserver::CompletionParams &Params,
       Builder.addAttrFields(*AST, Params.position, *State);
     } else {
       const auto *Node = AST->lookupContainMin(Params.position);
+
+      if (const auto *EVar = dynamic_cast<const nix::ExprVar *>(Node)) {
+        Builder.setPrefix(State->symbols[EVar->name]);
+      }
+
       Builder.addSymbols(*AST, Node);
       Builder.addLambdaFormals(*AST, *State, Node);
       Builder.addEnv(*AST, *State, Node);

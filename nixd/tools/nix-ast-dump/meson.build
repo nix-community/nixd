@@ -1,6 +1,6 @@
 nix_ast_dump = executable('nix-ast-dump', ['nix-ast-dump.cpp']
 , dependencies: [ boost
-                , nixdDeps
+                , nixdExpr
                 , nix_all
                 ]
 )

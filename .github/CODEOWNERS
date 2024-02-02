@@ -11,7 +11,7 @@
 .github/CODEOWNERS @inclyc
 
 # Public documentation
-/docs @Ruixi-rebirth @573
+/nixd/docs @Ruixi-rebirth @573
 /README.md @Ruixi-rebirth @573
 
 # Packaging

@@ -46,30 +46,40 @@ protected:
   std::map<Definition, std::vector<const nix::ExprVar *>> References;
   std::map<const nix::ExprVar *, Definition> Definitions;
 
-public:
-  [[nodiscard]] const nix::PosTable &positions() const { return *Data->PTable; }
-  [[nodiscard]] const nix::SymbolTable &symbols() const {
-    return *Data->STable;
-  }
+  ParseAST(std::unique_ptr<ParseData> D) : Data(std::move(D)) {}
 
-  void bindVars(const nix::StaticEnv &Env) {
-    if (auto *Root = dynamic_cast<nodes::StaticBindable *>(Data->result)) {
-      Root->bindVarsStatic(symbols(), positions(), Env);
-    }
-  }
-
-  void bindVars() {
-    nix::StaticEnv Env(true, nullptr);
-    bindVars(Env);
-  }
+  void prepareDefRef();
 
   void staticAnalysis() {
     ParentMap = getParentMap(root());
     prepareDefRef();
   }
-  ParseAST(std::unique_ptr<ParseData> D) : Data(std::move(D)) {}
+
+  void bindVarsStatic(const nix::StaticEnv &Env) {
+    if (auto *Root = dynamic_cast<nodes::StaticBindable *>(Data->result)) {
+      Root->bindVarsStatic(symbols(), positions(), Env);
+    }
+  }
+
+  void bindVarsStatic() {
+    nix::StaticEnv Env(true, nullptr);
+    bindVarsStatic(Env);
+  }
+
+public:
+  static std::unique_ptr<ParseAST> create(std::unique_ptr<ParseData> D) {
+    auto AST = std::unique_ptr<ParseAST>(new ParseAST(std::move(D)));
+    AST->bindVarsStatic();
+    AST->staticAnalysis();
+    return AST;
+  }
 
   virtual ~ParseAST() = default;
+
+  [[nodiscard]] const nix::PosTable &positions() const { return *Data->PTable; }
+  [[nodiscard]] const nix::SymbolTable &symbols() const {
+    return *Data->STable;
+  }
 
   [[nodiscard]] virtual nix::Expr *root() const { return Data->result; }
 
@@ -79,7 +89,9 @@ public:
 
   /// Get the parent of some expr, if it is root, \return Expr itself
   const nix::Expr *parent(const nix::Expr *Expr) const {
-    return ParentMap.at(Expr);
+    if (ParentMap.contains(Expr))
+      return ParentMap.at(Expr);
+    return nullptr;
   };
 
   /// Find the expression that created 'Env' for ExprVar
@@ -105,8 +117,6 @@ public:
     }
   }
 
-  void prepareDefRef();
-
   std::optional<Definition> searchDef(const nix::ExprVar *Var) const;
 
   [[nodiscard]] std::vector<const nix::ExprVar *> ref(Definition D) const {
@@ -129,7 +139,7 @@ public:
     return nPair(getDisplOf(E, Displ));
   }
 
-  std::optional<lspserver::Range> lRange(const void *Ptr) const {
+  std::optional<lspserver::Range> lRange(const void *Ptr) const noexcept {
     try {
       return toLSPRange(nRange(Ptr));
     } catch (...) {
@@ -147,20 +157,26 @@ public:
   /// Lookup an AST node that ends before or on the cursor.
   /// { }  |
   ///   ^
-  [[nodiscard]] const nix::Expr *lookupEnd(lspserver::Position Desired) const;
+  /// @returns nullptr, if not found
+  [[nodiscard]] const nix::Expr *
+  lookupEnd(lspserver::Position Desired) const noexcept;
 
   /// Lookup AST nodes that contains the cursor
   /// { |     }
   /// ^~~~~~~~^
+  ///
+  /// @returns empty vector, if there is no such expression
   [[nodiscard]] std::vector<const nix::Expr *>
-  lookupContain(lspserver::Position Desired) const;
+  lookupContain(lspserver::Position Desired) const noexcept;
 
   [[nodiscard]] const nix::Expr *
-  lookupContainMin(lspserver::Position Desired) const;
+  lookupContainMin(lspserver::Position Desired) const noexcept;
 
   /// Lookup an AST node that starts after or on the cursor
   /// |  { }
   ///    ^
+  ///
+  /// @returns nullptr, if not found
   [[nodiscard]] const nix::Expr *lookupStart(lspserver::Position Desired) const;
 
   void collectSymbols(const nix::Expr *E, std::vector<nix::Symbol> &R) const {

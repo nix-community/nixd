@@ -587,7 +587,7 @@ struct InitializeParams {
   /// if no folder is open.
   ///
   /// @deprecated in favour of rootUri.
-  std::optional<std::string> rootPath;
+  [[deprecated]] std::optional<std::string> rootPath;
 
   /// The rootUri of the workspace. Is null if no
   /// folder is open. If both `rootPath` and `rootUri` are set

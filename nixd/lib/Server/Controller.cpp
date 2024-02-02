@@ -14,6 +14,7 @@
 
 #include "lspserver/Connection.h"
 #include "lspserver/DraftStore.h"
+#include "lspserver/LSPBinder.h"
 #include "lspserver/Logger.h"
 #include "lspserver/Path.h"
 #include "lspserver/Protocol.h"
@@ -203,9 +204,29 @@ void Controller::fetchConfig() {
         lspserver::ConfigurationParams{
             std::vector<lspserver::ConfigurationItem>{
                 lspserver::ConfigurationItem{.section = "nixd"}}},
-        [this](llvm::Expected<configuration::TopLevel> Response) {
+        [this](llvm::Expected<OptionalValue> Response) {
           if (Response) {
-            updateConfig(std::move(Response.get()));
+            const llvm::json::Value &ResponseValue =
+                Response.get().Value.value();
+            if (ResponseValue.kind() != llvm::json::Value::Array) {
+              lspserver::elog(
+                  "workspace/configuration response is not an array: {0}",
+                  ResponseValue);
+              return;
+            }
+            const llvm::json::Value &FirstConfig =
+                ResponseValue.getAsArray()->front();
+            if (FirstConfig.kind() == llvm::json::Value::Null) {
+              lspserver::log("workspace/configuration is not set");
+              return;
+            }
+            llvm::Expected<configuration::TopLevel> ResponseConfig =
+                lspserver::parseParamWithDefault<configuration::TopLevel>(
+                    FirstConfig, "workspace/configuration", "reply",
+                    DefaultConfig);
+            if (ResponseConfig) {
+              updateConfig(std::move(ResponseConfig.get()));
+            }
           }
         });
   }
@@ -225,20 +246,23 @@ Controller::parseConfig(llvm::StringRef JSON) {
   return lspserver::error("value cannot be converted to internal config type");
 }
 
-void Controller::readJSONConfig(lspserver::PathRef File) noexcept {
+bool Controller::readJSONConfigToDefault(lspserver::PathRef File) noexcept {
   try {
     std::string ConfigStr;
     std::ostringstream SS;
     std::ifstream In(File.str(), std::ios::in);
     SS << In.rdbuf();
 
-    if (auto NewConfig = parseConfig(SS.str()))
-      updateConfig(std::move(NewConfig.get()));
-    else {
-      throw nix::Error("configuration cannot be parsed");
+    if (auto NewConfig = parseConfig(SS.str())) {
+      DefaultConfig = std::move(NewConfig.get());
+      return true;
     }
+
+    throw nix::Error(".nixd.json configuration cannot be parsed");
   } catch (std::exception &E) {
+    return false;
   } catch (...) {
+    return false;
   }
 }
 
@@ -255,6 +279,16 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        int WaitWorker)
     : LSPServer(std::move(In), std::move(Out)), WaitWorker(WaitWorker),
       ASTMgr(Pool) {
+
+  // JSON Config, run before initialize
+  if (readJSONConfigToDefault()) {
+    configuration::TopLevel JSONConfigCopy = DefaultConfig;
+    updateConfig(std::move(JSONConfigCopy));
+  };
+
+  WorkspaceConfiguration =
+      mkOutMethod<lspserver::ConfigurationParams, OptionalValue>(
+          "workspace/configuration", nullptr);
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
@@ -292,20 +326,12 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   // Workspace
   Registry.addNotification("workspace/didChangeConfiguration", this,
                            &Controller::onWorkspaceDidChangeConfiguration);
-  WorkspaceConfiguration =
-      mkOutMethod<lspserver::ConfigurationParams, configuration::TopLevel>(
-          "workspace/configuration");
 
   /// IPC
   Registry.addNotification("nixd/ipc/diagnostic", this,
                            &Controller::onEvalDiagnostic);
 
-  // Registry.addMethod("nixd/ipc/option/textDocument/declaration", this,
-  //                    &Controller::onOptionDeclaration);
-
   Registry.addNotification("nixd/ipc/finished", this, &Controller::onFinished);
-
-  readJSONConfig();
 }
 
 //-----------------------------------------------------------------------------/
@@ -785,9 +811,18 @@ void Controller::onFormat(
       TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, FormattedCode.value()};
       Reply(std::vector{E});
     } else {
-      Reply(lspserver::error("no formatting response received"));
+      // Suppress the warning, do not pop up
+      // Reply(lspserver::error("no formatting response received"));
+      Reply(std::vector<TextEdit>{});
     }
   };
   boost::asio::post(Pool, std::move(Task));
 }
+
+bool fromJSON(const llvm::json::Value &E, OptionalValue &R,
+              llvm::json::Path P) {
+  R.Value = E;
+  return true;
+}
+
 } // namespace nixd

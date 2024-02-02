@@ -36,7 +36,8 @@ EvalDraftStore::injectFiles(const nix::ref<nix::EvalState> &State) noexcept {
               InjectionError{std::move(ParseError), ActiveFile, Draft.Version});
         }
       }
-      EAF.insert({ActiveFile, nix::make_ref<EvalAST>(std::move(ParseData))});
+      auto AST = EvalAST::create(std::move(ParseData), *State);
+      EAF.insert({ActiveFile, nix::ref<EvalAST>(std::move(AST))});
       EAF.at(ActiveFile)->injectAST(*State, ActiveFile);
     } catch (nix::BaseError &Err) {
       ILR.InjectionErrors.emplace_back(InjectionError{
