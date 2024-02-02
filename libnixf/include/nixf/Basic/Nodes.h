@@ -707,6 +707,24 @@ public:
   }
 };
 
+class ExprLambda : public Expr {
+  std::unique_ptr<LambdaArg> Arg;
+  std::unique_ptr<Expr> Body;
+
+public:
+  ExprLambda(LexerCursorRange Range, std::unique_ptr<LambdaArg> Arg,
+             std::unique_ptr<Expr> Body)
+      : Expr(NK_ExprLambda, Range), Arg(std::move(Arg)), Body(std::move(Body)) {
+  }
+
+  [[nodiscard]] LambdaArg *arg() const { return Arg.get(); }
+  [[nodiscard]] Expr *body() const { return Body.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {Arg.get(), Body.get()};
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Semantic nodes
 //===----------------------------------------------------------------------===//

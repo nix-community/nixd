@@ -234,9 +234,12 @@ public:
   /// \endcode
   std::unique_ptr<LambdaArg> parseLambdaArg();
 
-  std::unique_ptr<Expr> parseExpr() {
-    return parseExprApp(); // TODO!
-  }
+  /// \code
+  /// expr_lambda : lambda_arg ':' expr
+  /// \endcode
+  std::unique_ptr<ExprLambda> parseExprLambda();
+
+  std::unique_ptr<Expr> parseExpr();
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 

@@ -1222,4 +1222,15 @@ TEST(Parser, ParseLambdaArg_ID) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST(Parser, ParseExprLambda) {
+  auto Src = R"({ a, b, ... }: a)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExprLambda();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace

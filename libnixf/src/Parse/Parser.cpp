@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <charconv>
+#include <memory>
 
 namespace {
 
@@ -724,6 +725,64 @@ std::unique_ptr<LambdaArg> Parser::parseLambdaArg() {
                                          std::string(ER.tok().view()));
   return std::make_unique<LambdaArg>(LexerCursorRange{LCur, LastToken->rCur()},
                                      std::move(ID), std::move(Formals));
+}
+
+std::unique_ptr<ExprLambda> Parser::parseExprLambda() {
+  // expr_lambda : lambda_arg ':' expr
+  LexerCursor LCur = lCur();
+  std::unique_ptr<LambdaArg> Arg = parseLambdaArg();
+  assert(LastToken && "LastToken should be set after parseLambdaArg");
+  if (!Arg)
+    return nullptr;
+  if (ExpectResult ER = expect(tok_colon); ER.ok())
+    consume();
+
+  std::unique_ptr<Expr> Body = parseExpr();
+  if (!Body)
+    diagNullExpr(Diags, LastToken->rCur(), "lambda body");
+  return std::make_unique<ExprLambda>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(Arg), std::move(Body));
+}
+
+std::unique_ptr<Expr> Parser::parseExpr() {
+  // Look ahead 3 tokens.
+  switch (peek().kind()) {
+  case tok_id: {
+    switch (peek(1).kind()) {
+    case tok_at:    // ID @
+    case tok_colon: // ID :
+      return parseExprLambda();
+    default:
+      break;
+    }
+    break;
+  }
+  case tok_l_curly: {
+    switch (peek(1).kind()) {
+    case tok_id: {
+      switch (peek(2).kind()) {
+      case tok_colon:    // { a :
+      case tok_at:       // { a @
+      case tok_question: // { a ?
+      case tok_comma:    // { a ,
+      case tok_id:       // { a b
+      case tok_ellipsis: // { a ...
+        return parseExprLambda();
+      default:
+        break;
+      }
+      break;
+    }
+    default:
+      break;
+    }
+    break;
+  } // case tok_l_curly
+  default:
+    break;
+  }
+
+  return parseExprApp();
 }
 
 } // namespace nixf
