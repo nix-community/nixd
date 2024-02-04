@@ -85,6 +85,17 @@ private:
     return *LastToken;
   }
 
+  bool removeUnexpected() {
+    if (std::optional<LexerCursorRange> UnknownRange = consumeAsUnknown()) {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_UnexpectedText, *UnknownRange);
+      D.fix("remove unexpected text").edit(TextEdit::mkRemoval(*UnknownRange));
+      D.tag(DiagnosticTag::Striked);
+      return true;
+    }
+    return false;
+  }
+
 public:
   Parser(std::string_view Src, std::vector<Diagnostic> &Diags)
       : Src(Src), Lex(Src, Diags), Diags(Diags) {

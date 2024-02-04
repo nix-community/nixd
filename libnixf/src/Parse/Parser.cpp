@@ -137,12 +137,7 @@ Parser::ExpectResult Parser::expect(TokenKind Kind) {
   }
   // UNKNOWN ?
   // ~~~~~~~ consider remove unexpected text
-  if (std::optional<LexerCursorRange> UnknownRange = consumeAsUnknown()) {
-    Diagnostic &D =
-        Diags.emplace_back(Diagnostic::DK_UnexpectedText, *UnknownRange);
-    D.fix("remove unexpected text").edit(TextEdit::mkRemoval(*UnknownRange));
-    D.tag(DiagnosticTag::Striked);
-
+  if (removeUnexpected()) {
     if (Token Tok = peek(); Tok.kind() == Kind) {
       return Tok;
     }
