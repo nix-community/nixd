@@ -352,8 +352,11 @@ std::unique_ptr<Binding> Parser::parseBinding() {
   assert(LastToken && "LastToken should be set after valid attrpath");
   auto SyncEq = withSync(tok_eq);
   auto SyncSemi = withSync(tok_semi_colon);
-  if (ExpectResult ER = expect(tok_eq); ER.ok())
-    consume();
+  if (ExpectResult ER = expect(tok_eq); !ER.ok())
+    return std::make_unique<Binding>(
+        LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
+        nullptr);
+  consume();
   auto Expr = parseExpr();
   if (!Expr)
     diagNullExpr(Diags, LastToken->rCur(), "binding");
