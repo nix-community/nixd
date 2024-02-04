@@ -14,6 +14,6 @@
 namespace nixf {
 
 /// \brief Perform semantic lowering on the AST.
-void lower(Node *AST, std::vector<Diagnostic> &Diags);
+void lower(Node *AST, std::string_view Src, std::vector<Diagnostic> &Diags);
 
 } // namespace nixf

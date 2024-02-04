@@ -89,6 +89,12 @@ public:
     }
     return this;
   }
+
+  [[nodiscard]] std::string_view src(std::string_view Src) const {
+    auto Begin = lCur().offset();
+    auto Length = rCur().offset() - Begin;
+    return Src.substr(Begin, Length);
+  }
 };
 
 class Expr : public Node, public Evaluable {

@@ -19,7 +19,7 @@ protected:
   Lowering L;
 
 public:
-  LoweringTest() : L(Diags) {}
+  LoweringTest() : L(Diags, "") {}
 };
 
 std::unique_ptr<AttrName> getDynamicName(LexerCursorRange Range = {}) {

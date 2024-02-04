@@ -13,9 +13,11 @@ namespace nixf {
 
 class Lowering {
   std::vector<Diagnostic> &Diags;
+  std::string_view Src;
 
 public:
-  Lowering(std::vector<Diagnostic> &Diags) : Diags(Diags) {}
+  Lowering(std::vector<Diagnostic> &Diags, std::string_view Src)
+      : Diags(Diags), Src(Src) {}
 
   void dupAttr(std::string Name, LexerCursorRange Range, LexerCursorRange Prev);
 

@@ -10,8 +10,8 @@
 
 namespace nixf {
 
-void lower(Node *AST, std::vector<Diagnostic> &Diags) {
-  Lowering(Diags).lower(AST);
+void lower(Node *AST, std::string_view Src, std::vector<Diagnostic> &Diags) {
+  Lowering(Diags, Src).lower(AST);
 }
 
 void Lowering::dupAttr(std::string Name, LexerCursorRange Range,
