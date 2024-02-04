@@ -53,7 +53,7 @@ public:
   SyncRAII(Parser &P, TokenKind Kind) : P(P), Kind(Kind) {
     P.SyncTokens.emplace(Kind);
   }
-  ~SyncRAII() { P.SyncTokens.erase(Kind); }
+  ~SyncRAII() { P.SyncTokens.erase(P.SyncTokens.find(Kind)); }
 };
 
 Parser::SyncRAII Parser::withSync(TokenKind Kind) { return {*this, Kind}; }
