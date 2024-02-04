@@ -420,6 +420,13 @@ std::unique_ptr<Binds> Parser::parseBinds() {
   // TODO: curently we don't support inherit
   LexerCursor Begin = peek().lCur();
   std::vector<std::unique_ptr<Node>> Bindings;
+  // attrpath
+  auto SyncID = withSync(tok_id);
+  auto SyncQuote = withSync(tok_dquote);
+  auto SyncDollarCurly = withSync(tok_dollar_curly);
+
+  // inherit
+  auto SyncInherit = withSync(tok_kw_inherit);
   while (true) {
     if (auto Binding = parseBinding()) {
       Bindings.emplace_back(std::move(Binding));
@@ -429,6 +436,10 @@ std::unique_ptr<Binds> Parser::parseBinds() {
       Bindings.emplace_back(std::move(Inherit));
       continue;
     }
+    // If it is neither a binding, nor an inherit. Let's consume an "Unknown"
+    // For error recovery
+    if (removeUnexpected())
+      continue;
     break;
   }
   if (Bindings.empty())

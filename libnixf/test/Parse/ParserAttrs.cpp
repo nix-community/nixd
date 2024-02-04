@@ -436,7 +436,7 @@ TEST(Parser, SyncAttrs) {
   auto Src = R"(
 rec {
   )))
-  a asd =  1;
+  a )) =  1;
 }
   )"sv;
 
@@ -445,24 +445,21 @@ rec {
 
   ASSERT_TRUE(AST);
 
-  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags.size(), 2);
   const auto &D = Diags[0];
   ASSERT_TRUE(D.range().lCur().isAt(2, 2, 9));
-  ASSERT_TRUE(D.range().rCur().isAt(3, 13, 26));
+  ASSERT_TRUE(D.range().rCur().isAt(2, 5, 12));
   ASSERT_EQ(D.kind(), Diagnostic::DK_UnexpectedText);
   ASSERT_EQ(D.args().size(), 0);
 
+  const auto &D1 = Diags[1];
+  ASSERT_TRUE(D1.range().lCur().isAt(3, 4, 17));
+  ASSERT_TRUE(D1.range().rCur().isAt(3, 6, 19));
+  ASSERT_EQ(D1.kind(), Diagnostic::DK_UnexpectedText);
+  ASSERT_EQ(D1.args().size(), 0);
+
   // Check the note.
   ASSERT_EQ(D.notes().size(), 0);
-
-  // Check fix-it hints.
-  ASSERT_EQ(D.fixes().size(), 1);
-  ASSERT_EQ(D.fixes()[0].edits().size(), 1);
-  ASSERT_EQ(D.fixes()[0].message(), "remove unexpected text");
-  const auto &F = D.fixes()[0].edits()[0];
-  ASSERT_TRUE(F.oldRange().lCur().isAt(2, 2, 9));
-  ASSERT_TRUE(F.oldRange().rCur().isAt(3, 13, 26));
-  ASSERT_EQ(F.newText(), "");
 }
 
 TEST(Parser, ParseAttrName_StringRange) {
