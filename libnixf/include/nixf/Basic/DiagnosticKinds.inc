@@ -27,10 +27,6 @@ DIAG("deprecated-let", DeprecatedLet, Warning,
      "(rec {{..., body = ...}}).body'")
 DIAG("path-trailing-slash", PathTrailingSlash, Fatal,
      "path has a trailing slash")
-DIAG("dup-formal", DuplicatedFormal, Error,
-     "duplicated function formal declaration")
-DIAG("dup-formal-arg", DuplicatedFormalToArg, Error,
-     "function argument duplicated to a function formal")
 DIAG("merge-diff-rec", MergeDiffRec, Warning,
      "merging two attributes with different `rec` modifiers, the latter "
      "will be implicitly ignored")
@@ -40,5 +36,12 @@ DIAG("invalid-integer", InvalidInteger, Fatal, "invalid integer {}")
 DIAG("sema-duplicated-attrname", DuplicatedAttrName, Error, "duplicated attrname `{}`")
 DIAG("sema-dynamic-inherit", DynamicInherit, Error,
      "dynamic attributes are not allowed in inherit")
-
+DIAG("sema-empty-formal", EmptyFormal, Error, "empty formal")
+DIAG("sema-formal-missing-comma", FormalMissingComma, Error, "missing `,` for lambda formal")
+DIAG("sema-formal-extra-ellipsis", FormalExtraEllipsis, Error, "extra `...` for lambda formal")
+DIAG("sema-misplaced-ellipsis", FormalMisplacedEllipsis, Error, "misplaced `...` for lambda formal")
+DIAG("sema-dup-formal", DuplicatedFormal, Error,
+     "duplicated function formal")
+DIAG("sema-dup-formal-arg", DuplicatedFormalToArg, Error,
+     "function argument duplicated to a function formal")
 #endif // DIAG
