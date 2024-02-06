@@ -39,11 +39,25 @@ We are officially supported by nvim-lspconfig, see [upstream docs](https://githu
 
 ### Emacs
 
+#### Eglot
+The following configuration can be used with the built-in Emacs LSP client: [Eglot](https://www.gnu.org/software/emacs/manual/html_node/eglot/).
+
+```emacs-lisp
+(add-hook 'prog-mode-hook
+          (lambda ()
+            (add-hook 'before-save-hook 'eglot-format nil t)))
+
+(with-eval-after-load 'eglot
+  (dolist (mode '((nix-mode . ("nixd"))))
+    (add-to-list 'eglot-server-programs mode)))
+```
+
+#### lsp-mode
 [This PR](https://github.com/emacs-lsp/lsp-mode/pull/4125) should add nixd support to [LSP Mode](https://github.com/emacs-lsp/lsp-mode).
 
 A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is as follows:
 
-```lisp
+```emacs-lisp
 (with-eval-after-load 'lsp-mode
   (lsp-register-client
     (make-lsp-client :new-connection (lsp-stdio-connection "nixd")
