@@ -5,6 +5,7 @@
 #include "Lexer.h"
 
 #include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Range.h"
 
 #include <climits>
 #include <deque>
@@ -95,6 +96,8 @@ private:
     }
     return false;
   }
+
+  LexerCursor lCur() { return peek().lCur(); }
 
 public:
   Parser(std::string_view Src, std::vector<Diagnostic> &Diags)
@@ -210,6 +213,26 @@ public:
   /// expr_list : '[' expr_select* ']'
   /// \endcode
   std::unique_ptr<ExprList> parseExprList();
+
+  /// \code
+  /// formal : ,? ID
+  ///        | ,? ID '?' expr
+  ///        | ,? ...
+  /// \endcode
+  std::unique_ptr<Formal> parseFormal();
+
+  /// \code
+  /// formals : '{' formal* '}'
+  /// \endcode
+  std::unique_ptr<Formals> parseFormals();
+
+  /// \code
+  /// lambda_arg : ID
+  ///            | ID @ {' formals '}'
+  ///            | '{' formals '}'
+  ///            | '{' formals '}' @ ID
+  /// \endcode
+  std::unique_ptr<LambdaArg> parseLambdaArg();
 
   std::unique_ptr<Expr> parseExpr() {
     return parseExprApp(); // TODO!

@@ -14,6 +14,7 @@ DIAG("parse-select-extra-dot", SelectExtraDot, Error, "extra `.` after expressio
 DIAG("parse-unexpected-between", UnexpectedBetween, Error, "unexpected {} between {} and {}")
 DIAG("parse-unexpected", UnexpectedText, Error, "unexpected text")
 DIAG("parse-missing-sep-formals", MissingSepFormals, Error, "missing seperator `,` between two lambda formals")
+DIAG("parse-lambda-arg-extra-at", LambdaArgExtraAt, Error, "extra `@` for lambda arg")
 DIAG("let-dynamic", LetDynamic, Error,
      "dynamic attributes are not allowed in let ... in ... expression")
 DIAG("empty-inherit", EmptyInherit, Warning, "empty inherit expression")

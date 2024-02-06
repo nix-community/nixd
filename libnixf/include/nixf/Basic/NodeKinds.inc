@@ -15,6 +15,9 @@ NODE(AttrPath)
 NODE(Binding)
 NODE(Inherit)
 NODE(Binds)
+NODE(LambdaArg)
+NODE(Formals)
+NODE(Formal)
 
 #endif // NODE
 

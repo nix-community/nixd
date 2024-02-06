@@ -621,6 +621,92 @@ public:
   }
 };
 
+class Formal : public Node {
+  std::unique_ptr<Misc> Comma;
+  std::unique_ptr<Identifier> ID;
+  std::unique_ptr<Expr> Default;
+  std::unique_ptr<Misc> Ellipsis; // ...
+
+public:
+  Formal(LexerCursorRange Range, std::unique_ptr<Misc> Comma,
+         std::unique_ptr<Identifier> ID, std::unique_ptr<Expr> Default)
+      : Node(NK_Formal, Range), Comma(std::move(Comma)), ID(std::move(ID)),
+        Default(std::move(Default)) {}
+
+  Formal(LexerCursorRange Range, std::unique_ptr<Misc> Comma,
+         std::unique_ptr<Misc> Ellipsis)
+      : Node(NK_Formal, Range), Comma(std::move(Comma)),
+        Ellipsis(std::move(Ellipsis)) {
+    assert(this->Ellipsis && "Ellipsis must not be null");
+  }
+
+  [[nodiscard]] Misc &ellipsis() const {
+    assert(Ellipsis && "Ellipsis must not be null");
+    return *Ellipsis;
+  }
+
+  [[nodiscard]] bool isEllipsis() const { return Ellipsis != nullptr; }
+
+  [[nodiscard]] Identifier *id() const { return ID.get(); }
+
+  [[nodiscard]] Misc *comma() const { return Comma.get(); }
+
+  [[nodiscard]] Expr *defaultExpr() const { return Default.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    if (isEllipsis()) {
+      return {Ellipsis.get()};
+    }
+    return {ID.get(), Default.get()};
+  }
+};
+
+/// \brief Lambda formal arguments.
+///
+/// Things to check:
+/// 1. Ellipsis can only occur at the end of the formals.
+///        { ..., pkgs } -> { pkgs, ... }
+/// 2. Ellipsis can only occur once.
+///        { b, ..., a, ... } -> { a, ... }
+class Formals : public Node {
+  std::vector<std::unique_ptr<Formal>> Members;
+
+public:
+  Formals(LexerCursorRange Range, std::vector<std::unique_ptr<Formal>> Members)
+      : Node(NK_Formals, Range), Members(std::move(Members)) {}
+
+  [[nodiscard]] const std::vector<std::unique_ptr<Formal>> &members() const {
+    return Members;
+  }
+
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    Children.reserve(Members.size());
+    for (const auto &Member : Members) {
+      Children.emplace_back(Member.get());
+    }
+    return Children;
+  }
+};
+
+class LambdaArg : public Node {
+  std::unique_ptr<Identifier> ID;
+  std::unique_ptr<Formals> F;
+
+public:
+  LambdaArg(LexerCursorRange Range, std::unique_ptr<Identifier> ID,
+            std::unique_ptr<Formals> F)
+      : Node(NK_LambdaArg, Range), ID(std::move(ID)), F(std::move(F)) {}
+
+  [[nodiscard]] Identifier *id() { return ID.get(); }
+
+  [[nodiscard]] Formals *formals() const { return F.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {ID.get(), F.get()};
+  }
+};
+
 //===----------------------------------------------------------------------===//
 // Semantic nodes
 //===----------------------------------------------------------------------===//
