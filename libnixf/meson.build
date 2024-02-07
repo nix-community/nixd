@@ -40,6 +40,7 @@ test('unit/libnixf/Parse',
     executable('unit-libnixf-parse',
         'test/Parse/Lexer.cpp',
         'test/Parse/Parser.cpp',
+        'test/Parse/ParserExprDispatch.cpp',
         dependencies: [ nixf, gtest_main ],
         include_directories: [ 'src/Parse' ] # Private headers
     )
