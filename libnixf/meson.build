@@ -41,6 +41,7 @@ test('unit/libnixf/Parse',
         'test/Parse/Lexer.cpp',
         'test/Parse/Parser.cpp',
         'test/Parse/ParserExprDispatch.cpp',
+        'test/Parse/ParserLambda.cpp',
         dependencies: [ nixf, gtest_main ],
         include_directories: [ 'src/Parse' ] # Private headers
     )
