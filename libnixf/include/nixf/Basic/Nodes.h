@@ -89,6 +89,12 @@ public:
     }
     return this;
   }
+
+  [[nodiscard]] std::string_view src(std::string_view Src) const {
+    auto Begin = lCur().offset();
+    auto Length = rCur().offset() - Begin;
+    return Src.substr(Begin, Length);
+  }
 };
 
 class Expr : public Node, public Evaluable {
@@ -671,13 +677,18 @@ public:
 class Formals : public Node {
   std::vector<std::unique_ptr<Formal>> Members;
 
+  /// Deduplicated formals, useful for encoding
+  std::map<std::string, const Formal *> Dedup;
+
 public:
   Formals(LexerCursorRange Range, std::vector<std::unique_ptr<Formal>> Members)
       : Node(NK_Formals, Range), Members(std::move(Members)) {}
 
-  [[nodiscard]] const std::vector<std::unique_ptr<Formal>> &members() const {
-    return Members;
-  }
+  using FormalVector = std::vector<std::unique_ptr<Formal>>;
+
+  [[nodiscard]] const FormalVector &members() const { return Members; }
+
+  std::map<std::string, const Formal *> &dedup() { return Dedup; }
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
