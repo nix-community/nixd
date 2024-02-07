@@ -35,5 +35,6 @@ EXPR(ExprAttrs)
 EXPR(ExprSelect)
 EXPR(ExprCall)
 EXPR(ExprList)
+EXPR(ExprLambda)
 
 #endif // EXPR
