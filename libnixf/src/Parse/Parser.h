@@ -14,6 +14,13 @@
 
 namespace nixf {
 
+namespace detail {
+
+Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, LexerCursor Loc,
+                         std::string As);
+
+} // namespace detail
+
 using namespace nixf::tok;
 
 class Parser {
@@ -46,7 +53,13 @@ private:
   /// Sync tokens will not be consumed as "unknown".
   std::multiset<TokenKind> SyncTokens;
 
-  class StateRAII;
+  class StateRAII {
+    Parser &P;
+
+  public:
+    StateRAII(Parser &P) : P(P) {}
+    ~StateRAII() { P.popState(); }
+  };
 
   // Note: use `auto` for this type.
   StateRAII withState(ParserState NewState);
@@ -66,11 +79,39 @@ private:
   /// \returns The consumed range. If no token is consumed, return nullopt.
   std::optional<LexerCursorRange> consumeAsUnknown();
 
-  class SyncRAII;
+  class SyncRAII {
+    Parser &P;
+    TokenKind Kind;
+
+  public:
+    SyncRAII(Parser &P, TokenKind Kind) : P(P), Kind(Kind) {
+      P.SyncTokens.emplace(Kind);
+    }
+    ~SyncRAII() { P.SyncTokens.erase(P.SyncTokens.find(Kind)); }
+  };
 
   SyncRAII withSync(TokenKind Kind);
 
-  class ExpectResult;
+  class ExpectResult {
+    bool Success;
+    std::optional<Token> Tok;
+    Diagnostic *DiagMissing;
+
+  public:
+    ExpectResult(Token Tok) : Success(true), Tok(Tok), DiagMissing(nullptr) {}
+    ExpectResult(Diagnostic *DiagMissing)
+        : Success(false), DiagMissing(DiagMissing) {}
+
+    [[nodiscard]] bool ok() const { return Success; }
+    [[nodiscard]] Token tok() const {
+      assert(Tok);
+      return *Tok;
+    }
+    [[nodiscard]] Diagnostic &diag() const {
+      assert(DiagMissing);
+      return *DiagMissing;
+    }
+  };
 
   ExpectResult expect(TokenKind Kind);
 
