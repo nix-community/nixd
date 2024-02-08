@@ -244,6 +244,21 @@ TEST(Parser, AttrsBinding) {
   ASSERT_TRUE(B.binds()->bindings()[1]->range().rCur().isAt(3, 8, 20));
 }
 
+TEST(Parser, AttrsBindingEarlyExit) {
+  auto Src = R"(
+{
+  a; # Missing =, but not continue parsing "expr"
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 2);
+}
+
 TEST(Parser, AttrsBindingInherit) {
   auto Src = R"(
 {
