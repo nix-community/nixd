@@ -10,6 +10,7 @@ libnixf = library(
     'src/Parse/ParseAttrs.cpp',
     'src/Parse/ParseExpr.cpp',
     'src/Parse/ParseLambda.cpp',
+    'src/Parse/ParseOp.cpp',
     'src/Parse/ParseSimple.cpp',
     'src/Parse/ParseStrings.cpp',
     'src/Parse/ParseSupport.cpp',

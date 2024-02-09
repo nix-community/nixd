@@ -109,7 +109,7 @@ std::unique_ptr<Expr> Parser::parseExpr() {
     break;
   }
 
-  return parseExprApp();
+  return parseExprOp();
 }
 
 } // namespace nixf

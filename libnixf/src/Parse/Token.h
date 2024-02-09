@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nixf/Basic/Range.h"
+#include "nixf/Basic/TokenKinds.h"
 
 #include <cassert>
 #include <string>
@@ -9,18 +10,13 @@
 namespace nixf {
 
 namespace tok {
-enum TokenKind {
-#define TOK(NAME) tok_##NAME,
-#include "Tokens.inc"
-#undef TOK
-};
 
 constexpr std::string_view spelling(TokenKind Kind) {
   switch (Kind) {
 #define TOK_KEYWORD(NAME)                                                      \
   case tok_kw_##NAME:                                                          \
     return #NAME;
-#include "TokenKinds.inc"
+#include "nixf/Basic/TokenKinds.inc"
 #undef TOK_KEYWORD
   case tok_dquote:
     return "\"";
