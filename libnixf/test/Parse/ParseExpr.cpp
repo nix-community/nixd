@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 
 #include "Parser.h"
-#include "nixf/Basic/Nodes/Op.h"
 
 namespace {
 
@@ -233,24 +232,6 @@ TEST(Parser, ExprDispatch_r_curly_id_ellipsis) {
 
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprLambda);
-}
-
-TEST(Parser, ExprOp) {
-  auto Src = R"(1 + 2 * 3)"sv;
-
-  std::vector<Diagnostic> Diags;
-  Parser P(Src, Diags);
-  auto AST = P.parseExpr();
-
-  ASSERT_TRUE(AST);
-  ASSERT_EQ(AST->kind(), Node::NK_ExprBinOp);
-
-  auto &BinOp = *static_cast<ExprBinOp *>(AST.get());
-
-  ASSERT_TRUE(BinOp.lhs());
-  ASSERT_TRUE(BinOp.rhs());
-  ASSERT_EQ(BinOp.rhs()->kind(), Node::NK_ExprBinOp);
-  ASSERT_EQ(BinOp.lhs()->kind(), Node::NK_ExprInt);
 }
 
 } // namespace
