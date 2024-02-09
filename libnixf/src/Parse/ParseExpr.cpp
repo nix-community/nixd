@@ -1,4 +1,7 @@
-#include "Parser.h"
+#include "ParserImpl.h"
+
+#include "nixf/Basic/Nodes/Expr.h"
+#include "nixf/Basic/Nodes/Lambda.h"
 
 namespace nixf {
 

@@ -1,9 +1,8 @@
 /// \file
 /// \brief This file implements parsing of operators.
 
-#include "Parser.h"
+#include "ParserImpl.h"
 
-#include "nixf/Basic/Nodes.h"
 #include "nixf/Basic/Nodes/Op.h"
 #include "nixf/Basic/Range.h"
 

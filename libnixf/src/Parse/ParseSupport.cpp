@@ -1,7 +1,9 @@
 /// \file
 /// \brief Basic supporting functions for parsing.
 
-#include "Parser.h"
+#include "ParserImpl.h"
+
+#include "nixf/Basic/Nodes/Basic.h"
 
 namespace nixf {
 
