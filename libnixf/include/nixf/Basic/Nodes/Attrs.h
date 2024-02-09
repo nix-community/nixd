@@ -4,6 +4,7 @@
 #include "Simple.h"
 
 #include <map>
+#include <string>
 
 namespace nixf {
 
