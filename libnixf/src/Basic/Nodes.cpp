@@ -1,5 +1,7 @@
 #include "nixf/Basic/Nodes.h"
 
+#include <string>
+
 namespace nixf {
 
 [[nodiscard]] const char *Node::name(NodeKind Kind) {
