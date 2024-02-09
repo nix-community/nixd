@@ -18,6 +18,7 @@ NODE(Binds)
 NODE(LambdaArg)
 NODE(Formals)
 NODE(Formal)
+NODE(Op)
 
 #endif // NODE
 
@@ -36,5 +37,7 @@ EXPR(ExprSelect)
 EXPR(ExprCall)
 EXPR(ExprList)
 EXPR(ExprLambda)
+EXPR(ExprBinOp)
+EXPR(ExprUnaryOp)
 
 #endif // EXPR

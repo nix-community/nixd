@@ -140,6 +140,9 @@ private:
 
   LexerCursor lCur() { return peek().lCur(); }
 
+  /// Pratt parser for binary/unary operators.
+  std::unique_ptr<Expr> parseExprOpBP(unsigned BP);
+
 public:
   Parser(std::string_view Src, std::vector<Diagnostic> &Diags)
       : Src(Src), Lex(Src, Diags), Diags(Diags) {
@@ -281,6 +284,28 @@ public:
   std::unique_ptr<ExprLambda> parseExprLambda();
 
   std::unique_ptr<Expr> parseExpr();
+
+  /// \brief Parse binary/unary operators.
+  /// \code
+  /// expr_op : '!' expr_op
+  ///         | '-' expr_op
+  ///         | expr_op BINARY_OP expr_op
+  ///         | expr_app
+  ///
+  /// %right ->
+  /// %left ||
+  /// %left &&
+  /// %nonassoc == !=
+  /// %nonassoc < > <= >=
+  /// %right //
+  /// %left NOT
+  /// %left + -
+  /// %left * /
+  /// %right ++
+  /// %nonassoc '?'
+  /// %nonassoc NEGATE
+  /// \endcode
+  std::unique_ptr<Expr> parseExprOp() { return parseExprOpBP(0); }
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 
