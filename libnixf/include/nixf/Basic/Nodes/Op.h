@@ -1,6 +1,7 @@
 #pragma once
 
-#include "nixf/Basic/Nodes.h"
+#include "Basic.h"
+
 #include "nixf/Basic/TokenKinds.h"
 
 #include <memory>

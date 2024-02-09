@@ -1,4 +1,6 @@
-#include "Parser.h"
+#include "ParserImpl.h"
+
+#include "nixf/Basic/Nodes/Simple.h"
 
 namespace nixf {
 

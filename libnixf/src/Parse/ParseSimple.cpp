@@ -1,4 +1,8 @@
-#include "Parser.h"
+#include "ParserImpl.h"
+
+#include "nixf/Basic/Nodes/Attrs.h"
+#include "nixf/Basic/Nodes/Expr.h"
+#include "nixf/Basic/Nodes/Simple.h"
 
 #include <charconv>
 
