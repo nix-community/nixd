@@ -108,11 +108,87 @@ std::unique_ptr<Expr> Parser::parseExpr() {
     }
     break;
   } // case tok_l_curly
+  case tok_kw_if:
+    return parseExprIf();
   default:
     break;
   }
 
   return parseExprOp();
+}
+
+std::unique_ptr<Expr> Parser::parseExprIf() {
+  LexerCursor LCur = lCur(); // if
+  Token TokIf = peek();
+  assert(TokIf.kind() == tok_kw_if && "parseExprIf should start with `if`");
+  consume(); // if
+  assert(LastToken && "LastToken should be set after consume()");
+  auto Cond = parseExpr();
+  if (!Cond) {
+    Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "condition");
+    D.fix("remove `if` keyword").edit(TextEdit::mkRemoval(TokIf.range()));
+    D.fix("insert dummy condition")
+        .edit(TextEdit::mkInsertion(TokIf.rCur(), "true"));
+
+    // If the next token is not `then`, stop here.
+    if (peek().kind() != tok_kw_then)
+      return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(Cond), nullptr, nullptr);
+  }
+
+  Token TokThen = peek();
+  if (TokThen.kind() != tok_kw_then) {
+    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                       LexerCursorRange{LastToken->rCur()});
+    D << std::string(tok::spelling(tok_kw_then));
+    D.fix("insert `then` keyword")
+        .edit(TextEdit::mkInsertion(TokThen.lCur(), " then"));
+    Note &N = D.note(Note::NK_ToMachThis, TokIf.range());
+    N << std::string(tok::spelling(tok_kw_if));
+
+    return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+                                    std::move(Cond), nullptr, nullptr);
+  }
+
+  consume(); // then
+
+  auto Then = parseExpr();
+  if (!Then) {
+    Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "then");
+    Note &N = D.note(Note::NK_ToMachThis, TokIf.range());
+    N << std::string(tok::spelling(tok_kw_if));
+
+    // If the next token is not `then`, stop here.
+    if (peek().kind() != tok_kw_else)
+      return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(Cond), std::move(Then),
+                                      nullptr);
+  }
+
+  Token TokElse = peek();
+  if (TokElse.kind() != tok_kw_else) {
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_Expected, TokElse.range());
+    D << std::string(tok::spelling(tok_kw_else));
+    D.fix("insert `else` keyword")
+        .edit(TextEdit::mkInsertion(TokElse.lCur(), " else"));
+
+    return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+                                    std::move(Cond), std::move(Then), nullptr);
+  }
+
+  consume(); // else
+
+  auto Else = parseExpr();
+  if (!Else) {
+    Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "else");
+    Note &N = D.note(Note::NK_ToMachThis, TokIf.range());
+    N << std::string(tok::spelling(tok_kw_if));
+  }
+
+  return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+                                  std::move(Cond), std::move(Then),
+                                  std::move(Else));
 }
 
 } // namespace nixf

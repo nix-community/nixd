@@ -323,6 +323,11 @@ public:
   /// %nonassoc NEGATE
   /// \endcode
   std::unique_ptr<Expr> parseExprOp() { return parseExprOpBP(0); }
+
+  /// \code
+  /// expr_if : 'if' expr 'then' expr 'else' expr
+  /// \endcode
+  std::unique_ptr<Expr> parseExprIf();
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 
