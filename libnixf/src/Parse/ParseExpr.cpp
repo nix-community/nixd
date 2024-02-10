@@ -117,7 +117,7 @@ std::unique_ptr<Expr> Parser::parseExpr() {
   return parseExprOp();
 }
 
-std::unique_ptr<Expr> Parser::parseExprIf() {
+std::unique_ptr<ExprIf> Parser::parseExprIf() {
   LexerCursor LCur = lCur(); // if
   Token TokIf = peek();
   assert(TokIf.kind() == tok_kw_if && "parseExprIf should start with `if`");

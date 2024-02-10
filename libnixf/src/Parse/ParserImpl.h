@@ -30,6 +30,7 @@ class Formal;
 class Formals;
 class LambdaArg;
 class ExprLambda;
+class ExprIf;
 
 namespace detail {
 
@@ -327,7 +328,7 @@ public:
   /// \code
   /// expr_if : 'if' expr 'then' expr 'else' expr
   /// \endcode
-  std::unique_ptr<Expr> parseExprIf();
+  std::unique_ptr<ExprIf> parseExprIf();
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 
