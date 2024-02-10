@@ -130,7 +130,6 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     D.fix("insert dummy condition")
         .edit(TextEdit::mkInsertion(TokIf.rCur(), "true"));
 
-    // If the next token is not `then`, stop here.
     if (peek().kind() != tok_kw_then)
       return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), /*Then=*/nullptr,
@@ -160,7 +159,6 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     Note &N = D.note(Note::NK_ToMachThis, TokIf.range());
     N << std::string(tok::spelling(tok_kw_if));
 
-    // If the next token is not `then`, stop here.
     if (peek().kind() != tok_kw_else)
       return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), std::move(Then),
