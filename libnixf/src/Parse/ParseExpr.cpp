@@ -133,7 +133,8 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     // If the next token is not `then`, stop here.
     if (peek().kind() != tok_kw_then)
       return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
-                                      std::move(Cond), nullptr, nullptr);
+                                      std::move(Cond), /*Then=*/nullptr,
+                                      /*Else=*/nullptr);
   }
 
   Token TokThen = peek();
@@ -147,7 +148,8 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     N << std::string(tok::spelling(tok_kw_if));
 
     return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
-                                    std::move(Cond), nullptr, nullptr);
+                                    std::move(Cond), /*Then=*/nullptr,
+                                    /*Else=*/nullptr);
   }
 
   consume(); // then
@@ -162,7 +164,7 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     if (peek().kind() != tok_kw_else)
       return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), std::move(Then),
-                                      nullptr);
+                                      /*Else=*/nullptr);
   }
 
   Token TokElse = peek();
@@ -174,7 +176,8 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
         .edit(TextEdit::mkInsertion(TokElse.lCur(), " else"));
 
     return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
-                                    std::move(Cond), std::move(Then), nullptr);
+                                    std::move(Cond), std::move(Then),
+                                    /*Else=*/nullptr);
   }
 
   consume(); // else
