@@ -123,6 +123,10 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
   assert(TokIf.kind() == tok_kw_if && "parseExprIf should start with `if`");
   consume(); // if
   assert(LastToken && "LastToken should be set after consume()");
+
+  auto SyncThen = withSync(tok_kw_then);
+  auto SyncElse = withSync(tok_kw_else);
+
   auto Cond = parseExpr();
   if (!Cond) {
     Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "condition");
@@ -136,16 +140,11 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
                                       /*Else=*/nullptr);
   }
 
-  Token TokThen = peek();
-  if (TokThen.kind() != tok_kw_then) {
-    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                       LexerCursorRange{LastToken->rCur()});
-    D << std::string(tok::spelling(tok_kw_then));
-    D.fix("insert `then` keyword")
-        .edit(TextEdit::mkInsertion(TokThen.lCur(), " then"));
+  ExpectResult ExpKwThen = expect(tok_kw_then);
+  if (!ExpKwThen.ok()) {
+    Diagnostic &D = ExpKwThen.diag();
     Note &N = D.note(Note::NK_ToMachThis, TokIf.range());
     N << std::string(tok::spelling(tok_kw_if));
-
     return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                     std::move(Cond), /*Then=*/nullptr,
                                     /*Else=*/nullptr);
@@ -165,18 +164,11 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
                                       /*Else=*/nullptr);
   }
 
-  Token TokElse = peek();
-  if (TokElse.kind() != tok_kw_else) {
-    Diagnostic &D =
-        Diags.emplace_back(Diagnostic::DK_Expected, TokElse.range());
-    D << std::string(tok::spelling(tok_kw_else));
-    D.fix("insert `else` keyword")
-        .edit(TextEdit::mkInsertion(TokElse.lCur(), " else"));
-
+  ExpectResult ExpKwElse = expect(tok_kw_else);
+  if (!ExpKwElse.ok())
     return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                     std::move(Cond), std::move(Then),
                                     /*Else=*/nullptr);
-  }
 
   consume(); // else
 
