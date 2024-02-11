@@ -193,6 +193,8 @@ std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
   consume(); // assert
   assert(LastToken && "LastToken should be set after consume()");
 
+  auto SyncSemi = withSync(tok_semi_colon);
+
   auto Cond = parseExpr();
   if (!Cond) {
     Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "condition");
@@ -205,15 +207,12 @@ std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
           /*Value=*/nullptr);
   }
 
-  Token TokSemiColon = peek();
-  if (TokSemiColon.kind() != tok_semi_colon) {
+  ExpectResult ExpSemi = expect(tok_semi_colon);
+  if (!ExpSemi.ok()) {
     // missing ';'
-    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
-                                       LexerCursorRange{LastToken->rCur()});
-    D << std::string(tok::spelling(tok_semi_colon));
+    Diagnostic &D = ExpSemi.diag();
     Note &N = D.note(Note::NK_ToMachThis, TokAssert.range());
     N << std::string(tok::spelling(tok_kw_assert));
-
     return std::make_unique<ExprAssert>(
         LexerCursorRange{LCur, LastToken->rCur()}, std::move(Cond),
         /*Value=*/nullptr);
