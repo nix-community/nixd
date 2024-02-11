@@ -39,5 +39,6 @@ EXPR(ExprList)
 EXPR(ExprLambda)
 EXPR(ExprBinOp)
 EXPR(ExprUnaryOp)
+EXPR(ExprIf)
 
 #endif // EXPR

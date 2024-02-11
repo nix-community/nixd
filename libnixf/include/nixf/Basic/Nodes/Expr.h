@@ -88,4 +88,24 @@ public:
   }
 };
 
+class ExprIf : public Expr {
+  std::unique_ptr<Expr> Cond;
+  std::unique_ptr<Expr> Then;
+  std::unique_ptr<Expr> Else;
+
+public:
+  ExprIf(LexerCursorRange Range, std::unique_ptr<Expr> Cond,
+         std::unique_ptr<Expr> Then, std::unique_ptr<Expr> Else)
+      : Expr(NK_ExprIf, Range), Cond(std::move(Cond)), Then(std::move(Then)),
+        Else(std::move(Else)) {}
+
+  [[nodiscard]] Expr *cond() const { return Cond.get(); }
+  [[nodiscard]] Expr *then() const { return Then.get(); }
+  [[nodiscard]] Expr *elseExpr() const { return Else.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {Cond.get(), Then.get(), Else.get()};
+  }
+};
+
 } // namespace nixf
