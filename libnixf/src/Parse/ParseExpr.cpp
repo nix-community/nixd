@@ -110,6 +110,8 @@ std::unique_ptr<Expr> Parser::parseExpr() {
   } // case tok_l_curly
   case tok_kw_if:
     return parseExprIf();
+  case tok_kw_assert:
+    return parseExprAssert();
   default:
     break;
   }
@@ -182,6 +184,50 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
   return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                   std::move(Cond), std::move(Then),
                                   std::move(Else));
+}
+
+std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
+  LexerCursor LCur = lCur();
+  Token TokAssert = peek();
+  assert(TokAssert.kind() == tok_kw_assert && "should be tok_kw_assert");
+  consume(); // assert
+  assert(LastToken && "LastToken should be set after consume()");
+
+  auto Cond = parseExpr();
+  if (!Cond) {
+    Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "condition");
+    D.fix("remove `assert` keyword")
+        .edit(TextEdit::mkRemoval(TokAssert.range()));
+
+    if (peek().kind() != tok_colon)
+      return std::make_unique<ExprAssert>(
+          LexerCursorRange{LCur, LastToken->rCur()}, std::move(Cond),
+          /*Value=*/nullptr);
+  }
+
+  Token TokSemiColon = peek();
+  if (TokSemiColon.kind() != tok_semi_colon) {
+    // missing ';'
+    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_Expected,
+                                       LexerCursorRange{LastToken->rCur()});
+    D << std::string(tok::spelling(tok_semi_colon));
+    Note &N = D.note(Note::NK_ToMachThis, TokAssert.range());
+    N << std::string(tok::spelling(tok_kw_assert));
+
+    return std::make_unique<ExprAssert>(
+        LexerCursorRange{LCur, LastToken->rCur()}, std::move(Cond),
+        /*Value=*/nullptr);
+  }
+
+  consume(); // ;
+
+  auto Value = parseExpr();
+
+  if (!Value)
+    diagNullExpr(Diags, LastToken->rCur(), "assert value");
+
+  return std::make_unique<ExprAssert>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(Cond), std::move(Value));
 }
 
 } // namespace nixf
