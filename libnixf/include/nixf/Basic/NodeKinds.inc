@@ -40,5 +40,6 @@ EXPR(ExprLambda)
 EXPR(ExprBinOp)
 EXPR(ExprUnaryOp)
 EXPR(ExprIf)
+EXPR(ExprAssert)
 
 #endif // EXPR

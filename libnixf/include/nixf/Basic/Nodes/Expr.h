@@ -108,4 +108,22 @@ public:
   }
 };
 
+class ExprAssert : public Expr {
+  std::unique_ptr<Expr> Cond;
+  std::unique_ptr<Expr> Value; // If "cond" is true, then "value" is returned.
+
+public:
+  ExprAssert(LexerCursorRange Range, std::unique_ptr<Expr> Cond,
+             std::unique_ptr<Expr> Value)
+      : Expr(NK_ExprAssert, Range), Cond(std::move(Cond)),
+        Value(std::move(Value)) {}
+
+  [[nodiscard]] Expr *cond() const { return Cond.get(); }
+  [[nodiscard]] Expr *value() const { return Value.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {Cond.get(), Value.get()};
+  }
+};
+
 } // namespace nixf

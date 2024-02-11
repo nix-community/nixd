@@ -31,6 +31,7 @@ class Formals;
 class LambdaArg;
 class ExprLambda;
 class ExprIf;
+class ExprAssert;
 
 namespace detail {
 
@@ -329,6 +330,12 @@ public:
   /// expr_if : 'if' expr 'then' expr 'else' expr
   /// \endcode
   std::unique_ptr<ExprIf> parseExprIf();
+
+  /// \code
+  /// expr_assert : 'assert' expr ';' expr
+  /// \endcode
+  std::unique_ptr<ExprAssert> parseExprAssert();
+
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
 

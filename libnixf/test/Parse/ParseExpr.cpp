@@ -255,4 +255,24 @@ TEST(Parser, ExprIf) {
   ASSERT_EQ(If.elseExpr()->kind(), Node::NK_ExprString);
 }
 
+TEST(Parser, ExprAssert) {
+  // assert ... ; ...
+  auto Src = R"(assert 1; "d")"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAssert);
+
+  ASSERT_TRUE(AST->lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->rCur().isAt(0, 13, 13));
+
+  ExprAssert &Assert = *static_cast<ExprAssert *>(AST.get());
+
+  ASSERT_EQ(Assert.cond()->kind(), Node::NK_ExprInt);
+  ASSERT_EQ(Assert.value()->kind(), Node::NK_ExprString);
+}
+
 } // namespace
