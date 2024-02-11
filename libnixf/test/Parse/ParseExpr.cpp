@@ -234,4 +234,25 @@ TEST(Parser, ExprDispatch_r_curly_id_ellipsis) {
   ASSERT_EQ(AST->kind(), Node::NK_ExprLambda);
 }
 
+TEST(Parser, ExprIf) {
+  // if ... then ... else ...
+  auto Src = R"(if 1 then cc else "d")"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprIf);
+
+  ASSERT_TRUE(AST->lCur().isAt(0, 0, 0));
+  ASSERT_TRUE(AST->rCur().isAt(0, 21, 21));
+
+  ExprIf &If = *static_cast<ExprIf *>(AST.get());
+
+  ASSERT_EQ(If.cond()->kind(), Node::NK_ExprInt);
+  ASSERT_EQ(If.then()->kind(), Node::NK_ExprVar);
+  ASSERT_EQ(If.elseExpr()->kind(), Node::NK_ExprString);
+}
+
 } // namespace
