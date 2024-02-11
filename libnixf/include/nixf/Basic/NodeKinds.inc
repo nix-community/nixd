@@ -41,5 +41,6 @@ EXPR(ExprBinOp)
 EXPR(ExprUnaryOp)
 EXPR(ExprIf)
 EXPR(ExprAssert)
+EXPR(ExprLet)
 
 #endif // EXPR

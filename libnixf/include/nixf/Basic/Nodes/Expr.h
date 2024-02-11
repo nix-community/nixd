@@ -126,4 +126,31 @@ public:
   }
 };
 
+class ExprLet : public Expr {
+  // 'let' binds 'in' expr
+
+  std::unique_ptr<Misc> KwLet; // 'let', not null
+  std::unique_ptr<Binds> B;
+  std::unique_ptr<Misc> KwIn;
+  std::unique_ptr<Expr> E;
+
+public:
+  ExprLet(LexerCursorRange Range, std::unique_ptr<Misc> KwLet,
+          std::unique_ptr<Binds> B, std::unique_ptr<Misc> KwIn,
+          std::unique_ptr<Expr> E)
+      : Expr(NK_ExprLet, Range), KwLet(std::move(KwLet)), B(std::move(B)),
+        KwIn(std::move(KwIn)), E(std::move(E)) {
+    assert(this->KwLet && "KwLet should not be empty!");
+  }
+
+  [[nodiscard]] Binds *binds() const { return B.get(); }
+  [[nodiscard]] Expr *expr() const { return E.get(); }
+  [[nodiscard]] Misc &let() const { return *KwLet; }
+  [[nodiscard]] Misc *in() const { return KwIn.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {KwLet.get(), B.get(), KwIn.get(), E.get()};
+  }
+};
+
 } // namespace nixf
