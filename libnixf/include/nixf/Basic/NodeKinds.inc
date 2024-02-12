@@ -43,5 +43,6 @@ EXPR(ExprOpHasAttr)
 EXPR(ExprIf)
 EXPR(ExprAssert)
 EXPR(ExprLet)
+EXPR(ExprWith)
 
 #endif // EXPR

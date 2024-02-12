@@ -97,6 +97,7 @@ std::unique_ptr<Expr> Parser::parseExpr() {
       case tok_comma:    // { a ,
       case tok_id:       // { a b
       case tok_ellipsis: // { a ...
+      case tok_r_curly:
         return parseExprLambda();
       default:
         break;
@@ -116,6 +117,8 @@ std::unique_ptr<Expr> Parser::parseExpr() {
     if (peek(1).kind() != tok_l_curly)
       return parseExprLet();
     break;
+  case tok_kw_with:
+    return parseExprWith();
   default:
     break;
   }
@@ -269,6 +272,40 @@ std::unique_ptr<ExprLet> Parser::parseExprLet() {
   return std::make_unique<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
                                    std::move(Let), std::move(Binds),
                                    std::move(In), std::move(E));
+}
+
+std::unique_ptr<ExprWith> Parser::parseExprWith() {
+  LexerCursor LCur = lCur();
+  Token TokWith = peek();
+  assert(TokWith.kind() == tok_kw_with && "token should be tok_kw_with");
+
+  consume(); // with
+  assert(LastToken && "LastToken should be set after consume()");
+
+  auto SyncSemi = withSync(tok_semi_colon);
+
+  auto With = parseExpr();
+
+  if (!With)
+    diagNullExpr(Diags, LastToken->rCur(), "with expression");
+
+  ExpectResult ExpSemi = expect(tok_semi_colon);
+  if (!ExpSemi.ok()) {
+    ExpSemi.diag().note(Note::NK_ToMachThis, TokWith.range())
+        << std::string(tok::spelling(tok_kw_with));
+    return std::make_unique<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(With), /*E=*/nullptr);
+  }
+
+  consume(); // ;
+
+  auto E = parseExpr();
+
+  if (!E)
+    diagNullExpr(Diags, LastToken->rCur(), "with body");
+
+  return std::make_unique<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
+                                    std::move(With), std::move(E));
 }
 
 } // namespace nixf
