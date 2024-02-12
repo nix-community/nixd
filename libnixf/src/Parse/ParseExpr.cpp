@@ -104,6 +104,8 @@ std::unique_ptr<Expr> Parser::parseExpr() {
       }
       break;
     }
+    case tok_ellipsis: // { ...
+      return parseExprLambda();
     default:
       break;
     }

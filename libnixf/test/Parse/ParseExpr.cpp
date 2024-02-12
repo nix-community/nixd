@@ -234,6 +234,19 @@ TEST(Parser, ExprDispatch_r_curly_id_ellipsis) {
   ASSERT_EQ(AST->kind(), Node::NK_ExprLambda);
 }
 
+TEST(Parser, ExprDispatch_r_curly_ellipsis) {
+  // { ...
+  auto Src = R"({ ... } : 1)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprLambda);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 TEST(Parser, ExprIf) {
   // if ... then ... else ...
   auto Src = R"(if 1 then cc else "d")"sv;
