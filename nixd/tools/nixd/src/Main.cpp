@@ -77,7 +77,10 @@ int main(int argc, char *argv[]) {
 
   auto Out = std::make_unique<lspserver::OutboundPort>(PrettyPrint);
 
-  nixd::runController(std::move(In), std::move(Out));
+  auto Controller =
+      std::make_unique<nixd::Controller>(std::move(In), std::move(Out));
+
+  Controller->run();
 
   return 0;
 }
