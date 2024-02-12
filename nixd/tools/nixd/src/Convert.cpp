@@ -1,0 +1,45 @@
+#include "Convert.h"
+
+using namespace lspserver;
+
+namespace nixd {
+
+int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
+  switch (nixf::Diagnostic::severity(Kind)) {
+  case nixf::Diagnostic::DS_Fatal:
+  case nixf::Diagnostic::DS_Error:
+    return 1;
+  case nixf::Diagnostic::DS_Warning:
+    return 2;
+  }
+  assert(false && "Invalid severity");
+  __builtin_unreachable();
+}
+
+lspserver::Position toLSPPosition(const nixf::LexerCursor &P) {
+  return lspserver::Position{static_cast<int>(P.line()),
+                             static_cast<int>(P.column())};
+}
+
+lspserver::Range toLSPRange(const nixf::LexerCursorRange &R) {
+  return lspserver::Range{toLSPPosition(R.lCur()), toLSPPosition(R.rCur())};
+}
+
+llvm::SmallVector<lspserver::DiagnosticTag, 1>
+toLSPTags(const std::vector<nixf::DiagnosticTag> &Tags) {
+  llvm::SmallVector<lspserver::DiagnosticTag, 1> Result;
+  Result.reserve(Tags.size());
+  for (const nixf::DiagnosticTag &Tag : Tags) {
+    switch (Tag) {
+    case nixf::DiagnosticTag::Faded:
+      Result.emplace_back(DiagnosticTag::Unnecessary);
+      break;
+    case nixf::DiagnosticTag::Striked:
+      Result.emplace_back(DiagnosticTag::Deprecated);
+      break;
+    }
+  }
+  return Result;
+}
+
+} // namespace nixd
