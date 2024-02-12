@@ -8,9 +8,11 @@
 
 # WIP Note 🚧
 
-This branch (`nixd-next`) is still WIP! Please see https://github.com/nix-community/nixd/issues/283 for the migration plan.
+`nixd-next` is still WIP! Please see https://github.com/nix-community/nixd/issues/283 for the migration plan.
 
-The [main](https://github.com/nix-community/nixd/tree/main) branch contains stable nixd codes.
+[Released versions](https://github.com/nix-community/nixd/releases/) contain stable nixd code. If you encountered any problem with this nightly version, please use to our released version in nixpkgs.
+
+The following description is suitable for stable releases, but outdated for `nixd-next` (i.e. this version).
 
 ## About
 
