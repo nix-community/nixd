@@ -27,4 +27,19 @@ TEST(Parser, ExprOp) {
   ASSERT_EQ(BinOp.lhs()->kind(), Node::NK_ExprBinOp);
 }
 
+TEST(Parser, UnaryOp) {
+  auto Src = R"(!stdenv.isDarwin)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprUnaryOp);
+  auto &UnaryOp = *static_cast<ExprUnaryOp *>(AST.get());
+
+  ASSERT_EQ(UnaryOp.expr()->kind(), Node::NK_ExprSelect);
+}
+
 } // namespace

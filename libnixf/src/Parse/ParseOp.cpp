@@ -78,6 +78,7 @@ namespace nixf {
 
 std::unique_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
   std::unique_ptr<Expr> Prefix;
+  LexerCursor LCur = lCur();
   switch (Token Tok = peek(); Tok.kind()) {
   case tok_op_not:
   case tok_op_negate: {
@@ -88,11 +89,17 @@ std::unique_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
     if (!Expr)
       diagNullExpr(Diags, LastToken->rCur(),
                    "unary operator " + std::string(tok::spelling(Tok.kind())));
+    Prefix =
+        std::make_unique<ExprUnaryOp>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(O), std::move(Expr));
     break;
   }
   default:
     Prefix = parseExprApp();
   }
+
+  if (!Prefix)
+    return nullptr;
 
   for (;;) {
     switch (Token Tok = peek(); Tok.kind()) {
