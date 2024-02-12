@@ -2,6 +2,7 @@
 
 #ifdef DIAG_NOTE
 DIAG_NOTE("note-prev", PrevDeclared, "previously declared here")
+DIAG_NOTE("note-duplicate-formal", DuplicateFormal, "duplicated to this formal")
 DIAG_NOTE("merge-diff-rec-this-rec", ThisRecursive,
           "this attribute set is {}recursive")
 DIAG_NOTE("merge-diff-rec-consider", RecConsider,
@@ -9,5 +10,4 @@ DIAG_NOTE("merge-diff-rec-consider", RecConsider,
           "will be considered as {}recursive")
 DIAG_NOTE("note-bcomment-begin", BCommentBegin, "/* comment begins at here")
 DIAG_NOTE("to-match-this", ToMachThis, "to match this {}")
-DIAG_NOTE("declares-at-here", DeclaresAtHere, "{} declares at here")
 #endif // DIAG_NOTE

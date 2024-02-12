@@ -24,20 +24,20 @@ namespace nixf {
 /// 1. Insertions: special `OldRange` that `Begin` == `End`.
 /// 2. Removals:   empty `NewText`.
 class TextEdit {
-  RangeTy OldRange;
+  LexerCursorRange OldRange;
   std::string NewText;
 
 public:
-  TextEdit(RangeTy OldRange, std::string NewText)
+  TextEdit(LexerCursorRange OldRange, std::string NewText)
       : OldRange(OldRange), NewText(std::move(NewText)) {
-    assert(OldRange.begin() != OldRange.end() || !this->NewText.empty());
+    assert(OldRange.lCur() != OldRange.rCur() || !this->NewText.empty());
   }
 
-  static TextEdit mkInsertion(Point P, std::string NewText) {
+  static TextEdit mkInsertion(LexerCursor P, std::string NewText) {
     return {{P, P}, std::move(NewText)};
   }
 
-  static TextEdit mkRemoval(RangeTy RemovingRange) {
+  static TextEdit mkRemoval(LexerCursorRange RemovingRange) {
     return {RemovingRange, ""};
   }
 
@@ -48,10 +48,10 @@ public:
   [[nodiscard]] bool isRemoval() const { return NewText.empty(); }
 
   [[nodiscard]] bool isInsertion() const {
-    return OldRange.begin() == OldRange.end();
+    return OldRange.lCur() == OldRange.rCur();
   }
 
-  [[nodiscard]] RangeTy oldRange() const { return OldRange; }
+  [[nodiscard]] LexerCursorRange oldRange() const { return OldRange; }
   [[nodiscard]] std::string_view newText() const { return NewText; }
 };
 
@@ -72,6 +72,11 @@ public:
   [[nodiscard]] const std::string &message() const { return Message; }
 };
 
+enum class DiagnosticTag {
+  Faded,
+  Striked,
+};
+
 class PartialDiagnostic {
 public:
   [[nodiscard]] virtual const char *message() const = 0;
@@ -87,10 +92,24 @@ public:
 
   [[nodiscard]] const std::vector<std::string> &args() const { return Args; }
 
+  std::vector<std::string> &args() { return Args; }
+
+  void tag(DiagnosticTag Tag) { Tags.push_back(Tag); }
+
+  [[nodiscard]] const std::vector<DiagnosticTag> &tags() const { return Tags; }
+
+  [[nodiscard]] LexerCursorRange range() const { return Range; }
+
 protected:
+  PartialDiagnostic() = default;
+
+  PartialDiagnostic(LexerCursorRange Range) : Range(Range) {}
+
+private:
+  std::vector<DiagnosticTag> Tags;
   std::vector<std::string> Args;
   /// Location of this diagnostic
-  RangeTy Range;
+  LexerCursorRange Range;
 };
 
 class Note : public PartialDiagnostic {
@@ -102,12 +121,17 @@ public:
 #undef DIAG_NOTE
   };
 
-  Note(NoteKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
+  Note(NoteKind Kind, LexerCursorRange Range)
+      : PartialDiagnostic(Range), Kind(Kind) {}
 
   template <class T> PartialDiagnostic &operator<<(const T &Var) {
-    Args.push_back(Var);
+    args().push_back(Var);
     return *this;
   }
+
+  [[nodiscard]] static const char *sname(NoteKind Kind);
+
+  [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 
   NoteKind kind() const { return Kind; }
 
@@ -115,11 +139,8 @@ public:
 
   [[nodiscard]] const char *message() const override { return message(kind()); }
 
-  RangeTy range() const { return Range; }
-
 private:
   NoteKind Kind;
-  RangeTy Range;
 };
 
 /// The super class for all diagnostics.
@@ -143,7 +164,8 @@ public:
 #undef DIAG
   };
 
-  Diagnostic(DiagnosticKind Kind, RangeTy Range) : Kind(Kind), Range(Range) {}
+  Diagnostic(DiagnosticKind Kind, LexerCursorRange Range)
+      : PartialDiagnostic(Range), Kind(Kind) {}
 
   [[nodiscard]] DiagnosticKind kind() const { return Kind; };
 
@@ -162,7 +184,7 @@ public:
 
   [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 
-  Note &note(Note::NoteKind Kind, RangeTy Range) {
+  Note &note(Note::NoteKind Kind, LexerCursorRange Range) {
     return Notes.emplace_back(Kind, Range);
   }
 
@@ -174,12 +196,8 @@ public:
 
   [[nodiscard]] const std::vector<Fix> &fixes() const { return Fixes; }
 
-  [[nodiscard]] RangeTy range() const { return Range; }
-
 private:
   DiagnosticKind Kind;
-  /// Location of this diagnostic
-  RangeTy Range;
 
   std::vector<Note> Notes;
   std::vector<Fix> Fixes;

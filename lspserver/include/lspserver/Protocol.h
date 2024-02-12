@@ -179,6 +179,11 @@ struct Range {
   Range operator/(const Range &RHS) const {
     return {std::min(start, RHS.start), std::max(end, RHS.end)};
   }
+
+  /// \returns true if the ranges overlap.
+  [[nodiscard]] bool overlap(const Range &RHS) const {
+    return start <= RHS.end && RHS.start <= end;
+  }
 };
 bool fromJSON(const llvm::json::Value &, Range &, llvm::json::Path);
 llvm::json::Value toJSON(const Range &);
@@ -586,8 +591,8 @@ struct InitializeParams {
   /// The rootPath of the workspace. Is null
   /// if no folder is open.
   ///
-  /// @deprecated in favour of rootUri.
-  [[deprecated]] std::optional<std::string> rootPath;
+  /// deprecated, in favour of rootUri.
+  std::optional<std::string> rootPath;
 
   /// The rootUri of the workspace. Is null if no
   /// folder is open. If both `rootPath` and `rootUri` are set

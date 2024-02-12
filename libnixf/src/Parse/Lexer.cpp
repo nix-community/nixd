@@ -40,16 +40,16 @@ bool isIdentifierChar(char Ch) {
 using DK = Diagnostic::DiagnosticKind;
 using NK = Note::NoteKind;
 
-std::optional<RangeTy> Lexer::consumePrefix(std::string_view Prefix) {
-  Point Begin = cur();
+std::optional<LexerCursorRange> Lexer::consumePrefix(std::string_view Prefix) {
+  LexerCursor Begin = cur();
   if (peekPrefix(Prefix)) {
     consume(Prefix.length());
-    return RangeTy{Begin, cur()};
+    return LexerCursorRange{Begin, cur()};
   }
   return std::nullopt;
 }
 
-std::optional<RangeTy> Lexer::consumeManyOf(std::string_view Chars) {
+std::optional<LexerCursorRange> Lexer::consumeManyOf(std::string_view Chars) {
   if (eof())
     return std::nullopt;
   if (Chars.find(peekUnwrap()) != std::string_view::npos) {
@@ -57,7 +57,7 @@ std::optional<RangeTy> Lexer::consumeManyOf(std::string_view Chars) {
     while (Chars.find(peekUnwrap()) != std::string_view::npos) {
       consume();
     }
-    return RangeTy{Start, Cur};
+    return LexerCursorRange{Start, Cur};
   }
   return std::nullopt;
 }
@@ -83,7 +83,7 @@ bool Lexer::consumeOne(char C) {
   return false;
 }
 
-std::optional<RangeTy> Lexer::consumeManyPathChar() {
+std::optional<LexerCursorRange> Lexer::consumeManyPathChar() {
   if (eof())
     return std::nullopt;
   if (auto Ch = peek(); Ch && isPathChar(*Ch)) {
@@ -92,7 +92,7 @@ std::optional<RangeTy> Lexer::consumeManyPathChar() {
       consume();
       Ch = peek();
     } while (Ch && isPathChar(*Ch));
-    return RangeTy{Start, Cur};
+    return LexerCursorRange{Start, Cur};
   }
   return std::nullopt;
 }
@@ -118,13 +118,13 @@ bool Lexer::consumeWhitespaces() {
 bool Lexer::consumeComments() {
   if (eof())
     return false;
-  if (std::optional<RangeTy> BeginRange = consumePrefix("/*")) {
+  if (std::optional<LexerCursorRange> BeginRange = consumePrefix("/*")) {
     // Consume block comments until we meet '*/'
     while (true) {
       if (eof()) {
         // There is no '*/' to terminate comments
-        Diagnostic &Diag =
-            Diags.emplace_back(DK::DK_UnterminatedBComment, RangeTy{cur()});
+        Diagnostic &Diag = Diags.emplace_back(DK::DK_UnterminatedBComment,
+                                              LexerCursorRange{cur()});
         Diag.note(NK::NK_BCommentBegin, *BeginRange);
         Diag.fix("insert */").edit(TextEdit::mkInsertion(cur(), "*/"));
         return true;
@@ -202,7 +202,7 @@ void Lexer::lexNumbers() {
     consumeManyDigits();
     lexFloatExp();
     // Checking that if the float token has leading zeros.
-    std::string_view Prefix = Src.substr(Ch->begin().Offset, 2);
+    std::string_view Prefix = Src.substr(Ch->lCur().Offset, 2);
     if (Prefix.starts_with("0") && Prefix != "0.")
       Diags.emplace_back(DK::DK_FloatLeadingZero, *Ch) << std::string(Prefix);
   } else {
@@ -219,7 +219,7 @@ bool Lexer::consumePathStart() {
   // Path, starts with any valid path char, and must contain slashs
   // Here, we look ahead characters, the must be valid path char
   // And also check if it contains a slash.
-  Point Saved = cur();
+  LexerCursor Saved = cur();
 
   // {PATH_CHAR}*
   consumeManyPathChar();
@@ -246,7 +246,7 @@ bool Lexer::consumeURI() {
   // [a-zA-Z][a-zA-Z0-9\+\-\.]*\:[a-zA-Z0-9\%\/\?\:\@\&\=\+\$\,\-\_\.\!\~\*\']+
   //
 
-  Point Saved = cur();
+  LexerCursor Saved = cur();
   // URI, starts with any valid URI scheme char, and must contain a colon
   // Here, we look ahead characters, the must be valid path char
   // And also check if it contains a colon.
@@ -286,7 +286,7 @@ void Lexer::maybeKW() {
     Tok = tok_kw_##NAME;                                                       \
     return;                                                                    \
   }
-#include "TokenKinds.inc"
+#include "nixf/Basic/TokenKinds.inc"
 #undef TOK_KEYWORD
 }
 

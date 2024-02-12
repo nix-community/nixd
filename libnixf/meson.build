@@ -1,12 +1,20 @@
-libnixf_deps = [ ]
+libnixf_deps = [ boost ]
 
 libnixf_inc = include_directories('include')
 
 libnixf = library(
     'nixf',
+    'src/Basic/Nodes.cpp',
     'src/Basic/Diagnostic.cpp',
     'src/Parse/Lexer.cpp',
-    'src/Parse/Parser.cpp',
+    'src/Parse/ParseAttrs.cpp',
+    'src/Parse/ParseExpr.cpp',
+    'src/Parse/ParseLambda.cpp',
+    'src/Parse/ParseOp.cpp',
+    'src/Parse/ParseSimple.cpp',
+    'src/Parse/ParseStrings.cpp',
+    'src/Parse/ParseSupport.cpp',
+    'src/Sema/Lowering.cpp',
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
@@ -29,6 +37,7 @@ nixf = declare_dependency(
 test('unit/libnixf/Basic',
     executable('unit-libnixf-basic',
         'test/Basic/Diagnostic.cpp',
+        'test/Basic/Nodes.cpp',
         dependencies: [ nixf, gtest_main ],
     )
 )
@@ -36,9 +45,21 @@ test('unit/libnixf/Basic',
 test('unit/libnixf/Parse',
     executable('unit-libnixf-parse',
         'test/Parse/Lexer.cpp',
-        'test/Parse/Parser.cpp',
+        'test/Parse/ParseAttrs.cpp',
+        'test/Parse/ParseExpr.cpp',
+        'test/Parse/ParseLambda.cpp',
+        'test/Parse/ParseOp.cpp',
+        'test/Parse/ParseSimple.cpp',
         dependencies: [ nixf, gtest_main ],
         include_directories: [ 'src/Parse' ] # Private headers
+    )
+)
+
+test('unit/libnixf/Sema',
+    executable('unit-libnixf-sema',
+        'test/Sema/Lowering.cpp',
+        dependencies: [ nixf, gtest_main ],
+        include_directories: [ 'src/Sema' ] # Private headers
     )
 )
 

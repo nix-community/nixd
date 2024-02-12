@@ -24,6 +24,18 @@ std::string simpleFormat(const char *Fmt,
 
 namespace nixf {
 
+const char *nixf::Note::sname(NoteKind Kind) {
+  switch (Kind) {
+#define DIAG_NOTE(SNAME, CNAME, MESSAGE)                                       \
+  case NK_##CNAME:                                                             \
+    return SNAME;
+#include "nixf/Basic/NoteKinds.inc"
+#undef DIAG_NOTE
+  }
+  assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
+}
+
 nixf::Diagnostic::Severity nixf::Diagnostic::severity(DiagnosticKind Kind) {
   switch (Kind) {
 #define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
@@ -32,6 +44,8 @@ nixf::Diagnostic::Severity nixf::Diagnostic::severity(DiagnosticKind Kind) {
 #include "nixf/Basic/DiagnosticKinds.inc"
 #undef DIAG
   }
+  assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 const char *nixf::Diagnostic::message(DiagnosticKind Kind) {
   switch (Kind) {
@@ -41,6 +55,8 @@ const char *nixf::Diagnostic::message(DiagnosticKind Kind) {
 #include "nixf/Basic/DiagnosticKinds.inc"
 #undef DIAG
   }
+  assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 const char *nixf::Diagnostic::sname(DiagnosticKind Kind) {
   switch (Kind) {
@@ -50,6 +66,8 @@ const char *nixf::Diagnostic::sname(DiagnosticKind Kind) {
 #include "nixf/Basic/DiagnosticKinds.inc"
 #undef DIAG
   }
+  assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 const char *nixf::Note::message(NoteKind Kind) {
   switch (Kind) {
@@ -59,6 +77,8 @@ const char *nixf::Note::message(NoteKind Kind) {
 #include "nixf/Basic/NoteKinds.inc"
 #undef DIAG_NOTE
   }
+  assert(false && "Invalid diagnostic kind");
+  __builtin_unreachable();
 }
 
 std::string PartialDiagnostic::format() const {

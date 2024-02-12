@@ -20,35 +20,23 @@
 
 <-- textDocument/didOpen
 
-Testing this nix file:
-
-```nix
-let
-  pkgs = {
-    a = 1;
-  };
-in
-with pkgs;
-
-a
-```
-
 ```json
 {
    "jsonrpc":"2.0",
    "method":"textDocument/didOpen",
    "params":{
       "textDocument":{
-         "uri":"file:///with.nix",
+         "uri":"file:///basic.nix",
          "languageId":"nix",
          "version":1,
-         "text":"let\n  pkgs = {\n    a = 1;\n  };\nin\nwith pkgs;\n\na\n\n"
+         "text":"{ a = 1; }"
       }
    }
 }
 ```
 
-<-- textDocument/hover
+<-- textDocument/hover(1)
+
 
 ```json
 {
@@ -57,16 +45,15 @@ a
    "method":"textDocument/hover",
    "params":{
       "textDocument":{
-         "uri":"file:///with.nix"
+         "uri":"file:///basic.nix"
       },
       "position":{
-         "line":7,
-         "character":0
+         "line":0,
+         "character":2
       }
    }
 }
 ```
-
 
 ```
      CHECK:  "id": 1,
@@ -74,7 +61,58 @@ CHECK-NEXT:  "jsonrpc": "2.0",
 CHECK-NEXT:  "result": {
 CHECK-NEXT:    "contents": {
 CHECK-NEXT:      "kind": "markdown",
-CHECK-NEXT:      "value": "## ExprVar \n Value: `1`"
+CHECK-NEXT:      "value": "`Identifer`"
+CHECK-NEXT:    },
+CHECK-NEXT:    "range": {
+CHECK-NEXT:      "end": {
+CHECK-NEXT:        "character": 3,
+CHECK-NEXT:        "line": 0
+CHECK-NEXT:      },
+CHECK-NEXT:      "start": {
+CHECK-NEXT:        "character": 2,
+CHECK-NEXT:        "line": 0
+CHECK-NEXT:      }
+CHECK-NEXT:    }
+CHECK-NEXT:  }
+```
+
+<-- textDocument/hover(2)
+
+
+```json
+{
+   "jsonrpc":"2.0",
+   "id":2,
+   "method":"textDocument/hover",
+   "params":{
+      "textDocument":{
+         "uri":"file:///basic.nix"
+      },
+      "position":{
+         "line":0,
+         "character":4
+      }
+   }
+}
+```
+
+```
+     CHECK:  "id": 2,
+CHECK-NEXT:  "jsonrpc": "2.0",
+CHECK-NEXT:  "result": {
+CHECK-NEXT:    "contents": {
+CHECK-NEXT:      "kind": "markdown",
+CHECK-NEXT:      "value": "`Binding`"
+CHECK-NEXT:    },
+CHECK-NEXT:    "range": {
+CHECK-NEXT:      "end": {
+CHECK-NEXT:        "character": 8,
+CHECK-NEXT:        "line": 0
+CHECK-NEXT:      },
+CHECK-NEXT:      "start": {
+CHECK-NEXT:        "character": 2,
+CHECK-NEXT:        "line": 0
+CHECK-NEXT:      }
 CHECK-NEXT:    }
 CHECK-NEXT:  }
 ```

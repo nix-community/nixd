@@ -33,6 +33,7 @@
             export NIX_DEBUG_INFO_DIRS=${nix.debug}/lib/debug
             export NIX_SRC=${nix.src}
           '';
+          hardeningDisable = [ "fortify" ];
         };
       in
       {

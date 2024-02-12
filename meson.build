@@ -25,10 +25,31 @@ cpp = meson.get_compiler('cpp')
 add_project_arguments([
   '-I' + meson.project_build_root(),
   cpp.get_supported_arguments(
-     '-Werror=documentation'
+     '-Werror=documentation',
+     '-Werror=delete-non-abstract-non-virtual-dtor',
+     '-Werror=pragma-once-outside-header',
+     '-Wno-unused-parameter',
+     '-Wno-missing-field-initializers',
   ),
 ], language: 'cpp')
 
+if get_option('buildtype').startswith('debug')
+  add_project_arguments([
+    cpp.get_supported_arguments(
+      '-Werror=return-type',
+    ),
+  ], language: 'cpp')
+endif
+
+if get_option('buildtype').startswith('release')
+  add_project_arguments([
+    cpp.get_supported_arguments(
+      '-Wno-return-type',
+      '-Wno-maybe-uninitialized',
+      '-Wno-unused-variable',
+    ),
+  ], language: 'cpp')
+endif
 
 
 gtest = dependency('gtest')
@@ -47,4 +68,3 @@ subdir('lspserver')
 subdir('libnixf')
 subdir('libnixt')
 subdir('nixd')
-subdir('nixd-next')
