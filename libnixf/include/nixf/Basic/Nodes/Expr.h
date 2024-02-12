@@ -153,4 +153,21 @@ public:
   }
 };
 
+class ExprWith : public Expr {
+  std::unique_ptr<Expr> With;
+  std::unique_ptr<Expr> E;
+
+public:
+  ExprWith(LexerCursorRange Range, std::unique_ptr<Expr> With,
+           std::unique_ptr<Expr> E)
+      : Expr(NK_ExprWith, Range), With(std::move(With)), E(std::move(E)) {}
+
+  [[nodiscard]] Expr *with() const { return With.get(); }
+  [[nodiscard]] Expr *expr() const { return E.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {With.get(), E.get()};
+  }
+};
+
 } // namespace nixf

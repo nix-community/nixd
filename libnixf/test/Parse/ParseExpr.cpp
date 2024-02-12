@@ -302,4 +302,31 @@ TEST(Parser, ExprLet_Binds) {
   ASSERT_FALSE(static_cast<ExprLet *>(AST.get())->binds());
 }
 
+TEST(Parser, ExprWith_Ok) {
+  auto Src = R"(with 1; 1)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprWith);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, ExprWith_NoExpr) {
+  auto Src = R"(with 1;)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprWith);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_Expected);
+}
+
 } // namespace

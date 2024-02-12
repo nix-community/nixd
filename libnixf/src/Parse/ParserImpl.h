@@ -33,6 +33,7 @@ class ExprLambda;
 class ExprIf;
 class ExprAssert;
 class ExprLet;
+class ExprWith;
 
 namespace detail {
 
@@ -341,6 +342,11 @@ public:
   /// epxr_let : 'let' binds 'in' expr
   /// \endcode
   std::unique_ptr<ExprLet> parseExprLet();
+
+  /// \code
+  /// expr_with :  'with' expr ';' expr
+  /// \endcode
+  std::unique_ptr<ExprWith> parseExprWith();
 
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };
