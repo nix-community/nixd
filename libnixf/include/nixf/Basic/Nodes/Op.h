@@ -2,6 +2,7 @@
 
 #include "Basic.h"
 
+#include "nixf/Basic/Nodes/Attrs.h"
 #include "nixf/Basic/TokenKinds.h"
 
 #include <memory>
@@ -50,6 +51,24 @@ public:
 
   [[nodiscard]] ChildVector children() const override {
     return {&op(), LHS.get(), RHS.get()};
+  }
+};
+
+class ExprOpHasAttr : public ExprOp {
+  std::unique_ptr<Expr> E;
+  std::unique_ptr<AttrPath> Path;
+
+public:
+  ExprOpHasAttr(LexerCursorRange Range, std::unique_ptr<Op> O,
+                std::unique_ptr<Expr> E, std::unique_ptr<AttrPath> Path)
+      : ExprOp(NK_ExprOpHasAttr, Range, std::move(O)), E(std::move(E)),
+        Path(std::move(Path)) {}
+
+  [[nodiscard]] Expr *expr() const { return E.get(); }
+  [[nodiscard]] AttrPath *attrpath() const { return Path.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {E.get(), Path.get()};
   }
 };
 

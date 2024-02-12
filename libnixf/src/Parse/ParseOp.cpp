@@ -132,6 +132,18 @@ std::unique_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
                                              std::move(Prefix), std::move(RHS));
         break;
       }
+    case tok_question: {
+      // expr_op '?' attrpath
+      consume();
+      assert(LastToken && "consume() should have set LastToken");
+      auto O = std::make_unique<Op>(Tok.range(), Tok.kind());
+
+      std::unique_ptr<AttrPath> Path = parseAttrPath();
+      LexerCursorRange Range{Prefix->lCur(), LastToken->rCur()};
+      Prefix = std::make_unique<ExprOpHasAttr>(
+          Range, std::move(O), std::move(Prefix), std::move(Path));
+      break;
+    }
     default:
       return Prefix;
     }
