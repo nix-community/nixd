@@ -32,6 +32,7 @@ class LambdaArg;
 class ExprLambda;
 class ExprIf;
 class ExprAssert;
+class ExprLet;
 
 namespace detail {
 
@@ -335,6 +336,11 @@ public:
   /// expr_assert : 'assert' expr ';' expr
   /// \endcode
   std::unique_ptr<ExprAssert> parseExprAssert();
+
+  /// \code
+  /// epxr_let : 'let' binds 'in' expr
+  /// \endcode
+  std::unique_ptr<ExprLet> parseExprLet();
 
   std::unique_ptr<Expr> parse() { return parseExpr(); }
 };

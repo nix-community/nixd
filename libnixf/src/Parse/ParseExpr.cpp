@@ -112,6 +112,10 @@ std::unique_ptr<Expr> Parser::parseExpr() {
     return parseExprIf();
   case tok_kw_assert:
     return parseExprAssert();
+  case tok_kw_let:
+    if (peek(1).kind() != tok_l_curly)
+      return parseExprLet();
+    break;
   default:
     break;
   }
@@ -227,6 +231,44 @@ std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
 
   return std::make_unique<ExprAssert>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), std::move(Value));
+}
+
+std::unique_ptr<ExprLet> Parser::parseExprLet() {
+  LexerCursor LCur = lCur();
+  Token TokLet = peek();
+  assert(TokLet.kind() == tok_kw_let &&
+         "first token should be tok_kw_let in parseExprLet()");
+
+  auto Let = std::make_unique<Misc>(TokLet.range());
+
+  consume(); // 'let'
+
+  auto SyncIn = withSync(tok_kw_in);
+
+  assert(LastToken && "LastToken should be set after consume()");
+
+  auto Binds = parseBinds();
+
+  ExpectResult ExpKwIn = expect(tok_kw_in);
+
+  if (!ExpKwIn.ok())
+    // missing 'in'
+    return std::make_unique<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
+                                     std::move(Let), std::move(Binds),
+                                     /*KwIn=*/nullptr,
+                                     /*E=*/nullptr);
+
+  auto In = std::make_unique<Misc>(ExpKwIn.tok().range());
+
+  consume(); // 'in'
+
+  auto E = parseExpr();
+  if (!E)
+    diagNullExpr(Diags, LastToken->rCur(), "let ... in");
+
+  return std::make_unique<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
+                                   std::move(Let), std::move(Binds),
+                                   std::move(In), std::move(E));
 }
 
 } // namespace nixf
