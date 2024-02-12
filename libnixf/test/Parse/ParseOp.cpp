@@ -42,4 +42,33 @@ TEST(Parser, UnaryOp) {
   ASSERT_EQ(UnaryOp.expr()->kind(), Node::NK_ExprSelect);
 }
 
+TEST(Parser, OpHasAttr) {
+  auto Src = R"(a ? b.c.d)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprOpHasAttr);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, OpHasAttr_empty) {
+  auto Src = R"(a ?)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprOpHasAttr);
+
+  // libnixf accepts emtpy attrpath while parsing.
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
