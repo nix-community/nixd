@@ -1,4 +1,4 @@
-libnixf_deps = [ boost ]
+libnixf_deps = [ boost, libnixbc ]
 
 libnixf_inc = include_directories('include')
 
@@ -15,6 +15,7 @@ libnixf = library(
     'src/Parse/ParseStrings.cpp',
     'src/Parse/ParseSupport.cpp',
     'src/Sema/Lowering.cpp',
+    'src/Serialize/Serialize.cpp',
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
