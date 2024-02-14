@@ -9,6 +9,7 @@ libnixdInc = include_directories('include')
 libnixt = library('nixt',
                   'lib/Deserialize.cpp',
                   'lib/Displacement.cpp',
+                  'lib/HookExpr.cpp',
                   'lib/Kinds.cpp',
                   'lib/ParentMap.cpp',
                   'lib/Serialize.cpp',
