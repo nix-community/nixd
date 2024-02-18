@@ -13,11 +13,8 @@ The entire AST is serialized into into a form similar to [S-expression](https://
 
 ### Node Format
 
-The first field is "Kind", with 4 bytes, and the second field is "Pointer", for furthur references.
-
-
 | Field Name | Byte Size
 |:-:|:-:|
-| Kind | 4
 | Pointer | Pointer Size
+| Kind | 4
 | Payloads | N/A
