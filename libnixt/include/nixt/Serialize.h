@@ -6,9 +6,11 @@
 #include "nixt/ArrayRef.h"
 #include "nixt/PtrPool.h"
 
+#include <nixbc/Type.h>
+
 #include <nix/nixexpr.hh>
 
-namespace nixt::serialize {
+namespace nixt {
 
 //===----------------------------------------------------------------------===//
 // Shared type definitions & constants
@@ -29,19 +31,6 @@ enum class EncodeKind : uint32_t {
   // };
   AttrNameSymbol,
 };
-
-using nix::NixFloat;
-using nix::NixInt;
-
-// Checking for actual type, for ABI compability during nix updates.
-// Because nix language is currently very "stable", this should not easily
-// broken.
-static_assert(std::is_same_v<nix::NixFloat, double>);
-static_assert(std::is_same_v<nix::NixInt, std::int64_t>);
-
-using PosInt = decltype(nix::Pos::line);
-static_assert(std::is_same_v<PosInt, decltype(nix::Pos::column)>);
-static_assert(std::is_same_v<PosInt, uint32_t>); // check for ABI breakage.
 
 /// \brief Header of serialized AST.
 struct ASTHeader {
@@ -101,4 +90,4 @@ template <class T> T consume(BytesRef &Data) {
 nix::Expr *consumeAST(BytesRef &Data, PtrPool<nix::Expr> &Pool,
                       nix::PosTable &PTable, nix::SymbolTable &STable);
 
-} // namespace nixt::serialize
+} // namespace nixt
