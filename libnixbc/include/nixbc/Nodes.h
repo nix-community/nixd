@@ -32,4 +32,9 @@ enum ExprKind : int32_t {
   EK_With,
 };
 
+struct NodeHeader {
+  ExprKind Kind;
+  uintptr_t Handle;
+};
+
 } // namespace nixbc

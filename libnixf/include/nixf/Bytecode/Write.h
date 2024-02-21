@@ -12,6 +12,6 @@
 
 namespace nixf {
 
-void serialize(std::ostream &OS, const Node &N);
+void writeBytecode(std::ostream &OS, const Node &N);
 
 } // namespace nixf

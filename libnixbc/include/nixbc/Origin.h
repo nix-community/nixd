@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bc/Read.h>
+
 #include <cstdint>
 #include <string>
 
@@ -35,6 +37,9 @@ public:
   [[nodiscard]] OriginKind kind() const { return Kind; }
 };
 
+void readBytecode(std::string_view &Data, Origin &Obj);
+void writeBytecode(std::ostream &OS, const Origin &O);
+
 class OriginPath : public Origin {
   std::string Path;
 
@@ -44,5 +49,8 @@ public:
   [[nodiscard]] std::string &path() { return Path; }
   [[nodiscard]] const std::string &path() const { return Path; }
 };
+
+void readBytecode(std::string_view &Data, OriginPath &Obj);
+void writeBytecode(std::ostream &OS, const OriginPath &O);
 
 } // namespace nixbc
