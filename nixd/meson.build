@@ -1,1 +1,2 @@
+subdir('librpc')
 subdir('tools')
