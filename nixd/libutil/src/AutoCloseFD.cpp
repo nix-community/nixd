@@ -1,8 +1,8 @@
-#include "AutoCloseFD.h"
+#include "nixd/util/AutoCloseFD.h"
 
 #include <unistd.h>
 
-namespace nixd {
+namespace nixd::util {
 
 AutoCloseFD::~AutoCloseFD() {
   if (FD != ReleasedFD) [[likely]]
@@ -23,4 +23,4 @@ bool AutoCloseFD::isReleased() const { return isReleased(FD); }
 
 AutoCloseFD::AutoCloseFD(FDTy FD) : FD(FD) {}
 
-} // namespace nixd
+} // namespace nixd::util

@@ -1,6 +1,6 @@
-#include "AutoRemoveShm.h"
+#include "nixd/util/AutoRemoveShm.h"
 
-namespace nixd {
+namespace nixd::util {
 
 AutoRemoveShm::AutoRemoveShm(std::string ShmName,
                              boost::interprocess::offset_t Size)
@@ -11,4 +11,4 @@ AutoRemoveShm::AutoRemoveShm(std::string ShmName,
   Shm.truncate(Size);
 }
 
-} // namespace nixd
+} // namespace nixd::util

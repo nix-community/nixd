@@ -8,11 +8,11 @@
 // stdc++
 #include <memory>
 
-namespace nixd {
+namespace nixd::util {
 
 struct OwnedRegion {
   std::unique_ptr<AutoRemoveShm> Shm;
   std::unique_ptr<boost::interprocess::mapped_region> Region;
 };
 
-} // namespace nixd
+} // namespace nixd::util

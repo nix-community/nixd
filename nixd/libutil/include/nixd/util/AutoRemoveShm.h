@@ -2,7 +2,7 @@
 
 #include <boost/interprocess/shared_memory_object.hpp>
 
-namespace nixd {
+namespace nixd::util {
 
 /// Shared memory object, the object will be removed in dtor.
 class AutoRemoveShm {
@@ -19,4 +19,4 @@ public:
   boost::interprocess::shared_memory_object &get() { return Shm; }
 };
 
-} // namespace nixd
+} // namespace nixd::util

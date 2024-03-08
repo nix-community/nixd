@@ -3,7 +3,7 @@
 #include <cerrno>
 #include <optional>
 
-namespace nixd {
+namespace nixd::util {
 
 /// \brief File Descriptor RAII wrapper
 class AutoCloseFD {
@@ -28,4 +28,4 @@ public:
   void release();
 };
 
-} // namespace nixd
+} // namespace nixd::util
