@@ -1,4 +1,6 @@
 nixd_next = executable('nixd',
+    'src/AutoCloseFD.cpp',
+    'src/AutoRemoveShm.cpp',
     'src/CodeAction.cpp',
     'src/Convert.cpp',
     'src/Diagnostics.cpp',
