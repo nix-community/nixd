@@ -85,13 +85,6 @@ TEST_F(SerializeTest, Origin_String) {
   checkEmpty(Data);
 }
 
-TEST_F(SerializeTest, Origin_Path) {
-  auto Data = encode(nix::CanonPath("/"));
-  check(Data, (std::size_t)3);
-  check(Data, "/"s);
-  checkEmpty(Data);
-}
-
 TEST_F(SerializeTest, ExprInt) {
   auto Data = encode(mkInt(0xdeadbeef).get());
   checkASTHeader(Data);
@@ -122,16 +115,6 @@ TEST_F(SerializeTest, ExprString) {
   checkASTHeader(Data);
   checkTrivialOrigin(Data);
   check(Data, EncodeKind::ExprString);
-  check(Data, "hello"s);
-  checkEmpty(Data);
-}
-
-TEST_F(SerializeTest, ExprPath) {
-  auto EP = std::make_unique<nix::ExprPath>(nix::Path{"hello"});
-  auto Data = encode(EP.get());
-  checkASTHeader(Data);
-  checkTrivialOrigin(Data);
-  check(Data, EncodeKind::ExprPath);
   check(Data, "hello"s);
   checkEmpty(Data);
 }

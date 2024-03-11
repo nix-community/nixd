@@ -12,7 +12,7 @@
     perSystem = { config, self', inputs', pkgs, system, ... }:
       with pkgs;
       let
-        nix = nixVersions.nix_2_16;
+        nix = nixVersions.nix_2_19;
         llvmPackages = llvmPackages_16;
         nixd = callPackage ./default.nix {
           inherit nix;

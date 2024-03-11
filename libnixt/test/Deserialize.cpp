@@ -44,14 +44,14 @@ void checkEmpty(BytesRef &Data) { EXPECT_EQ(lengthof(Data), 0); }
 TEST_F(DeserializeTest, ExprInt) {
   auto Data = encode(mkInt(0xdeadbeef).get());
   auto *E = consumeAST(Data, Pool, PT, ST);
-  EXPECT_EQ(static_cast<nix::ExprInt *>(E)->n, 0xdeadbeef);
+  EXPECT_EQ(static_cast<nix::ExprInt *>(E)->v.integer, 0xdeadbeef);
   checkEmpty(Data);
 }
 
 TEST_F(DeserializeTest, ExprFloat) {
   auto Data = encode(new nix::ExprFloat{3.14});
   auto *E = consumeAST(Data, Pool, PT, ST);
-  EXPECT_EQ(static_cast<nix::ExprFloat *>(E)->nf, 3.14);
+  EXPECT_EQ(static_cast<nix::ExprFloat *>(E)->v.fpoint, 3.14);
   checkEmpty(Data);
 }
 
@@ -59,13 +59,6 @@ TEST_F(DeserializeTest, ExprString) {
   auto Data = encode(new nix::ExprString{"hello"});
   auto *E = consumeAST(Data, Pool, PT, ST);
   EXPECT_EQ(static_cast<nix::ExprString *>(E)->s, "hello"s);
-  checkEmpty(Data);
-}
-
-TEST_F(DeserializeTest, ExprPath) {
-  auto Data = encode(new nix::ExprPath{"hello"});
-  auto *E = consumeAST(Data, Pool, PT, ST);
-  EXPECT_EQ(static_cast<nix::ExprPath *>(E)->s, "hello"s);
   checkEmpty(Data);
 }
 
