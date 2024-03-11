@@ -1,18 +1,20 @@
 #include "nixd/rpc/IO.h"
 
+#include <system_error>
+
 #include <unistd.h>
 
 namespace nixd::rpc {
 
-long readBytes(int FD, void *Buf, std::size_t N) {
-  std::size_t Read = 0;
+size_t readBytes(int FD, void *Buf, std::size_t N) {
+  size_t Read = 0;
   while (Read < N) {
-    auto BytesRead = read(FD, static_cast<char *>(Buf) + Read, N - Read);
+    size_t BytesRead = read(FD, static_cast<char *>(Buf) + Read, N - Read);
     if (BytesRead <= 0)
-      return BytesRead;
+      throw std::system_error(std::make_error_code(std::errc(errno)));
     Read += BytesRead;
   }
-  return static_cast<long>(Read);
+  return Read;
 }
 
 } // namespace nixd::rpc
