@@ -33,13 +33,13 @@ class ASTEncoder {
   void encodeExprInt(const nix::ExprInt *E) {
     assert(E);
     ExprMap[E] = encode(OS, EncodeKind::ExprInt);
-    encode(OS, E->n);
+    encode(OS, E->v.integer);
   }
 
   void encodeExprFloat(const nix::ExprFloat *E) {
     assert(E);
     ExprMap[E] = encode(OS, EncodeKind::ExprFloat);
-    encode(OS, E->nf);
+    encode(OS, E->v.fpoint);
   }
 
   void encodeExprString(const nix::ExprString *E) {

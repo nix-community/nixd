@@ -46,10 +46,6 @@ class ASTDecoder {
     return create<nix::ExprString>(eat<std::string>());
   }
 
-  nix::ExprPath *decodeExprPath() {
-    return create<nix::ExprPath>(eat<nix::Path>());
-  }
-
   nix::ExprVar *decodeExprVar() {
     auto Pos = decodePosIdx();
     auto Name = decodeSymbol();
@@ -76,8 +72,6 @@ public:
       return decodeExprFloat();
     case EncodeKind::ExprString:
       return decodeExprString();
-    case EncodeKind::ExprPath:
-      return decodeExprPath();
     case EncodeKind::ExprVar:
       return decodeExprVar();
     default:
@@ -111,9 +105,6 @@ template <> nix::Pos::Origin consume<nix::Pos::Origin>(BytesRef &Data) {
   case 1:
   case 2:
     return nix::Pos::Stdin{nix::make_ref<std::string>("")};
-    break;
-  case 3:
-    return nix::CanonPath(consume<std::string>(Data));
     break;
   default:
     assert(false && "Unknown origin");
