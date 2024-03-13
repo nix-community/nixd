@@ -17,3 +17,10 @@ libnixdrpc = declare_dependency(
     dependencies: libnixdrpc_deps,
 )
 
+test('unit/nixd/librpc',
+    executable(
+        'unit-nixd-librpc',
+        'test/Transport.cpp',
+        dependencies: [ gtest_main, libnixdrpc ]
+    )
+)

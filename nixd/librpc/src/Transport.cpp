@@ -10,7 +10,7 @@ namespace nixd::rpc {
 
 using MessageSizeT = std::size_t;
 
-void Transport::send(std::string_view Msg) const {
+void send(int OutboundFD, std::string_view Msg) {
   MessageSizeT Size = Msg.size();
   if (write(OutboundFD, &Size, sizeof(MessageSizeT)) < 0)
     throw std::system_error(std::make_error_code(std::errc(errno)));
@@ -18,7 +18,7 @@ void Transport::send(std::string_view Msg) const {
     throw std::system_error(std::make_error_code(std::errc(errno)));
 }
 
-std::vector<char> Transport::recv() const {
+std::vector<char> recv(int InboundFD) {
   MessageSizeT Size;
   readBytes(InboundFD, &Size, sizeof(Size));
 

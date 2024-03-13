@@ -9,24 +9,37 @@
 
 namespace nixd::rpc {
 
+/// \brief Wraps a message with it's length, and then send it.
+void send(int OutboundFD, std::string_view Msg);
+
+/// \brief Wraps a message with it's length, and then send it.
+std::vector<char> recv(int InboundFD);
+
+template <class T> T recvPacket(int InboundFD) {
+  std::vector<char> Buf = recv(InboundFD);
+  T Data;
+  std::string_view D = {Buf.begin(), Buf.end()};
+  readBytecode(D, Data);
+  return Data;
+}
+
+template <class T> void sendPacket(int OutboundFD, const T &Data) {
+  auto Str = bc::toBytecode(Data);
+  send(OutboundFD, Str);
+}
+
 class Transport {
   int InboundFD;
   int OutboundFD;
 
 protected:
   /// \brief Wraps a message with it's length, and then send it.
-  void send(std::string_view Msg) const;
+  void send(std::string_view Msg) const { rpc::send(OutboundFD, Msg); }
 
-  /// \brief Read a message and then forms a packet.
-  [[nodiscard]] std::vector<char> recv() const;
+  /// \brief Wraps a message with it's length, and then send it.
+  [[nodiscard]] std::vector<char> recv() const { return rpc::recv(InboundFD); }
 
-  template <class T> T recvPacket() const {
-    std::vector<char> Buf = recv();
-    T Data;
-    std::string_view D = {Buf.begin(), Buf.end()};
-    readBytecode(D, Data);
-    return Data;
-  }
+  template <class T> T recvPacket() { return rpc::recvPacket<T>(InboundFD); }
 
   template <class T> void sendPacket(const T &Data) {
     auto Str = bc::toBytecode(Data);
