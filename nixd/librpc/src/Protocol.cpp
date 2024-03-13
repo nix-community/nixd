@@ -10,24 +10,24 @@ using bc::writeBytecode;
 
 void writeBytecode(std::ostream &OS, const RegisterBCParams &Params) {
   writeBytecode(OS, Params.Shm);
+  writeBytecode(OS, Params.BasePath);
+  writeBytecode(OS, Params.CachePath);
   writeBytecode(OS, Params.Size);
-  writeBytecode(OS, Params.BCID);
 }
 
 void readBytecode(std::string_view &Data, RegisterBCParams &Params) {
   readBytecode(Data, Params.Shm);
+  readBytecode(Data, Params.BasePath);
+  readBytecode(Data, Params.CachePath);
   readBytecode(Data, Params.Size);
-  readBytecode(Data, Params.BCID);
 }
 
 void writeBytecode(std::ostream &OS, const ExprValueParams &Params) {
   writeBytecode(OS, Params.ExprID);
-  writeBytecode(OS, Params.BCID);
 }
 
 void readBytecode(std::string_view &Data, ExprValueParams &Params) {
   readBytecode(Data, Params.ExprID);
-  readBytecode(Data, Params.BCID);
 }
 
 void writeBytecode(std::ostream &OS, const ExprValueResponse &Params) {

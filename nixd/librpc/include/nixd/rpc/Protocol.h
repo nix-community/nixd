@@ -53,15 +53,15 @@ template <class T> void readBytecode(std::string_view &Data, Message<T> &Msg) {
 
 struct RegisterBCParams {
   std::string Shm;
+  std::string BasePath;
+  std::string CachePath;
   std::size_t Size;
-  std::uintptr_t BCID;
 };
 
 void writeBytecode(std::ostream &OS, const RegisterBCParams &Params);
 void readBytecode(std::string_view &Data, RegisterBCParams &Params);
 
 struct ExprValueParams {
-  std::uintptr_t BCID;
   std::uintptr_t ExprID;
 };
 

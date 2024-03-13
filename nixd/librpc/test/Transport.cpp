@@ -29,12 +29,9 @@ TEST(RPC, MessageEval) {
 
   using DataT = Message<ExprValueParams>;
 
-  sendPacket(Pipes[PIPE_WRITE],
-             DataT{RPCKind::ExprValue, ExprValueParams{1, 2}});
+  sendPacket(Pipes[PIPE_WRITE], DataT{RPCKind::ExprValue, ExprValueParams{2}});
 
   auto Msg = recvPacket<DataT>(Pipes[PIPE_READ]);
-
-  ASSERT_EQ(Msg.Params.BCID, 1);
   ASSERT_EQ(Msg.Params.ExprID, 2);
 }
 
