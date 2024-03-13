@@ -1,6 +1,7 @@
 #include "nixd/rpc/Transport.h"
 #include "nixd/rpc/IO.h"
 
+#include <stdexcept>
 #include <system_error>
 #include <vector>
 
@@ -20,17 +21,24 @@ void send(int OutboundFD, std::string_view Msg) {
 
 std::vector<char> recv(int InboundFD) {
   MessageSizeT Size;
-  readBytes(InboundFD, &Size, sizeof(Size));
+  if (readBytes(InboundFD, &Size, sizeof(MessageSizeT)) <
+      sizeof(MessageSizeT)) {
+    return {};
+  }
 
   // Collect a message
   std::vector<char> Buf(Size);
-  readBytes(InboundFD, Buf.data(), Size);
+  if (readBytes(InboundFD, Buf.data(), Size) < Size) {
+    throw std::runtime_error("in-complete inbound size");
+  }
   return Buf;
 }
 
 int Transport::run() {
   for (;;) {
     std::vector<char> Buf = recv();
+    if (Buf.empty())
+      break;
     handleInbound(Buf);
   }
   return 0;
