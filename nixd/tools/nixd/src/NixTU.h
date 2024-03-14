@@ -1,7 +1,9 @@
 #pragma once
 
+#include "nixd/util/OwnedRegion.h"
+
 #include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Nodes/Basic.h"
 
 namespace nixd {
 
@@ -11,12 +13,15 @@ namespace nixd {
 class NixTU {
   std::vector<nixf::Diagnostic> Diagnostics;
   std::unique_ptr<nixf::Node> AST;
+  std::optional<util::OwnedRegion> ASTByteCode;
 
 public:
   NixTU() = default;
   NixTU(std::vector<nixf::Diagnostic> Diagnostics,
-        std::unique_ptr<nixf::Node> AST)
-      : Diagnostics(std::move(Diagnostics)), AST(std::move(AST)) {}
+        std::unique_ptr<nixf::Node> AST,
+        std::optional<util::OwnedRegion> ASTByteCode)
+      : Diagnostics(std::move(Diagnostics)), AST(std::move(AST)),
+        ASTByteCode(std::move(ASTByteCode)) {}
 
   [[nodiscard]] const std::vector<nixf::Diagnostic> &diagnostics() const {
     return Diagnostics;

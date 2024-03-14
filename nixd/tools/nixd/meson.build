@@ -2,13 +2,14 @@ nixd_next = executable('nixd',
     'src/CodeAction.cpp',
     'src/Convert.cpp',
     'src/Diagnostics.cpp',
+    'src/EvalClient.cpp',
     'src/Hover.cpp',
     'src/LifeTime.cpp',
     'src/Main.cpp',
     'src/Support.cpp',
     'src/TextDocumentSync.cpp',
     install: true,
-    dependencies: [ nixd_lsp_server, nixf, llvm ]
+    dependencies: [ nixd_lsp_server, nixf, llvm, libnixdrpc, libnixdutil ]
 )
 
 

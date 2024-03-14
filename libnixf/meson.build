@@ -1,4 +1,4 @@
-libnixf_deps = [ boost ]
+libnixf_deps = [ boost, libnixbc ]
 
 libnixf_inc = include_directories('include')
 
@@ -6,6 +6,7 @@ libnixf = library(
     'nixf',
     'src/Basic/Nodes.cpp',
     'src/Basic/Diagnostic.cpp',
+    'src/Bytecode/Write.cpp',
     'src/Parse/Lexer.cpp',
     'src/Parse/ParseAttrs.cpp',
     'src/Parse/ParseExpr.cpp',

@@ -6,9 +6,15 @@
 #include "nixd-config.h"
 
 #include "Controller.h"
+#include "EvalClient.h"
+
+#include "nixd/util/PipedProc.h"
+
+#include <cstring>
 
 namespace nixd {
 
+using namespace util;
 using namespace llvm::json;
 using namespace lspserver;
 
@@ -47,6 +53,15 @@ void Controller::
 
   PublishDiagnostic = mkOutNotifiction<PublishDiagnosticsParams>(
       "textDocument/publishDiagnostics");
+
+  int Fail;
+  Eval = EvalClient::create(Fail);
+  if (Fail != 0) {
+    lspserver::elog("failed to create nix-node-eval worker: {0}",
+                    strerror(-Fail));
+  } else {
+    lspserver::log("launched nix-node-eval instance: {0}", Eval->proc()->PID);
+  }
 }
 
 } // namespace nixd

@@ -14,6 +14,7 @@ if git.found()
 endif
 
 config_h.set_quoted('NIXD_VERSION', meson.project_version())
+config_h.set_quoted('NIXD_LIBEXEC', get_option('prefix') / get_option('libexecdir'))
 
 configure_file(
   output: 'nixd-config.h',
@@ -64,7 +65,9 @@ lit = find_program('lit', required: false)
 
 pkgconfig = import('pkgconfig')
 
+subdir('libbc')
 subdir('lspserver')
+subdir('libnixbc')
 subdir('libnixf')
 subdir('libnixt')
 subdir('nixd')

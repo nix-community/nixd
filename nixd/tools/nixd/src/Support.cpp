@@ -1,13 +1,27 @@
 #include "Controller.h"
-#include "Convert.h"
+
+#include "nixd/util/OwnedRegion.h"
 
 #include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/Nodes.h"
+#include "nixf/Bytecode/Write.h"
 #include "nixf/Parse/Parser.h"
 #include "nixf/Sema/Lowering.h"
 
 using namespace lspserver;
 using namespace nixd;
+
+namespace bipc = boost::interprocess;
+
+namespace {
+
+std::string getShmName(std::string_view File) {
+  std::stringstream SS;
+  SS << "nixd-tu-" << getpid() << "-"
+     << reinterpret_cast<std::uintptr_t>(File.data());
+  return SS.str();
+}
+
+} // namespace
 
 namespace nixd {
 
@@ -15,11 +29,47 @@ void Controller::actOnDocumentAdd(PathRef File,
                                   std::optional<int64_t> Version) {
   auto Draft = Store.getDraft(File);
   assert(Draft && "Added document is not in the store?");
+
   std::vector<nixf::Diagnostic> Diagnostics;
   std::unique_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
   nixf::lower(AST.get(), *Draft->Contents, Diagnostics);
   publishDiagnostics(File, Version, Diagnostics);
-  TUs[File] = NixTU{std::move(Diagnostics), std::move(AST)};
+
+  if (!AST) {
+    TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
+    return;
+  }
+
+  // Serialize the AST into shared memory. Prepare for evaluation.
+  std::stringstream OS;
+  nixf::writeBytecode(OS, *AST);
+  std::string Buf = OS.str();
+  if (Buf.empty()) {
+    lspserver::log("empty AST for {0}", File);
+    TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
+    return;
+  }
+
+  // Create an mmap()-ed region, and write AST byte code there.
+  std::string ShmName = getShmName(File);
+
+  auto Shm = std::make_unique<util::AutoRemoveShm>(
+      ShmName, static_cast<bipc::offset_t>(Buf.size()));
+
+  auto Region =
+      std::make_unique<bipc::mapped_region>(Shm->get(), bipc::read_write);
+
+  std::memcpy(Region->get_address(), Buf.data(), Buf.size());
+
+  lspserver::log("serialized AST {0} to {1}, size: {2}", File, ShmName,
+                 Buf.size());
+
+  TUs[File] = NixTU(std::move(Diagnostics), std::move(AST),
+                    util::OwnedRegion{std::move(Shm), std::move(Region)});
+
+  if (Eval) {
+    Eval->registerBC({ShmName, ".", ".", Buf.size()});
+  }
 }
 
 Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
