@@ -5,7 +5,7 @@ namespace nixt {
 #define NIX_EXPR(EXPR)                                                         \
   void Hook##EXPR::eval(nix::EvalState &State, nix::Env &Env, nix::Value &V) { \
     nix::EXPR::eval(State, Env, V);                                            \
-    VMap[Handle] = &V;                                                         \
+    VMap[Handle] = V;                                                          \
     EMap[Handle] = &Env;                                                       \
   }
 #include "nixt/Nodes.inc"

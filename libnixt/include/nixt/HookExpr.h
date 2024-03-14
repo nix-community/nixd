@@ -6,7 +6,7 @@
 
 namespace nixt {
 
-using ValueMap = std::map<std::uintptr_t, nix::Value *>;
+using ValueMap = std::map<std::uintptr_t, nix::Value>;
 using EnvMap = std::map<std::uintptr_t, nix::Env *>;
 
 #define NIX_EXPR(EXPR)                                                         \
