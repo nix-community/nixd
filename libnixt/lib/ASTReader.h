@@ -12,13 +12,13 @@ namespace nixt {
 
 class ASTDeserializer {
   DeserializeContext &Ctx;
-  [[maybe_unused]] nix::Pos::Origin &Origin;
+  PtrPool<nix::Expr> &Pool;
 
   template <class T> T eat(std::string_view &Data) { return bc::eat<T>(Data); }
 
 public:
-  ASTDeserializer(DeserializeContext &Ctx, nix::Pos::Origin &Origin)
-      : Ctx(Ctx), Origin(Origin) {}
+  ASTDeserializer(DeserializeContext &Ctx, PtrPool<nix::Expr> &Pool)
+      : Ctx(Ctx), Pool(Pool) {}
 
   nix::Expr *eatHookable(std::string_view &Data, ValueMap &VMap, EnvMap &EMap);
 

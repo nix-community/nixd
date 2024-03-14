@@ -9,21 +9,19 @@
 
 #include <bc/Read.h>
 
-#include <memory>
+#include <nix/eval.hh>
+#include <nix/fs-input-accessor.hh>
 
 namespace nixt {
 
 using namespace nixbc;
-using bc::readBytecode;
-
 nix::Expr *ASTDeserializer::eatHookable(std::string_view &Data, ValueMap &VMap,
                                         EnvMap &EMap) {
-  auto Kind = eat<ExprKind>(Data);
-  switch (Kind) {
+  auto Hdr = eat<NodeHeader>(Data);
+  switch (Hdr.Kind) {
   case EK_Int: {
-    auto Handle = eat<std::uintptr_t>(Data);
-    return Ctx.Pool.record(
-        new HookExprInt(eatExprInt(Data), VMap, EMap, Handle));
+    return Pool.record(
+        new HookExprInt(eatExprInt(Data), VMap, EMap, Hdr.Handle));
   }
   default:
     break;
@@ -41,32 +39,26 @@ nix::ExprInt ASTDeserializer::eatExprInt(std::string_view &Data) {
   return {eat<NixInt>(Data)};
 }
 
+DeserializeContext getDeserializeContext(nix::EvalState &State,
+                                         std::string_view BasePath,
+                                         const nix::Pos::Origin &Origin) {
+  auto Base = State.rootPath(nix::CanonPath(BasePath));
+  const nix::ref<nix::InputAccessor> RootFS = State.rootFS;
+
+  // Filling the context.
+  // These are required for constructing evaluable nix ASTs
+  return {.STable = State.symbols,
+          .PTable = State.positions,
+          .BasePath = Base,
+          .RootFS = RootFS,
+          .Origin = Origin};
+}
+
 nix::Expr *deserializeHookable(std::string_view &Data, DeserializeContext &Ctx,
-                               ValueMap &VMap, EnvMap &EMap) {
-  FileHeader Hdr;
-  readBytecode(Data, Hdr);
-  assert(Hdr.Magic == FileHeader::MagicValue && "Invalid magic value");
-  assert(Hdr.Version == 1 && "Invalid version value");
-
-  // Deserialize "Origin"
-  Origin::OriginKind Kind;
-  readBytecode(Data, Kind);
-  nix::Pos::Origin O;
-  switch (Kind) {
-  case Origin::OK_Path: {
-    OriginPath Path;
-    readBytecode(Data, Path);
-    // TODO
-    break;
-  }
-  case Origin::OK_None:
-  case Origin::OK_Stdin:
-  case Origin::OK_String:
-    break;
-  }
-
+                               PtrPool<nix::Expr> &Pool, ValueMap &VMap,
+                               EnvMap &EMap) {
   // Deserialize "Hookable"
-  ASTDeserializer D(Ctx, O);
+  ASTDeserializer D(Ctx, Pool);
   return D.eatHookable(Data, VMap, EMap);
 }
 
