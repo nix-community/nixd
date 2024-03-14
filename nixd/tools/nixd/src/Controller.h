@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Convert.h"
+#include "EvalClient.h"
 #include "NixTU.h"
 
 #include "lspserver/DraftStore.h"
@@ -9,6 +10,7 @@
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
+  std::unique_ptr<EvalClient> Eval;
   lspserver::DraftStore Store;
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>

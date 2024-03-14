@@ -10,7 +10,9 @@ class AutoHUPPID {
 public:
   AutoHUPPID(pid_t Pid) noexcept : Pid(Pid) {}
 
-  ~AutoHUPPID() { kill(Pid, SIGHUP); }
+  ~AutoHUPPID() { kill(Pid, SIGKILL); }
+
+  operator pid_t() const { return Pid; }
 };
 
 } // namespace nixd::util
