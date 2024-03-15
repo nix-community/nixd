@@ -1,35 +1,62 @@
 #pragma once
 
 #include "nixd/rpc/Protocol.h"
-#include "nixd/rpc/Transport.h"
+
 #include "nixd/util/PipedProc.h"
 
+#include <lspserver/LSPServer.h>
+
 #include <memory>
+#include <thread>
 
 namespace nixd {
 
-class EvalClient : public rpc::Transport {
-  // Owned process of the evaluator
-  std::unique_ptr<util::PipedProc> Proc;
-  void handleInbound(const std::vector<char> &Buf) override{};
-
+class EvalClient : public lspserver::LSPServer {
 public:
-  EvalClient(int InboundFD, int OutboundFD,
-             std::unique_ptr<util::PipedProc> Proc)
-      : rpc::Transport(InboundFD, OutboundFD), Proc(std::move(Proc)) {}
+  llvm::unique_function<void(const rpc::RegisterBCParams &)> RegisterBC;
+  llvm::unique_function<void(const rpc::ExprValueParams &,
+                             lspserver::Callback<rpc::ExprValueResponse>)>
+      ExprValue;
+
+  EvalClient(std::unique_ptr<lspserver::InboundPort> In,
+             std::unique_ptr<lspserver::OutboundPort> Out)
+      : lspserver::LSPServer(std::move(In), std::move(Out)) {
+    RegisterBC = mkOutNotifiction<rpc::RegisterBCParams>("registerBC");
+    ExprValue =
+        mkOutMethod<rpc::ExprValueParams, rpc::ExprValueResponse>("exprValue");
+  }
 
   virtual ~EvalClient() = default;
+};
+
+class OwnedEvalClient : public EvalClient {
+  std::unique_ptr<util::PipedProc> Proc;
+  std::unique_ptr<llvm::raw_fd_ostream> Stream;
+
+  std::thread Input;
+
+public:
+  OwnedEvalClient(std::unique_ptr<lspserver::InboundPort> In,
+                  std::unique_ptr<lspserver::OutboundPort> Out,
+                  std::unique_ptr<util::PipedProc> Proc,
+                  std::unique_ptr<llvm::raw_fd_ostream> Stream)
+      : EvalClient(std::move(In), std::move(Out)), Proc(std::move(Proc)),
+        Stream(std::move(Stream)) {
+
+    Input = std::thread([this]() { run(); });
+  }
+
+  util::PipedProc &proc() { return *Proc; }
+
+  ~OwnedEvalClient() {
+    closeInbound();
+    Input.join();
+  }
 
   /// Lanch nix-node-eval, with properly handled file descriptors.
   /// System-wide errno will be written into "Fail" variable and thus cannot be
   /// discarded.
-  static std::unique_ptr<EvalClient> create(int &Fail);
-
-  void registerBC(const rpc::RegisterBCParams &Params);
-
-  rpc::ExprValueResponse exprValue(const rpc::ExprValueParams &Params);
-
-  util::PipedProc *proc() { return Proc.get(); }
+  static std::unique_ptr<OwnedEvalClient> create(int &Fail);
 };
 
 } // namespace nixd

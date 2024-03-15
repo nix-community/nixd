@@ -55,12 +55,12 @@ void Controller::
       "textDocument/publishDiagnostics");
 
   int Fail;
-  Eval = EvalClient::create(Fail);
+  Eval = OwnedEvalClient::create(Fail);
   if (Fail != 0) {
     lspserver::elog("failed to create nix-node-eval worker: {0}",
                     strerror(-Fail));
   } else {
-    lspserver::log("launched nix-node-eval instance: {0}", Eval->proc()->PID);
+    lspserver::log("launched nix-node-eval instance: {0}", Eval->proc().PID);
   }
 }
 

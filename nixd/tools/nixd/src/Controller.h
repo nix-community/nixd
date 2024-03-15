@@ -9,7 +9,7 @@
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
-  std::unique_ptr<EvalClient> Eval;
+  std::unique_ptr<OwnedEvalClient> Eval;
   lspserver::DraftStore Store;
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>

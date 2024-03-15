@@ -1,5 +1,6 @@
 #include "Controller.h"
 
+#include "nixd/rpc/Protocol.h"
 #include "nixd/util/OwnedRegion.h"
 
 #include "nixf/Basic/Diagnostic.h"
@@ -66,7 +67,8 @@ void Controller::actOnDocumentAdd(PathRef File,
                     util::OwnedRegion{std::move(Shm), std::move(Region)});
 
   if (Eval) {
-    Eval->registerBC({ShmName, ".", ".", Buf.size()});
+    Eval->RegisterBC(rpc::RegisterBCParams{
+        ShmName, ".", ".", static_cast<std::int64_t>(Buf.size())});
   }
 }
 
