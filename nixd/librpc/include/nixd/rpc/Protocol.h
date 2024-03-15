@@ -3,6 +3,8 @@
 #include <bc/Read.h>
 #include <bc/Write.h>
 
+#include <llvm/Support/JSON.h>
+
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -16,41 +18,6 @@ enum class LogLevel {
   Error,
 };
 
-enum class RPCKind : uint8_t {
-  /// S-method
-  RegisterBC,
-
-  /// S-method
-  UnregisterBC,
-
-  /// C-notification
-  Log,
-
-  /// \brief Query the value of a expr, in registered bytecodes.
-  /// S-method
-  ExprValue,
-};
-
-template <class T> struct Message {
-  RPCKind Kind;
-  T Params;
-
-  Message() = default;
-  Message(RPCKind Kind, T Params) : Kind(Kind), Params(Params) {}
-};
-
-template <class T> void writeBytecode(std::ostream &OS, const Message<T> &Msg) {
-  using bc::writeBytecode;
-  writeBytecode(OS, Msg.Kind);
-  writeBytecode(OS, Msg.Params);
-}
-
-template <class T> void readBytecode(std::string_view &Data, Message<T> &Msg) {
-  using bc::readBytecode;
-  readBytecode(Data, Msg.Kind);
-  readBytecode(Data, Msg.Params);
-}
-
 struct RegisterBCParams {
   std::string Shm;
   std::string BasePath;
@@ -58,15 +25,17 @@ struct RegisterBCParams {
   std::size_t Size;
 };
 
-void writeBytecode(std::ostream &OS, const RegisterBCParams &Params);
-void readBytecode(std::string_view &Data, RegisterBCParams &Params);
+llvm::json::Value toJSON(const RegisterBCParams &Params);
+bool fromJSON(const llvm::json::Value &Params, RegisterBCParams &R,
+              llvm::json::Path P);
 
 struct ExprValueParams {
   std::uintptr_t ExprID;
 };
 
-void writeBytecode(std::ostream &OS, const ExprValueParams &Params);
-void readBytecode(std::string_view &Data, ExprValueParams &Params);
+llvm::json::Value toJSON(const ExprValueParams &Params);
+bool fromJSON(const llvm::json::Value &Params, ExprValueParams &R,
+              llvm::json::Path P);
 
 struct ExprValueResponse {
   enum ResultKinds {
@@ -81,7 +50,8 @@ struct ExprValueResponse {
 
     /// \brief The value is available.
     OK,
-  } ResultKind;
+  };
+  int ResultKind;
   /// \brief The value ID, for future reference.
   ///
   /// We may want to query the value of the same expr multiple times, with more
@@ -92,10 +62,12 @@ struct ExprValueResponse {
   enum ValueKinds {
     Int,
     Float,
-  } ValueKind;
+  };
+  int ValueKind;
 };
 
-void writeBytecode(std::ostream &OS, const ExprValueResponse &Params);
-void readBytecode(std::string_view &Data, ExprValueResponse &Params);
+llvm::json::Value toJSON(const ExprValueResponse &Params);
+bool fromJSON(const llvm::json::Value &Params, ExprValueResponse &R,
+              llvm::json::Path P);
 
 } // namespace nixd::rpc

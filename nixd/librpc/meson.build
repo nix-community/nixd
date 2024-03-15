@@ -1,10 +1,8 @@
 libnixdrpc_inc = include_directories('include')
 
-libnixdrpc_deps = [ libbc ]
+libnixdrpc_deps = [ libbc, nixd_lsp_server ]
 
 libnixdrpc_lib = library('nixdrpc',
-    'src/IO.cpp',
-    'src/Transport.cpp',
     'src/Protocol.cpp',
     install: true,
     include_directories: libnixdrpc_inc,

@@ -7,38 +7,40 @@ namespace nixd::rpc {
 
 using bc::readBytecode;
 using bc::writeBytecode;
+using namespace llvm::json;
 
-void writeBytecode(std::ostream &OS, const RegisterBCParams &Params) {
-  writeBytecode(OS, Params.Shm);
-  writeBytecode(OS, Params.BasePath);
-  writeBytecode(OS, Params.CachePath);
-  writeBytecode(OS, Params.Size);
+Value toJSON(const RegisterBCParams &Params) {
+  return Object{{"Shm", Params.Shm},
+                {"BasePath", Params.BasePath},
+                {"CachePath", Params.CachePath},
+                {"Size", Params.Size}};
 }
 
-void readBytecode(std::string_view &Data, RegisterBCParams &Params) {
-  readBytecode(Data, Params.Shm);
-  readBytecode(Data, Params.BasePath);
-  readBytecode(Data, Params.CachePath);
-  readBytecode(Data, Params.Size);
+bool fromJSON(const Value &Params, RegisterBCParams &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("Shm", R.Shm) && O.map("BasePath", R.BasePath) &&
+         O.map("CachePath", R.CachePath) && O.map("Size", R.Size);
 }
 
-void writeBytecode(std::ostream &OS, const ExprValueParams &Params) {
-  writeBytecode(OS, Params.ExprID);
+Value toJSON(const ExprValueParams &Params) {
+  return Object{{"ExprID", Params.ExprID}};
 }
 
-void readBytecode(std::string_view &Data, ExprValueParams &Params) {
-  readBytecode(Data, Params.ExprID);
+bool fromJSON(const Value &Params, ExprValueParams &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("ExprID", R.ExprID);
 }
 
-void writeBytecode(std::ostream &OS, const ExprValueResponse &Params) {
-  writeBytecode(OS, Params.ValueKind);
-  writeBytecode(OS, Params.ValueID);
-  writeBytecode(OS, Params.ResultKind);
+Value toJSON(const ExprValueResponse &Params) {
+  return Object{{"ResultKind", Params.ResultKind},
+                {"ValueID", Params.ValueID},
+                {"ValueKind", Params.ValueKind}};
 }
-void readBytecode(std::string_view &Data, ExprValueResponse &Params) {
-  readBytecode(Data, Params.ValueKind);
-  readBytecode(Data, Params.ValueID);
-  readBytecode(Data, Params.ResultKind);
+
+bool fromJSON(const Value &Params, ExprValueResponse &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.map("ResultKind", R.ResultKind) &&
+         O.map("ValueID", R.ValueID) && O.map("ValueKind", R.ValueKind);
 }
 
 } // namespace nixd::rpc
