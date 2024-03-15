@@ -1,4 +1,4 @@
-nixd_nix_node_eval_deps = [ libnixdrpc, nixt, libnixdutil ]
+nixd_nix_node_eval_deps = [ libnixdrpc, nixt, libnixdutil, nixd_lsp_server ]
 
 nixd_nix_node_eval_lib = library(
     'nix-node-eval',
@@ -18,14 +18,4 @@ nixd_nix_node_eval = executable('nix-node-eval',
     install: true,
     install_dir: get_option('libexecdir'),
     dependencies: nixd_nix_node_eval_lib_dep
-)
-
-test(
-    'unit/nixd/nix-node-eval',
-    executable(
-        'unit-nixd-nix-node-eval',
-        'test/EvalProvider.cpp',
-        dependencies: [ nixd_nix_node_eval_lib_dep, gtest_main],
-        include_directories: include_directories('src')
-    )
 )

@@ -5,6 +5,8 @@
 #include <nixt/Deserialize.h>
 #include <nixt/HackCache.h>
 
+#include <lspserver/LSPServer.h>
+
 #include <bc/Read.h>
 #include <bc/Write.h>
 
@@ -22,40 +24,17 @@
 
 namespace nixd {
 
-using bc::readBytecode;
-using rpc::readBytecode;
-
 namespace bipc = boost::interprocess;
 
 using namespace rpc;
 
-EvalProvider::EvalProvider(int InboundFD, int OutboundFD)
-    : rpc::Transport(InboundFD, OutboundFD),
+EvalProvider::EvalProvider(std::unique_ptr<lspserver::InboundPort> In,
+                           std::unique_ptr<lspserver::OutboundPort> Out)
+    : lspserver::LSPServer(std::move(In), std::move(Out)),
       State(std::unique_ptr<nix::EvalState>(
-          new nix::EvalState{{}, nix::openStore("dummy://")})) {}
-
-void EvalProvider::handleInbound(const std::vector<char> &Buf) {
-  std::ostringstream OS;
-  rpc::RPCKind Kind;
-  std::string_view Data(Buf.data(), Buf.size());
-  readBytecode(Data, Kind);
-  switch (Kind) {
-  case rpc::RPCKind::RegisterBC: {
-    rpc::RegisterBCParams Params;
-    readBytecode(Data, Params);
-    onRegisterBC(Params);
-    break;
-  }
-  case rpc::RPCKind::UnregisterBC:
-  case rpc::RPCKind::Log:
-  case rpc::RPCKind::ExprValue: {
-    rpc::ExprValueParams Params;
-    readBytecode(Data, Params);
-    rpc::ExprValueResponse Response = onExprValue(Params);
-    sendPacket<ExprValueResponse>(Response);
-    break;
-  }
-  }
+          new nix::EvalState{{}, nix::openStore("dummy://")})) {
+  Registry.addMethod("exprValue", this, &EvalProvider::onExprValue);
+  Registry.addNotification("registerBC", this, &EvalProvider::onRegisterBC);
 }
 
 void EvalProvider::onRegisterBC(const rpc::RegisterBCParams &Params) {
@@ -84,17 +63,19 @@ void EvalProvider::onRegisterBC(const rpc::RegisterBCParams &Params) {
   Cache[CachePath] = AST;
 }
 
-ExprValueResponse EvalProvider::onExprValue(const ExprValueParams &Params) {
+void EvalProvider::onExprValue(const ExprValueParams &Params,
+                               lspserver::Callback<ExprValueResponse> Reply) {
   if (VMap.contains(Params.ExprID)) {
     nix::Value V = VMap[Params.ExprID];
 
-    return {
+    Reply(ExprValueResponse{
         ExprValueResponse::OK,
         static_cast<uintptr_t>(V.integer),
         ExprValueResponse::Int,
-    };
+    });
+    return;
   }
-  return {ExprValueResponse::NotEvaluated, 0};
+  Reply(ExprValueResponse{ExprValueResponse::NotEvaluated, 0});
 }
 
 } // namespace nixd
