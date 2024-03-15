@@ -5,6 +5,7 @@ libbc_lib = library(
     'src/Read.cpp',
     'src/Write.cpp',
     include_directories: libbc_inc,
+    install: true
 )
 
 libbc = declare_dependency(
