@@ -4,6 +4,8 @@
 
 #include <llvm/ADT/SmallString.h>
 
+#include <poll.h>
+#include <sys/poll.h>
 #include <sys/stat.h>
 
 #include <cstdint>
@@ -124,21 +126,37 @@ bool InboundPort::dispatch(llvm::json::Value Message, MessageHandler &Handler) {
   return Handler.onNotify(*Method, std::move(Params));
 }
 
-bool readLine(int fd, llvm::SmallString<128> &Line) {
+bool readLine(int fd, const std::atomic<bool> &Close,
+              llvm::SmallString<128> &Line) {
   Line.clear();
+
+  std::vector<pollfd> FDs;
+  FDs.emplace_back(pollfd{
+      fd,
+      POLLIN | POLLPRI,
+      0,
+  });
   for (;;) {
     char Ch;
     // FIXME: inefficient
-    ssize_t BytesRead = read(fd, &Ch, 1);
-    if (BytesRead == -1) {
-      if (errno != EINTR)
-        return false;
-    } else if (BytesRead == 0)
+    int Poll = poll(FDs.data(), FDs.size(), 1000);
+    if (Poll < 0)
       return false;
-    else {
-      if (Ch == '\n')
-        return true;
-      Line += Ch;
+    if (Close)
+      return false;
+
+    if (FDs[0].revents & POLLIN) {
+      ssize_t BytesRead = read(fd, &Ch, 1);
+      if (BytesRead == -1) {
+        if (errno != EINTR)
+          return false;
+      } else if (BytesRead == 0)
+        return false;
+      else {
+        if (Ch == '\n')
+          return true;
+        Line += Ch;
+      }
     }
   }
 }
@@ -147,7 +165,7 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
   unsigned long long ContentLength = 0;
   llvm::SmallString<128> Line;
   while (true) {
-    if (!readLine(In, Line))
+    if (!readLine(In, Close, Line))
       return false;
 
     llvm::StringRef LineRef = Line;
@@ -182,7 +200,7 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
   JSONString.clear();
   llvm::SmallString<128> Line;
   bool IsInputBlock = false;
-  while (readLine(In, Line)) {
+  while (readLine(In, Close, Line)) {
     auto LineRef = Line.str().trim();
     if (IsInputBlock) {
       // We are in input blocks, read lines and append JSONString.

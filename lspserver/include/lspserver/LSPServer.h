@@ -86,6 +86,9 @@ protected:
 public:
   LSPServer(std::unique_ptr<InboundPort> In, std::unique_ptr<OutboundPort> Out)
       : In(std::move(In)), Out(std::move(Out)){};
+
+  /// \brief Close the inbound port.
+  void closeInbound() { In->close(); }
   void run();
 
   void switchStreamStyle(JSONStreamStyle Style) { In->StreamStyle = Style; }
