@@ -19,7 +19,7 @@ class EvalProvider : public lspserver::LSPServer {
   nixt::EnvMap EMap;
   std::unique_ptr<nix::EvalState> State;
 
-  llvm::unique_function<void(int)> Exit;
+  llvm::unique_function<void(int)> Ready;
 
 public:
   EvalProvider(std::unique_ptr<lspserver::InboundPort> In,

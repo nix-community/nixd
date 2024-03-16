@@ -45,4 +45,13 @@ std::unique_ptr<OwnedEvalClient> OwnedEvalClient::create(int &Fail) {
                                            std::move(ProcFdStream));
 }
 
+EvalClient::EvalClient(std::unique_ptr<lspserver::InboundPort> In,
+                       std::unique_ptr<lspserver::OutboundPort> Out)
+    : lspserver::LSPServer(std::move(In), std::move(Out)), Ready(false) {
+  RegisterBC = mkOutNotifiction<rpc::RegisterBCParams>("registerBC");
+  ExprValue =
+      mkOutMethod<rpc::ExprValueParams, rpc::ExprValueResponse>("exprValue");
+  Registry.addNotification("ready", this, &EvalClient::onReady);
+}
+
 } // namespace nixd

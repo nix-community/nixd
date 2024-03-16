@@ -61,6 +61,8 @@ public:
              std::unique_ptr<lspserver::OutboundPort> Out);
 
   void setLitTest(bool LitTest) { this->LitTest = LitTest; }
+
+  bool isReadyToEval() { return Eval && Eval->ready(); }
 };
 
 } // namespace nixd
