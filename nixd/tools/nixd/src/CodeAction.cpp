@@ -6,6 +6,8 @@
 #include "Controller.h"
 #include "Convert.h"
 
+#include <boost/asio/post.hpp>
+
 namespace nixd {
 
 using namespace llvm::json;
@@ -13,39 +15,46 @@ using namespace lspserver;
 
 void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
                               Callback<std::vector<CodeAction>> Reply) {
-  PathRef File = Params.textDocument.uri.file();
+  std::string File(Params.textDocument.uri.file());
   Range Range = Params.range;
-  const std::vector<nixf::Diagnostic> &Diagnostics = TUs[File].diagnostics();
-  std::vector<CodeAction> Actions;
-  Actions.reserve(Diagnostics.size());
-  for (const nixf::Diagnostic &D : Diagnostics) {
-    auto DRange = toLSPRange(D.range());
-    if (!Range.overlap(DRange))
-      continue;
+  auto Action = [Reply = std::move(Reply), File, Range, this]() mutable {
+    std::vector<nixf::Diagnostic> Diagnostics;
+    {
+      std::lock_guard TU(TUsLock);
+      Diagnostics = TUs[File].diagnostics();
+    }
+    std::vector<CodeAction> Actions;
+    Actions.reserve(Diagnostics.size());
+    for (const nixf::Diagnostic &D : Diagnostics) {
+      auto DRange = toLSPRange(D.range());
+      if (!Range.overlap(DRange))
+        continue;
 
-    // Add fixes.
-    for (const nixf::Fix &F : D.fixes()) {
-      std::vector<TextEdit> Edits;
-      Edits.reserve(F.edits().size());
-      for (const nixf::TextEdit &TE : F.edits()) {
-        Edits.emplace_back(TextEdit{
-            .range = toLSPRange(TE.oldRange()),
-            .newText = std::string(TE.newText()),
+      // Add fixes.
+      for (const nixf::Fix &F : D.fixes()) {
+        std::vector<TextEdit> Edits;
+        Edits.reserve(F.edits().size());
+        for (const nixf::TextEdit &TE : F.edits()) {
+          Edits.emplace_back(TextEdit{
+              .range = toLSPRange(TE.oldRange()),
+              .newText = std::string(TE.newText()),
+          });
+        }
+        using Changes = std::map<std::string, std::vector<TextEdit>>;
+        std::string FileURI = URIForFile::canonicalize(File, File).uri();
+        WorkspaceEdit WE{.changes = Changes{
+                             {std::move(FileURI), std::move(Edits)},
+                         }};
+        Actions.emplace_back(CodeAction{
+            .title = F.message(),
+            .kind = std::string(CodeAction::QUICKFIX_KIND),
+            .edit = std::move(WE),
         });
       }
-      using Changes = std::map<std::string, std::vector<TextEdit>>;
-      std::string FileURI = URIForFile::canonicalize(File, File).uri();
-      WorkspaceEdit WE{.changes = Changes{
-                           {std::move(FileURI), std::move(Edits)},
-                       }};
-      Actions.emplace_back(CodeAction{
-          .title = F.message(),
-          .kind = std::string(CodeAction::QUICKFIX_KIND),
-          .edit = std::move(WE),
-      });
     }
-  }
-  Reply(std::move(Actions));
+    Reply(std::move(Actions));
+  };
+  boost::asio::post(Pool, std::move(Action));
 }
 
 } // namespace nixd
