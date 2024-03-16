@@ -80,6 +80,9 @@ int main(int argc, char *argv[]) {
   auto Controller =
       std::make_unique<nixd::Controller>(std::move(In), std::move(Out));
 
+  if (LitTest)
+    Controller->setLitTest(LitTest);
+
   Controller->run();
 
   return 0;

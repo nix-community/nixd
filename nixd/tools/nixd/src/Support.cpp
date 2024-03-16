@@ -80,12 +80,21 @@ void Controller::actOnDocumentAdd(PathRef File,
           ShmName, ".", ".", static_cast<std::int64_t>(Buf.size())});
     }
   };
-  boost::asio::post(Pool, std::move(Action));
+  if (LitTest) {
+    // In lit-testing mode we don't want to having requests processed before
+    // document updates. (e.g. Hover before parsing)
+    // So just invoke the action here.
+    Action();
+  } else {
+    // Otherwise we may want to concurently parse & serialize the file, so post
+    // it to the thread pool.
+    boost::asio::post(Pool, std::move(Action));
+  }
 }
 
 Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
-    : LSPServer(std::move(In), std::move(Out)) {
+    : LSPServer(std::move(In), std::move(Out)), LitTest(false) {
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
