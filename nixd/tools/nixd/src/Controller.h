@@ -6,6 +6,8 @@
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
 
+#include <boost/asio/thread_pool.hpp>
+
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
@@ -15,7 +17,10 @@ class Controller : public lspserver::LSPServer {
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
 
+  std::mutex TUsLock;
   llvm::StringMap<NixTU> TUs;
+
+  boost::asio::thread_pool Pool;
 
   /// Action right after a document is added (including updates).
   void actOnDocumentAdd(lspserver::PathRef File,
