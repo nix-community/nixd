@@ -2,6 +2,7 @@
 
 #include <cstdio>
 
+#include <atomic>
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mutex>
@@ -31,6 +32,9 @@ public:
 };
 
 class InboundPort {
+private:
+  std::atomic<bool> Close;
+
 public:
   int In;
 
@@ -40,9 +44,12 @@ public:
 
   bool readDelimitedMessage(std::string &JSONString);
 
+  /// \brief Notify the inbound port to close the connection
+  void close() { Close = true; }
+
   InboundPort(int In = STDIN_FILENO,
               JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
-      : In(In), StreamStyle(StreamStyle){};
+      : Close(false), In(In), StreamStyle(StreamStyle){};
 
   /// Read messages specified in LSP standard, and collect standard json string
   /// into \p JSONString.
