@@ -63,6 +63,8 @@ public:
   ~Controller() { Pool.join(); }
 
   void setLitTest(bool LitTest) { this->LitTest = LitTest; }
+
+  bool isReadyToEval() { return Eval && Eval->ready(); }
 };
 
 } // namespace nixd

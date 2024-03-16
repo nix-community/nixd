@@ -12,6 +12,8 @@
 namespace nixd {
 
 class EvalClient : public lspserver::LSPServer {
+  std::atomic<bool> Ready;
+
 public:
   llvm::unique_function<void(const rpc::RegisterBCParams &)> RegisterBC;
   llvm::unique_function<void(const rpc::ExprValueParams &,
@@ -19,14 +21,18 @@ public:
       ExprValue;
 
   EvalClient(std::unique_ptr<lspserver::InboundPort> In,
-             std::unique_ptr<lspserver::OutboundPort> Out)
-      : lspserver::LSPServer(std::move(In), std::move(Out)) {
-    RegisterBC = mkOutNotifiction<rpc::RegisterBCParams>("registerBC");
-    ExprValue =
-        mkOutMethod<rpc::ExprValueParams, rpc::ExprValueResponse>("exprValue");
-  }
+             std::unique_ptr<lspserver::OutboundPort> Out);
 
   virtual ~EvalClient() = default;
+
+  void onReady(const int &Flags) {
+    lspserver::log(
+        "nix-node-eval({0}) reported it's ready for processing requests",
+        Flags);
+    Ready = true;
+  }
+
+  bool ready() { return Ready; }
 };
 
 class OwnedEvalClient : public EvalClient {
