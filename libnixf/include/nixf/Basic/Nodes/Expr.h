@@ -5,13 +5,13 @@
 namespace nixf {
 
 class ExprSelect : public Expr {
-  std::unique_ptr<Expr> E;
-  std::unique_ptr<AttrPath> Path;
-  std::unique_ptr<Expr> Default;
+  std::shared_ptr<Expr> E;
+  std::shared_ptr<AttrPath> Path;
+  std::shared_ptr<Expr> Default;
 
 public:
-  ExprSelect(LexerCursorRange Range, std::unique_ptr<Expr> E,
-             std::unique_ptr<AttrPath> Path, std::unique_ptr<Expr> Default)
+  ExprSelect(LexerCursorRange Range, std::shared_ptr<Expr> E,
+             std::shared_ptr<AttrPath> Path, std::shared_ptr<Expr> Default)
       : Expr(NK_ExprSelect, Range), E(std::move(E)), Path(std::move(Path)),
         Default(std::move(Default)) {
     assert(this->E && "E must not be null");
@@ -33,12 +33,12 @@ public:
 
 /// A call/apply to some function.
 class ExprCall : public Expr {
-  std::unique_ptr<Expr> Fn;
-  std::vector<std::unique_ptr<Expr>> Args;
+  std::shared_ptr<Expr> Fn;
+  std::vector<std::shared_ptr<Expr>> Args;
 
 public:
-  ExprCall(LexerCursorRange Range, std::unique_ptr<Expr> Fn,
-           std::vector<std::unique_ptr<Expr>> Args)
+  ExprCall(LexerCursorRange Range, std::shared_ptr<Expr> Fn,
+           std::vector<std::shared_ptr<Expr>> Args)
       : Expr(NK_ExprCall, Range), Fn(std::move(Fn)), Args(std::move(Args)) {
     assert(this->Fn && "Fn must not be null");
   }
@@ -47,9 +47,9 @@ public:
     assert(Fn && "Fn must not be null");
     return *Fn;
   }
-  std::vector<std::unique_ptr<Expr>> &args() { return Args; }
+  std::vector<std::shared_ptr<Expr>> &args() { return Args; }
 
-  [[nodiscard]] const std::vector<std::unique_ptr<Expr>> &args() const {
+  [[nodiscard]] const std::vector<std::shared_ptr<Expr>> &args() const {
     return Args;
   }
 
@@ -64,17 +64,17 @@ public:
 };
 
 class ExprList : public Expr {
-  std::vector<std::unique_ptr<Expr>> Elements;
+  std::vector<std::shared_ptr<Expr>> Elements;
 
 public:
-  ExprList(LexerCursorRange Range, std::vector<std::unique_ptr<Expr>> Elements)
+  ExprList(LexerCursorRange Range, std::vector<std::shared_ptr<Expr>> Elements)
       : Expr(NK_ExprList, Range), Elements(std::move(Elements)) {}
 
-  [[nodiscard]] const std::vector<std::unique_ptr<Expr>> &elements() const {
+  [[nodiscard]] const std::vector<std::shared_ptr<Expr>> &elements() const {
     return Elements;
   }
 
-  [[nodiscard]] std::vector<std::unique_ptr<Expr>> &elements() {
+  [[nodiscard]] std::vector<std::shared_ptr<Expr>> &elements() {
     return Elements;
   }
 
@@ -89,13 +89,13 @@ public:
 };
 
 class ExprIf : public Expr {
-  std::unique_ptr<Expr> Cond;
-  std::unique_ptr<Expr> Then;
-  std::unique_ptr<Expr> Else;
+  std::shared_ptr<Expr> Cond;
+  std::shared_ptr<Expr> Then;
+  std::shared_ptr<Expr> Else;
 
 public:
-  ExprIf(LexerCursorRange Range, std::unique_ptr<Expr> Cond,
-         std::unique_ptr<Expr> Then, std::unique_ptr<Expr> Else)
+  ExprIf(LexerCursorRange Range, std::shared_ptr<Expr> Cond,
+         std::shared_ptr<Expr> Then, std::shared_ptr<Expr> Else)
       : Expr(NK_ExprIf, Range), Cond(std::move(Cond)), Then(std::move(Then)),
         Else(std::move(Else)) {}
 
@@ -109,12 +109,12 @@ public:
 };
 
 class ExprAssert : public Expr {
-  std::unique_ptr<Expr> Cond;
-  std::unique_ptr<Expr> Value; // If "cond" is true, then "value" is returned.
+  std::shared_ptr<Expr> Cond;
+  std::shared_ptr<Expr> Value; // If "cond" is true, then "value" is returned.
 
 public:
-  ExprAssert(LexerCursorRange Range, std::unique_ptr<Expr> Cond,
-             std::unique_ptr<Expr> Value)
+  ExprAssert(LexerCursorRange Range, std::shared_ptr<Expr> Cond,
+             std::shared_ptr<Expr> Value)
       : Expr(NK_ExprAssert, Range), Cond(std::move(Cond)),
         Value(std::move(Value)) {}
 
@@ -129,15 +129,15 @@ public:
 class ExprLet : public Expr {
   // 'let' binds 'in' expr
 
-  std::unique_ptr<Misc> KwLet; // 'let', not null
-  std::unique_ptr<Binds> B;
-  std::unique_ptr<Misc> KwIn;
-  std::unique_ptr<Expr> E;
+  std::shared_ptr<Misc> KwLet; // 'let', not null
+  std::shared_ptr<Binds> B;
+  std::shared_ptr<Misc> KwIn;
+  std::shared_ptr<Expr> E;
 
 public:
-  ExprLet(LexerCursorRange Range, std::unique_ptr<Misc> KwLet,
-          std::unique_ptr<Binds> B, std::unique_ptr<Misc> KwIn,
-          std::unique_ptr<Expr> E)
+  ExprLet(LexerCursorRange Range, std::shared_ptr<Misc> KwLet,
+          std::shared_ptr<Binds> B, std::shared_ptr<Misc> KwIn,
+          std::shared_ptr<Expr> E)
       : Expr(NK_ExprLet, Range), KwLet(std::move(KwLet)), B(std::move(B)),
         KwIn(std::move(KwIn)), E(std::move(E)) {
     assert(this->KwLet && "KwLet should not be empty!");
@@ -154,12 +154,12 @@ public:
 };
 
 class ExprWith : public Expr {
-  std::unique_ptr<Expr> With;
-  std::unique_ptr<Expr> E;
+  std::shared_ptr<Expr> With;
+  std::shared_ptr<Expr> E;
 
 public:
-  ExprWith(LexerCursorRange Range, std::unique_ptr<Expr> With,
-           std::unique_ptr<Expr> E)
+  ExprWith(LexerCursorRange Range, std::shared_ptr<Expr> With,
+           std::shared_ptr<Expr> E)
       : Expr(NK_ExprWith, Range), With(std::move(With)), E(std::move(E)) {}
 
   [[nodiscard]] Expr *with() const { return With.get(); }

@@ -1,12 +1,10 @@
-#include "ParserImpl.h"
-
-#include "nixf/Basic/Nodes/Attrs.h"
+#include "Parser.h"
 
 namespace nixf {
 
 using namespace detail;
 
-std::unique_ptr<AttrName> Parser::parseAttrName() {
+std::shared_ptr<AttrName> Parser::parseAttrName() {
   switch (Token Tok = peek(); Tok.kind()) {
   case tok_kw_or:
     Diags.emplace_back(Diagnostic::DK_OrIdentifier, Tok.range());
@@ -14,29 +12,29 @@ std::unique_ptr<AttrName> Parser::parseAttrName() {
   case tok_id: {
     consume();
     auto ID =
-        std::make_unique<Identifier>(Tok.range(), std::string(Tok.view()));
-    return std::make_unique<AttrName>(std::move(ID), Tok.range());
+        std::make_shared<Identifier>(Tok.range(), std::string(Tok.view()));
+    return std::make_shared<AttrName>(std::move(ID), Tok.range());
   }
   case tok_dquote: {
-    std::unique_ptr<ExprString> String = parseString(/*IsIndented=*/false);
-    return std::make_unique<AttrName>(std::move(String));
+    std::shared_ptr<ExprString> String = parseString(/*IsIndented=*/false);
+    return std::make_shared<AttrName>(std::move(String));
   }
   case tok_dollar_curly: {
-    std::unique_ptr<Interpolation> Expr = parseInterpolation();
-    return std::make_unique<AttrName>(std::move(Expr));
+    std::shared_ptr<Interpolation> Expr = parseInterpolation();
+    return std::make_shared<AttrName>(std::move(Expr));
   }
   default:
     return nullptr;
   }
 }
 
-std::unique_ptr<AttrPath> Parser::parseAttrPath() {
+std::shared_ptr<AttrPath> Parser::parseAttrPath() {
   auto First = parseAttrName();
   if (!First)
     return nullptr;
   LexerCursor Begin = First->lCur();
   assert(LastToken && "LastToken should be set after valid attrname");
-  std::vector<std::unique_ptr<AttrName>> AttrNames;
+  std::vector<std::shared_ptr<AttrName>> AttrNames;
   AttrNames.emplace_back(std::move(First));
   while (true) {
     if (Token Tok = peek(); Tok.kind() == tok_dot) {
@@ -55,11 +53,11 @@ std::unique_ptr<AttrPath> Parser::parseAttrPath() {
     }
     break;
   }
-  return std::make_unique<AttrPath>(LexerCursorRange{Begin, LastToken->rCur()},
+  return std::make_shared<AttrPath>(LexerCursorRange{Begin, LastToken->rCur()},
                                     std::move(AttrNames));
 }
 
-std::unique_ptr<Binding> Parser::parseBinding() {
+std::shared_ptr<Binding> Parser::parseBinding() {
   auto Path = parseAttrPath();
   if (!Path)
     return nullptr;
@@ -67,7 +65,7 @@ std::unique_ptr<Binding> Parser::parseBinding() {
   auto SyncEq = withSync(tok_eq);
   auto SyncSemi = withSync(tok_semi_colon);
   if (ExpectResult ER = expect(tok_eq); !ER.ok())
-    return std::make_unique<Binding>(
+    return std::make_shared<Binding>(
         LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
         nullptr);
   consume();
@@ -85,12 +83,12 @@ std::unique_ptr<Binding> Parser::parseBinding() {
     D << std::string(tok::spelling(tok_semi_colon));
     D.fix("insert ;").edit(TextEdit::mkInsertion(LastToken->rCur(), ";"));
   }
-  return std::make_unique<Binding>(
+  return std::make_shared<Binding>(
       LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
       std::move(Expr));
 }
 
-std::unique_ptr<Inherit> Parser::parseInherit() {
+std::shared_ptr<Inherit> Parser::parseInherit() {
   Token TokInherit = peek();
   if (TokInherit.kind() != tok_kw_inherit)
     return nullptr;
@@ -103,8 +101,8 @@ std::unique_ptr<Inherit> Parser::parseInherit() {
   auto SyncDollarCurly = withSync(tok_dollar_curly);
 
   assert(LastToken && "LastToken should be set after consume()");
-  std::vector<std::unique_ptr<AttrName>> AttrNames;
-  std::unique_ptr<Expr> Expr = nullptr;
+  std::vector<std::shared_ptr<AttrName>> AttrNames;
+  std::shared_ptr<Expr> Expr = nullptr;
   if (Token Tok = peek(); Tok.kind() == tok_l_paren) {
     consume();
     Expr = parseExpr();
@@ -128,15 +126,15 @@ std::unique_ptr<Inherit> Parser::parseInherit() {
   else
     ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
         << std::string(tok::spelling(tok_kw_inherit));
-  return std::make_unique<Inherit>(
+  return std::make_shared<Inherit>(
       LexerCursorRange{TokInherit.lCur(), LastToken->rCur()},
       std::move(AttrNames), std::move(Expr));
 }
 
-std::unique_ptr<Binds> Parser::parseBinds() {
+std::shared_ptr<Binds> Parser::parseBinds() {
   // TODO: curently we don't support inherit
   LexerCursor Begin = peek().lCur();
-  std::vector<std::unique_ptr<Node>> Bindings;
+  std::vector<std::shared_ptr<Node>> Bindings;
   // attrpath
   auto SyncID = withSync(tok_id);
   auto SyncQuote = withSync(tok_dquote);
@@ -162,12 +160,12 @@ std::unique_ptr<Binds> Parser::parseBinds() {
   if (Bindings.empty())
     return nullptr;
   assert(LastToken && "LastToken should be set after valid binding");
-  return std::make_unique<Binds>(LexerCursorRange{Begin, LastToken->rCur()},
+  return std::make_shared<Binds>(LexerCursorRange{Begin, LastToken->rCur()},
                                  std::move(Bindings));
 }
 
-std::unique_ptr<ExprAttrs> Parser::parseExprAttrs() {
-  std::unique_ptr<Misc> Rec;
+std::shared_ptr<ExprAttrs> Parser::parseExprAttrs() {
+  std::shared_ptr<Misc> Rec;
 
   auto Sync = withSync(tok_r_curly);
 
@@ -177,7 +175,7 @@ std::unique_ptr<ExprAttrs> Parser::parseExprAttrs() {
   LexerCursor Begin = peek().lCur(); // rec or {
   if (Token Tok = peek(); Tok.kind() == tok_kw_rec) {
     consume();
-    Rec = std::make_unique<Misc>(Tok.range());
+    Rec = std::make_shared<Misc>(Tok.range());
   }
   if (ExpectResult ER = expect(tok_l_curly); ER.ok()) {
     consume();
@@ -190,7 +188,7 @@ std::unique_ptr<ExprAttrs> Parser::parseExprAttrs() {
   else
     ER.diag().note(Note::NK_ToMachThis, Matcher.range())
         << std::string(tok::spelling(Matcher.kind()));
-  return std::make_unique<ExprAttrs>(LexerCursorRange{Begin, LastToken->rCur()},
+  return std::make_shared<ExprAttrs>(LexerCursorRange{Begin, LastToken->rCur()},
                                      std::move(Binds), std::move(Rec));
 }
 

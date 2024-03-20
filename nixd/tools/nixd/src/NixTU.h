@@ -12,13 +12,13 @@ namespace nixd {
 /// TU stands for "Translation Unit".
 class NixTU {
   std::vector<nixf::Diagnostic> Diagnostics;
-  std::unique_ptr<nixf::Node> AST;
+  std::shared_ptr<nixf::Node> AST;
   std::optional<util::OwnedRegion> ASTByteCode;
 
 public:
   NixTU() = default;
   NixTU(std::vector<nixf::Diagnostic> Diagnostics,
-        std::unique_ptr<nixf::Node> AST,
+        std::shared_ptr<nixf::Node> AST,
         std::optional<util::OwnedRegion> ASTByteCode)
       : Diagnostics(std::move(Diagnostics)), AST(std::move(AST)),
         ASTByteCode(std::move(ASTByteCode)) {}
@@ -27,7 +27,7 @@ public:
     return Diagnostics;
   }
 
-  [[nodiscard]] const std::unique_ptr<nixf::Node> &ast() const { return AST; }
+  [[nodiscard]] const std::shared_ptr<nixf::Node> &ast() const { return AST; }
 };
 
 } // namespace nixd

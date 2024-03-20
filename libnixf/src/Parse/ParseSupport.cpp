@@ -1,9 +1,7 @@
 /// \file
 /// \brief Basic supporting functions for parsing.
 
-#include "ParserImpl.h"
-
-#include "nixf/Basic/Nodes/Basic.h"
+#include "Parser.h"
 
 namespace nixf {
 
@@ -37,7 +35,7 @@ Parser::StateRAII Parser::withState(ParserState NewState) {
 
 Parser::SyncRAII Parser::withSync(TokenKind Kind) { return {*this, Kind}; }
 
-std::unique_ptr<Node> parse(std::string_view Src,
+std::shared_ptr<Node> parse(std::string_view Src,
                             std::vector<Diagnostic> &Diags) {
   Parser P(Src, Diags);
   return P.parse();

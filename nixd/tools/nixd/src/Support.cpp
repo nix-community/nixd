@@ -31,8 +31,9 @@ void Controller::actOnDocumentAdd(PathRef File,
   assert(Draft && "Added document is not in the store?");
 
   std::vector<nixf::Diagnostic> Diagnostics;
-  std::unique_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
-  nixf::lower(AST.get(), *Draft->Contents, Diagnostics);
+  std::shared_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
+  std::map<nixf::Node *, nixf::Node *> LoweringMap;
+  nixf::lower(AST, *Draft->Contents, Diagnostics, LoweringMap);
   publishDiagnostics(File, Version, Diagnostics);
 
   if (!AST) {

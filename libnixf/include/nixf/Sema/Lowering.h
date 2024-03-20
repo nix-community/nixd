@@ -9,11 +9,15 @@
 /// The lowering is done in place, so the AST nodes are mutated.
 
 #include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Nodes/Basic.h"
+
+#include <map>
 
 namespace nixf {
 
 /// \brief Perform semantic lowering on the AST.
-void lower(Node *AST, std::string_view Src, std::vector<Diagnostic> &Diags);
+std::shared_ptr<Node> lower(std::shared_ptr<Node> AST, std::string_view Src,
+                            std::vector<Diagnostic> &Diags,
+                            std::map<Node *, Node *> &LoweringMap);
 
 } // namespace nixf

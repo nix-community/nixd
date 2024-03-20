@@ -23,10 +23,10 @@ public:
 
 /// \brief Abstract class for binary operators and unary operators.
 class ExprOp : public Expr {
-  std::unique_ptr<Op> O;
+  std::shared_ptr<Op> O;
 
 public:
-  ExprOp(NodeKind Kind, LexerCursorRange Range, std::unique_ptr<Op> O)
+  ExprOp(NodeKind Kind, LexerCursorRange Range, std::shared_ptr<Op> O)
       : Expr(Kind, Range), O(std::move(O)) {
     assert(this->O && "O must not be null");
   }
@@ -37,12 +37,12 @@ public:
 };
 
 class ExprBinOp : public ExprOp {
-  std::unique_ptr<Expr> LHS;
-  std::unique_ptr<Expr> RHS;
+  std::shared_ptr<Expr> LHS;
+  std::shared_ptr<Expr> RHS;
 
 public:
-  ExprBinOp(LexerCursorRange Range, std::unique_ptr<Op> O,
-            std::unique_ptr<Expr> LHS, std::unique_ptr<Expr> RHS)
+  ExprBinOp(LexerCursorRange Range, std::shared_ptr<Op> O,
+            std::shared_ptr<Expr> LHS, std::shared_ptr<Expr> RHS)
       : ExprOp(NK_ExprBinOp, Range, std::move(O)), LHS(std::move(LHS)),
         RHS(std::move(RHS)) {}
 
@@ -55,12 +55,12 @@ public:
 };
 
 class ExprOpHasAttr : public ExprOp {
-  std::unique_ptr<Expr> E;
-  std::unique_ptr<AttrPath> Path;
+  std::shared_ptr<Expr> E;
+  std::shared_ptr<AttrPath> Path;
 
 public:
-  ExprOpHasAttr(LexerCursorRange Range, std::unique_ptr<Op> O,
-                std::unique_ptr<Expr> E, std::unique_ptr<AttrPath> Path)
+  ExprOpHasAttr(LexerCursorRange Range, std::shared_ptr<Op> O,
+                std::shared_ptr<Expr> E, std::shared_ptr<AttrPath> Path)
       : ExprOp(NK_ExprOpHasAttr, Range, std::move(O)), E(std::move(E)),
         Path(std::move(Path)) {}
 
@@ -73,11 +73,11 @@ public:
 };
 
 class ExprUnaryOp : public ExprOp {
-  std::unique_ptr<Expr> E;
+  std::shared_ptr<Expr> E;
 
 public:
-  ExprUnaryOp(LexerCursorRange Range, std::unique_ptr<Op> O,
-              std::unique_ptr<Expr> E)
+  ExprUnaryOp(LexerCursorRange Range, std::shared_ptr<Op> O,
+              std::shared_ptr<Expr> E)
       : ExprOp(NK_ExprUnaryOp, Range, std::move(O)), E(std::move(E)) {}
 
   [[nodiscard]] Expr *expr() const { return E.get(); }

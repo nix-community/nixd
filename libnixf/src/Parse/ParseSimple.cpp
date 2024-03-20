@@ -1,8 +1,4 @@
-#include "ParserImpl.h"
-
-#include "nixf/Basic/Nodes/Attrs.h"
-#include "nixf/Basic/Nodes/Expr.h"
-#include "nixf/Basic/Nodes/Simple.h"
+#include "Parser.h"
 
 #include <charconv>
 
@@ -10,9 +6,9 @@ namespace nixf {
 
 using namespace detail;
 
-std::unique_ptr<ExprParen> Parser::parseExprParen() {
+std::shared_ptr<ExprParen> Parser::parseExprParen() {
   Token L = peek();
-  auto LParen = std::make_unique<Misc>(L.range());
+  auto LParen = std::make_shared<Misc>(L.range());
   assert(L.kind() == tok_l_paren);
   consume(); // (
   auto Sync = withSync(tok_r_paren);
@@ -22,21 +18,21 @@ std::unique_ptr<ExprParen> Parser::parseExprParen() {
     diagNullExpr(Diags, LastToken->rCur(), "parenthesized");
   if (ExpectResult ER = expect(tok_r_paren); ER.ok()) {
     consume(); // )
-    auto RParen = std::make_unique<Misc>(ER.tok().range());
-    return std::make_unique<ExprParen>(
+    auto RParen = std::make_shared<Misc>(ER.tok().range());
+    return std::make_shared<ExprParen>(
         LexerCursorRange{L.lCur(), ER.tok().rCur()}, std::move(Expr),
         std::move(LParen), std::move(RParen));
   } else { // NOLINT(readability-else-after-return)
     ER.diag().note(Note::NK_ToMachThis, L.range())
         << std::string(tok::spelling(tok_l_paren));
-    return std::make_unique<ExprParen>(
+    return std::make_shared<ExprParen>(
         LexerCursorRange{L.lCur(), LastToken->rCur()}, std::move(Expr),
         std::move(LParen),
         /*RParen=*/nullptr);
   }
 }
 
-std::unique_ptr<ExprList> Parser::parseExprList() {
+std::shared_ptr<ExprList> Parser::parseExprList() {
   Token Tok = peek();
   if (Tok.kind() != tok_l_bracket)
     return nullptr;
@@ -44,11 +40,11 @@ std::unique_ptr<ExprList> Parser::parseExprList() {
   auto Sync = withSync(tok_r_bracket);
   assert(LastToken && "LastToken should be set after consume()");
   LexerCursor Begin = Tok.lCur();
-  std::vector<std::unique_ptr<Expr>> Exprs;
+  std::vector<std::shared_ptr<Expr>> Exprs;
   while (true) {
     if (Token Tok = peek(); Tok.kind() == tok_r_bracket)
       break;
-    std::unique_ptr<Expr> Expr = parseExprSelect();
+    std::shared_ptr<Expr> Expr = parseExprSelect();
     if (!Expr)
       break;
     Exprs.emplace_back(std::move(Expr));
@@ -58,18 +54,18 @@ std::unique_ptr<ExprList> Parser::parseExprList() {
   else
     ER.diag().note(Note::NK_ToMachThis, Tok.range())
         << std::string(tok::spelling(tok_l_bracket));
-  return std::make_unique<ExprList>(LexerCursorRange{Begin, LastToken->rCur()},
+  return std::make_shared<ExprList>(LexerCursorRange{Begin, LastToken->rCur()},
                                     std::move(Exprs));
 }
 
-std::unique_ptr<Expr> Parser::parseExprSimple() {
+std::shared_ptr<Expr> Parser::parseExprSimple() {
   Token Tok = peek();
   switch (Tok.kind()) {
   case tok_id: {
     consume();
     auto ID =
-        std::make_unique<Identifier>(Tok.range(), std::string(Tok.view()));
-    return std::make_unique<ExprVar>(Tok.range(), std::move(ID));
+        std::make_shared<Identifier>(Tok.range(), std::string(Tok.view()));
+    return std::make_shared<ExprVar>(Tok.range(), std::move(ID));
   }
   case tok_int: {
     consume();
@@ -77,13 +73,13 @@ std::unique_ptr<Expr> Parser::parseExprSimple() {
     std::from_chars_result Result [[maybe_unused]] =
         std::from_chars(Tok.view().begin(), Tok.view().end(), N);
     assert(Result.ec == std::errc() && "should be a valid integer");
-    return std::make_unique<ExprInt>(Tok.range(), N);
+    return std::make_shared<ExprInt>(Tok.range(), N);
   }
   case tok_float: {
     consume();
     // libc++ doesn't support std::from_chars for floating point numbers.
     NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
-    return std::make_unique<ExprFloat>(Tok.range(), N);
+    return std::make_shared<ExprFloat>(Tok.range(), N);
   }
   case tok_dquote: // "  - normal strings
     return parseString(/*IsIndented=*/false);

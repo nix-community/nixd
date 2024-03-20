@@ -1,14 +1,11 @@
-#include "ParserImpl.h"
-
-#include "nixf/Basic/Nodes/Expr.h"
-#include "nixf/Basic/Nodes/Lambda.h"
+#include "Parser.h"
 
 namespace nixf {
 
 using namespace detail;
 
-std::unique_ptr<Expr> Parser::parseExprSelect() {
-  std::unique_ptr<Expr> Expr = parseExprSimple();
+std::shared_ptr<Expr> Parser::parseExprSelect() {
+  std::shared_ptr<Expr> Expr = parseExprSimple();
   if (!Expr)
     return nullptr;
   assert(LastToken && "LastToken should be set after valid expr");
@@ -36,7 +33,7 @@ std::unique_ptr<Expr> Parser::parseExprSelect() {
   Token TokOr = peek();
   if (TokOr.kind() != tok_kw_or) {
     // expr_select : expr_simple '.' attrpath
-    return std::make_unique<ExprSelect>(
+    return std::make_shared<ExprSelect>(
         LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
         std::move(Path), /*Default=*/nullptr);
   }
@@ -48,20 +45,20 @@ std::unique_ptr<Expr> Parser::parseExprSelect() {
     Diagnostic &D = diagNullExpr(Diags, LastToken->rCur(), "default");
     D.fix("remove `or` keyword").edit(TextEdit::mkRemoval(TokOr.range()));
   }
-  return std::make_unique<ExprSelect>(
+  return std::make_shared<ExprSelect>(
       LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
       std::move(Path), std::move(Default));
 }
 
-std::unique_ptr<Expr> Parser::parseExprApp(int Limit) {
-  std::unique_ptr<Expr> Fn = parseExprSelect();
+std::shared_ptr<Expr> Parser::parseExprApp(int Limit) {
+  std::shared_ptr<Expr> Fn = parseExprSelect();
   // If fn cannot be evaluated to lambda, exit early.
   if (!Fn || !Fn->maybeLambda())
     return Fn;
 
-  std::vector<std::unique_ptr<Expr>> Args;
+  std::vector<std::shared_ptr<Expr>> Args;
   while (Limit--) {
-    std::unique_ptr<Expr> Arg = parseExprSelect();
+    std::shared_ptr<Expr> Arg = parseExprSelect();
     if (!Arg)
       break;
     Args.emplace_back(std::move(Arg));
@@ -69,12 +66,12 @@ std::unique_ptr<Expr> Parser::parseExprApp(int Limit) {
 
   if (Args.empty())
     return Fn;
-  return std::make_unique<ExprCall>(
+  return std::make_shared<ExprCall>(
       LexerCursorRange{Fn->lCur(), Args.back()->rCur()}, std::move(Fn),
       std::move(Args));
 }
 
-std::unique_ptr<Expr> Parser::parseExpr() {
+std::shared_ptr<Expr> Parser::parseExpr() {
   // Look ahead 3 tokens.
   switch (peek().kind()) {
   case tok_id: {
@@ -128,7 +125,7 @@ std::unique_ptr<Expr> Parser::parseExpr() {
   return parseExprOp();
 }
 
-std::unique_ptr<ExprIf> Parser::parseExprIf() {
+std::shared_ptr<ExprIf> Parser::parseExprIf() {
   LexerCursor LCur = lCur(); // if
   Token TokIf = peek();
   assert(TokIf.kind() == tok_kw_if && "parseExprIf should start with `if`");
@@ -146,7 +143,7 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
         .edit(TextEdit::mkInsertion(TokIf.rCur(), "true"));
 
     if (peek().kind() != tok_kw_then)
-      return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+      return std::make_shared<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), /*Then=*/nullptr,
                                       /*Else=*/nullptr);
   }
@@ -156,7 +153,7 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     Diagnostic &D = ExpKwThen.diag();
     Note &N = D.note(Note::NK_ToMachThis, TokIf.range());
     N << std::string(tok::spelling(tok_kw_if));
-    return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+    return std::make_shared<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                     std::move(Cond), /*Then=*/nullptr,
                                     /*Else=*/nullptr);
   }
@@ -170,14 +167,14 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     N << std::string(tok::spelling(tok_kw_if));
 
     if (peek().kind() != tok_kw_else)
-      return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+      return std::make_shared<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), std::move(Then),
                                       /*Else=*/nullptr);
   }
 
   ExpectResult ExpKwElse = expect(tok_kw_else);
   if (!ExpKwElse.ok())
-    return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+    return std::make_shared<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                     std::move(Cond), std::move(Then),
                                     /*Else=*/nullptr);
 
@@ -190,12 +187,12 @@ std::unique_ptr<ExprIf> Parser::parseExprIf() {
     N << std::string(tok::spelling(tok_kw_if));
   }
 
-  return std::make_unique<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
+  return std::make_shared<ExprIf>(LexerCursorRange{LCur, LastToken->rCur()},
                                   std::move(Cond), std::move(Then),
                                   std::move(Else));
 }
 
-std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
+std::shared_ptr<ExprAssert> Parser::parseExprAssert() {
   LexerCursor LCur = lCur();
   Token TokAssert = peek();
   assert(TokAssert.kind() == tok_kw_assert && "should be tok_kw_assert");
@@ -211,7 +208,7 @@ std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
         .edit(TextEdit::mkRemoval(TokAssert.range()));
 
     if (peek().kind() != tok_colon)
-      return std::make_unique<ExprAssert>(
+      return std::make_shared<ExprAssert>(
           LexerCursorRange{LCur, LastToken->rCur()}, std::move(Cond),
           /*Value=*/nullptr);
   }
@@ -222,7 +219,7 @@ std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
     Diagnostic &D = ExpSemi.diag();
     Note &N = D.note(Note::NK_ToMachThis, TokAssert.range());
     N << std::string(tok::spelling(tok_kw_assert));
-    return std::make_unique<ExprAssert>(
+    return std::make_shared<ExprAssert>(
         LexerCursorRange{LCur, LastToken->rCur()}, std::move(Cond),
         /*Value=*/nullptr);
   }
@@ -234,17 +231,17 @@ std::unique_ptr<ExprAssert> Parser::parseExprAssert() {
   if (!Value)
     diagNullExpr(Diags, LastToken->rCur(), "assert value");
 
-  return std::make_unique<ExprAssert>(LexerCursorRange{LCur, LastToken->rCur()},
+  return std::make_shared<ExprAssert>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Cond), std::move(Value));
 }
 
-std::unique_ptr<ExprLet> Parser::parseExprLet() {
+std::shared_ptr<ExprLet> Parser::parseExprLet() {
   LexerCursor LCur = lCur();
   Token TokLet = peek();
   assert(TokLet.kind() == tok_kw_let &&
          "first token should be tok_kw_let in parseExprLet()");
 
-  auto Let = std::make_unique<Misc>(TokLet.range());
+  auto Let = std::make_shared<Misc>(TokLet.range());
 
   consume(); // 'let'
 
@@ -258,12 +255,12 @@ std::unique_ptr<ExprLet> Parser::parseExprLet() {
 
   if (!ExpKwIn.ok())
     // missing 'in'
-    return std::make_unique<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
+    return std::make_shared<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
                                      std::move(Let), std::move(Binds),
                                      /*KwIn=*/nullptr,
                                      /*E=*/nullptr);
 
-  auto In = std::make_unique<Misc>(ExpKwIn.tok().range());
+  auto In = std::make_shared<Misc>(ExpKwIn.tok().range());
 
   consume(); // 'in'
 
@@ -271,12 +268,12 @@ std::unique_ptr<ExprLet> Parser::parseExprLet() {
   if (!E)
     diagNullExpr(Diags, LastToken->rCur(), "let ... in");
 
-  return std::make_unique<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
+  return std::make_shared<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
                                    std::move(Let), std::move(Binds),
                                    std::move(In), std::move(E));
 }
 
-std::unique_ptr<ExprWith> Parser::parseExprWith() {
+std::shared_ptr<ExprWith> Parser::parseExprWith() {
   LexerCursor LCur = lCur();
   Token TokWith = peek();
   assert(TokWith.kind() == tok_kw_with && "token should be tok_kw_with");
@@ -295,7 +292,7 @@ std::unique_ptr<ExprWith> Parser::parseExprWith() {
   if (!ExpSemi.ok()) {
     ExpSemi.diag().note(Note::NK_ToMachThis, TokWith.range())
         << std::string(tok::spelling(tok_kw_with));
-    return std::make_unique<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
+    return std::make_shared<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(With), /*E=*/nullptr);
   }
 
@@ -306,7 +303,7 @@ std::unique_ptr<ExprWith> Parser::parseExprWith() {
   if (!E)
     diagNullExpr(Diags, LastToken->rCur(), "with body");
 
-  return std::make_unique<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
+  return std::make_shared<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
                                     std::move(With), std::move(E));
 }
 

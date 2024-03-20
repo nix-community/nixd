@@ -45,4 +45,7 @@ EXPR(ExprAssert)
 EXPR(ExprLet)
 EXPR(ExprWith)
 
+// AttrSet after lowering (desugar inherit, deduplicated, ...)
+EXPR(ExprSemaAttrs)
+
 #endif // EXPR

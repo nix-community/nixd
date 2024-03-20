@@ -4,6 +4,7 @@
 #include "Lowering.h"
 
 #include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Nodes/Attrs.h"
 #include "nixf/Basic/Range.h"
 #include "nixf/Parse/Parser.h"
 #include "nixf/Sema/Lowering.h"
@@ -16,26 +17,27 @@ using namespace std::literals;
 class LoweringTest : public ::testing::Test {
 protected:
   std::vector<Diagnostic> Diags;
+  std::map<nixf::Node *, nixf::Node *> Map;
   Lowering L;
 
 public:
-  LoweringTest() : L(Diags, "") {}
+  LoweringTest() : L(Diags, "", Map) {}
 };
 
-std::unique_ptr<AttrName> getDynamicName(LexerCursorRange Range = {}) {
-  return std::make_unique<AttrName>(
-      std::make_unique<Interpolation>(Range, nullptr));
+std::shared_ptr<AttrName> getDynamicName(LexerCursorRange Range = {}) {
+  return std::make_shared<AttrName>(
+      std::make_shared<Interpolation>(Range, nullptr));
 }
 
-std::unique_ptr<AttrName> getStaticName(std::string Name,
+std::shared_ptr<AttrName> getStaticName(std::string Name,
                                         LexerCursorRange Range = {}) {
-  return std::make_unique<AttrName>(
-      std::make_unique<Identifier>(Range, std::move(Name)), Range);
+  return std::make_shared<AttrName>(
+      std::make_shared<Identifier>(Range, std::move(Name)), Range);
 }
 
 TEST_F(LoweringTest, selectOrCreate) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
-  std::vector<std::unique_ptr<AttrName>> Path;
+  ExprSemaAttrs Attr({}, /*Recursive=*/false);
+  std::vector<std::shared_ptr<AttrName>> Path;
   Path.emplace_back(getStaticName("a"));
   Path.emplace_back(getStaticName("b"));
   Path.emplace_back(getStaticName("c"));
@@ -47,15 +49,20 @@ TEST_F(LoweringTest, selectOrCreate) {
   ASSERT_EQ(Attr.dynamicAttrs().size(), 0);
   ASSERT_EQ(Attr.staticAttrs().count("a"), 1);
 
-  SemaAttrs::AttrBody &Inner = Attr.staticAttrs()["a"];
-  ASSERT_TRUE(Inner.attrs());
+  auto &Inner = Attr.staticAttrs()["a"];
 
-  SemaAttrs *InnerAttr = Inner.attrs();
+  ASSERT_EQ(Inner.value()->kind(), Node::NK_ExprSemaAttrs);
+
+  auto *InnerAttr = static_cast<ExprSemaAttrs *>(Inner.value().get());
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 1);
   ASSERT_EQ(InnerAttr->staticAttrs().count("b"), 1);
-  ASSERT_TRUE(InnerAttr->staticAttrs()["b"].attrs());
+  ASSERT_EQ(InnerAttr->staticAttrs()["b"].value()->kind(),
+            Node::NK_ExprSemaAttrs);
 
-  InnerAttr = InnerAttr->staticAttrs()["b"].attrs();
+  ASSERT_EQ(InnerAttr->staticAttrs()["b"].value()->kind(),
+            Node::NK_ExprSemaAttrs);
+  InnerAttr =
+      static_cast<ExprSemaAttrs *>(InnerAttr->staticAttrs()["b"].value().get());
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 0);
 
   L.selectOrCreate(Attr, Path);
@@ -65,23 +72,24 @@ TEST_F(LoweringTest, selectOrCreate) {
   ASSERT_EQ(Attr.dynamicAttrs().size(), 0);
   ASSERT_EQ(Attr.staticAttrs().count("a"), 1);
 
-  ASSERT_TRUE(Inner.attrs());
+  ASSERT_EQ(Inner.value()->kind(), Node::NK_ExprSemaAttrs);
 
-  InnerAttr = Inner.attrs();
+  InnerAttr = static_cast<ExprSemaAttrs *>(Inner.value().get());
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 1);
   ASSERT_EQ(InnerAttr->staticAttrs().count("b"), 1);
-  ASSERT_TRUE(InnerAttr->staticAttrs()["b"].attrs());
+  ASSERT_EQ(InnerAttr->staticAttrs()["b"].value()->kind(),
+            Node::NK_ExprSemaAttrs);
 
-  InnerAttr = InnerAttr->staticAttrs()["b"].attrs();
+  InnerAttr =
+      static_cast<ExprSemaAttrs *>(InnerAttr->staticAttrs()["b"].value().get());
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 0);
 }
 
 TEST_F(LoweringTest, selectOrCreateDynamic) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
-  std::vector<std::unique_ptr<AttrName>> Path;
+  ExprSemaAttrs Attr({}, /*Recursive=*/false);
+  std::vector<std::shared_ptr<AttrName>> Path;
   auto FirstName = getDynamicName();
-  const auto *FirstNamePtr = FirstName.get();
-  Path.emplace_back(std::move(FirstName));
+  Path.emplace_back(FirstName);
   Path.emplace_back(getDynamicName());
 
   L.selectOrCreate(Attr, Path);
@@ -92,54 +100,55 @@ TEST_F(LoweringTest, selectOrCreateDynamic) {
 
   auto &DynamicAttr = Attr.dynamicAttrs().front();
 
-  ASSERT_EQ(DynamicAttr.key().syntax(), FirstNamePtr);
+  ASSERT_EQ(DynamicAttr.key()->kind(), Node::NK_AttrName);
 }
 
 TEST_F(LoweringTest, insertAttrDup) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs A({}, /*Recursive=*/false);
   auto Name = getStaticName("a");
   // Check we can detect duplicated attr.
-  Attr.staticAttrs()["a"] = SemaAttrs::AttrBody(/*Inherited=*/false, Name.get(),
-                                                std::make_unique<SemaAttrs>(
-                                                    /*Syntax=*/nullptr,
-                                                    /*Recursive=*/false));
-  std::unique_ptr<Evaluable> E(new ExprInt{{}, 1});
-  L.insertAttr(Attr, *Name, E.get()); // Duplicated
+  A.staticAttrs()["a"] = Attr(
+      /*Key=*/Name, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+      /*ComeFromInherit=*/false);
+  std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
+  L.insertAttr(A, std::move(Name), std::move(E), false); // Duplicated
 
-  ASSERT_EQ(Attr.staticAttrs().size(), 1);
+  ASSERT_EQ(A.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 1);
 }
 
 TEST_F(LoweringTest, insertAttrOK) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs SA({}, /*Recursive=*/false);
   auto Name = getStaticName("a");
   // Check we can detect duplicated attr.
-  std::unique_ptr<Evaluable> E(new ExprInt{{}, 1});
-  L.insertAttr(Attr, *Name, E.get());
-  ASSERT_EQ(Attr.staticAttrs().size(), 1);
+  std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
+  L.insertAttr(SA, std::move(Name), std::move(E),
+               /*IsInherit=*/false); // Duplicated
+  ASSERT_EQ(SA.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
 }
 
 TEST_F(LoweringTest, insertAttrNullptr) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs SA({}, /*Recursive=*/false);
   auto Name = getStaticName("a");
-  std::unique_ptr<Evaluable> E(nullptr);
-  L.insertAttr(Attr, *Name, E.get());
-  ASSERT_EQ(Attr.staticAttrs().size(), 0);
+  std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
+  L.insertAttr(SA, std::move(Name), std::move(E),
+               /*IsInherit=*/false); // Duplicated
+  ASSERT_EQ(SA.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
 }
 
 TEST_F(LoweringTest, inheritName) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs Attr({}, /*Recursive=*/false);
   auto Name = getStaticName("a");
 
-  L.lowerInheritName(Attr, Name.get(), nullptr);
+  L.lowerInheritName(Attr, std::move(Name), nullptr);
   ASSERT_EQ(Attr.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
 }
 
 TEST_F(LoweringTest, inheritNameNullptr) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs Attr({}, /*Recursive=*/false);
   auto Name = getStaticName("a");
 
   L.lowerInheritName(Attr, nullptr, nullptr);
@@ -148,11 +157,11 @@ TEST_F(LoweringTest, inheritNameNullptr) {
 }
 
 TEST_F(LoweringTest, inheritNameDynamic) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs Attr({}, /*Recursive=*/false);
   auto Name = getDynamicName(
       {LexerCursor::unsafeCreate(0, 0, 1), LexerCursor::unsafeCreate(0, 1, 2)});
 
-  L.lowerInheritName(Attr, Name.get(), nullptr);
+  L.lowerInheritName(Attr, Name, nullptr);
   ASSERT_EQ(Attr.staticAttrs().size(), 0);
   ASSERT_EQ(Attr.dynamicAttrs().size(), 0);
   ASSERT_EQ(Diags.size(), 1);
@@ -169,15 +178,14 @@ TEST_F(LoweringTest, inheritNameDynamic) {
 }
 
 TEST_F(LoweringTest, inheritNameDuplicated) {
-  SemaAttrs Attr(/*Syntax=*/nullptr, /*Recursive=*/false);
+  ExprSemaAttrs SA({}, /*Recursive=*/false);
   auto Name = getStaticName("a");
-  Attr.staticAttrs()["a"] = SemaAttrs::AttrBody(/*Inherited=*/true, Name.get(),
-                                                std::make_unique<SemaAttrs>(
-                                                    /*Syntax=*/nullptr,
-                                                    /*Recursive=*/false));
+  SA.staticAttrs()["a"] = Attr(
+      /*Key=*/Name, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+      /*ComeFromInherit=*/false);
 
-  L.lowerInheritName(Attr, Name.get(), nullptr);
-  ASSERT_EQ(Attr.staticAttrs().size(), 1);
+  L.lowerInheritName(SA, Name, nullptr);
+  ASSERT_EQ(SA.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 1);
 }
 

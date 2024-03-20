@@ -4,6 +4,7 @@
 
 #include <boost/container/small_vector.hpp>
 
+#include <memory>
 #include <vector>
 
 namespace nixf {
@@ -35,10 +36,10 @@ public:
 
 /// \brief `${expr}` construct
 class Interpolation : public Node {
-  std::unique_ptr<Expr> E;
+  std::shared_ptr<Expr> E;
 
 public:
-  Interpolation(LexerCursorRange Range, std::unique_ptr<Expr> E)
+  Interpolation(LexerCursorRange Range, std::shared_ptr<Expr> E)
       : Node(NK_Interpolation, Range), E(std::move(E)) {}
 
   [[nodiscard]] Expr *expr() const { return E.get(); }
@@ -56,13 +57,13 @@ public:
 private:
   InterpolablePartKind Kind;
   std::string Escaped;
-  std::unique_ptr<Interpolation> Interp;
+  std::shared_ptr<Interpolation> Interp;
 
 public:
   explicit InterpolablePart(std::string Escaped)
       : Kind(SPK_Escaped), Escaped(std::move(Escaped)), Interp(nullptr) {}
 
-  explicit InterpolablePart(std::unique_ptr<Interpolation> Interp)
+  explicit InterpolablePart(std::shared_ptr<Interpolation> Interp)
       : Kind(SPK_Interpolation), Interp(std::move(Interp)) {
     assert(this->Interp && "interpolation must not be null");
   }
@@ -106,10 +107,10 @@ public:
 };
 
 class ExprString : public Expr {
-  std::unique_ptr<InterpolatedParts> Parts;
+  std::shared_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprString(LexerCursorRange Range, std::unique_ptr<InterpolatedParts> Parts)
+  ExprString(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprString, Range), Parts(std::move(Parts)) {
     assert(this->Parts && "parts must not be null");
   }
@@ -133,10 +134,10 @@ public:
 };
 
 class ExprPath : public Expr {
-  std::unique_ptr<InterpolatedParts> Parts;
+  std::shared_ptr<InterpolatedParts> Parts;
 
 public:
-  ExprPath(LexerCursorRange Range, std::unique_ptr<InterpolatedParts> Parts)
+  ExprPath(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
       : Expr(NK_ExprPath, Range), Parts(std::move(Parts)) {
     assert(this->Parts && "parts must not be null");
   }
@@ -150,13 +151,13 @@ public:
 };
 
 class ExprParen : public Expr {
-  std::unique_ptr<Expr> E;
-  std::unique_ptr<Misc> LParen;
-  std::unique_ptr<Misc> RParen;
+  std::shared_ptr<Expr> E;
+  std::shared_ptr<Misc> LParen;
+  std::shared_ptr<Misc> RParen;
 
 public:
-  ExprParen(LexerCursorRange Range, std::unique_ptr<Expr> E,
-            std::unique_ptr<Misc> LParen, std::unique_ptr<Misc> RParen)
+  ExprParen(LexerCursorRange Range, std::shared_ptr<Expr> E,
+            std::shared_ptr<Misc> LParen, std::shared_ptr<Misc> RParen)
       : Expr(NK_ExprParen, Range), E(std::move(E)), LParen(std::move(LParen)),
         RParen(std::move(RParen)) {}
 
@@ -170,10 +171,10 @@ public:
 };
 
 class ExprVar : public Expr {
-  std::unique_ptr<Identifier> ID;
+  std::shared_ptr<Identifier> ID;
 
 public:
-  ExprVar(LexerCursorRange Range, std::unique_ptr<Identifier> ID)
+  ExprVar(LexerCursorRange Range, std::shared_ptr<Identifier> ID)
       : Expr(NK_ExprVar, Range), ID(std::move(ID)) {
     assert(this->ID && "ID must not be null");
   }

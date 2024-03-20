@@ -298,7 +298,7 @@ TEST(Parser, AttrsBindingInherit) {
   ASSERT_TRUE(I2->names()[0]->range().lCur().isAt(4, 10, 33));
   ASSERT_TRUE(I2->names()[0]->range().rCur().isAt(4, 11, 34));
   ASSERT_EQ(I2->names()[0]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I2->names()[0]->id().name(), "a");
+  ASSERT_EQ(I2->names()[0]->id()->name(), "a");
   ASSERT_EQ(I2->expr(), nullptr);
 
   ASSERT_TRUE(B[3]->range().lCur().isAt(5, 2, 38));
@@ -309,11 +309,11 @@ TEST(Parser, AttrsBindingInherit) {
   ASSERT_TRUE(I3->names()[0]->range().lCur().isAt(5, 10, 46));
   ASSERT_TRUE(I3->names()[0]->range().rCur().isAt(5, 11, 47));
   ASSERT_EQ(I3->names()[0]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I3->names()[0]->id().name(), "a");
+  ASSERT_EQ(I3->names()[0]->id()->name(), "a");
   ASSERT_TRUE(I3->names()[1]->range().lCur().isAt(5, 12, 48));
   ASSERT_TRUE(I3->names()[1]->range().rCur().isAt(5, 13, 49));
   ASSERT_EQ(I3->names()[1]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I3->names()[1]->id().name(), "b");
+  ASSERT_EQ(I3->names()[1]->id()->name(), "b");
   ASSERT_EQ(I3->expr(), nullptr);
   ASSERT_FALSE(I3->hasExpr());
 
@@ -325,14 +325,14 @@ TEST(Parser, AttrsBindingInherit) {
   ASSERT_TRUE(I4->names()[0]->range().lCur().isAt(6, 14, 65));
   ASSERT_TRUE(I4->names()[0]->range().rCur().isAt(6, 15, 66));
   ASSERT_EQ(I4->names()[0]->kind(), AttrName::ANK_ID);
-  ASSERT_EQ(I4->names()[0]->id().name(), "b");
+  ASSERT_EQ(I4->names()[0]->id()->name(), "b");
   ASSERT_EQ(I4->expr()->kind(), Node::NK_ExprVar);
   ASSERT_TRUE(I4->hasExpr());
 
   const auto &I5 = static_cast<Inherit *>(B[5].get());
   ASSERT_EQ(I5->names().size(), 2);
-  ASSERT_EQ(I5->names()[0]->id().name(), "a");
-  ASSERT_EQ(I5->names()[1]->id().name(), "b");
+  ASSERT_EQ(I5->names()[0]->id()->name(), "a");
+  ASSERT_EQ(I5->names()[1]->id()->name(), "b");
   ASSERT_EQ(I5->expr()->kind(), Node::NK_ExprVar);
   ASSERT_TRUE(I5->hasExpr());
 }

@@ -3,10 +3,9 @@
 ///
 /// Syntax AST nodes are lowered to semantic AST nodes. They share part of the
 /// nodes actually, for example `ExprInt`.
-
-#include <utility>
-
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Nodes/Attrs.h"
+#include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Sema/Lowering.h"
 
 namespace nixf {
@@ -14,29 +13,33 @@ namespace nixf {
 class Lowering {
   std::vector<Diagnostic> &Diags;
   std::string_view Src;
+  std::map<Node *, Node *> &LoweringMap;
 
 public:
-  Lowering(std::vector<Diagnostic> &Diags, std::string_view Src)
-      : Diags(Diags), Src(Src) {}
+  Lowering(std::vector<Diagnostic> &Diags, std::string_view Src,
+           std::map<Node *, Node *> &LoweringMap)
+      : Diags(Diags), Src(Src), LoweringMap(LoweringMap) {}
 
   void dupAttr(std::string Name, LexerCursorRange Range, LexerCursorRange Prev);
 
-  void insertAttr(SemaAttrs &Attr, AttrName &Name,
-                  UniqueOrRaw<Evaluable, SemaAttrs> E);
+  /// \note Name must not be null
+  void insertAttr(ExprSemaAttrs &SA, std::shared_ptr<AttrName> Name,
+                  std::shared_ptr<Expr> E, bool IsInherit);
 
   /// Select into \p Attr the attribute specified by \p Path, or create one if
   /// not exists, until reached the inner-most attr. Similar to `mkdir -p`.
   ///
   /// \return The selected or created attribute.
-  SemaAttrs *selectOrCreate(SemaAttrs &Attr,
-                            const std::vector<std::unique_ptr<AttrName>> &Path);
+  ExprSemaAttrs *
+  selectOrCreate(ExprSemaAttrs &SA,
+                 const std::vector<std::shared_ptr<AttrName>> &Path);
 
   /// Insert the binding: `AttrPath = E;` into \p Attr
-  void addAttr(SemaAttrs &Attr, const AttrPath &Path,
-               UniqueOrRaw<Evaluable, SemaAttrs> E);
+  void addAttr(ExprSemaAttrs &Attr, const AttrPath &Path,
+               std::shared_ptr<Expr> E);
 
   /// \brief Perform lowering.
-  void lower(Node *AST);
+  std::shared_ptr<Node> lower(std::shared_ptr<Node> AST);
 
   using FormalVector = Formals::FormalVector;
 
@@ -59,15 +62,21 @@ public:
   void dedupFormal(std::map<std::string, const Formal *> &Dedup,
                    const FormalVector &FV);
 
+  /// FIXME: this should be rewritten as immutable nodes.
   void lowerFormals(Formals &FS);
 
-  void lowerInheritName(SemaAttrs &Attr, AttrName *Name, Expr *E);
+  /// \brief Desugar inherit (expr) a, inherit a, into select, or variable.
+  static std::shared_ptr<Expr>
+  desugarInheritExpr(std::shared_ptr<AttrName> Name, std::shared_ptr<Expr> E);
 
-  void lowerInherit(SemaAttrs &Attr, const Inherit &Inherit);
+  void lowerInheritName(ExprSemaAttrs &SA, std::shared_ptr<AttrName> Name,
+                        std::shared_ptr<Expr> E);
 
-  void lowerBinds(Binds &B, SemaAttrs &SA);
+  void lowerInherit(ExprSemaAttrs &Attr, const Inherit &Inherit);
 
-  void lowerExprAttrs(ExprAttrs &Attrs);
+  void lowerBinds(ExprSemaAttrs &SA, const Binds &B);
+
+  std::shared_ptr<ExprSemaAttrs> lowerExprAttrs(const ExprAttrs &Attrs);
 };
 
 } // namespace nixf
