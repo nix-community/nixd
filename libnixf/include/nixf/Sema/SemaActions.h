@@ -50,6 +50,26 @@ public:
 
   void dupAttr(std::string Name, LexerCursorRange Range, LexerCursorRange Prev);
 
+  /// \brief Check if these two attrsets has the same "recursive" modifier.
+  ///
+  /// Official nix implementation implicitly discards the second modifier, this
+  /// is somehow error-prone, let's detect it.
+  void checkAttrRecursiveForMerge(const ExprAttrs &XAttrs,
+                                  const ExprAttrs &YAttrs);
+
+  /// \brief Perform attrsets merging while duplicated fields are both attrsets.
+  ///
+  /// e.g.
+  /// \code{nix}
+  /// {
+  ///   a = { x = 1; };
+  ///   a = { y = 1; };
+  /// }
+  /// \endcode
+  /// We may want to merge both "a = " attrsets into a single one, instead of
+  /// report duplicating attrs.
+  void mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs);
+
   /// \note Name must not be null
   void insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
                   std::shared_ptr<Expr> E, bool IsInherit);

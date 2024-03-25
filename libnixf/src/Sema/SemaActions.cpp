@@ -19,29 +19,84 @@ void Sema::dupAttr(std::string Name, LexerCursorRange Range,
   Diag.note(Note::NK_PrevDeclared, Prev);
 }
 
+void Sema::checkAttrRecursiveForMerge(const ExprAttrs &XAttrs,
+                                      const ExprAttrs &YAttrs) {
+  bool XAttrsRec = XAttrs.isRecursive();
+  bool YAttrsRec = YAttrs.isRecursive();
+  if (XAttrsRec == YAttrsRec)
+    return;
+
+  // Different "rec" modifier!
+  const Misc *Pointer = XAttrsRec ? XAttrs.rec() : YAttrs.rec();
+  auto &D = Diags.emplace_back(Diagnostic::DK_MergeDiffRec, Pointer->range());
+
+  auto XRange = XAttrsRec ? XAttrs.rec()->range() : XAttrs.range();
+  D.note(Note::NK_ThisRecursive, XRange) << (XAttrsRec ? "" : "non-");
+
+  auto YRange = YAttrsRec ? YAttrs.rec()->range() : YAttrs.range();
+  D.note(Note::NK_RecConsider, YRange)
+      << /* Marked as ?recursive */ (YAttrsRec ? "" : "non-")
+      << /* Considered as ?recursive */ (XAttrsRec ? "" : "non-");
+}
+
+void Sema::mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs) {
+  for (const auto &[K, V] : YAttrs.Static) {
+    if (XAttrs.Static.contains(K)) {
+      // Don't perform recursively merging
+      // e.g.
+      /*
+
+      {
+        p = { x = { y = 1; }; };
+              ^<----------------------  this is duplicated!
+        p = { x = { z = 1; }; };
+                  ^~~~~~~~<-----------  don't merge nested attrs recursively.
+      }
+
+      */
+      dupAttr(K, XAttrs.Static.at(K).key()->range(), V.key()->range());
+      continue;
+    }
+    XAttrs.Static.insert({K, V});
+  }
+  for (const auto &DAttr : YAttrs.Dynamic) {
+    XAttrs.Dynamic.emplace_back(DAttr);
+  }
+}
+
 void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
                       std::shared_ptr<Expr> E, bool IsInherit) {
+  // In this function we accept nullptr "E".
+  //
+  // e.g. { a = ; }
+  //           ^ nullptr
+  //
+  // Duplicate checking will be performed on this in-complete attrset,
+  // however it will not be placed in the final Sema node.
   assert(Name);
-  if (Name->isStatic()) {
-    auto &Attrs = SA.Static;
-    std::string StaticName = Name->staticName();
-    if (auto Nested = Attrs.find(StaticName); Nested != Attrs.end()) {
-      // TODO: merge two attrset, if applicable.
-      const auto &[K, V] = *Nested;
-      dupAttr(StaticName, Name->range(), V.key()->range());
-    } else {
-      // Check if the expression actually exists, if it is nullptr, exit early
-      //
-      // e.g. { a = ; }
-      //           ^ nullptr
-      //
-      // Duplicate checking will be performed on this in-complete attrset,
-      // however it will not be placed in the final Sema node.
-      if (!E)
-        return;
-      Attrs[StaticName] = Attribute(std::move(Name), std::move(E), IsInherit);
-    }
+  if (!Name->isStatic() && E) {
+    SA.Dynamic.emplace_back(std::move(Name), std::move(E), IsInherit);
+    return;
   }
+  auto &Attrs = SA.Static;
+  std::string StaticName = Name->staticName();
+  if (auto Nested = Attrs.find(StaticName); Nested != Attrs.end()) {
+    const auto &[K, V] = *Nested;
+    if (V.value() && V.value()->kind() == Node::NK_ExprAttrs && E &&
+        E->kind() == Node::NK_ExprAttrs) {
+      // If this is also an attrset, we want to merge them.
+      auto *XAttrSet = static_cast<ExprAttrs *>(V.value().get());
+      auto *YAttrSet = static_cast<ExprAttrs *>(E.get());
+      checkAttrRecursiveForMerge(*XAttrSet, *YAttrSet);
+      mergeAttrSets(XAttrSet->SA, YAttrSet->SA);
+      return;
+    }
+    dupAttr(StaticName, Name->range(), V.key()->range());
+    return;
+  }
+  if (!E)
+    return;
+  Attrs[StaticName] = Attribute(std::move(Name), std::move(E), IsInherit);
 }
 
 SemaAttrs *
