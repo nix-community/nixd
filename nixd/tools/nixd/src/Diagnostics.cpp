@@ -53,6 +53,11 @@ void Controller::publishDiagnostics(
               },
           .message = N.format(),
       });
+    }
+    auto Notes = D.notes();
+    auto DRange = Diag.range;
+
+    for (const nixf::Note &N : Notes) {
       LSPDiags.emplace_back(Diagnostic{
           .range = toLSPRange(N.range()),
           .severity = 4,
@@ -66,7 +71,7 @@ void Controller::publishDiagnostics(
                       .location =
                           Location{
                               .uri = URIForFile::canonicalize(File, File),
-                              .range = Diag.range,
+                              .range = DRange,
                           },
                       .message = "original diagnostic",
                   }},
