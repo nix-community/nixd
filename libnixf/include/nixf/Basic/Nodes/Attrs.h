@@ -192,53 +192,16 @@ public:
   }
 };
 
-class ExprSemaAttrs;
-
-class ExprAttrs : public Expr {
-  std::shared_ptr<Binds> Body;
-  std::shared_ptr<Misc> Rec;
-
-  std::shared_ptr<ExprSemaAttrs> Sema;
-
-public:
-  ExprAttrs(LexerCursorRange Range, std::shared_ptr<Binds> Body,
-            std::shared_ptr<Misc> Rec)
-      : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)) {}
-
-  [[nodiscard]] Binds *binds() const { return Body.get(); }
-  [[nodiscard]] Misc *rec() const { return Rec.get(); }
-
-  [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
-
-  [[nodiscard]] ChildVector children() const override {
-    return {Body.get(), Rec.get()};
-  }
-
-  void addSema(std::shared_ptr<ExprSemaAttrs> Sema) {
-    this->Sema = std::move(Sema);
-  }
-
-  [[nodiscard]] const ExprSemaAttrs &sema() const {
-    assert(Sema);
-    return *Sema;
-  }
-};
-
-//===----------------------------------------------------------------------===//
-// Semantic nodes
-//===----------------------------------------------------------------------===//
-
-class Attr {
+class Attribute {
   std::shared_ptr<Node> Key;
   std::shared_ptr<Expr> Value;
-  bool ComeFromInherit;
+  bool FromInherit;
 
 public:
-  Attr() = default;
-  Attr(std::shared_ptr<Node> Key, std::shared_ptr<Expr> Value,
-       bool ComeFromInherit)
-      : Key(std::move(Key)), Value(std::move(Value)),
-        ComeFromInherit(ComeFromInherit) {
+  Attribute() = default;
+  Attribute(std::shared_ptr<Node> Key, std::shared_ptr<Expr> Value,
+            bool FromInherit)
+      : Key(std::move(Key)), Value(std::move(Value)), FromInherit(FromInherit) {
     assert(this->Key && "Key must not be null");
   }
 
@@ -250,10 +213,10 @@ public:
 
   [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
 
-  [[nodiscard]] bool comeFromInherit() const { return ComeFromInherit; }
+  [[nodiscard]] bool fromInherit() const { return FromInherit; }
 };
 
-/// \brief Attribute set after lowering.
+/// \brief Attribute set after deduplication.
 ///
 /// Represeting the attribute set suitable for variable lookups, evaluation.
 ///
@@ -261,45 +224,61 @@ public:
 /// K-V form.
 ///
 /// e.g. `{ a.b.c = 1 }` -> `{ a = { b = { c = 1; }; }; }`
-class ExprSemaAttrs : public Expr {
+class SemaAttrs {
 private:
-  std::map<std::string, Attr> Attrs;
-  std::vector<Attr> DynamicAttrs;
+  std::map<std::string, Attribute> Static;
+  std::vector<Attribute> Dynamic;
 
-  bool Recursive;
+  Misc *Recursive;
+
+  friend class Sema;
 
 public:
-  ExprSemaAttrs(LexerCursorRange Range, bool Recursive)
-      : Expr(NK_ExprSemaAttrs, Range), Recursive(Recursive) {}
-  ExprSemaAttrs(LexerCursorRange Range, std::map<std::string, Attr> Attrs,
-                std::vector<Attr> DynamicAttrs, bool Recursive)
-      : Expr(NK_ExprSemaAttrs, Range), Attrs(std::move(Attrs)),
-        DynamicAttrs(std::move(DynamicAttrs)), Recursive(Recursive) {}
+  SemaAttrs(Misc *Recursive) : Recursive(Recursive) {}
+  SemaAttrs(std::map<std::string, Attribute> Static,
+            std::vector<Attribute> Dynamic, Misc *Recursive)
+      : Static(std::move(Static)), Dynamic(std::move(Dynamic)),
+        Recursive(Recursive) {}
 
   /// \brief Static attributes, do not require evaluation to get the key.
   ///
   /// e.g. `{ a = 1; b = 2; }`
-  std::map<std::string, Attr> &staticAttrs() { return Attrs; }
+  [[nodiscard]] const std::map<std::string, Attribute> &staticAttrs() const {
+    return Static;
+  }
 
   /// \brief Dynamic attributes, require evaluation to get the key.
   ///
   /// e.g. `{ "${asdasda}" = "asdasd"; }`
-  std::vector<Attr> &dynamicAttrs() { return DynamicAttrs; }
+  [[nodiscard]] const std::vector<Attribute> &dynamicAttrs() const {
+    return Dynamic;
+  }
 
   /// \brief If the attribute set is `rec`.
   [[nodiscard]] bool isRecursive() const { return Recursive; }
+};
+
+class ExprAttrs : public Expr {
+  const std::shared_ptr<Binds> Body;
+  const std::shared_ptr<Misc> Rec;
+  SemaAttrs SA; // Let this mutable for "Sema" class only.
+  friend class Sema;
+
+public:
+  ExprAttrs(LexerCursorRange Range, std::shared_ptr<Binds> Body,
+            std::shared_ptr<Misc> Rec, SemaAttrs SA)
+      : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)),
+        SA(std::move(SA)) {}
+
+  [[nodiscard]] const Binds *binds() const { return Body.get(); }
+  [[nodiscard]] const Misc *rec() const { return Rec.get(); }
+
+  [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
+
+  [[nodiscard]] const SemaAttrs &sema() const { return SA; }
 
   [[nodiscard]] ChildVector children() const override {
-    ChildVector Vec{};
-    for (const auto &[K, V] : Attrs) {
-      Vec.emplace_back(V.key().get());
-      Vec.emplace_back(V.value().get());
-    }
-    for (const auto &DA : DynamicAttrs) {
-      Vec.emplace_back(DA.key().get());
-      Vec.emplace_back(DA.value().get());
-    }
-    return Vec;
+    return {Body.get(), Rec.get()};
   }
 };
 

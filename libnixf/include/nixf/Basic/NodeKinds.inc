@@ -22,8 +22,6 @@ NODE(Op)
 
 #endif // NODE
 
-
-
 #ifdef EXPR
 
 EXPR(ExprInt)
@@ -44,8 +42,5 @@ EXPR(ExprIf)
 EXPR(ExprAssert)
 EXPR(ExprLet)
 EXPR(ExprWith)
-
-// AttrSet after lowering (desugar inherit, deduplicated, ...)
-EXPR(ExprSemaAttrs)
 
 #endif // EXPR

@@ -275,7 +275,7 @@ TEST(Parser, AttrsBindingInherit) {
   auto AST = nixf::parse(Src, Diags);
 
   ASSERT_TRUE(AST);
-  ASSERT_EQ(Diags.size(), 0);
+  ASSERT_EQ(Diags.size(), 5);
 
   // Check the bindings.
   const auto &B = static_cast<ExprAttrs *>(AST.get())->binds()->bindings();
@@ -405,7 +405,7 @@ TEST(Parser, SyncInherit3) {
 
   ASSERT_TRUE(AST);
 
-  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags.size(), 2);
   auto &D = Diags[0];
   ASSERT_TRUE(D.range().lCur().isAt(2, 14, 17));
   ASSERT_TRUE(D.range().rCur().isAt(2, 14, 17));

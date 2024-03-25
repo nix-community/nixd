@@ -1,34 +1,29 @@
 /// \file
-/// \brief Semantic lowering of AST nodes.
+/// \brief Semantic Actions of AST nodes.
 ///
-/// This file implements the lowering of AST nodes.
+/// This file implements semantic actions for AST nodes.
 
-#include "Lowering.h"
+#include <memory>
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Attrs.h"
 #include "nixf/Basic/Nodes/Expr.h"
+#include "nixf/Sema/SemaActions.h"
 
 namespace nixf {
 
-std::shared_ptr<Node> lower(std::shared_ptr<Node> AST, std::string_view Src,
-                            std::vector<Diagnostic> &Diags,
-                            std::map<Node *, Node *> &LoweringMap) {
-  return Lowering(Diags, Src, LoweringMap).lower(AST);
-}
-
-void Lowering::dupAttr(std::string Name, LexerCursorRange Range,
-                       LexerCursorRange Prev) {
+void Sema::dupAttr(std::string Name, LexerCursorRange Range,
+                   LexerCursorRange Prev) {
   auto &Diag = Diags.emplace_back(Diagnostic::DK_DuplicatedAttrName, Range);
   Diag << std::move(Name);
   Diag.note(Note::NK_PrevDeclared, Prev);
 }
 
-void Lowering::insertAttr(ExprSemaAttrs &SA, std::shared_ptr<AttrName> Name,
-                          std::shared_ptr<Expr> E, bool IsInherit) {
+void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
+                      std::shared_ptr<Expr> E, bool IsInherit) {
   assert(Name);
   if (Name->isStatic()) {
-    auto &Attrs = SA.staticAttrs();
+    auto &Attrs = SA.Static;
     std::string StaticName = Name->staticName();
     if (auto Nested = Attrs.find(StaticName); Nested != Attrs.end()) {
       // TODO: merge two attrset, if applicable.
@@ -44,16 +39,16 @@ void Lowering::insertAttr(ExprSemaAttrs &SA, std::shared_ptr<AttrName> Name,
       // however it will not be placed in the final Sema node.
       if (!E)
         return;
-      Attrs[StaticName] = Attr(std::move(Name), std::move(E), IsInherit);
+      Attrs[StaticName] = Attribute(std::move(Name), std::move(E), IsInherit);
     }
   }
 }
 
-ExprSemaAttrs *
-Lowering::selectOrCreate(ExprSemaAttrs &SA,
-                         const std::vector<std::shared_ptr<AttrName>> &Path) {
+SemaAttrs *
+Sema::selectOrCreate(SemaAttrs &SA,
+                     const std::vector<std::shared_ptr<AttrName>> &Path) {
   assert(!Path.empty() && "AttrPath has at least 1 name");
-  ExprSemaAttrs *Inner = &SA;
+  SemaAttrs *Inner = &SA;
   // Firstly perform a lookup to see if the attribute already exists.
   // And do selection if it exists.
   for (std::size_t I = 0; I + 1 < Path.size(); I++) {
@@ -64,47 +59,46 @@ Lowering::selectOrCreate(ExprSemaAttrs &SA,
     if (!Name)
       continue;
     if (Name->isStatic()) {
-      std::map<std::string, Attr> &StaticAttrs = Inner->staticAttrs();
+      std::map<std::string, Attribute> &StaticAttrs = Inner->Static;
       const std::string &StaticName = Name->staticName();
       if (auto Nested = StaticAttrs.find(StaticName);
           Nested != StaticAttrs.end()) {
         // Find another attr, with the same name.
         const auto &[K, V] = *Nested;
-        if (V.comeFromInherit() || !V.value() ||
-            V.value()->kind() != Node::NK_ExprSemaAttrs) {
+        if (V.fromInherit() || !V.value() ||
+            V.value()->kind() != Node::NK_ExprAttrs) {
           dupAttr(StaticName, Name->range(), V.key()->range());
           return nullptr;
         }
-        Inner = static_cast<ExprSemaAttrs *>(V.value().get());
+        Inner = &static_cast<ExprAttrs *>(V.value().get())->SA;
       } else {
         // There is no existing one, let's create a new attribute.
         // These attributes are implicitly created, and to match default ctor
         // in C++ nix implementation, they are all non-recursive.
-        auto NewNested =
-            std::make_shared<ExprSemaAttrs>(Name->range(), /*Recursive=*/false);
-        Inner = NewNested.get();
+        auto NewNested = std::make_shared<ExprAttrs>(
+            Name->range(), nullptr, nullptr, SemaAttrs(/*Recursive=*/nullptr));
+        Inner = &NewNested->SA;
         StaticAttrs[StaticName] =
-            Attr(Name, std::move(NewNested), /*ComeFromInherit=*/false);
+            Attribute(Name, std::move(NewNested), /*FromInherit=*/false);
       }
     } else {
       // Create a dynamic attribute.
-      auto LoweredName = lower(Name);
-      std::vector<Attr> &DynamicAttrs = Inner->dynamicAttrs();
-      auto NewNested =
-          std::make_shared<ExprSemaAttrs>(Name->range(), /*Recursive=*/false);
-      Inner = NewNested.get();
+      std::vector<Attribute> &DynamicAttrs = Inner->Dynamic;
+      auto NewNested = std::make_shared<ExprAttrs>(
+          Name->range(), nullptr, nullptr, SemaAttrs(/*Recursive=*/nullptr));
+      Inner = &NewNested->SA;
       DynamicAttrs.emplace_back(Name,
                                 std::shared_ptr<Expr>(std::move(NewNested)),
-                                /*ComeFromInherit=*/false);
+                                /*FromInherit=*/false);
     }
   }
   return Inner;
 }
 
-void Lowering::addAttr(ExprSemaAttrs &Attr, const AttrPath &Path,
-                       std::shared_ptr<Expr> E) {
+void Sema::addAttr(SemaAttrs &Attr, const AttrPath &Path,
+                   std::shared_ptr<Expr> E) {
   // Select until the inner-most attr.
-  ExprSemaAttrs *Inner = selectOrCreate(Attr, Path.names());
+  SemaAttrs *Inner = selectOrCreate(Attr, Path.names());
   if (!Inner)
     return;
 
@@ -115,8 +109,8 @@ void Lowering::addAttr(ExprSemaAttrs &Attr, const AttrPath &Path,
   insertAttr(*Inner, std::move(Name), std::move(E), false);
 }
 
-void Lowering::removeFormal(Fix &F, const FormalVector::const_iterator &Rm,
-                            const FormalVector &FV) {
+void Sema::removeFormal(Fix &F, const FormalVector::const_iterator &Rm,
+                        const FormalVector &FV) {
   const Formal &Fm = **Rm;
   F.edit(TextEdit::mkRemoval(Fm.range()));
   // If it is the first formal, remove second formal's comma.
@@ -129,7 +123,7 @@ void Lowering::removeFormal(Fix &F, const FormalVector::const_iterator &Rm,
     F.edit(TextEdit::mkRemoval(SecondF.comma()->range()));
 }
 
-void Lowering::checkFormalEllipsis(const FormalVector &FV) {
+void Sema::checkFormalEllipsis(const FormalVector &FV) {
   if (FV.empty())
     return;
 
@@ -160,7 +154,7 @@ void Lowering::checkFormalEllipsis(const FormalVector &FV) {
   }
 }
 
-void Lowering::checkFormalSep(const FormalVector &FV) {
+void Sema::checkFormalSep(const FormalVector &FV) {
   if (FV.empty())
     return;
   for (auto It = FV.begin(); It != FV.end(); It++) {
@@ -174,7 +168,7 @@ void Lowering::checkFormalSep(const FormalVector &FV) {
   }
 }
 
-void Lowering::checkFormalEmpty(const FormalVector &FV) {
+void Sema::checkFormalEmpty(const FormalVector &FV) {
   for (const std::shared_ptr<Formal> &FPtr : FV) {
     const Formal &F = *FPtr;
     // Check if the formal is emtpy, e.g.
@@ -189,8 +183,8 @@ void Lowering::checkFormalEmpty(const FormalVector &FV) {
   }
 }
 
-void Lowering::dedupFormal(std::map<std::string, const Formal *> &Dedup,
-                           const FormalVector &FV) {
+void Sema::dedupFormal(std::map<std::string, const Formal *> &Dedup,
+                       const FormalVector &FV) {
   for (const std::shared_ptr<Formal> &FPtr : FV) {
     const Formal &F = *FPtr;
     if (!F.id())
@@ -210,7 +204,7 @@ void Lowering::dedupFormal(std::map<std::string, const Formal *> &Dedup,
   }
 }
 
-void Lowering::lowerFormals(Formals &FS) {
+void Sema::lowerFormals(Formals &FS) {
   const auto &FV = FS.members();
   checkFormalSep(FV);
   checkFormalEllipsis(FV);
@@ -218,27 +212,8 @@ void Lowering::lowerFormals(Formals &FS) {
   dedupFormal(FS.dedup(), FV);
 }
 
-std::shared_ptr<Node> Lowering::lower(std::shared_ptr<Node> AST) {
-  if (!AST)
-    return nullptr;
-  std::shared_ptr<Node> Lowered = AST;
-  switch (AST->kind()) {
-  case Node::NK_ExprAttrs:
-    Lowered = lowerExprAttrs(*static_cast<ExprAttrs *>(AST.get()));
-    break;
-  case Node::NK_Formals:
-    lowerFormals(static_cast<Formals &>(*AST));
-    break;
-  default:
-    break;
-  }
-  LoweringMap[AST.get()] = AST.get();
-  return AST;
-}
-
-void Lowering::lowerInheritName(ExprSemaAttrs &SA,
-                                std::shared_ptr<AttrName> Name,
-                                std::shared_ptr<Expr> E) {
+void Sema::lowerInheritName(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
+                            std::shared_ptr<Expr> E) {
   if (!Name)
     return;
   if (!Name->isStatic()) {
@@ -250,17 +225,18 @@ void Lowering::lowerInheritName(ExprSemaAttrs &SA,
     return;
   }
   // Check duplicated attrname.
-  if (SA.staticAttrs().contains(Name->staticName())) {
+  if (SA.Static.contains(Name->staticName())) {
     dupAttr(Name->staticName(), Name->range(),
-            SA.staticAttrs()[Name->staticName()].key()->range());
+            SA.Static[Name->staticName()].key()->range());
     return;
   }
   // Insert the attr.
-  SA.staticAttrs()[Name->staticName()] =
-      Attr(Name, std::move(E), /*ComeFromInherit=*/true);
+  std::string StaticName = Name->staticName();
+  SA.Static[StaticName] =
+      Attribute(std::move(Name), std::move(E), /*FromInherit=*/true);
 }
 
-void Lowering::lowerInherit(ExprSemaAttrs &Attr, const Inherit &Inherit) {
+void Sema::lowerInherit(SemaAttrs &Attr, const Inherit &Inherit) {
   for (const std::shared_ptr<AttrName> &Name : Inherit.names()) {
     assert(Name);
     std::shared_ptr<Expr> Desugar = desugarInheritExpr(Name, Inherit.expr());
@@ -268,7 +244,7 @@ void Lowering::lowerInherit(ExprSemaAttrs &Attr, const Inherit &Inherit) {
   }
 }
 
-void Lowering::lowerBinds(ExprSemaAttrs &SA, const Binds &B) {
+void Sema::lowerBinds(SemaAttrs &SA, const Binds &B) {
   for (const std::shared_ptr<Node> &Bind : B.bindings()) {
     assert(Bind && "Bind is not null");
     switch (Bind->kind()) {
@@ -288,24 +264,26 @@ void Lowering::lowerBinds(ExprSemaAttrs &SA, const Binds &B) {
   }
 }
 
-std::shared_ptr<ExprSemaAttrs>
-Lowering::lowerExprAttrs(const ExprAttrs &Attrs) {
-  auto SA = std::make_shared<ExprSemaAttrs>(Attrs.range(), Attrs.isRecursive());
-  if (Attrs.binds())
-    lowerBinds(*SA, *Attrs.binds());
-  return SA;
-}
-
-std::shared_ptr<Expr>
-Lowering::desugarInheritExpr(std::shared_ptr<AttrName> Name,
-                             std::shared_ptr<Expr> E) {
+std::shared_ptr<Expr> Sema::desugarInheritExpr(std::shared_ptr<AttrName> Name,
+                                               std::shared_ptr<Expr> E) {
+  auto Range = Name->range();
   if (!E)
-    return std::make_shared<ExprVar>(Name->range(), Name->id());
+    return std::make_shared<ExprVar>(Range, Name->id());
 
   auto Path = std::make_shared<AttrPath>(
-      Name->range(), std::vector<std::shared_ptr<AttrName>>{std::move(Name)});
-  return std::make_shared<ExprSelect>(Name->range(), std::move(E),
-                                      std::move(Path), nullptr);
+      Range, std::vector<std::shared_ptr<AttrName>>{std::move(Name)});
+  return std::make_shared<ExprSelect>(Range, std::move(E), std::move(Path),
+                                      nullptr);
+}
+
+std::shared_ptr<ExprAttrs> Sema::onExprAttrs(LexerCursorRange Range,
+                                             std::shared_ptr<Binds> Binds,
+                                             std::shared_ptr<Misc> Rec) {
+  SemaAttrs ESA(Rec.get());
+  if (Binds)
+    lowerBinds(ESA, *Binds);
+  return std::make_shared<ExprAttrs>(Range, std::move(Binds), std::move(Rec),
+                                     std::move(ESA));
 }
 
 } // namespace nixf

@@ -188,8 +188,8 @@ std::shared_ptr<ExprAttrs> Parser::parseExprAttrs() {
   else
     ER.diag().note(Note::NK_ToMachThis, Matcher.range())
         << std::string(tok::spelling(Matcher.kind()));
-  return std::make_shared<ExprAttrs>(LexerCursorRange{Begin, LastToken->rCur()},
-                                     std::move(Binds), std::move(Rec));
+  return Act.onExprAttrs(LexerCursorRange{Begin, LastToken->rCur()},
+                         std::move(Binds), std::move(Rec));
 }
 
 } // namespace nixf

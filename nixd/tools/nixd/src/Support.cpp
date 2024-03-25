@@ -5,7 +5,6 @@
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Bytecode/Write.h"
 #include "nixf/Parse/Parser.h"
-#include "nixf/Sema/Lowering.h"
 
 using namespace lspserver;
 using namespace nixd;
@@ -32,8 +31,6 @@ void Controller::actOnDocumentAdd(PathRef File,
 
   std::vector<nixf::Diagnostic> Diagnostics;
   std::shared_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
-  std::map<nixf::Node *, nixf::Node *> LoweringMap;
-  nixf::lower(AST, *Draft->Contents, Diagnostics, LoweringMap);
   publishDiagnostics(File, Version, Diagnostics);
 
   if (!AST) {

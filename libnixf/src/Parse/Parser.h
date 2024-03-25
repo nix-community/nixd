@@ -10,6 +10,7 @@
 #include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Basic/Nodes/Simple.h"
 #include "nixf/Basic/Range.h"
+#include "nixf/Sema/SemaActions.h"
 
 #include <climits>
 #include <deque>
@@ -39,6 +40,7 @@ public:
 private:
   std::string_view Src;
   Lexer Lex;
+  Sema Act;
   std::vector<Diagnostic> &Diags;
 
   std::deque<Token> LookAheadBuf;
@@ -149,7 +151,7 @@ private:
 
 public:
   Parser(std::string_view Src, std::vector<Diagnostic> &Diags)
-      : Src(Src), Lex(Src, Diags), Diags(Diags) {
+      : Src(Src), Lex(Src, Diags), Act(Src, Diags), Diags(Diags) {
     pushState(PS_Expr);
   }
 
