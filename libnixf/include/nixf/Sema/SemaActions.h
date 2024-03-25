@@ -42,8 +42,7 @@ public:
   void dedupFormal(std::map<std::string, const Formal *> &Dedup,
                    const FormalVector &FV);
 
-  /// FIXME: this should be rewritten as immutable nodes.
-  void lowerFormals(Formals &FS);
+  std::shared_ptr<Formals> onFormals(LexerCursorRange Range, FormalVector FV);
 
   /// \brief Desugar inherit (expr) a, inherit a, into select, or variable.
   static std::shared_ptr<Expr>

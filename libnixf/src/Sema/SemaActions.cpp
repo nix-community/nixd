@@ -204,12 +204,14 @@ void Sema::dedupFormal(std::map<std::string, const Formal *> &Dedup,
   }
 }
 
-void Sema::lowerFormals(Formals &FS) {
-  const auto &FV = FS.members();
+std::shared_ptr<Formals> Sema::onFormals(LexerCursorRange Range,
+                                         FormalVector FV) {
+  std::map<std::string, const Formal *> Dedup;
   checkFormalSep(FV);
   checkFormalEllipsis(FV);
   checkFormalEmpty(FV);
-  dedupFormal(FS.dedup(), FV);
+  dedupFormal(Dedup, FV);
+  return std::make_shared<Formals>(Range, std::move(FV), std::move(Dedup));
 }
 
 void Sema::lowerInheritName(SemaAttrs &SA, std::shared_ptr<AttrName> Name,

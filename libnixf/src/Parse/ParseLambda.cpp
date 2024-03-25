@@ -78,8 +78,8 @@ std::shared_ptr<Formals> Parser::parseFormals() {
   else
     ER.diag().note(Note::NK_ToMachThis, TokLCurly.range())
         << std::string(tok::spelling(tok_l_curly));
-  return std::make_shared<Formals>(LexerCursorRange{LCur, LastToken->rCur()},
-                                   std::move(Members));
+  return Act.onFormals(LexerCursorRange{LCur, LastToken->rCur()},
+                       std::move(Members));
 }
 
 std::shared_ptr<LambdaArg> Parser::parseLambdaArg() {

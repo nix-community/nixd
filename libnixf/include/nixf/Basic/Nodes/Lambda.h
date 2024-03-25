@@ -62,14 +62,17 @@ class Formals : public Node {
   std::map<std::string, const Formal *> Dedup;
 
 public:
-  Formals(LexerCursorRange Range, std::vector<std::shared_ptr<Formal>> Members)
-      : Node(NK_Formals, Range), Members(std::move(Members)) {}
-
   using FormalVector = std::vector<std::shared_ptr<Formal>>;
+  Formals(LexerCursorRange Range, FormalVector Members,
+          std::map<std::string, const Formal *> Dedup)
+      : Node(NK_Formals, Range), Members(std::move(Members)),
+        Dedup(std::move(Dedup)) {}
 
   [[nodiscard]] const FormalVector &members() const { return Members; }
 
-  std::map<std::string, const Formal *> &dedup() { return Dedup; }
+  /// \brief Deduplicated formals.
+  const std::map<std::string, const Formal *> &dedup() { return Dedup; }
+
   [[nodiscard]] const std::map<std::string, const Formal *> &dedup() const {
     return Dedup;
   }
