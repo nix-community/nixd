@@ -54,7 +54,7 @@ void Sema::mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs) {
       }
 
       */
-      dupAttr(K, XAttrs.Static.at(K).key()->range(), V.key()->range());
+      dupAttr(K, V.key()->range(), XAttrs.Static.at(K).key()->range());
       continue;
     }
     XAttrs.Static.insert({K, V});

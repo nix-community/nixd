@@ -193,4 +193,37 @@ TEST_F(SemaActionTest, inheritNameDuplicated) {
   ASSERT_EQ(Diags.size(), 1);
 }
 
+TEST_F(SemaActionTest, mergeAttrSets) {
+  std::shared_ptr<AttrName> XName =
+      getStaticName("a", {LexerCursor::unsafeCreate(1, 1, 1),
+                          LexerCursor::unsafeCreate(1, 1, 1)});
+
+  std::shared_ptr<AttrName> YName =
+      getStaticName("a", {LexerCursor::unsafeCreate(2, 2, 2),
+                          LexerCursor::unsafeCreate(1, 1, 1)});
+
+  std::map<std::string, Attribute> XAttrs;
+  std::map<std::string, Attribute> YAttrs;
+
+  XAttrs["a"] = Attribute(
+      /*Key=*/XName, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+      /*FromInherit=*/false);
+
+  YAttrs["a"] = Attribute(
+      /*Key=*/YName, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+      /*FromInherit=*/false);
+
+  SemaAttrs XA(XAttrs, {}, nullptr);
+  SemaAttrs YA(YAttrs, {}, nullptr);
+
+  L.mergeAttrSets(XA, YA);
+
+  // Report duplicated!
+  ASSERT_EQ(Diags.size(), 1);
+
+  // Check that the diagnostic is pointed on the second name.
+  LexerCursorRange Range = Diags[0].range();
+  ASSERT_EQ(Range.lCur().line(), 2);
+}
+
 } // namespace
