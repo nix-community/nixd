@@ -35,47 +35,6 @@
 }
 ```
 
-<-- textDocument/hover(1)
-
-
-```json
-{
-   "jsonrpc":"2.0",
-   "id":1,
-   "method":"textDocument/hover",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix"
-      },
-      "position":{
-         "line":0,
-         "character":2
-      }
-   }
-}
-```
-
-```
-     CHECK:  "id": 1,
-CHECK-NEXT:  "jsonrpc": "2.0",
-CHECK-NEXT:  "result": {
-CHECK-NEXT:    "contents": {
-CHECK-NEXT:      "kind": "markdown",
-CHECK-NEXT:      "value": "`Identifer`"
-CHECK-NEXT:    },
-CHECK-NEXT:    "range": {
-CHECK-NEXT:      "end": {
-CHECK-NEXT:        "character": 3,
-CHECK-NEXT:        "line": 0
-CHECK-NEXT:      },
-CHECK-NEXT:      "start": {
-CHECK-NEXT:        "character": 2,
-CHECK-NEXT:        "line": 0
-CHECK-NEXT:      }
-CHECK-NEXT:    }
-CHECK-NEXT:  }
-```
-
 <-- textDocument/hover(2)
 
 

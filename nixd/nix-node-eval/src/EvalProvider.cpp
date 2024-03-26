@@ -35,6 +35,10 @@ EvalProvider::EvalProvider(std::unique_ptr<lspserver::InboundPort> In,
           new nix::EvalState{{}, nix::openStore("dummy://")})) {
   Registry.addMethod("exprValue", this, &EvalProvider::onExprValue);
   Registry.addNotification("registerBC", this, &EvalProvider::onRegisterBC);
+
+  Ready = mkOutNotifiction<int>("ready");
+
+  Ready(getpid());
 }
 
 void EvalProvider::onRegisterBC(const rpc::RegisterBCParams &Params) {

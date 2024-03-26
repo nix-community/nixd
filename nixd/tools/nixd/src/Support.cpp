@@ -7,6 +7,10 @@
 #include "nixf/Bytecode/Write.h"
 #include "nixf/Parse/Parser.h"
 
+#include <boost/asio/post.hpp>
+
+#include <mutex>
+
 using namespace lspserver;
 using namespace nixd;
 
@@ -27,54 +31,70 @@ namespace nixd {
 
 void Controller::actOnDocumentAdd(PathRef File,
                                   std::optional<int64_t> Version) {
-  auto Draft = Store.getDraft(File);
-  assert(Draft && "Added document is not in the store?");
+  auto Action = [this, File = std::string(File), Version]() {
+    auto Draft = Store.getDraft(File);
+    assert(Draft && "Added document is not in the store?");
 
-  std::vector<nixf::Diagnostic> Diagnostics;
-  std::shared_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
-  publishDiagnostics(File, Version, Diagnostics);
+    std::vector<nixf::Diagnostic> Diagnostics;
+    std::shared_ptr<nixf::Node> AST =
+        nixf::parse(*Draft->Contents, Diagnostics);
+    publishDiagnostics(File, Version, Diagnostics);
 
-  if (!AST) {
-    TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
-    return;
-  }
+    if (!AST) {
+      std::lock_guard G(TUsLock);
+      TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
+      return;
+    }
 
-  // Serialize the AST into shared memory. Prepare for evaluation.
-  std::stringstream OS;
-  nixf::writeBytecode(OS, *AST);
-  std::string Buf = OS.str();
-  if (Buf.empty()) {
-    lspserver::log("empty AST for {0}", File);
-    TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
-    return;
-  }
+    // Serialize the AST into shared memory. Prepare for evaluation.
+    std::stringstream OS;
+    nixf::writeBytecode(OS, *AST);
+    std::string Buf = OS.str();
+    if (Buf.empty()) {
+      lspserver::log("empty AST for {0}", File);
+      std::lock_guard G(TUsLock);
+      TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
+      return;
+    }
 
-  // Create an mmap()-ed region, and write AST byte code there.
-  std::string ShmName = getShmName(File);
+    // Create an mmap()-ed region, and write AST byte code there.
+    std::string ShmName = getShmName(File);
 
-  auto Shm = std::make_unique<util::AutoRemoveShm>(
-      ShmName, static_cast<bipc::offset_t>(Buf.size()));
+    auto Shm = std::make_unique<util::AutoRemoveShm>(
+        ShmName, static_cast<bipc::offset_t>(Buf.size()));
 
-  auto Region =
-      std::make_unique<bipc::mapped_region>(Shm->get(), bipc::read_write);
+    auto Region =
+        std::make_unique<bipc::mapped_region>(Shm->get(), bipc::read_write);
 
-  std::memcpy(Region->get_address(), Buf.data(), Buf.size());
+    std::memcpy(Region->get_address(), Buf.data(), Buf.size());
 
-  lspserver::log("serialized AST {0} to {1}, size: {2}", File, ShmName,
-                 Buf.size());
+    lspserver::log("serialized AST {0} to {1}, size: {2}", File, ShmName,
+                   Buf.size());
 
-  TUs[File] = NixTU(std::move(Diagnostics), std::move(AST),
-                    util::OwnedRegion{std::move(Shm), std::move(Region)});
+    std::lock_guard G(TUsLock);
+    TUs[File] = NixTU(std::move(Diagnostics), std::move(AST),
+                      util::OwnedRegion{std::move(Shm), std::move(Region)});
 
-  if (Eval) {
-    Eval->RegisterBC(rpc::RegisterBCParams{
-        ShmName, ".", ".", static_cast<std::int64_t>(Buf.size())});
+    if (Eval) {
+      Eval->RegisterBC(rpc::RegisterBCParams{
+          ShmName, ".", ".", static_cast<std::int64_t>(Buf.size())});
+    }
+  };
+  if (LitTest) {
+    // In lit-testing mode we don't want to having requests processed before
+    // document updates. (e.g. Hover before parsing)
+    // So just invoke the action here.
+    Action();
+  } else {
+    // Otherwise we may want to concurently parse & serialize the file, so post
+    // it to the thread pool.
+    boost::asio::post(Pool, std::move(Action));
   }
 }
 
 Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
-    : LSPServer(std::move(In), std::move(Out)) {
+    : LSPServer(std::move(In), std::move(Out)), LitTest(false) {
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
