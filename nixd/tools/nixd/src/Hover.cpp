@@ -14,7 +14,7 @@ using namespace lspserver;
 void Controller::onHover(const TextDocumentPositionParams &Params,
                          Callback<std::optional<Hover>> Reply) {
   PathRef File = Params.textDocument.uri.file();
-  const std::unique_ptr<nixf::Node> &AST = TUs[File].ast();
+  const nixf::Node *AST = TUs[File].ast().get();
   nixf::Position Pos{Params.position.line, Params.position.character};
   const nixf::Node *N = AST->descend({Pos, Pos});
   if (!N) {

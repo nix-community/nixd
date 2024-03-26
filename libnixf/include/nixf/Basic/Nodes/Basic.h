@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nixf/Basic/Range.h"
-#include "nixf/Basic/UniqueOrRaw.h"
 
 #include <boost/container/small_vector.hpp>
 
@@ -9,24 +8,6 @@
 #include <string>
 
 namespace nixf {
-
-class Node;
-
-class HaveSyntax {
-public:
-  virtual ~HaveSyntax() = default;
-
-  /// \brief The syntax node before lowering.
-  ///
-  /// Nullable, because nodes may be created implicitly (e.g. nested keys).
-  [[nodiscard]] virtual const Node *syntax() const = 0;
-};
-
-/// \brief Evaluable nodes, after lowering.
-///
-/// In libnixf, we do not evaluate the code actually, instead they will
-/// be serialized into byte-codes, and then evaluated by C++ nix, via IPC.
-class Evaluable : public HaveSyntax {};
 
 class Node {
 public:
@@ -86,15 +67,13 @@ public:
   }
 };
 
-class Expr : public Node, public Evaluable {
+class Expr : public Node {
 protected:
   explicit Expr(NodeKind Kind, LexerCursorRange Range) : Node(Kind, Range) {
     assert(NK_BeginExpr <= Kind && Kind <= NK_EndExpr);
   }
 
 public:
-  [[nodiscard]] const Node *syntax() const override { return this; }
-
   static bool classof(const Node *N) { return isExpr(N->kind()); }
 
   static bool isExpr(NodeKind Kind) {

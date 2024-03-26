@@ -15,7 +15,7 @@ libnixf = library(
     'src/Parse/ParseSimple.cpp',
     'src/Parse/ParseStrings.cpp',
     'src/Parse/ParseSupport.cpp',
-    'src/Sema/Lowering.cpp',
+    'src/Sema/SemaActions.cpp',
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
@@ -58,7 +58,7 @@ test('unit/libnixf/Parse',
 
 test('unit/libnixf/Sema',
     executable('unit-libnixf-sema',
-        'test/Sema/Lowering.cpp',
+        'test/Sema/SemaActions.cpp',
         dependencies: [ nixf, gtest_main ],
         include_directories: [ 'src/Sema' ] # Private headers
     )

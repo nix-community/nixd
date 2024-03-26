@@ -5,7 +5,6 @@
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Bytecode/Write.h"
 #include "nixf/Parse/Parser.h"
-#include "nixf/Sema/Lowering.h"
 
 using namespace lspserver;
 using namespace nixd;
@@ -31,8 +30,7 @@ void Controller::actOnDocumentAdd(PathRef File,
   assert(Draft && "Added document is not in the store?");
 
   std::vector<nixf::Diagnostic> Diagnostics;
-  std::unique_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
-  nixf::lower(AST.get(), *Draft->Contents, Diagnostics);
+  std::shared_ptr<nixf::Node> AST = nixf::parse(*Draft->Contents, Diagnostics);
   publishDiagnostics(File, Version, Diagnostics);
 
   if (!AST) {

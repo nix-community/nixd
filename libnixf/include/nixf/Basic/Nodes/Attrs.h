@@ -7,32 +7,32 @@
 
 namespace nixf {
 
-class AttrName : public Node, public Evaluable {
+class AttrName : public Node {
 public:
   enum AttrNameKind { ANK_ID, ANK_String, ANK_Interpolation };
 
 private:
   AttrNameKind Kind;
-  std::unique_ptr<Identifier> ID;
-  std::unique_ptr<ExprString> String;
-  std::unique_ptr<Interpolation> Interp;
+  std::shared_ptr<Identifier> ID;
+  std::shared_ptr<ExprString> String;
+  std::shared_ptr<Interpolation> Interp;
 
 public:
   [[nodiscard]] AttrNameKind kind() const { return Kind; }
 
-  AttrName(std::unique_ptr<Identifier> ID, LexerCursorRange Range)
+  AttrName(std::shared_ptr<Identifier> ID, LexerCursorRange Range)
       : Node(NK_AttrName, Range), Kind(ANK_ID) {
     this->ID = std::move(ID);
     assert(this->ID && "ID must not be null");
   }
 
-  AttrName(std::unique_ptr<ExprString> String)
+  AttrName(std::shared_ptr<ExprString> String)
       : Node(NK_AttrName, String->range()), Kind(ANK_String),
         String(std::move(String)) {
     assert(this->String && "String must not be null");
   }
 
-  AttrName(std::unique_ptr<Interpolation> Interp)
+  AttrName(std::shared_ptr<Interpolation> Interp)
       : Node(NK_AttrName, Interp->range()), Kind(ANK_Interpolation),
         Interp(std::move(Interp)) {
     assert(this->Interp && "Interpolation must not be null");
@@ -51,7 +51,7 @@ public:
   [[nodiscard]] const std::string &staticName() const {
     assert(isStatic() && "must be static");
     if (Kind == ANK_ID)
-      return id().name();
+      return id()->name();
     assert(Kind == ANK_String);
     return string().literal();
   }
@@ -62,10 +62,14 @@ public:
     return *Interp;
   }
 
-  [[nodiscard]] const Identifier &id() const {
+  [[nodiscard]] const std::shared_ptr<Identifier> &id() const {
     assert(Kind == ANK_ID);
-    assert(ID && "ID must not be null");
-    return *ID;
+    return ID;
+  }
+
+  [[nodiscard]] std::shared_ptr<Identifier> &id() {
+    assert(Kind == ANK_ID);
+    return ID;
   }
 
   [[nodiscard]] const ExprString &string() const {
@@ -87,18 +91,16 @@ public:
     }
     __builtin_unreachable();
   }
-
-  [[nodiscard]] const Node *syntax() const override { return this; }
 };
 
 class AttrPath : public Node {
-  std::vector<std::unique_ptr<AttrName>> Names;
+  std::vector<std::shared_ptr<AttrName>> Names;
 
 public:
-  AttrPath(LexerCursorRange Range, std::vector<std::unique_ptr<AttrName>> Names)
+  AttrPath(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names)
       : Node(NK_AttrPath, Range), Names(std::move(Names)) {}
 
-  [[nodiscard]] const std::vector<std::unique_ptr<AttrName>> &names() const {
+  [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
     return Names;
   }
 
@@ -113,12 +115,12 @@ public:
 };
 
 class Binding : public Node {
-  std::unique_ptr<AttrPath> Path;
-  std::unique_ptr<Expr> Value;
+  std::shared_ptr<AttrPath> Path;
+  std::shared_ptr<Expr> Value;
 
 public:
-  Binding(LexerCursorRange Range, std::unique_ptr<AttrPath> Path,
-          std::unique_ptr<Expr> Value)
+  Binding(LexerCursorRange Range, std::shared_ptr<AttrPath> Path,
+          std::shared_ptr<Expr> Value)
       : Node(NK_Binding, Range), Path(std::move(Path)),
         Value(std::move(Value)) {
     assert(this->Path && "Path must not be null");
@@ -129,7 +131,10 @@ public:
     assert(Path && "Path must not be null");
     return *Path;
   }
-  [[nodiscard]] Expr *value() const { return Value.get(); }
+
+  [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
+
+  [[nodiscard]] std::shared_ptr<Expr> &value() { return Value; }
 
   [[nodiscard]] ChildVector children() const override {
     return {Path.get(), Value.get()};
@@ -137,21 +142,23 @@ public:
 };
 
 class Inherit : public Node {
-  std::vector<std::unique_ptr<AttrName>> Names;
-  std::unique_ptr<Expr> E;
+  std::vector<std::shared_ptr<AttrName>> Names;
+  std::shared_ptr<Expr> E;
 
 public:
-  Inherit(LexerCursorRange Range, std::vector<std::unique_ptr<AttrName>> Names,
-          std::unique_ptr<Expr> E)
+  Inherit(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names,
+          std::shared_ptr<Expr> E)
       : Node(NK_Inherit, Range), Names(std::move(Names)), E(std::move(E)) {}
 
-  [[nodiscard]] const std::vector<std::unique_ptr<AttrName>> &names() const {
+  [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
     return Names;
   }
 
   [[nodiscard]] bool hasExpr() { return E != nullptr; }
 
-  [[nodiscard]] Expr *expr() const { return E.get(); }
+  [[nodiscard]] std::shared_ptr<Expr> &expr() { return E; }
+
+  [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
@@ -165,13 +172,13 @@ public:
 };
 
 class Binds : public Node {
-  std::vector<std::unique_ptr<Node>> Bindings;
+  std::vector<std::shared_ptr<Node>> Bindings;
 
 public:
-  Binds(LexerCursorRange Range, std::vector<std::unique_ptr<Node>> Bindings)
+  Binds(LexerCursorRange Range, std::vector<std::shared_ptr<Node>> Bindings)
       : Node(NK_Binds, Range), Bindings(std::move(Bindings)) {}
 
-  [[nodiscard]] const std::vector<std::unique_ptr<Node>> &bindings() const {
+  [[nodiscard]] const std::vector<std::shared_ptr<Node>> &bindings() const {
     return Bindings;
   }
 
@@ -185,74 +192,31 @@ public:
   }
 };
 
-class SemaAttrs;
-
-class ExprAttrs : public Expr {
-  std::unique_ptr<Binds> Body;
-  std::unique_ptr<Misc> Rec;
-
-  std::unique_ptr<SemaAttrs> Sema;
+class Attribute {
+  std::shared_ptr<Node> Key;
+  std::shared_ptr<Expr> Value;
+  bool FromInherit;
 
 public:
-  ExprAttrs(LexerCursorRange Range, std::unique_ptr<Binds> Body,
-            std::unique_ptr<Misc> Rec)
-      : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)) {}
-
-  [[nodiscard]] Binds *binds() const { return Body.get(); }
-  [[nodiscard]] Misc *rec() const { return Rec.get(); }
-
-  [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
-
-  [[nodiscard]] ChildVector children() const override {
-    return {Body.get(), Rec.get()};
+  Attribute() = default;
+  Attribute(std::shared_ptr<Node> Key, std::shared_ptr<Expr> Value,
+            bool FromInherit)
+      : Key(std::move(Key)), Value(std::move(Value)), FromInherit(FromInherit) {
+    assert(this->Key && "Key must not be null");
   }
 
-  void addSema(std::unique_ptr<SemaAttrs> Sema) {
-    this->Sema = std::move(Sema);
-  }
+  [[nodiscard]] std::shared_ptr<Node> &key() { return Key; }
 
-  [[nodiscard]] const SemaAttrs &sema() const {
-    assert(Sema);
-    return *Sema;
-  }
+  [[nodiscard]] const std::shared_ptr<Node> &key() const { return Key; }
 
-  [[nodiscard]] const Node *syntax() const override { return this; }
+  [[nodiscard]] std::shared_ptr<Expr> &value() { return Value; }
+
+  [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
+
+  [[nodiscard]] bool fromInherit() const { return FromInherit; }
 };
 
-//===----------------------------------------------------------------------===//
-// Semantic nodes
-//===----------------------------------------------------------------------===//
-
-/// \brief Semantic nodes, weak reference to syntax nodes.
-///
-/// These are nodes cannot implement `Evaluable` directly, and requires some
-/// effort to do lowering. For example, \p ExprAttrs.
-///
-/// If it is easy to match `Evaluable`, then it should be implemented in syntax
-/// nodes, instead of creating nodes here.
-///
-/// For example, \p ExprInt, \p ExprFloat.
-class SemaNode : public HaveSyntax {
-public:
-  enum SemaKinds {
-    SK_Attrs,
-  };
-
-private:
-  SemaKinds Kind;
-  const Node *Syntax;
-
-protected:
-  SemaNode(SemaKinds Kind, const Node *Syntax) : Kind(Kind), Syntax(Syntax) {}
-
-public:
-  /// \brief Get the kind of the node (RTTI).
-  [[nodiscard]] SemaKinds kind() const { return Kind; }
-
-  [[nodiscard]] const Node *syntax() const override { return Syntax; }
-};
-
-/// \brief Attribute set after lowering.
+/// \brief Attribute set after deduplication.
 ///
 /// Represeting the attribute set suitable for variable lookups, evaluation.
 ///
@@ -260,104 +224,62 @@ public:
 /// K-V form.
 ///
 /// e.g. `{ a.b.c = 1 }` -> `{ a = { b = { c = 1; }; }; }`
-class SemaAttrs : public SemaNode, public Evaluable {
-public:
-  class AttrBody;
-
-  class DynamicAttr {
-    UniqueOrRaw<Evaluable> Key;
-    UniqueOrRaw<Evaluable> Value;
-
-  public:
-    /// \note \p Key and \p Value must not be null.
-    DynamicAttr(UniqueOrRaw<Evaluable> Key, UniqueOrRaw<Evaluable> Value)
-        : Key(std::move(Key)), Value(std::move(Value)) {
-      assert(this->Key.getRaw() && "Key must not be null");
-      assert(this->Value.getRaw() && "Value must not be null");
-    }
-    [[nodiscard]] Evaluable &key() const { return *Key.getRaw(); }
-    [[nodiscard]] Evaluable &value() const { return *Value.getRaw(); }
-  };
-
+class SemaAttrs {
 private:
-  std::map<std::string, AttrBody> Attrs;
-  std::vector<DynamicAttr> DynamicAttrs;
+  std::map<std::string, Attribute> Static;
+  std::vector<Attribute> Dynamic;
 
-  bool Recursive;
+  Misc *Recursive;
+
+  friend class Sema;
 
 public:
-  explicit SemaAttrs(const Node *Syntax, bool Recursive)
-      : SemaNode(SK_Attrs, Syntax), Recursive(Recursive) {}
-  SemaAttrs(const Node *Syntax, std::map<std::string, AttrBody> Attrs,
-            std::vector<DynamicAttr> DynamicAttrs, bool Recursive)
-      : SemaNode(SK_Attrs, Syntax), Attrs(std::move(Attrs)),
-        DynamicAttrs(std::move(DynamicAttrs)), Recursive(Recursive) {}
+  SemaAttrs(Misc *Recursive) : Recursive(Recursive) {}
+  SemaAttrs(std::map<std::string, Attribute> Static,
+            std::vector<Attribute> Dynamic, Misc *Recursive)
+      : Static(std::move(Static)), Dynamic(std::move(Dynamic)),
+        Recursive(Recursive) {}
 
   /// \brief Static attributes, do not require evaluation to get the key.
   ///
   /// e.g. `{ a = 1; b = 2; }`
-  std::map<std::string, AttrBody> &staticAttrs() { return Attrs; }
+  [[nodiscard]] const std::map<std::string, Attribute> &staticAttrs() const {
+    return Static;
+  }
 
   /// \brief Dynamic attributes, require evaluation to get the key.
   ///
   /// e.g. `{ "${asdasda}" = "asdasd"; }`
-  std::vector<DynamicAttr> &dynamicAttrs() { return DynamicAttrs; }
+  [[nodiscard]] const std::vector<Attribute> &dynamicAttrs() const {
+    return Dynamic;
+  }
 
   /// \brief If the attribute set is `rec`.
   [[nodiscard]] bool isRecursive() const { return Recursive; }
-
-  [[nodiscard]] const Node *syntax() const override {
-    return SemaNode::syntax();
-  }
 };
 
-class SemaAttrs::AttrBody {
-  bool Inherited;
-
-  AttrName *Name;
-
-  UniqueOrRaw<Evaluable, SemaAttrs> E;
+class ExprAttrs : public Expr {
+  const std::shared_ptr<Binds> Body;
+  const std::shared_ptr<Misc> Rec;
+  SemaAttrs SA; // Let this mutable for "Sema" class only.
+  friend class Sema;
 
 public:
-  /// \note \p E, \p Name must not be null.
-  AttrBody(bool Inherited, AttrName *Name, UniqueOrRaw<Evaluable, SemaAttrs> E)
-      : Inherited(Inherited), Name(Name), E(std::move(E)) {
-    assert(this->Name && "Name must not be null");
-    if (!Inherited)
-      assert(this->E.getRaw() && "E must not be null");
+  ExprAttrs(LexerCursorRange Range, std::shared_ptr<Binds> Body,
+            std::shared_ptr<Misc> Rec, SemaAttrs SA)
+      : Expr(NK_ExprAttrs, Range), Body(std::move(Body)), Rec(std::move(Rec)),
+        SA(std::move(SA)) {}
+
+  [[nodiscard]] const Binds *binds() const { return Body.get(); }
+  [[nodiscard]] const Misc *rec() const { return Rec.get(); }
+
+  [[nodiscard]] bool isRecursive() const { return Rec != nullptr; }
+
+  [[nodiscard]] const SemaAttrs &sema() const { return SA; }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {Body.get(), Rec.get()};
   }
-
-  AttrBody() : Inherited(false), E(nullptr) {}
-
-  /// \brief If the attribute is `inherit`ed.
-  [[nodiscard]] bool inherited() const { return Inherited; }
-
-  /// For `inherit` attr, the expression might be desugared into a "Select".
-  /// This however might be null, e.g. `{ inherit a; }`
-  [[nodiscard]] Evaluable *inheritedExpr() {
-    assert(Inherited && "must be inherited");
-    return E.getRaw();
-  }
-
-  /// \brief The attribute value, to be evaluated.
-  ///
-  /// For `inherit`,
-  ///
-  ///  -  inherit (expr) a -> (Select Expr Symbol("a"))
-  ///  -  inherit a        -> Variable("a")
-  ///
-  /// For normal attr,
-  ///
-  ///  -  a = 1            -> ExprInt(1)
-  [[nodiscard]] Evaluable &expr() const {
-    assert(!Inherited && "must not be inherited");
-    return *E.getRaw();
-  }
-
-  [[nodiscard]] SemaAttrs *attrs() const { return E.getUnique(); }
-
-  /// \brief The syntax node of the attribute name.
-  [[nodiscard]] AttrName &name() const { return *Name; }
 };
 
 } // namespace nixf

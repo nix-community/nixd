@@ -1,10 +1,9 @@
 /// \file
 /// \brief This file implements parsing of operators.
 
-#include "ParserImpl.h"
+#include "Parser.h"
 
 #include "nixf/Basic/Nodes/Op.h"
-#include "nixf/Basic/Range.h"
 
 #include <cassert>
 
@@ -76,21 +75,21 @@ unsigned getUnaryBP(TokenKind Kind) {
 
 namespace nixf {
 
-std::unique_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
-  std::unique_ptr<Expr> Prefix;
+std::shared_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
+  std::shared_ptr<Expr> Prefix;
   LexerCursor LCur = lCur();
   switch (Token Tok = peek(); Tok.kind()) {
   case tok_op_not:
   case tok_op_negate: {
     consume();
     assert(LastToken && "consume() should have set LastToken");
-    auto O = std::make_unique<Op>(Tok.range(), Tok.kind());
+    auto O = std::make_shared<Op>(Tok.range(), Tok.kind());
     auto Expr = parseExprOpBP(getUnaryBP(Tok.kind()));
     if (!Expr)
       diagNullExpr(Diags, LastToken->rCur(),
                    "unary operator " + std::string(tok::spelling(Tok.kind())));
     Prefix =
-        std::make_unique<ExprUnaryOp>(LexerCursorRange{LCur, LastToken->rCur()},
+        std::make_shared<ExprUnaryOp>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(O), std::move(Expr));
     break;
   }
@@ -121,14 +120,14 @@ std::unique_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
         }
         consume();
         assert(LastToken && "consume() should have set LastToken");
-        auto O = std::make_unique<Op>(Tok.range(), Tok.kind());
+        auto O = std::make_shared<Op>(Tok.range(), Tok.kind());
         auto RHS = parseExprOpBP(RBP);
         if (!RHS) {
           diagNullExpr(Diags, LastToken->rCur(), "binary op RHS");
           continue;
         }
         LexerCursorRange Range{Prefix->lCur(), RHS->rCur()};
-        Prefix = std::make_unique<ExprBinOp>(Range, std::move(O),
+        Prefix = std::make_shared<ExprBinOp>(Range, std::move(O),
                                              std::move(Prefix), std::move(RHS));
         break;
       }
@@ -136,11 +135,11 @@ std::unique_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
       // expr_op '?' attrpath
       consume();
       assert(LastToken && "consume() should have set LastToken");
-      auto O = std::make_unique<Op>(Tok.range(), Tok.kind());
+      auto O = std::make_shared<Op>(Tok.range(), Tok.kind());
 
-      std::unique_ptr<AttrPath> Path = parseAttrPath();
+      std::shared_ptr<AttrPath> Path = parseAttrPath();
       LexerCursorRange Range{Prefix->lCur(), LastToken->rCur()};
-      Prefix = std::make_unique<ExprOpHasAttr>(
+      Prefix = std::make_shared<ExprOpHasAttr>(
           Range, std::move(O), std::move(Prefix), std::move(Path));
       break;
     }

@@ -1,12 +1,10 @@
-#include "ParserImpl.h"
-
-#include "nixf/Basic/Nodes/Simple.h"
+#include "Parser.h"
 
 namespace nixf {
 
 using namespace detail;
 
-std::unique_ptr<Interpolation> Parser::parseInterpolation() {
+std::shared_ptr<Interpolation> Parser::parseInterpolation() {
   Token TokDollarCurly = peek();
   assert(TokDollarCurly.kind() == tok_dollar_curly);
   consume(); // ${
@@ -23,13 +21,13 @@ std::unique_ptr<Interpolation> Parser::parseInterpolation() {
       ER.diag().note(Note::NK_ToMachThis, TokDollarCurly.range())
           << std::string(tok::spelling(tok_dollar_curly));
     }
-    return std::make_unique<Interpolation>(
+    return std::make_shared<Interpolation>(
         LexerCursorRange{TokDollarCurly.lCur(), LastToken->rCur()},
         std::move(Expr));
   } // with(PS_Expr)
 }
 
-std::unique_ptr<Expr> Parser::parseExprPath() {
+std::shared_ptr<Expr> Parser::parseExprPath() {
   Token Begin = peek();
   std::vector<InterpolablePart> Fragments;
   assert(Begin.kind() == tok_path_fragment);
@@ -52,13 +50,13 @@ std::unique_ptr<Expr> Parser::parseExprPath() {
       assert(false && "should be path_end or ${");
     } while (true);
   }
-  auto Parts = std::make_unique<InterpolatedParts>(
+  auto Parts = std::make_shared<InterpolatedParts>(
       LexerCursorRange{Begin.lCur(), End}, std::move(Fragments));
-  return std::make_unique<ExprPath>(LexerCursorRange{Begin.lCur(), End},
+  return std::make_shared<ExprPath>(LexerCursorRange{Begin.lCur(), End},
                                     std::move(Parts));
 }
 
-std::unique_ptr<InterpolatedParts> Parser::parseStringParts() {
+std::shared_ptr<InterpolatedParts> Parser::parseStringParts() {
   std::vector<InterpolablePart> Parts;
   LexerCursor PartsBegin = peek().lCur();
   while (true) {
@@ -81,14 +79,14 @@ std::unique_ptr<InterpolatedParts> Parser::parseStringParts() {
       continue;
     default:
       assert(LastToken && "LastToken should be set in `parseString`");
-      return std::make_unique<InterpolatedParts>(
+      return std::make_shared<InterpolatedParts>(
           LexerCursorRange{PartsBegin, LastToken->rCur()},
           std::move(Parts)); // TODO!
     }
   }
 }
 
-std::unique_ptr<ExprString> Parser::parseString(bool IsIndented) {
+std::shared_ptr<ExprString> Parser::parseString(bool IsIndented) {
   Token Quote = peek();
   TokenKind QuoteKind = IsIndented ? tok_quote2 : tok_dquote;
   std::string QuoteSpel(tok::spelling(QuoteKind));
@@ -99,14 +97,14 @@ std::unique_ptr<ExprString> Parser::parseString(bool IsIndented) {
   assert(LastToken && "LastToken should be set after consume()");
   /* with(PS_String / PS_IndString) */ {
     auto StringState = withState(IsIndented ? PS_IndString : PS_String);
-    std::unique_ptr<InterpolatedParts> Parts = parseStringParts();
+    std::shared_ptr<InterpolatedParts> Parts = parseStringParts();
     if (ExpectResult ER = expect(QuoteKind); ER.ok()) {
       consume();
-      return std::make_unique<ExprString>(
+      return std::make_shared<ExprString>(
           LexerCursorRange{Quote.lCur(), ER.tok().rCur()}, std::move(Parts));
     } else { // NOLINT(readability-else-after-return)
       ER.diag().note(Note::NK_ToMachThis, Quote.range()) << QuoteSpel;
-      return std::make_unique<ExprString>(
+      return std::make_shared<ExprString>(
           LexerCursorRange{Quote.lCur(), Parts->rCur()}, std::move(Parts));
     }
 
