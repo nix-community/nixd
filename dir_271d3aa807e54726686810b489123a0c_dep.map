@@ -1,0 +1,32 @@
+<map id="nixd" name="nixd">
+<area shape="rect" id="node2" href="dir_fbf4781f84a2dfdac7fb8e01b68aa402.html" title="docs" alt="" coords="101,27,152,54"/>
+<area shape="rect" id="node3" href="dir_6fe8e64755d6ca8350089c43e24a597c.html" title="librpc" alt="" coords="173,102,230,130"/>
+<area shape="rect" id="node7" href="dir_b55f34eed50f427f5a82f0c0c0b607fd.html" title="libbc" alt="" coords="323,178,376,206"/>
+<area shape="poly" id="edge1" href="dir_000020_000016.html" alt="" coords="224,128,243,138,310,170,308,175,240,143,222,133"/>
+<area shape="rect" id="edge1-headlabel" href="dir_000020_000016.html" title="4" alt="" coords="306,156,314,173"/>
+<area shape="rect" id="node4" href="dir_fea53f7f87b7ec4e08a74e8a64eb26a3.html" title="libutil" alt="" coords="254,102,312,130"/>
+<area shape="rect" id="node5" href="dir_1674159b14b5d6ba00b9e9bdffb50a16.html" title="nix&#45;node&#45;eval" alt="" coords="176,27,288,54"/>
+<area shape="poly" id="edge2" href="dir_000024_000020.html" alt="" coords="229,56,215,89,210,87,224,54"/>
+<area shape="rect" id="edge2-headlabel" href="dir_000024_000020.html" title="2" alt="" coords="218,80,226,97"/>
+<area shape="poly" id="edge5" href="dir_000024_000016.html" alt="" coords="264,52,296,72,326,101,341,131,349,162,344,163,336,133,322,104,293,76,261,57"/>
+<area shape="rect" id="edge5-headlabel" href="dir_000024_000016.html" title="2" alt="" coords="350,150,358,167"/>
+<area shape="rect" id="node8" href="dir_c40eb6f7b133789742bdf3cebb28ba81.html" title="libnixt" alt="" coords="386,102,449,130"/>
+<area shape="poly" id="edge3" href="dir_000024_000019.html" alt="" coords="266,52,373,94,371,99,264,57"/>
+<area shape="rect" id="edge3-headlabel" href="dir_000024_000019.html" title="5" alt="" coords="368,79,376,96"/>
+<area shape="rect" id="node9" href="dir_b78a71a762ff0582d59dc461a15bff38.html" title="lspserver" alt="" coords="473,102,554,130"/>
+<area shape="poly" id="edge4" href="dir_000024_000022.html" alt="" coords="283,52,458,98,457,103,282,57"/>
+<area shape="rect" id="edge4-headlabel" href="dir_000024_000022.html" title="4" alt="" coords="453,83,461,100"/>
+<area shape="rect" id="node6" href="dir_43dccb67c075cdf61156590789c0ba7d.html" title="tools" alt="" coords="312,27,365,54"/>
+<area shape="poly" id="edge6" href="dir_000046_000020.html" alt="" coords="315,57,240,97,238,93,313,53"/>
+<area shape="rect" id="edge6-headlabel" href="dir_000046_000020.html" title="2" alt="" coords="242,92,250,109"/>
+<area shape="poly" id="edge10" href="dir_000046_000021.html" alt="" coords="331,57,304,92,300,88,327,53"/>
+<area shape="rect" id="edge10-headlabel" href="dir_000046_000021.html" title="5" alt="" coords="306,84,314,101"/>
+<area shape="poly" id="edge8" href="dir_000046_000016.html" alt="" coords="366,42,478,62,534,78,555,89,569,101,579,124,572,143,553,158,526,169,457,184,391,191,390,186,456,179,524,164,551,153,568,140,573,124,565,104,552,93,532,83,477,67,365,48"/>
+<area shape="rect" id="edge8-headlabel" href="dir_000046_000016.html" title="2" alt="" coords="390,188,398,205"/>
+<area shape="poly" id="edge9" href="dir_000046_000022.html" alt="" coords="367,51,469,93,467,98,365,56"/>
+<area shape="rect" id="edge9-headlabel" href="dir_000046_000022.html" title="7" alt="" coords="465,78,473,95"/>
+<area shape="rect" id="node10" href="dir_9ff0e04ed484c0229c3bd8fc4cfe4cb8.html" title="libnixf" alt="" coords="629,102,691,130"/>
+<area shape="poly" id="edge7" href="dir_000046_000018.html" alt="" coords="366,45,611,100,614,100,613,106,610,105,365,50"/>
+<area shape="rect" id="edge7-headlabel" href="dir_000046_000018.html" title="7" alt="" coords="609,86,617,103"/>
+<area shape="rect" id="clust1" href="dir_271d3aa807e54726686810b489123a0c.html" alt="" coords="16,16,376,141"/>
+</map>

@@ -1,0 +1,26 @@
+var searchData=
+[
+  ['absoluteparent_0',['absoluteParent',['../namespacelspserver.html#a0c037fecc55edd0a237f55ac5d4475d2',1,'lspserver']]],
+  ['add_1',['add',['../structnixt_1_1PtrPool.html#a1bd9b12d2490d559c3f8ab8bf91a7312',1,'nixt::PtrPool']]],
+  ['addattr_2',['addAttr',['../classnixf_1_1Sema.html#a5dd911cfc40391bcbb8941910cc796c2',1,'nixf::Sema']]],
+  ['addcommand_3',['addCommand',['../structlspserver_1_1HandlerRegistry.html#ac74dedf85400f27c36e0f976bd3cd24c',1,'lspserver::HandlerRegistry']]],
+  ['adddraft_4',['addDraft',['../classlspserver_1_1DraftStore.html#aa5ae55b3ef2dbc31a03152c97ae1c0dd',1,'lspserver::DraftStore']]],
+  ['addmethod_5',['addMethod',['../structlspserver_1_1HandlerRegistry.html#a66ec76a9ba0b79e7756852a3cb65bfc1',1,'lspserver::HandlerRegistry']]],
+  ['addnotification_6',['addNotification',['../structlspserver_1_1HandlerRegistry.html#a473db8004c5218906f77c42f0c77c35a',1,'lspserver::HandlerRegistry']]],
+  ['adjustkindtocapability_7',['adjustKindToCapability',['../namespacelspserver.html#ab0e770699b02793e166217a093e40d3b',1,'lspserver::adjustKindToCapability(CompletionItemKind Kind, CompletionItemKindBitset &amp;SupportedCompletionItemKinds)'],['../namespacelspserver.html#a28a6ef11b276c533a13d45d1734a96d2',1,'lspserver::adjustKindToCapability(SymbolKind Kind, SymbolKindBitset &amp;supportedSymbolKinds)']]],
+  ['advance_8',['advance',['../namespacenixt.html#a61ea964414bcfe5a03516c85590da63f',1,'nixt']]],
+  ['applychange_9',['applyChange',['../namespacelspserver.html#a24b9d4c2890d751945884bae008da2aa',1,'lspserver']]],
+  ['arg_10',['arg',['../classnixf_1_1ExprLambda.html#a94a3cb9683d8b10490a6fe359cb84a46',1,'nixf::ExprLambda']]],
+  ['args_11',['args',['../classnixf_1_1PartialDiagnostic.html#a4cee5ad9adf731abe152e21916a3b27f',1,'nixf::PartialDiagnostic::args() const'],['../classnixf_1_1PartialDiagnostic.html#a2adc626af34105342467367b72d4d7ed',1,'nixf::PartialDiagnostic::args()'],['../classnixf_1_1ExprCall.html#a69ea1ca91c8eb5ae33d2cb0dd1caeb7b',1,'nixf::ExprCall::args()'],['../classnixf_1_1ExprCall.html#a754c12f0dc17ce69ba81d6493378d7b8',1,'nixf::ExprCall::args() const']]],
+  ['ast_12',['ast',['../classnixd_1_1NixTU.html#af84c5eb174e0059336cab9f802f2e59a',1,'nixd::NixTU']]],
+  ['astdeserializer_13',['ASTDeserializer',['../classnixt_1_1ASTDeserializer.html#a2423ed4de2c7a79ba4f2dbe6bdf03540',1,'nixt::ASTDeserializer']]],
+  ['asvfs_14',['asVFS',['../classlspserver_1_1DraftStore.html#aec81eb3be70461578bb820090958147d',1,'lspserver::DraftStore']]],
+  ['attribute_15',['Attribute',['../classnixf_1_1Attribute.html#a8be05a74b77a5f0f6c28c397dec8a305',1,'nixf::Attribute::Attribute()=default'],['../classnixf_1_1Attribute.html#ab8bdd58f83e8ae48fff2185e73a460f3',1,'nixf::Attribute::Attribute(std::shared_ptr&lt; Node &gt; Key, std::shared_ptr&lt; Expr &gt; Value, bool FromInherit)']]],
+  ['attrname_16',['AttrName',['../classnixf_1_1AttrName.html#af6ad9a31b3150005a6f51ea6f1a97f38',1,'nixf::AttrName::AttrName(std::shared_ptr&lt; Identifier &gt; ID, LexerCursorRange Range)'],['../classnixf_1_1AttrName.html#a7ae6223957d18cb7561d130e12c2ad1a',1,'nixf::AttrName::AttrName(std::shared_ptr&lt; ExprString &gt; String)'],['../classnixf_1_1AttrName.html#a2e68f74f7e758fdb7ac5bd1c6dcb42c3',1,'nixf::AttrName::AttrName(std::shared_ptr&lt; Interpolation &gt; Interp)']]],
+  ['attrpath_17',['AttrPath',['../classnixf_1_1AttrPath.html#a9e434f7d68ca28f8f9fca19e85048038',1,'nixf::AttrPath']]],
+  ['attrpath_18',['attrpath',['../classnixf_1_1ExprOpHasAttr.html#aab50a5158a7e291d1487f67db56214ad',1,'nixf::ExprOpHasAttr']]],
+  ['authority_19',['authority',['../classlspserver_1_1URI.html#a91512c203ca0302ae7760037b550c1af',1,'lspserver::URI']]],
+  ['autoclosefd_20',['AutoCloseFD',['../classnixd_1_1util_1_1AutoCloseFD.html#a4dd8fe6c67d4b920f4868bc4a4efd93f',1,'nixd::util::AutoCloseFD::AutoCloseFD(FDTy FD)'],['../classnixd_1_1util_1_1AutoCloseFD.html#a7f6710413f3f9cb1ad282f5c7ff87145',1,'nixd::util::AutoCloseFD::AutoCloseFD(const AutoCloseFD &amp;)=delete'],['../classnixd_1_1util_1_1AutoCloseFD.html#a42415ae875dce069c99af6d545fc1269',1,'nixd::util::AutoCloseFD::AutoCloseFD(AutoCloseFD &amp;&amp;That) noexcept']]],
+  ['autohuppid_21',['AutoHUPPID',['../classnixd_1_1util_1_1AutoHUPPID.html#a7cb09e2c7c22b43d36ac1b9db7a5722c',1,'nixd::util::AutoHUPPID']]],
+  ['autoremoveshm_22',['AutoRemoveShm',['../classnixd_1_1util_1_1AutoRemoveShm.html#a4de910c79a7fd561cad1c9bed456d13d',1,'nixd::util::AutoRemoveShm']]]
+];
