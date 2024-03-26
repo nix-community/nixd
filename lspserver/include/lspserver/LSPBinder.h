@@ -15,8 +15,8 @@ namespace detail {
 
 template <typename T>
 typename std::enable_if_t<std::is_default_constructible_v<T>, T>
-valueOrUninitialized(const std::optional<T> &OptionalDefault) {
-  T Result;
+valueOrDefault(const std::optional<T> &OptionalDefault) {
+  T Result{};
   if (OptionalDefault) {
     Result = OptionalDefault.value();
   }
@@ -33,7 +33,7 @@ template <typename T>
 llvm::Expected<T> parseParamWithOptionalDefault(
     const llvm::json::Value &Raw, llvm::StringRef PayloadName,
     llvm::StringRef PayloadKind, std::optional<T> OptionalDefault = {}) {
-  T Result = valueOrUninitialized(OptionalDefault);
+  T Result = valueOrDefault(OptionalDefault);
   llvm::json::Path::Root Root;
   if (!fromJSON(Raw, Result, Root)) {
     elog("Failed to decode {0} {1}: {2}", PayloadName, PayloadKind,

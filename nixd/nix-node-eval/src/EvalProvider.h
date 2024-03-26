@@ -1,7 +1,9 @@
 #pragma once
 
 #include "nixd/rpc/Protocol.h"
-#include "nixd/rpc/Transport.h"
+
+#include <lspserver/Function.h>
+#include <lspserver/LSPServer.h>
 
 #include <nixt/HookExpr.h>
 #include <nixt/PtrPool.h>
@@ -10,21 +12,23 @@
 
 namespace nixd {
 
-class EvalProvider : public rpc::Transport {
+class EvalProvider : public lspserver::LSPServer {
 
   nixt::PtrPool<nix::Expr> Pool;
   nixt::ValueMap VMap;
   nixt::EnvMap EMap;
   std::unique_ptr<nix::EvalState> State;
 
-  void handleInbound(const std::vector<char> &Buf) override;
+  llvm::unique_function<void(int)> Exit;
 
 public:
-  EvalProvider(int InboundFD, int OutboundFD);
+  EvalProvider(std::unique_ptr<lspserver::InboundPort> In,
+               std::unique_ptr<lspserver::OutboundPort> Out);
 
   void onRegisterBC(const rpc::RegisterBCParams &Params);
 
-  rpc::ExprValueResponse onExprValue(const rpc::ExprValueParams &Params);
+  void onExprValue(const rpc::ExprValueParams &Params,
+                   lspserver::Callback<rpc::ExprValueResponse>);
 };
 
 } // namespace nixd

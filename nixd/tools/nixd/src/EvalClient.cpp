@@ -2,11 +2,12 @@
 
 #include "EvalClient.h"
 
-#include "nixd/rpc/Protocol.h"
 #include "nixd/util/ForkPiped.h"
 
 #include <bc/Read.h>
 #include <bc/Write.h>
+
+#include <llvm/Support/raw_ostream.h>
 
 #include <unistd.h>
 
@@ -15,9 +16,7 @@ namespace nixd {
 using namespace rpc;
 using namespace nixd::util;
 
-template <class T> using M = Message<T>;
-
-std::unique_ptr<EvalClient> EvalClient::create(int &Fail) {
+std::unique_ptr<OwnedEvalClient> OwnedEvalClient::create(int &Fail) {
   int In;
   int Out;
   int Err;
@@ -35,16 +34,15 @@ std::unique_ptr<EvalClient> EvalClient::create(int &Fail) {
   Fail = 0;
   // Parent process.
   auto Proc = std::make_unique<PipedProc>(Child, In, Out, Err);
-  return std::make_unique<EvalClient>(Out, In, std::move(Proc));
-}
+  auto InP = std::make_unique<lspserver::InboundPort>(
+      Out, lspserver::JSONStreamStyle::Standard);
 
-void EvalClient::registerBC(const RegisterBCParams &Params) {
-  sendPacket<M<RegisterBCParams>>({RPCKind::RegisterBC, Params});
-}
+  auto ProcFdStream = std::make_unique<llvm::raw_fd_ostream>(In, false);
 
-ExprValueResponse EvalClient::exprValue(const ExprValueParams &Params) {
-  sendPacket<M<ExprValueParams>>({RPCKind::ExprValue, Params});
-  return recvPacket<ExprValueResponse>();
+  auto OutP = std::make_unique<lspserver::OutboundPort>(*ProcFdStream, false);
+  return std::make_unique<OwnedEvalClient>(std::move(InP), std::move(OutP),
+                                           std::move(Proc),
+                                           std::move(ProcFdStream));
 }
 
 } // namespace nixd
