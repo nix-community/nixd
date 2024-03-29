@@ -130,26 +130,29 @@ class ExprLet : public Expr {
   // 'let' binds 'in' expr
 
   std::shared_ptr<Misc> KwLet; // 'let', not null
-  std::shared_ptr<Binds> B;
   std::shared_ptr<Misc> KwIn;
   std::shared_ptr<Expr> E;
 
+  std::shared_ptr<ExprAttrs> Attrs;
+
 public:
   ExprLet(LexerCursorRange Range, std::shared_ptr<Misc> KwLet,
-          std::shared_ptr<Binds> B, std::shared_ptr<Misc> KwIn,
-          std::shared_ptr<Expr> E)
-      : Expr(NK_ExprLet, Range), KwLet(std::move(KwLet)), B(std::move(B)),
-        KwIn(std::move(KwIn)), E(std::move(E)) {
+          std::shared_ptr<Misc> KwIn, std::shared_ptr<Expr> E,
+          std::shared_ptr<ExprAttrs> Attrs)
+      : Expr(NK_ExprLet, Range), KwLet(std::move(KwLet)), KwIn(std::move(KwIn)),
+        E(std::move(E)), Attrs(std::move(Attrs)) {
     assert(this->KwLet && "KwLet should not be empty!");
   }
 
-  [[nodiscard]] Binds *binds() const { return B.get(); }
-  [[nodiscard]] Expr *expr() const { return E.get(); }
-  [[nodiscard]] Misc &let() const { return *KwLet; }
-  [[nodiscard]] Misc *in() const { return KwIn.get(); }
+  [[nodiscard]] const Binds *binds() const {
+    return Attrs ? Attrs->binds() : nullptr;
+  }
+  [[nodiscard]] const Expr *expr() const { return E.get(); }
+  [[nodiscard]] const Misc &let() const { return *KwLet; }
+  [[nodiscard]] const Misc *in() const { return KwIn.get(); }
 
   [[nodiscard]] ChildVector children() const override {
-    return {KwLet.get(), B.get(), KwIn.get(), E.get()};
+    return {KwLet.get(), Attrs.get(), KwIn.get(), E.get()};
   }
 };
 

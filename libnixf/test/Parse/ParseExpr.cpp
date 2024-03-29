@@ -298,8 +298,21 @@ TEST(Parser, ExprLet) {
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprLet);
 
-  Binds &B = *static_cast<ExprLet *>(AST.get())->binds();
+  const Binds &B = *static_cast<ExprLet *>(AST.get())->binds();
   ASSERT_EQ(B.bindings().size(), 1);
+}
+
+TEST(Parser, ExprLet_Dup) {
+  auto Src = R"(let x = 1; x = 1; in 1)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprLet);
+
+  ASSERT_EQ(Diags.size(), 1);
 }
 
 TEST(Parser, ExprLet_Binds) {
