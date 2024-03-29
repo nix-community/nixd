@@ -250,15 +250,16 @@ std::shared_ptr<ExprLet> Parser::parseExprLet() {
   assert(LastToken && "LastToken should be set after consume()");
 
   auto Binds = parseBinds();
+  auto Attrs = Binds ? Act.onExprAttrs(Binds->range(), Binds, Let) : nullptr;
 
   ExpectResult ExpKwIn = expect(tok_kw_in);
 
-  if (!ExpKwIn.ok())
+  if (!ExpKwIn.ok()) {
     // missing 'in'
     return std::make_shared<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
-                                     std::move(Let), std::move(Binds),
-                                     /*KwIn=*/nullptr,
-                                     /*E=*/nullptr);
+                                     std::move(Let), /*KwIn=*/nullptr,
+                                     /*E=*/nullptr, std::move(Attrs));
+  }
 
   auto In = std::make_shared<Misc>(ExpKwIn.tok().range());
 
@@ -269,8 +270,8 @@ std::shared_ptr<ExprLet> Parser::parseExprLet() {
     diagNullExpr(Diags, LastToken->rCur(), "let ... in");
 
   return std::make_shared<ExprLet>(LexerCursorRange{LCur, LastToken->rCur()},
-                                   std::move(Let), std::move(Binds),
-                                   std::move(In), std::move(E));
+                                   std::move(Let), std::move(In), std::move(E),
+                                   std::move(Attrs));
 }
 
 std::shared_ptr<ExprWith> Parser::parseExprWith() {
