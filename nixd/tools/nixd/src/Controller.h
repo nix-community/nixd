@@ -6,6 +6,8 @@
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
 
+#include <boost/asio/thread_pool.hpp>
+
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
@@ -15,7 +17,13 @@ class Controller : public lspserver::LSPServer {
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
 
+  std::mutex TUsLock;
   llvm::StringMap<NixTU> TUs;
+
+  boost::asio::thread_pool Pool;
+
+  /// In lit-test mode. Disable some concurrency for better text-testing.
+  bool LitTest;
 
   /// Action right after a document is added (including updates).
   void actOnDocumentAdd(lspserver::PathRef File,
@@ -51,6 +59,12 @@ class Controller : public lspserver::LSPServer {
 public:
   Controller(std::unique_ptr<lspserver::InboundPort> In,
              std::unique_ptr<lspserver::OutboundPort> Out);
+
+  ~Controller() { Pool.join(); }
+
+  void setLitTest(bool LitTest) { this->LitTest = LitTest; }
+
+  bool isReadyToEval() { return Eval && Eval->ready(); }
 };
 
 } // namespace nixd
