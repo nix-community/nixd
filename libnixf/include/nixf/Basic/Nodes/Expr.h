@@ -55,7 +55,8 @@ public:
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
-    Children.reserve(Args.size());
+    Children.reserve(Args.size() + 1);
+    Children.emplace_back(Fn.get());
     for (const auto &Member : Args) {
       Children.emplace_back(Member.get());
     }
