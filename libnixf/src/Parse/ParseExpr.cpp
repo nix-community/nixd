@@ -280,6 +280,8 @@ std::shared_ptr<ExprWith> Parser::parseExprWith() {
   assert(TokWith.kind() == tok_kw_with && "token should be tok_kw_with");
 
   consume(); // with
+
+  auto KwWith = std::make_shared<Misc>(TokWith.range());
   assert(LastToken && "LastToken should be set after consume()");
 
   auto SyncSemi = withSync(tok_semi_colon);
@@ -294,9 +296,11 @@ std::shared_ptr<ExprWith> Parser::parseExprWith() {
     ExpSemi.diag().note(Note::NK_ToMachThis, TokWith.range())
         << std::string(tok::spelling(tok_kw_with));
     return std::make_shared<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
+                                      std::move(KwWith), /*TokSemi*/ nullptr,
                                       std::move(With), /*E=*/nullptr);
   }
 
+  auto TokSemi = std::make_shared<Misc>(ExpSemi.tok().range());
   consume(); // ;
 
   auto E = parseExpr();
@@ -305,6 +309,7 @@ std::shared_ptr<ExprWith> Parser::parseExprWith() {
     diagNullExpr(Diags, LastToken->rCur(), "with body");
 
   return std::make_shared<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
+                                    std::move(KwWith), std::move(TokSemi),
                                     std::move(With), std::move(E));
 }
 

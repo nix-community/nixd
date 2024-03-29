@@ -36,4 +36,21 @@ TEST(Node, InterpolateLiteralFalse) {
   ASSERT_FALSE(Parts.isLiteral());
 }
 
+TEST(Node, ExprCall_Children) {
+  auto Src = "foo bar baz"sv;
+  std::vector<Diagnostic> Diag;
+  auto Root = parse(Src, Diag);
+
+  ASSERT_EQ(Root->children().size(), 3);
+}
+
+TEST(Node, ExprString_Children) {
+  auto Src = R"("foo${baz}")"sv;
+  std::vector<Diagnostic> Diag;
+  auto Root = parse(Src, Diag);
+
+  ASSERT_EQ(Root->children().size(), 1);
+  ASSERT_EQ(Root->children()[0]->children().size(), 1);
+}
+
 } // namespace

@@ -55,7 +55,8 @@ public:
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
-    Children.reserve(Args.size());
+    Children.reserve(Args.size() + 1);
+    Children.emplace_back(Fn.get());
     for (const auto &Member : Args) {
       Children.emplace_back(Member.get());
     }
@@ -157,19 +158,25 @@ public:
 };
 
 class ExprWith : public Expr {
+  std::shared_ptr<Misc> KwWith;
+  std::shared_ptr<Misc> TokSemi;
   std::shared_ptr<Expr> With;
   std::shared_ptr<Expr> E;
 
 public:
-  ExprWith(LexerCursorRange Range, std::shared_ptr<Expr> With,
+  ExprWith(LexerCursorRange Range, std::shared_ptr<Misc> KwWith,
+           std::shared_ptr<Misc> TokSemi, std::shared_ptr<Expr> With,
            std::shared_ptr<Expr> E)
-      : Expr(NK_ExprWith, Range), With(std::move(With)), E(std::move(E)) {}
+      : Expr(NK_ExprWith, Range), KwWith(std::move(KwWith)),
+        TokSemi(std::move(TokSemi)), With(std::move(With)), E(std::move(E)) {}
 
+  [[nodiscard]] const Misc &kwWith() const { return *KwWith; }
+  [[nodiscard]] const Misc *tokSemi() const { return TokSemi.get(); }
   [[nodiscard]] Expr *with() const { return With.get(); }
   [[nodiscard]] Expr *expr() const { return E.get(); }
 
   [[nodiscard]] ChildVector children() const override {
-    return {With.get(), E.get()};
+    return {KwWith.get(), TokSemi.get(), With.get(), E.get()};
   }
 };
 

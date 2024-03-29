@@ -103,7 +103,14 @@ public:
     return Fragments[0].escaped();
   }
 
-  [[nodiscard]] ChildVector children() const override { return {}; }
+  [[nodiscard]] ChildVector children() const override {
+    ChildVector Children;
+    for (const auto &Frag : Fragments) {
+      if (Frag.kind() == InterpolablePart::SPK_Interpolation)
+        Children.emplace_back(&Frag.interpolation());
+    }
+    return Children;
+  }
 };
 
 class ExprString : public Expr {
@@ -130,7 +137,7 @@ public:
     return Parts->literal();
   }
 
-  [[nodiscard]] ChildVector children() const override { return {}; }
+  [[nodiscard]] ChildVector children() const override { return {Parts.get()}; }
 };
 
 class ExprPath : public Expr {
