@@ -49,8 +49,7 @@ TEST_F(SemaActionTest, selectOrCreate) {
 
   ASSERT_EQ(Inner.value()->kind(), Node::NK_ExprAttrs);
 
-  const auto *InnerAttr =
-      &static_cast<ExprAttrs *>(Inner.value().get())->sema();
+  const auto *InnerAttr = &static_cast<ExprAttrs *>(Inner.value())->sema();
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 1);
   ASSERT_EQ(InnerAttr->staticAttrs().count("b"), 1);
   ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
@@ -59,7 +58,7 @@ TEST_F(SemaActionTest, selectOrCreate) {
   ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
             Node::NK_ExprAttrs);
   InnerAttr =
-      &static_cast<ExprAttrs *>(InnerAttr->staticAttrs().at("b").value().get())
+      &static_cast<ExprAttrs *>(InnerAttr->staticAttrs().at("b").value())
            ->sema();
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 0);
 
@@ -72,14 +71,14 @@ TEST_F(SemaActionTest, selectOrCreate) {
 
   ASSERT_EQ(Inner.value()->kind(), Node::NK_ExprAttrs);
 
-  InnerAttr = &static_cast<ExprAttrs *>(Inner.value().get())->sema();
+  InnerAttr = &static_cast<ExprAttrs *>(Inner.value())->sema();
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 1);
   ASSERT_EQ(InnerAttr->staticAttrs().count("b"), 1);
   ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
             Node::NK_ExprAttrs);
 
   InnerAttr =
-      &static_cast<ExprAttrs *>(InnerAttr->staticAttrs().at("b").value().get())
+      &static_cast<ExprAttrs *>(InnerAttr->staticAttrs().at("b").value())
            ->sema();
   ASSERT_EQ(InnerAttr->staticAttrs().size(), 0);
 }
@@ -99,7 +98,7 @@ TEST_F(SemaActionTest, selectOrCreateDynamic) {
 
   const auto &DynamicAttr = Attr.dynamicAttrs().front();
 
-  ASSERT_EQ(DynamicAttr.key()->kind(), Node::NK_AttrName);
+  ASSERT_EQ(DynamicAttr.key().kind(), Node::NK_AttrName);
 }
 
 TEST_F(SemaActionTest, insertAttrDup) {
@@ -107,9 +106,11 @@ TEST_F(SemaActionTest, insertAttrDup) {
   // Check we can detect duplicated attr.
   std::map<std::string, Attribute> Attrs;
 
-  Attrs["a"] = Attribute(
-      /*Key=*/Name, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-      /*FromInherit=*/false);
+  Attrs.insert(
+      {"a", Attribute(
+                /*Key=*/Name,
+                /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+                /*FromInherit=*/false)});
 
   SemaAttrs A(std::move(Attrs), {}, nullptr);
   std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
@@ -183,9 +184,11 @@ TEST_F(SemaActionTest, inheritNameDuplicated) {
   auto Name = getStaticName("a");
   std::map<std::string, Attribute> Attrs;
 
-  Attrs["a"] = Attribute(
-      /*Key=*/Name, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-      /*FromInherit=*/false);
+  Attrs.insert(
+      {"a", Attribute(
+                /*Key=*/Name,
+                /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+                /*FromInherit=*/false)});
 
   SemaAttrs SA(std::move(Attrs), {}, nullptr);
   L.lowerInheritName(SA, Name, nullptr);
@@ -205,13 +208,17 @@ TEST_F(SemaActionTest, mergeAttrSets) {
   std::map<std::string, Attribute> XAttrs;
   std::map<std::string, Attribute> YAttrs;
 
-  XAttrs["a"] = Attribute(
-      /*Key=*/XName, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-      /*FromInherit=*/false);
+  XAttrs.insert(
+      {"a", Attribute(
+                /*Key=*/XName,
+                /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+                /*FromInherit=*/false)});
 
-  YAttrs["a"] = Attribute(
-      /*Key=*/YName, /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-      /*FromInherit=*/false);
+  YAttrs.insert(
+      {"a", Attribute(
+                /*Key=*/YName,
+                /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
+                /*FromInherit=*/false)});
 
   SemaAttrs XA(XAttrs, {}, nullptr);
   SemaAttrs YA(YAttrs, {}, nullptr);
