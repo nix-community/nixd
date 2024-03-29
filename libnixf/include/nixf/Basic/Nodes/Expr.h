@@ -148,6 +148,7 @@ public:
   [[nodiscard]] const Binds *binds() const {
     return Attrs ? Attrs->binds() : nullptr;
   }
+  [[nodiscard]] const ExprAttrs *attrs() const { return Attrs.get(); }
   [[nodiscard]] const Expr *expr() const { return E.get(); }
   [[nodiscard]] const Misc &let() const { return *KwLet; }
   [[nodiscard]] const Misc *in() const { return KwIn.get(); }
