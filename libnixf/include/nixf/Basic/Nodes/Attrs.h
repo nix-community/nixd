@@ -198,20 +198,15 @@ class Attribute {
   bool FromInherit;
 
 public:
-  Attribute() = default;
   Attribute(std::shared_ptr<Node> Key, std::shared_ptr<Expr> Value,
             bool FromInherit)
       : Key(std::move(Key)), Value(std::move(Value)), FromInherit(FromInherit) {
     assert(this->Key && "Key must not be null");
   }
 
-  [[nodiscard]] std::shared_ptr<Node> &key() { return Key; }
+  [[nodiscard]] Node &key() const { return *Key; }
 
-  [[nodiscard]] const std::shared_ptr<Node> &key() const { return Key; }
-
-  [[nodiscard]] std::shared_ptr<Expr> &value() { return Value; }
-
-  [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
+  [[nodiscard]] Expr *value() const { return Value.get(); }
 
   [[nodiscard]] bool fromInherit() const { return FromInherit; }
 };

@@ -54,7 +54,7 @@ void Sema::mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs) {
       }
 
       */
-      dupAttr(K, V.key()->range(), XAttrs.Static.at(K).key()->range());
+      dupAttr(K, V.key().range(), XAttrs.Static.at(K).key().range());
       continue;
     }
     XAttrs.Static.insert({K, V});
@@ -85,18 +85,19 @@ void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
     if (V.value() && V.value()->kind() == Node::NK_ExprAttrs && E &&
         E->kind() == Node::NK_ExprAttrs) {
       // If this is also an attrset, we want to merge them.
-      auto *XAttrSet = static_cast<ExprAttrs *>(V.value().get());
+      auto *XAttrSet = static_cast<ExprAttrs *>(V.value());
       auto *YAttrSet = static_cast<ExprAttrs *>(E.get());
       checkAttrRecursiveForMerge(*XAttrSet, *YAttrSet);
       mergeAttrSets(XAttrSet->SA, YAttrSet->SA);
       return;
     }
-    dupAttr(StaticName, Name->range(), V.key()->range());
+    dupAttr(StaticName, Name->range(), V.key().range());
     return;
   }
   if (!E)
     return;
-  Attrs[StaticName] = Attribute(std::move(Name), std::move(E), IsInherit);
+  Attrs.insert(
+      {StaticName, Attribute(std::move(Name), std::move(E), IsInherit)});
 }
 
 SemaAttrs *
@@ -122,10 +123,10 @@ Sema::selectOrCreate(SemaAttrs &SA,
         const auto &[K, V] = *Nested;
         if (V.fromInherit() || !V.value() ||
             V.value()->kind() != Node::NK_ExprAttrs) {
-          dupAttr(StaticName, Name->range(), V.key()->range());
+          dupAttr(StaticName, Name->range(), V.key().range());
           return nullptr;
         }
-        Inner = &static_cast<ExprAttrs *>(V.value().get())->SA;
+        Inner = &static_cast<ExprAttrs *>(V.value())->SA;
       } else {
         // There is no existing one, let's create a new attribute.
         // These attributes are implicitly created, and to match default ctor
@@ -133,8 +134,8 @@ Sema::selectOrCreate(SemaAttrs &SA,
         auto NewNested = std::make_shared<ExprAttrs>(
             Name->range(), nullptr, nullptr, SemaAttrs(/*Recursive=*/nullptr));
         Inner = &NewNested->SA;
-        StaticAttrs[StaticName] =
-            Attribute(Name, std::move(NewNested), /*FromInherit=*/false);
+        StaticAttrs.insert({StaticName, Attribute(Name, std::move(NewNested),
+                                                  /*FromInherit=*/false)});
       }
     } else {
       // Create a dynamic attribute.
@@ -284,13 +285,13 @@ void Sema::lowerInheritName(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
   // Check duplicated attrname.
   if (SA.Static.contains(Name->staticName())) {
     dupAttr(Name->staticName(), Name->range(),
-            SA.Static[Name->staticName()].key()->range());
+            SA.Static.at(Name->staticName()).key().range());
     return;
   }
   // Insert the attr.
   std::string StaticName = Name->staticName();
-  SA.Static[StaticName] =
-      Attribute(std::move(Name), std::move(E), /*FromInherit=*/true);
+  SA.Static.insert({StaticName, Attribute(std::move(Name), std::move(E),
+                                          /*FromInherit=*/true)});
 }
 
 void Sema::lowerInherit(SemaAttrs &Attr, const Inherit &Inherit) {
