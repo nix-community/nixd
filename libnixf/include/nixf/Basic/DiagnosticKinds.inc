@@ -9,12 +9,17 @@ DIAG("lex-float-no-exp", FloatNoExp, Fatal,
 DIAG("lex-float-leading-zero", FloatLeadingZero, Warning,
      "float begins with extra zeros `{}` is nixf extension")
 DIAG("parse-expected", Expected, Error, "expected {}")
-DIAG("parse-attrpath-extra-dot", AttrPathExtraDot, Error, "extra `.` at the end of attrpath")
-DIAG("parse-select-extra-dot", SelectExtraDot, Error, "extra `.` after expression, but missing attrpath")
-DIAG("parse-unexpected-between", UnexpectedBetween, Error, "unexpected {} between {} and {}")
+DIAG("parse-attrpath-extra-dot", AttrPathExtraDot, Error,
+     "extra `.` at the end of attrpath")
+DIAG("parse-select-extra-dot", SelectExtraDot, Error,
+     "extra `.` after expression, but missing attrpath")
+DIAG("parse-unexpected-between", UnexpectedBetween, Error,
+     "unexpected {} between {} and {}")
 DIAG("parse-unexpected", UnexpectedText, Error, "unexpected text")
-DIAG("parse-missing-sep-formals", MissingSepFormals, Error, "missing seperator `,` between two lambda formals")
-DIAG("parse-lambda-arg-extra-at", LambdaArgExtraAt, Error, "extra `@` for lambda arg")
+DIAG("parse-missing-sep-formals", MissingSepFormals, Error,
+     "missing seperator `,` between two lambda formals")
+DIAG("parse-lambda-arg-extra-at", LambdaArgExtraAt, Error,
+     "extra `@` for lambda arg")
 DIAG("let-dynamic", LetDynamic, Error,
      "dynamic attributes are not allowed in let ... in ... expression")
 DIAG("empty-inherit", EmptyInherit, Warning, "empty inherit expression")
@@ -33,15 +38,25 @@ DIAG("merge-diff-rec", MergeDiffRec, Warning,
 DIAG("bison", BisonParse, Fatal, "{}")
 DIAG("invalid-float", InvalidFloat, Fatal, "invalid float {}")
 DIAG("invalid-integer", InvalidInteger, Fatal, "invalid integer {}")
-DIAG("sema-duplicated-attrname", DuplicatedAttrName, Error, "duplicated attrname `{}`")
+DIAG("sema-duplicated-attrname", DuplicatedAttrName, Error,
+     "duplicated attrname `{}`")
 DIAG("sema-dynamic-inherit", DynamicInherit, Error,
      "dynamic attributes are not allowed in inherit")
 DIAG("sema-empty-formal", EmptyFormal, Error, "empty formal")
-DIAG("sema-formal-missing-comma", FormalMissingComma, Error, "missing `,` for lambda formal")
-DIAG("sema-formal-extra-ellipsis", FormalExtraEllipsis, Error, "extra `...` for lambda formal")
-DIAG("sema-misplaced-ellipsis", FormalMisplacedEllipsis, Error, "misplaced `...` for lambda formal")
-DIAG("sema-dup-formal", DuplicatedFormal, Error,
-     "duplicated function formal")
+DIAG("sema-formal-missing-comma", FormalMissingComma, Error,
+     "missing `,` for lambda formal")
+DIAG("sema-formal-extra-ellipsis", FormalExtraEllipsis, Error,
+     "extra `...` for lambda formal")
+DIAG("sema-misplaced-ellipsis", FormalMisplacedEllipsis, Error,
+     "misplaced `...` for lambda formal")
+DIAG("sema-dup-formal", DuplicatedFormal, Error, "duplicated function formal")
 DIAG("sema-dup-formal-arg", DuplicatedFormalToArg, Error,
      "function argument duplicated to a function formal")
+DIAG("sema-undefined-variable", UndefinedVariable, Error,
+     "undefined variable `{}`")
+DIAG("sema-def-not-used", DefinitionNotUsed, Warning,
+     "definition `{}` is not used")
+DIAG("sema-extra-rec", ExtraRecursive, Warning,
+     "attrset is not necessary to be `rec`ursive ")
+DIAG("sema-extra-with", ExtraWith, Warning, "unused `with` expression")
 #endif // DIAG

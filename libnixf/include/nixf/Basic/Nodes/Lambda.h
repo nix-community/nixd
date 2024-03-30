@@ -96,7 +96,7 @@ public:
             std::shared_ptr<Formals> F)
       : Node(NK_LambdaArg, Range), ID(std::move(ID)), F(std::move(F)) {}
 
-  [[nodiscard]] Identifier *id() { return ID.get(); }
+  [[nodiscard]] Identifier *id() const { return ID.get(); }
 
   [[nodiscard]] Formals *formals() const { return F.get(); }
 
