@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "nixf/Basic/Diagnostic.h"
-#include "nixf/Basic/Nodes.h"
-#include "nixf/Basic/Range.h"
+#include "nixf/Basic/Nodes/Basic.h"
+#include "nixf/Basic/Nodes/Simple.h"
 #include "nixf/Parse/Parser.h"
 
 namespace {

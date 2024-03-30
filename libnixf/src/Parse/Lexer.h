@@ -13,8 +13,6 @@
 #include "nixf/Basic/Range.h"
 
 #include <cassert>
-#include <functional>
-#include <memory>
 #include <optional>
 #include <string_view>
 
