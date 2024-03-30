@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cerrno>
-#include <optional>
 
 namespace nixd::util {
 
