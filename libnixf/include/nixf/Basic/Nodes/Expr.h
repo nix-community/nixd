@@ -5,9 +5,9 @@
 namespace nixf {
 
 class ExprSelect : public Expr {
-  std::shared_ptr<Expr> E;
-  std::shared_ptr<AttrPath> Path;
-  std::shared_ptr<Expr> Default;
+  const std::shared_ptr<Expr> E;
+  const std::shared_ptr<AttrPath> Path;
+  const std::shared_ptr<Expr> Default;
 
 public:
   ExprSelect(LexerCursorRange Range, std::shared_ptr<Expr> E,
@@ -33,8 +33,8 @@ public:
 
 /// A call/apply to some function.
 class ExprCall : public Expr {
-  std::shared_ptr<Expr> Fn;
-  std::vector<std::shared_ptr<Expr>> Args;
+  const std::shared_ptr<Expr> Fn;
+  const std::vector<std::shared_ptr<Expr>> Args;
 
 public:
   ExprCall(LexerCursorRange Range, std::shared_ptr<Expr> Fn,
@@ -47,7 +47,6 @@ public:
     assert(Fn && "Fn must not be null");
     return *Fn;
   }
-  std::vector<std::shared_ptr<Expr>> &args() { return Args; }
 
   [[nodiscard]] const std::vector<std::shared_ptr<Expr>> &args() const {
     return Args;
@@ -65,17 +64,13 @@ public:
 };
 
 class ExprList : public Expr {
-  std::vector<std::shared_ptr<Expr>> Elements;
+  const std::vector<std::shared_ptr<Expr>> Elements;
 
 public:
   ExprList(LexerCursorRange Range, std::vector<std::shared_ptr<Expr>> Elements)
       : Expr(NK_ExprList, Range), Elements(std::move(Elements)) {}
 
   [[nodiscard]] const std::vector<std::shared_ptr<Expr>> &elements() const {
-    return Elements;
-  }
-
-  [[nodiscard]] std::vector<std::shared_ptr<Expr>> &elements() {
     return Elements;
   }
 
@@ -90,9 +85,9 @@ public:
 };
 
 class ExprIf : public Expr {
-  std::shared_ptr<Expr> Cond;
-  std::shared_ptr<Expr> Then;
-  std::shared_ptr<Expr> Else;
+  const std::shared_ptr<Expr> Cond;
+  const std::shared_ptr<Expr> Then;
+  const std::shared_ptr<Expr> Else;
 
 public:
   ExprIf(LexerCursorRange Range, std::shared_ptr<Expr> Cond,
@@ -110,8 +105,9 @@ public:
 };
 
 class ExprAssert : public Expr {
-  std::shared_ptr<Expr> Cond;
-  std::shared_ptr<Expr> Value; // If "cond" is true, then "value" is returned.
+  const std::shared_ptr<Expr> Cond;
+  const std::shared_ptr<Expr>
+      Value; // If "cond" is true, then "value" is returned.
 
 public:
   ExprAssert(LexerCursorRange Range, std::shared_ptr<Expr> Cond,
@@ -130,11 +126,11 @@ public:
 class ExprLet : public Expr {
   // 'let' binds 'in' expr
 
-  std::shared_ptr<Misc> KwLet; // 'let', not null
-  std::shared_ptr<Misc> KwIn;
-  std::shared_ptr<Expr> E;
+  const std::shared_ptr<Misc> KwLet; // 'let', not null
+  const std::shared_ptr<Misc> KwIn;
+  const std::shared_ptr<Expr> E;
 
-  std::shared_ptr<ExprAttrs> Attrs;
+  const std::shared_ptr<ExprAttrs> Attrs;
 
 public:
   ExprLet(LexerCursorRange Range, std::shared_ptr<Misc> KwLet,
@@ -159,10 +155,10 @@ public:
 };
 
 class ExprWith : public Expr {
-  std::shared_ptr<Misc> KwWith;
-  std::shared_ptr<Misc> TokSemi;
-  std::shared_ptr<Expr> With;
-  std::shared_ptr<Expr> E;
+  const std::shared_ptr<Misc> KwWith;
+  const std::shared_ptr<Misc> TokSemi;
+  const std::shared_ptr<Expr> With;
+  const std::shared_ptr<Expr> E;
 
 public:
   ExprWith(LexerCursorRange Range, std::shared_ptr<Misc> KwWith,

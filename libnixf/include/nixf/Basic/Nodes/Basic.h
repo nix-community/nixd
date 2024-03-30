@@ -112,7 +112,7 @@ public:
 
 /// \brief Identifier. Variable names, attribute names, etc.
 class Identifier : public Node {
-  std::string Name;
+  const std::string Name;
 
 public:
   Identifier(LexerCursorRange Range, std::string Name)

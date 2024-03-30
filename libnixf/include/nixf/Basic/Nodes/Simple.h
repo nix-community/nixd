@@ -13,7 +13,7 @@ using NixInt = int64_t;
 using NixFloat = double;
 
 class ExprInt : public Expr {
-  NixInt Value;
+  const NixInt Value;
 
 public:
   ExprInt(LexerCursorRange Range, NixInt Value)
@@ -24,7 +24,7 @@ public:
 };
 
 class ExprFloat : public Expr {
-  NixFloat Value;
+  const NixFloat Value;
 
 public:
   ExprFloat(LexerCursorRange Range, NixFloat Value)
@@ -36,7 +36,7 @@ public:
 
 /// \brief `${expr}` construct
 class Interpolation : public Node {
-  std::shared_ptr<Expr> E;
+  const std::shared_ptr<Expr> E;
 
 public:
   Interpolation(LexerCursorRange Range, std::shared_ptr<Expr> E)
@@ -55,9 +55,9 @@ public:
   };
 
 private:
-  InterpolablePartKind Kind;
-  std::string Escaped;
-  std::shared_ptr<Interpolation> Interp;
+  const InterpolablePartKind Kind;
+  const std::string Escaped;
+  const std::shared_ptr<Interpolation> Interp;
 
 public:
   explicit InterpolablePart(std::string Escaped)
@@ -83,7 +83,7 @@ public:
 };
 
 class InterpolatedParts : public Node {
-  std::vector<InterpolablePart> Fragments;
+  const std::vector<InterpolablePart> Fragments;
 
 public:
   InterpolatedParts(LexerCursorRange Range,
@@ -114,7 +114,7 @@ public:
 };
 
 class ExprString : public Expr {
-  std::shared_ptr<InterpolatedParts> Parts;
+  const std::shared_ptr<InterpolatedParts> Parts;
 
 public:
   ExprString(LexerCursorRange Range, std::shared_ptr<InterpolatedParts> Parts)
@@ -158,9 +158,9 @@ public:
 };
 
 class ExprParen : public Expr {
-  std::shared_ptr<Expr> E;
-  std::shared_ptr<Misc> LParen;
-  std::shared_ptr<Misc> RParen;
+  const std::shared_ptr<Expr> E;
+  const std::shared_ptr<Misc> LParen;
+  const std::shared_ptr<Misc> RParen;
 
 public:
   ExprParen(LexerCursorRange Range, std::shared_ptr<Expr> E,
@@ -178,7 +178,7 @@ public:
 };
 
 class ExprVar : public Expr {
-  std::shared_ptr<Identifier> ID;
+  const std::shared_ptr<Identifier> ID;
 
 public:
   ExprVar(LexerCursorRange Range, std::shared_ptr<Identifier> ID)

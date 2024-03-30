@@ -10,7 +10,7 @@
 namespace nixf {
 
 class Op : public Node {
-  tok::TokenKind OpKind;
+  const tok::TokenKind OpKind;
 
 public:
   Op(LexerCursorRange Range, tok::TokenKind OpKind)
@@ -23,7 +23,7 @@ public:
 
 /// \brief Abstract class for binary operators and unary operators.
 class ExprOp : public Expr {
-  std::shared_ptr<Op> O;
+  const std::shared_ptr<Op> O;
 
 public:
   ExprOp(NodeKind Kind, LexerCursorRange Range, std::shared_ptr<Op> O)
@@ -37,8 +37,8 @@ public:
 };
 
 class ExprBinOp : public ExprOp {
-  std::shared_ptr<Expr> LHS;
-  std::shared_ptr<Expr> RHS;
+  const std::shared_ptr<Expr> LHS;
+  const std::shared_ptr<Expr> RHS;
 
 public:
   ExprBinOp(LexerCursorRange Range, std::shared_ptr<Op> O,
@@ -55,8 +55,8 @@ public:
 };
 
 class ExprOpHasAttr : public ExprOp {
-  std::shared_ptr<Expr> E;
-  std::shared_ptr<AttrPath> Path;
+  const std::shared_ptr<Expr> E;
+  const std::shared_ptr<AttrPath> Path;
 
 public:
   ExprOpHasAttr(LexerCursorRange Range, std::shared_ptr<Op> O,
@@ -73,7 +73,7 @@ public:
 };
 
 class ExprUnaryOp : public ExprOp {
-  std::shared_ptr<Expr> E;
+  const std::shared_ptr<Expr> E;
 
 public:
   ExprUnaryOp(LexerCursorRange Range, std::shared_ptr<Op> O,

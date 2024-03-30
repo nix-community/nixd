@@ -9,10 +9,10 @@
 namespace nixf {
 
 class Formal : public Node {
-  std::shared_ptr<Misc> Comma;
-  std::shared_ptr<Identifier> ID;
-  std::shared_ptr<Expr> Default;
-  std::shared_ptr<Misc> Ellipsis; // ...
+  const std::shared_ptr<Misc> Comma;
+  const std::shared_ptr<Identifier> ID;
+  const std::shared_ptr<Expr> Default;
+  const std::shared_ptr<Misc> Ellipsis; // ...
 
 public:
   Formal(LexerCursorRange Range, std::shared_ptr<Misc> Comma,
@@ -56,10 +56,10 @@ public:
 /// 2. Ellipsis can only occur once.
 ///        { b, ..., a, ... } -> { a, ... }
 class Formals : public Node {
-  std::vector<std::shared_ptr<Formal>> Members;
+  const std::vector<std::shared_ptr<Formal>> Members;
 
   /// Deduplicated formals, useful for encoding
-  std::map<std::string, const Formal *> Dedup;
+  const std::map<std::string, const Formal *> Dedup;
 
 public:
   using FormalVector = std::vector<std::shared_ptr<Formal>>;
@@ -88,8 +88,8 @@ public:
 };
 
 class LambdaArg : public Node {
-  std::shared_ptr<Identifier> ID;
-  std::shared_ptr<Formals> F;
+  const std::shared_ptr<Identifier> ID;
+  const std::shared_ptr<Formals> F;
 
 public:
   LambdaArg(LexerCursorRange Range, std::shared_ptr<Identifier> ID,
@@ -106,8 +106,8 @@ public:
 };
 
 class ExprLambda : public Expr {
-  std::shared_ptr<LambdaArg> Arg;
-  std::shared_ptr<Expr> Body;
+  const std::shared_ptr<LambdaArg> Arg;
+  const std::shared_ptr<Expr> Body;
 
 public:
   ExprLambda(LexerCursorRange Range, std::shared_ptr<LambdaArg> Arg,

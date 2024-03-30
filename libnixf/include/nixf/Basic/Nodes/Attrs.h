@@ -12,17 +12,16 @@ public:
   enum AttrNameKind { ANK_ID, ANK_String, ANK_Interpolation };
 
 private:
-  AttrNameKind Kind;
-  std::shared_ptr<Identifier> ID;
-  std::shared_ptr<ExprString> String;
-  std::shared_ptr<Interpolation> Interp;
+  const AttrNameKind Kind;
+  const std::shared_ptr<Identifier> ID;
+  const std::shared_ptr<ExprString> String;
+  const std::shared_ptr<Interpolation> Interp;
 
 public:
   [[nodiscard]] AttrNameKind kind() const { return Kind; }
 
   AttrName(std::shared_ptr<Identifier> ID, LexerCursorRange Range)
-      : Node(NK_AttrName, Range), Kind(ANK_ID) {
-    this->ID = std::move(ID);
+      : Node(NK_AttrName, Range), Kind(ANK_ID), ID(std::move(ID)) {
     assert(this->ID && "ID must not be null");
   }
 
@@ -67,11 +66,6 @@ public:
     return ID;
   }
 
-  [[nodiscard]] std::shared_ptr<Identifier> &id() {
-    assert(Kind == ANK_ID);
-    return ID;
-  }
-
   [[nodiscard]] const ExprString &string() const {
     assert(Kind == ANK_String);
     assert(String && "String must not be null");
@@ -94,7 +88,7 @@ public:
 };
 
 class AttrPath : public Node {
-  std::vector<std::shared_ptr<AttrName>> Names;
+  const std::vector<std::shared_ptr<AttrName>> Names;
 
 public:
   AttrPath(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names)
@@ -115,8 +109,8 @@ public:
 };
 
 class Binding : public Node {
-  std::shared_ptr<AttrPath> Path;
-  std::shared_ptr<Expr> Value;
+  const std::shared_ptr<AttrPath> Path;
+  const std::shared_ptr<Expr> Value;
 
 public:
   Binding(LexerCursorRange Range, std::shared_ptr<AttrPath> Path,
@@ -134,16 +128,14 @@ public:
 
   [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
 
-  [[nodiscard]] std::shared_ptr<Expr> &value() { return Value; }
-
   [[nodiscard]] ChildVector children() const override {
     return {Path.get(), Value.get()};
   }
 };
 
 class Inherit : public Node {
-  std::vector<std::shared_ptr<AttrName>> Names;
-  std::shared_ptr<Expr> E;
+  const std::vector<std::shared_ptr<AttrName>> Names;
+  const std::shared_ptr<Expr> E;
 
 public:
   Inherit(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names,
@@ -155,8 +147,6 @@ public:
   }
 
   [[nodiscard]] bool hasExpr() { return E != nullptr; }
-
-  [[nodiscard]] std::shared_ptr<Expr> &expr() { return E; }
 
   [[nodiscard]] const std::shared_ptr<Expr> &expr() const { return E; }
 
@@ -172,7 +162,7 @@ public:
 };
 
 class Binds : public Node {
-  std::vector<std::shared_ptr<Node>> Bindings;
+  const std::vector<std::shared_ptr<Node>> Bindings;
 
 public:
   Binds(LexerCursorRange Range, std::vector<std::shared_ptr<Node>> Bindings)
@@ -193,9 +183,9 @@ public:
 };
 
 class Attribute {
-  std::shared_ptr<Node> Key;
-  std::shared_ptr<Expr> Value;
-  bool FromInherit;
+  const std::shared_ptr<Node> Key;
+  const std::shared_ptr<Expr> Value;
+  const bool FromInherit;
 
 public:
   Attribute(std::shared_ptr<Node> Key, std::shared_ptr<Expr> Value,
@@ -221,10 +211,12 @@ public:
 /// e.g. `{ a.b.c = 1 }` -> `{ a = { b = { c = 1; }; }; }`
 class SemaAttrs {
 private:
-  std::map<std::string, Attribute> Static;
-  std::vector<Attribute> Dynamic;
+  // These fields are in-complete during semantic analysis.
+  // So they explicitly marked as mutable
+  /*mutable*/ std::map<std::string, Attribute> Static;
+  /*mutable*/ std::vector<Attribute> Dynamic;
 
-  Misc *Recursive;
+  const Misc *Recursive;
 
   friend class Sema;
 
