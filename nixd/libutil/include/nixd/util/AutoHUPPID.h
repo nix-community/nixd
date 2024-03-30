@@ -1,6 +1,5 @@
-#include <csignal>
-
 #include <sched.h>
+#include <signal.h> // NOLINT(modernize-deprecated-headers)
 
 namespace nixd::util {
 

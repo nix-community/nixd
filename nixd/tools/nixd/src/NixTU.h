@@ -5,6 +5,10 @@
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Basic.h"
 
+#include <memory>
+#include <optional>
+#include <vector>
+
 namespace nixd {
 
 /// \brief Holds analyzed information about a document.
