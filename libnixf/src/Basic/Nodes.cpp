@@ -1,4 +1,4 @@
-#include "nixf/Basic/Nodes.h"
+#include "nixf/Basic/Nodes/Simple.h"
 
 using namespace nixf;
 

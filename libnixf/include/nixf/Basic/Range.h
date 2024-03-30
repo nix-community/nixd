@@ -1,7 +1,7 @@
 #pragma once
 
+#include <cstddef> // std::size_t
 #include <cstdint>
-#include <string_view>
 
 namespace nixf {
 

@@ -4,7 +4,6 @@
 #include "nixf/Basic/TokenKinds.h"
 
 #include <cassert>
-#include <string>
 #include <string_view>
 
 namespace nixf {

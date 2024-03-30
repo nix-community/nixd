@@ -6,9 +6,7 @@
 
 #pragma once
 
-#include "nixf/Basic/Nodes.h"
-
-#include <cstdint>
+#include "nixf/Basic/Nodes/Basic.h"
 
 namespace nixf {
 

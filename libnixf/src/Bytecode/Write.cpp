@@ -1,5 +1,8 @@
 #include "Write.h"
 
+#include "nixf/Basic/Nodes/Op.h"
+#include "nixf/Bytecode/Write.h"
+
 #include <bc/Write.h>
 
 #include <nixbc/Nodes.h>
