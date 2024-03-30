@@ -74,8 +74,9 @@ void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
   // Duplicate checking will be performed on this in-complete attrset,
   // however it will not be placed in the final Sema node.
   assert(Name);
-  if (!Name->isStatic() && E) {
-    SA.Dynamic.emplace_back(std::move(Name), std::move(E), IsInherit);
+  if (!Name->isStatic()) {
+    if (E)
+      SA.Dynamic.emplace_back(std::move(Name), std::move(E), IsInherit);
     return;
   }
   auto &Attrs = SA.Static;

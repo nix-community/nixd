@@ -141,6 +141,16 @@ TEST_F(SemaActionTest, insertAttrNullptr) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(SemaActionTest, insertAttrNullptr2) {
+  SemaAttrs SA(nullptr);
+  auto Name = getDynamicName();
+  L.insertAttr(SA, std::move(Name), nullptr,
+               /*IsInherit=*/false);
+  ASSERT_EQ(SA.staticAttrs().size(), 0);
+  ASSERT_EQ(SA.dynamicAttrs().size(), 0);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 TEST_F(SemaActionTest, inheritName) {
   SemaAttrs Attr(nullptr);
   auto Name = getStaticName("a");
