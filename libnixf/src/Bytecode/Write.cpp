@@ -204,6 +204,7 @@ void writeExprAttrs(std::ostream &OS, const ExprAttrs &Attrs) {
     switch (Name.kind()) {
     case AttrName::ANK_ID:
       assert(false && "dynamic attrname should not be ID!");
+      __builtin_unreachable();
     case AttrName::ANK_String:
       writeExprString(OS, Name.string());
       break;
