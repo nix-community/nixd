@@ -6,6 +6,7 @@
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Bytecode/Write.h"
 #include "nixf/Parse/Parser.h"
+#include "nixf/Sema/VariableLookup.h"
 
 #include <boost/asio/post.hpp>
 
@@ -38,13 +39,18 @@ void Controller::actOnDocumentAdd(PathRef File,
     std::vector<nixf::Diagnostic> Diagnostics;
     std::shared_ptr<nixf::Node> AST =
         nixf::parse(*Draft->Contents, Diagnostics);
-    publishDiagnostics(File, Version, Diagnostics);
 
     if (!AST) {
       std::lock_guard G(TUsLock);
+      publishDiagnostics(File, Version, Diagnostics);
       TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
       return;
     }
+
+    nixf::VariableLookupAnalysis VLA(Diagnostics);
+    VLA.runOnAST(*AST);
+
+    publishDiagnostics(File, Version, Diagnostics);
 
     // Serialize the AST into shared memory. Prepare for evaluation.
     std::stringstream OS;
