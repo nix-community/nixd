@@ -48,7 +48,7 @@ void Controller::actOnDocumentAdd(PathRef File,
 
     // Serialize the AST into shared memory. Prepare for evaluation.
     std::stringstream OS;
-    nixf::writeBytecode(OS, *AST);
+    nixf::writeBytecode(OS, AST.get());
     std::string Buf = OS.str();
     if (Buf.empty()) {
       lspserver::log("empty AST for {0}", File);
