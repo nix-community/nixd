@@ -34,4 +34,6 @@ libnixt_test_exe = executable('test-libnixt',
                               'test/Kinds.cpp',
                               dependencies: [ gtest_main, nixt ])
 
+subdir('tools')
+
 test('unit/libnixt', libnixt_test_exe)
