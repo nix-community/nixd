@@ -73,5 +73,6 @@ test('unit/libnixf/Sema',
     )
 )
 
+subdir('tools')
 
 install_subdir('include/nixf', install_dir: 'include')
