@@ -40,6 +40,8 @@ libnixt_test_exe = executable(
     dependencies: [ gtest_main, nixt ]
 )
 
+subdir('tools')
+
 test(
     'unit/libnixt',
     libnixt_test_exe,
