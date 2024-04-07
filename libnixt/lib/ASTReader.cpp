@@ -135,6 +135,8 @@ nix::AttrPath ASTDeserializer::eatAttrPath(std::string_view &Data) {
     // The convention is, if it is a symbol, read an "ExprString"
     // Otherwise interpret it as an expression (needs to be evaluated).
     nix::Expr *Expr = eatHookable(Data);
+    if (!Expr)
+      continue;
     if (const auto *String = dynamic_cast<nix::ExprString *>(Expr)) {
       // Create a symbol
       Result.emplace_back(Ctx.STable.create(String->s));
@@ -149,13 +151,15 @@ nix::AttrPath ASTDeserializer::eatAttrPath(std::string_view &Data) {
 nix::ExprSelect ASTDeserializer::eatExprSelect(nix::PosIdx Pos,
                                                std::string_view &Data) {
   nix::Expr *E = eatHookable(Data);
+  assert(E);
   auto AttrPath = eatAttrPath(Data);
-  nix::Expr *Default = eatHookable(Data);
+  nix::Expr *Default = /*nullable*/ eatHookable(Data);
   return {Pos, E, std::move(AttrPath), Default};
 }
 
 nix::ExprOpHasAttr ASTDeserializer::eatExprOpHasAttr(std::string_view &Data) {
   nix::Expr *E = eatHookable(Data);
+  assert(E);
   auto AttrPath = eatAttrPath(Data);
   return {E, std::move(AttrPath)};
 }
@@ -173,6 +177,7 @@ nix::ExprAttrs ASTDeserializer::eatExprAttrs(nix::PosIdx Pos,
 
     // AttrDef
     nix::Expr *E = eatHookable(Data);
+    assert(E);
     nix::PosIdx Pos = eatPos(Data);
     auto Inherited = eat<bool>(Data);
     Result.attrs.insert({Name, {E, Pos, Inherited}});
@@ -182,6 +187,7 @@ nix::ExprAttrs ASTDeserializer::eatExprAttrs(nix::PosIdx Pos,
   for (std::size_t I = 0; I < NDynamicDefs; I++) {
     nix::Expr *Name = eatHookable(Data);
     nix::Expr *Value = eatHookable(Data);
+    assert(Name && Value);
     nix::PosIdx Pos = eatPos(Data);
     Result.dynamicAttrs.emplace_back(Name, Value, Pos);
   }
@@ -196,6 +202,7 @@ nix::ExprList ASTDeserializer::eatExprList(std::string_view &Data) {
 
   for (std::size_t I = 0; I < N; I++) {
     nix::Expr *E = eatHookable(Data);
+    assert(E);
     Result.elems.emplace_back(E);
   }
 
@@ -228,12 +235,13 @@ nix::ExprLambda ASTDeserializer::eatExprLambnda(nix::PosIdx Pos,
     for (std::size_t I = 0; I < N; I++) {
       nix::PosIdx Pos = eatPos(Data);
       nix::Symbol Name = eatSymbol(Data);
-      nix::Expr *Def = eatHookable(Data);
+      // explicitly nullable, nullptr means there is no default
+      nix::Expr *Def = /*nullable*/ eatHookable(Data);
       Formals->formals.emplace_back(Pos, Name, Def);
     }
   }
 
-  nix::Expr *Body = eatHookable(Data);
+  nix::Expr *Body = eatNonNullHookable(Data);
 
   if (HasArg)
     return {Pos, *Arg, Formals, Body};
@@ -243,11 +251,13 @@ nix::ExprLambda ASTDeserializer::eatExprLambnda(nix::PosIdx Pos,
 nix::ExprCall ASTDeserializer::eatExprCall(nix::PosIdx Pos,
                                            std::string_view &Data) {
   nix::Expr *Fn = eatHookable(Data);
+  assert(Fn);
 
   std::vector<nix::Expr *> Args;
   auto N = eat<std::size_t>(Data);
   for (std::size_t I = 0; I < N; I++) {
     nix::Expr *Arg = eatHookable(Data);
+    assert(Arg);
     Args.emplace_back(Arg);
   }
 
@@ -258,44 +268,44 @@ nix::ExprLet ASTDeserializer::eatExprLet(std::string_view &Data) {
   auto *Attrs = dynamic_cast<nix::ExprAttrs *>(eatHookable(Data));
   if (!Attrs)
     Attrs = Pool.record(new nix::ExprAttrs());
-  nix::Expr *Body = eatHookable(Data);
+  nix::Expr *Body = eatNonNullHookable(Data);
   return {Attrs, Body};
 }
 
 nix::ExprWith ASTDeserializer::eatExprWith(nix::PosIdx Pos,
                                            std::string_view &Data) {
-  nix::Expr *Attrs = eatHookable(Data);
-  nix::Expr *Body = eatHookable(Data);
+  nix::Expr *Attrs = eatNonNullHookable(Data);
+  nix::Expr *Body = eatNonNullHookable(Data);
 
   return {Pos, Attrs, Body};
 }
 
 nix::ExprIf ASTDeserializer::eatExprIf(nix::PosIdx Pos,
                                        std::string_view &Data) {
-  nix::Expr *Cond = eatHookable(Data);
-  nix::Expr *Then = eatHookable(Data);
-  nix::Expr *Else = eatHookable(Data);
+  nix::Expr *Cond = eatNonNullHookable(Data);
+  nix::Expr *Then = eatNonNullHookable(Data);
+  nix::Expr *Else = eatNonNullHookable(Data);
 
   return {Pos, Cond, Then, Else};
 }
 
 nix::ExprAssert ASTDeserializer::eatExprAssert(nix::PosIdx Pos,
                                                std::string_view &Data) {
-  nix::Expr *Cond = eatHookable(Data);
-  nix::Expr *Body = eatHookable(Data);
+  nix::Expr *Cond = eatNonNullHookable(Data);
+  nix::Expr *Body = eatNonNullHookable(Data);
 
   return {Pos, Cond, Body};
 }
 
 nix::ExprOpNot ASTDeserializer::eatExprOpNot(std::string_view &Data) {
-  return {eatHookable(Data)};
+  return {eatNonNullHookable(Data)};
 }
 
 #define BinOp(OP, SYM)                                                         \
   nix::Expr##OP ASTDeserializer::eatExpr##OP(nix::PosIdx Pos,                  \
                                              std::string_view &Data) {         \
-    nix::Expr *LHS = eatHookable(Data);                                        \
-    nix::Expr *RHS = eatHookable(Data);                                        \
+    nix::Expr *LHS = eatNonNullHookable(Data);                                 \
+    nix::Expr *RHS = eatNonNullHookable(Data);                                 \
     return {Pos, LHS, RHS};                                                    \
   }
 #include "nixt/BinOps.inc"
@@ -313,6 +323,7 @@ ASTDeserializer::eatExprConcatStrings(nix::PosIdx Pos, std::string_view &Data) {
 
   for (std::size_t I = 0; I < Size; I++) {
     nix::Expr *E = eatHookable(Data);
+    assert(E);
     Expressions->emplace_back(E->getPos(), E);
   }
 
