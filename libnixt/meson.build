@@ -9,6 +9,7 @@ libnixdInc = include_directories('include')
 libnixt = library('nixt',
                   'lib/ASTReader.cpp',
                   'lib/Displacement.cpp',
+                  'lib/Flake.cpp',
                   'lib/HookExpr.cpp',
                   'lib/Kinds.cpp',
                   'lib/ParentMap.cpp',
