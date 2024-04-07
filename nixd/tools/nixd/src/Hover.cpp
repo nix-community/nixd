@@ -6,10 +6,13 @@
 #include "Controller.h"
 #include "Convert.h"
 
+#include "nixd/rpc/Protocol.h"
+
 #include <llvm/Support/Error.h>
 
 #include <boost/asio/post.hpp>
 
+#include <cstdint>
 #include <mutex>
 
 namespace nixd {
@@ -31,15 +34,46 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
       Reply(std::nullopt);
       return;
     }
-    std::string Name = N->name();
-    Reply(Hover{
+    std::string Name = "`" + std::string(N->name()) + "`";
+    Hover NoEvalResponse{
         .contents =
             MarkupContent{
                 .kind = MarkupKind::Markdown,
-                .value = "`" + Name + "`",
+                .value = Name,
             },
         .range = toLSPRange(N->range()),
-    });
+    };
+    if (!Eval || !Eval->ready()) {
+      Reply(std::move(NoEvalResponse));
+      return;
+    }
+
+    auto OnResponse = [NoEvalResponse = std::move(NoEvalResponse),
+                       Reply = std::move(Reply)](
+                          llvm::Expected<ExprValueResponse> Response) mutable {
+      if (!Response) {
+        Reply(std::move(NoEvalResponse));
+        return;
+      }
+      if (Response->ResultKind == ExprValueResponse::OK) {
+        // Response for evaluated nodes.
+        Hover EvalResponse(std::move(NoEvalResponse));
+
+        if (Response->ErrorMsg) {
+          elog("eval error encountered: {0}", Response->ErrorMsg);
+        }
+        EvalResponse.contents.value += "\r\n\r\n";
+        EvalResponse.contents.value += "Value: ";
+        EvalResponse.contents.value +=
+            llvm::formatv("{0}", (*Response).Description);
+        Reply(std::move(EvalResponse));
+      } else {
+        Reply(std::move(NoEvalResponse));
+      }
+    };
+
+    Eval->ExprValue(ExprValueParams{reinterpret_cast<std::int64_t>(N)},
+                    std::move(OnResponse));
   };
   boost::asio::post(Pool, std::move(Action));
 }

@@ -12,6 +12,7 @@ libnixt = library('nixt',
                   'lib/HookExpr.cpp',
                   'lib/Kinds.cpp',
                   'lib/ParentMap.cpp',
+                  'lib/Value.cpp',
                   include_directories: libnixdInc,
                   dependencies: libnixtDeps,
                   install: true

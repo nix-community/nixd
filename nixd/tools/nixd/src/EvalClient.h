@@ -15,7 +15,9 @@ class EvalClient : public lspserver::LSPServer {
   std::atomic<bool> Ready;
 
 public:
-  llvm::unique_function<void(const rpc::RegisterBCParams &)> RegisterBC;
+  llvm::unique_function<void(const rpc::RegisterBCParams &,
+                             lspserver::Callback<rpc::RegisterBCResponse>)>
+      RegisterBC;
   llvm::unique_function<void(const rpc::ExprValueParams &,
                              lspserver::Callback<rpc::ExprValueResponse>)>
       ExprValue;

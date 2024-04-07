@@ -26,5 +26,14 @@ int main() {
 
   AST->show(State->symbols, std::cout);
 
+  try {
+    AST->bindVars(*State, State->staticBaseEnv);
+    nix::Value V;
+    State->eval(AST, V);
+    V.print(State->symbols, std::cout);
+  } catch (nix::BaseError &E) {
+    std::cerr << E.what() << "\n";
+  }
+
   return 0;
 }

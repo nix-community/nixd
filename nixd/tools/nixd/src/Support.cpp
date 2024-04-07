@@ -10,6 +10,8 @@
 
 #include <boost/asio/post.hpp>
 
+#include <filesystem>
+#include <llvm/Support/Error.h>
 #include <mutex>
 
 using namespace lspserver;
@@ -82,8 +84,19 @@ void Controller::actOnDocumentAdd(PathRef File,
                       util::OwnedRegion{std::move(Shm), std::move(Region)});
 
     if (Eval) {
-      Eval->RegisterBC(rpc::RegisterBCParams{
-          ShmName, ".", ".", static_cast<std::int64_t>(Buf.size())});
+      std::filesystem::path FSPath(File);
+      std::string BasePath = FSPath.remove_filename().string();
+      Eval->RegisterBC(
+          rpc::RegisterBCParams{
+              ShmName,
+              BasePath,
+              File,
+              static_cast<std::int64_t>(Buf.size()),
+          },
+          [](llvm::Expected<rpc::RegisterBCResponse> Resp) {
+            if (Resp && Resp->ErrorMsg)
+              elog("eval/registerBC: {0}", Resp->ErrorMsg);
+          });
     }
   };
   if (LitTest) {

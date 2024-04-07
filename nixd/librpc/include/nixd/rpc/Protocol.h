@@ -6,7 +6,6 @@
 #include <llvm/Support/JSON.h>
 
 #include <cstdint>
-#include <cstring>
 #include <string>
 
 namespace nixd::rpc {
@@ -29,6 +28,19 @@ llvm::json::Value toJSON(const RegisterBCParams &Params);
 bool fromJSON(const llvm::json::Value &Params, RegisterBCParams &R,
               llvm::json::Path P);
 
+struct RegisterBCResponse {
+  std::optional<std::string> ErrorMsg;
+};
+
+inline llvm::json::Value toJSON(const RegisterBCResponse &Params) {
+  return llvm::json::Object{{"ErrorMsg", Params.ErrorMsg}};
+}
+inline bool fromJSON(const llvm::json::Value &Params, RegisterBCResponse &R,
+                     llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  return O && O.map("ErrorMsg", R.ErrorMsg);
+}
+
 struct ExprValueParams {
   std::int64_t ExprID;
 };
@@ -37,33 +49,43 @@ llvm::json::Value toJSON(const ExprValueParams &Params);
 bool fromJSON(const llvm::json::Value &Params, ExprValueParams &R,
               llvm::json::Path P);
 
+struct DerivationDescription {
+  /// \brief \p .pname
+  std::string PName;
+
+  /// \brief \p .version
+  std::string Version;
+
+  /// \brief \p .meta.position
+  std::string Position;
+
+  /// \brief \p .meta.description
+  std::string Description;
+};
+
+llvm::json::Value toJSON(const DerivationDescription &Params);
+bool fromJSON(const llvm::json::Value &Params, DerivationDescription &R,
+              llvm::json::Path P);
+
 struct ExprValueResponse {
   enum ResultKinds {
     /// \brief The expr is not found in the registered bytecodes.
     NotFound,
 
-    /// \brief The expr is found, but the value is not evaluated. e.g. too deep
-    NotEvaluated,
-
-    /// \brief Encountered an error when evaluating the value.
-    EvalError,
-
     /// \brief The value is available.
     OK,
   };
   int ResultKind;
-  /// \brief The value ID, for future reference.
-  ///
-  /// We may want to query the value of the same expr multiple times, with more
-  /// detailed information.
-  std::int64_t ValueID;
 
-  /// \brief Opaque data, the value of the expr.
-  enum ValueKinds {
-    Int,
-    Float,
-  };
-  int ValueKind;
+  std::optional<std::string> ErrorMsg;
+
+  /// \brief A raw message that briefly describes the nix value.
+  /// This is supposed to be human-readable.
+  std::string Description;
+
+  /// \brief If the value is actually a derivation, we may want to provide more
+  /// useful information about it.
+  std::optional<DerivationDescription> DrvDesc;
 };
 
 llvm::json::Value toJSON(const ExprValueResponse &Params);

@@ -25,7 +25,8 @@ public:
   EvalProvider(std::unique_ptr<lspserver::InboundPort> In,
                std::unique_ptr<lspserver::OutboundPort> Out);
 
-  void onRegisterBC(const rpc::RegisterBCParams &Params);
+  void onRegisterBC(const rpc::RegisterBCParams &Params,
+                    lspserver::Callback<rpc::RegisterBCResponse>);
 
   void onExprValue(const rpc::ExprValueParams &Params,
                    lspserver::Callback<rpc::ExprValueResponse>);

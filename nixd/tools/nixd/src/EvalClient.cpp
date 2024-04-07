@@ -2,6 +2,7 @@
 
 #include "EvalClient.h"
 
+#include "nixd/rpc/Protocol.h"
 #include "nixd/util/ForkPiped.h"
 
 #include <bc/Read.h>
@@ -48,7 +49,8 @@ std::unique_ptr<OwnedEvalClient> OwnedEvalClient::create(int &Fail) {
 EvalClient::EvalClient(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
     : lspserver::LSPServer(std::move(In), std::move(Out)), Ready(false) {
-  RegisterBC = mkOutNotifiction<rpc::RegisterBCParams>("registerBC");
+  RegisterBC =
+      mkOutMethod<rpc::RegisterBCParams, rpc::RegisterBCResponse>("registerBC");
   ExprValue =
       mkOutMethod<rpc::ExprValueParams, rpc::ExprValueResponse>("exprValue");
   Registry.addNotification("ready", this, &EvalClient::onReady);
