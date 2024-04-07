@@ -23,6 +23,13 @@ public:
 
   nix::Expr *eatHookable(std::string_view &Data);
 
+  nix::Expr *eatNonNullHookable(std::string_view &Data) {
+    nix::Expr *E = eatHookable(Data);
+    if (E)
+      return E;
+    return Pool.record(new nix::ExprVar(Ctx.STable.create("null")));
+  }
+
   template <class T> T eat(std::string_view &Data) { return bc::eat<T>(Data); }
 
   nix::Symbol eatSymbol(std::string_view &Data);
