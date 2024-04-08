@@ -10,6 +10,6 @@
 
 namespace nixf {
 
-void writeBytecode(std::ostream &OS, const Node &N);
+void writeBytecode(std::ostream &OS, const Node *N);
 
 } // namespace nixf

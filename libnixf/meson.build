@@ -44,6 +44,13 @@ test('unit/libnixf/Basic',
     )
 )
 
+test('unit/libnixf/Bytecode',
+    executable('unit-libnixf-bytecode',
+        'test/Bytecode/Write.cpp',
+        dependencies: [ nixf, gtest_main ],
+    )
+)
+
 test('unit/libnixf/Parse',
     executable('unit-libnixf-parse',
         'test/Parse/Lexer.cpp',
