@@ -5,6 +5,11 @@
 namespace nixbc {
 
 enum ExprKind : int32_t {
+  /// \brief Special \p nullptr node.
+  /// Decoding this node should produce a nullptr.
+  /// The meaning of "Handle" or "Position" is undefined.
+  EK_Null,
+
   EK_Assert,
   EK_Attrs,
   EK_Call,
@@ -35,6 +40,10 @@ enum ExprKind : int32_t {
 struct NodeHeader {
   ExprKind Kind;
   uintptr_t Handle;
+
+  // We assign each node a position, even if it is not needed for C++ nix.
+  uint32_t BeginLine;
+  uint32_t BeginColumn;
 };
 
 } // namespace nixbc
