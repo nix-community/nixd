@@ -25,7 +25,11 @@ public:
   EvalProvider(std::unique_ptr<lspserver::InboundPort> In,
                std::unique_ptr<lspserver::OutboundPort> Out);
 
-  void onRegisterBC(const rpc::RegisterBCParams &Params);
+  nix::Expr *fromShm(const char *ShmName, std::size_t Size,
+                     std::string_view BasePath, const nix::Pos::Origin &Origin);
+
+  void onRegisterBC(const rpc::RegisterBCParams &Params,
+                    lspserver::Callback<rpc::RegisterBCResponse>);
 
   void onExprValue(const rpc::ExprValueParams &Params,
                    lspserver::Callback<rpc::ExprValueResponse>);

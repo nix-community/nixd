@@ -10,8 +10,7 @@
 
 #include <unistd.h>
 
-namespace nixd {
-
+using namespace nixd;
 using namespace rpc;
 using namespace nixd::util;
 
@@ -47,10 +46,9 @@ std::unique_ptr<OwnedEvalClient> OwnedEvalClient::create(int &Fail) {
 EvalClient::EvalClient(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
     : lspserver::LSPServer(std::move(In), std::move(Out)), Ready(false) {
-  RegisterBC = mkOutNotifiction<rpc::RegisterBCParams>("registerBC");
+  RegisterBC =
+      mkOutMethod<rpc::RegisterBCParams, rpc::RegisterBCResponse>("registerBC");
   ExprValue =
       mkOutMethod<rpc::ExprValueParams, rpc::ExprValueResponse>("exprValue");
   Registry.addNotification("ready", this, &EvalClient::onReady);
 }
-
-} // namespace nixd
