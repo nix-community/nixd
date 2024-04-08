@@ -1,4 +1,4 @@
-/// Access ParseCache in \p nix::EvalState
+/// Access EvalCache in \p nix::EvalState
 
 #pragma once
 
@@ -7,11 +7,11 @@
 namespace nixt {
 
 #if HAVE_BOEHMGC
-using FileParseCache = std::map<
-    nix::SourcePath, nix::Expr *, std::less<nix::SourcePath>,
-    traceable_allocator<std::pair<const nix::SourcePath, nix::Expr *>>>;
+using FileEvalCache =
+    std::map<nix::SourcePath, nix::Value, std::less<nix::SourcePath>,
+             traceable_allocator<std::pair<const nix::SourcePath, nix::Value>>>;
 #else
-using FileParseCache = std::map<nix::SourcePath, nix::Expr *>;
+using FileEvalCache = std::map<nix::SourcePath, nix::Expr *>;
 #endif
 
 namespace detail {
@@ -35,16 +35,16 @@ typename RB<Tag, p>::F RB<Tag, p>::FO;
 
 // Impl
 
-struct ParseCacheF {
-  using type = FileParseCache nix::EvalState::*;
+struct EvalCacheF {
+  using type = FileEvalCache nix::EvalState::*;
 };
 
-template struct RB<ParseCacheF, &nix::EvalState::fileParseCache>;
+template struct RB<EvalCacheF, &nix::EvalState::fileEvalCache>;
 
 } // namespace detail
 
-inline FileParseCache &getFileParseCache(nix::EvalState &S) {
-  return S.*detail::R<detail::ParseCacheF>::P;
+inline FileEvalCache &getFileEvalCache(nix::EvalState &S) {
+  return S.*detail::R<detail::EvalCacheF>::P;
 }
 
 } // namespace nixt

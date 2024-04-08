@@ -63,8 +63,8 @@ void EvalProvider::onRegisterBC(const rpc::RegisterBCParams &Params) {
   State->eval(AST, V);
 
   // Inject pre-parsed AST into EvalState cache
-  auto Cache = nixt::getFileParseCache(*State);
-  Cache[CachePath] = AST;
+  auto &Cache = nixt::getFileEvalCache(*State);
+  Cache[CachePath] = V;
 }
 
 void EvalProvider::onExprValue(const ExprValueParams &Params,
