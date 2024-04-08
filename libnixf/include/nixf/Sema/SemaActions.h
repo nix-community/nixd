@@ -94,6 +94,10 @@ public:
   std::shared_ptr<ExprAttrs> onExprAttrs(LexerCursorRange Range,
                                          std::shared_ptr<Binds> Binds,
                                          std::shared_ptr<Misc> Rec);
+
+  std::shared_ptr<LambdaArg> onLambdaArg(LexerCursorRange Range,
+                                         std::shared_ptr<Identifier> ID,
+                                         std::shared_ptr<Formals> F);
 };
 
 } // namespace nixf
