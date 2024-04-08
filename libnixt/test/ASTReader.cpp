@@ -1,6 +1,5 @@
-#include <gtest/gtest.h>
-
 #include "ReaderData/ReaderData.h"
+#include "StateTest.h"
 
 #include "nixt/Deserialize.h"
 #include "nixt/InitEval.h"
@@ -12,16 +11,13 @@ using namespace nixt;
 
 namespace {
 
-struct ReaderTest : testing::Test {
-  std::unique_ptr<nix::EvalState> State;
+struct ReaderTest : StateTest {
   nix::Pos::Origin O = nix::Pos::none_tag{};
   DeserializeContext Ctx;
   ValueMap VMap;
   EnvMap EMap;
   PtrPool<nix::Expr> Pool;
-  ReaderTest()
-      : State(new nix::EvalState{{}, nix::openStore("dummy://")}),
-        Ctx(getDeserializeContext(*State, ".", O)) {}
+  ReaderTest() : Ctx(getDeserializeContext(*State, ".", O)) {}
 };
 
 TEST_F(ReaderTest, AllGrammars) {

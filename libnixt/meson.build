@@ -13,6 +13,7 @@ libnixt = library('nixt',
                   'lib/HookExpr.cpp',
                   'lib/Kinds.cpp',
                   'lib/ParentMap.cpp',
+                  'lib/Value.cpp',
                   include_directories: libnixdInc,
                   dependencies: libnixtDeps,
                   install: true
@@ -37,6 +38,7 @@ libnixt_test_exe = executable(
     'test/ASTReader.cpp',
     'test/InitEval.cpp',
     'test/Kinds.cpp',
+    'test/Value.cpp',
     dependencies: [ gtest_main, nixt ]
 )
 
