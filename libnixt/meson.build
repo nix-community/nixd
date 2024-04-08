@@ -31,8 +31,13 @@ nixt = declare_dependency(include_directories: libnixdInc,
                           link_with: libnixt
 )
 
-libnixt_test_exe = executable('test-libnixt',
-                              'test/Kinds.cpp',
-                              dependencies: [ gtest_main, nixt ])
+libnixt_test_exe = executable(
+    'test-libnixt',
+    'test/ReaderData/AllGrammars.cpp',
+    'test/ASTReader.cpp',
+    'test/InitEval.cpp',
+    'test/Kinds.cpp',
+    dependencies: [ gtest_main, nixt ]
+)
 
 test('unit/libnixt', libnixt_test_exe)
