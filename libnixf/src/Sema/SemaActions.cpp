@@ -345,4 +345,20 @@ std::shared_ptr<ExprAttrs> Sema::onExprAttrs(LexerCursorRange Range,
                                      std::move(ESA));
 }
 
+std::shared_ptr<LambdaArg> Sema::onLambdaArg(LexerCursorRange Range,
+                                             std::shared_ptr<Identifier> ID,
+                                             std::shared_ptr<Formals> F) {
+  // Check that if lambda arguments duplicated to it's formal
+
+  if (ID && F) {
+    if (F->dedup().contains(ID->name())) {
+      // Report duplicated.
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_DuplicatedFormalToArg, ID->range());
+      D.note(Note::NK_DuplicateFormal, F->dedup().at(ID->name())->range());
+    }
+  }
+  return std::make_shared<LambdaArg>(Range, std::move(ID), std::move(F));
+}
+
 } // namespace nixf

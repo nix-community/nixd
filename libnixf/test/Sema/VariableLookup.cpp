@@ -138,4 +138,16 @@ TEST_F(VLATest, LivenessNested) {
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
 
+TEST_F(VLATest, LivenessDupSymbol) {
+  std::shared_ptr<Node> AST = parse("x @ {x, ...} : x + 1", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DuplicatedFormalToArg);
+  ASSERT_EQ(Diags[0].range().lCur().column(), 0);
+  ASSERT_EQ(Diags[0].tags().size(), 0);
+}
+
 } // namespace

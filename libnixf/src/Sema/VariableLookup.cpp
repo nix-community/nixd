@@ -96,8 +96,12 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
 
   // foo: body
   // ^~~<------- add function argument.
-  if (Arg.id())
-    DBuilder.add(Arg.id()->name(), Arg.id());
+  if (Arg.id()) {
+    // Function arg cannot duplicate to it's formal.
+    // If it this unluckily happens, we would like to skip this definition.
+    if (!Arg.formals() || !Arg.formals()->dedup().contains(Arg.id()->name()))
+      DBuilder.add(Arg.id()->name(), Arg.id());
+  }
 
   // { foo, bar, ... } : body
   ///  ^~~~~~~~~<--------------  add function formals.

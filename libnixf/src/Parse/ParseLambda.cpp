@@ -90,8 +90,8 @@ std::shared_ptr<LambdaArg> Parser::parseLambdaArg() {
     auto ID =
         std::make_shared<Identifier>(TokID.range(), std::string(TokID.view()));
     if (peek().kind() != tok_at)
-      return std::make_shared<LambdaArg>(
-          LexerCursorRange{LCur, LastToken->rCur()}, std::move(ID), nullptr);
+      return Act.onLambdaArg(LexerCursorRange{LCur, LastToken->rCur()},
+                             std::move(ID), nullptr);
 
     consume(); // @
     std::shared_ptr<Formals> Formals = parseFormals();
@@ -103,9 +103,8 @@ std::shared_ptr<LambdaArg> Parser::parseLambdaArg() {
       D.fix("insert dummy formals")
           .edit(TextEdit::mkInsertion(TokID.rCur(), R"({})"));
     }
-    return std::make_shared<LambdaArg>(
-        LexerCursorRange{LCur, LastToken->rCur()}, std::move(ID),
-        std::move(Formals));
+    return Act.onLambdaArg(LexerCursorRange{LCur, LastToken->rCur()},
+                           std::move(ID), std::move(Formals));
   }
 
   std::shared_ptr<Formals> Formals = parseFormals();
@@ -114,21 +113,21 @@ std::shared_ptr<LambdaArg> Parser::parseLambdaArg() {
   assert(LastToken && "LastToken should be set after valid formals");
   Token TokAt = peek();
   if (TokAt.kind() != tok_at)
-    return std::make_shared<LambdaArg>(
-        LexerCursorRange{LCur, LastToken->rCur()}, nullptr, std::move(Formals));
+    return Act.onLambdaArg(LexerCursorRange{LCur, LastToken->rCur()}, nullptr,
+                           std::move(Formals));
   consume(); // @
   ExpectResult ER = expect(tok_id);
   if (!ER.ok()) {
     ER.diag().note(Note::NK_ToMachThis, TokAt.range())
         << std::string(tok::spelling(tok_at));
-    return std::make_shared<LambdaArg>(
-        LexerCursorRange{LCur, LastToken->rCur()}, nullptr, std::move(Formals));
+    return Act.onLambdaArg(LexerCursorRange{LCur, LastToken->rCur()}, nullptr,
+                           std::move(Formals));
   }
   consume(); // ID
   auto ID = std::make_shared<Identifier>(ER.tok().range(),
                                          std::string(ER.tok().view()));
-  return std::make_shared<LambdaArg>(LexerCursorRange{LCur, LastToken->rCur()},
-                                     std::move(ID), std::move(Formals));
+  return Act.onLambdaArg(LexerCursorRange{LCur, LastToken->rCur()},
+                         std::move(ID), std::move(Formals));
 }
 
 std::shared_ptr<ExprLambda> Parser::parseExprLambda() {
