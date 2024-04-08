@@ -40,7 +40,12 @@ libnixt_test_exe = executable(
     dependencies: [ gtest_main, nixt ]
 )
 
-subdir('tools')
+nixt_decode = executable(
+    'nixt-decode',
+    'tools/nixt-decode.cpp',
+    dependencies: [ nixt ],
+    install: true
+)
 
 test(
     'unit/libnixt',
