@@ -123,7 +123,9 @@ nix::ExprVar ASTDeserializer::eatExprVar(nix::PosIdx Pos,
                                          std::string_view &Data) {
   auto Name = eat<std::string>(Data);
   nix::Symbol Sym = Ctx.STable.create(Name);
-  return {Pos, Sym};
+  nix::ExprVar Ret{Pos, Sym};
+  Ret.fromWith = false; // nix does not initialized this field!
+  return Ret;
 }
 
 nix::AttrPath ASTDeserializer::eatAttrPath(std::string_view &Data) {
