@@ -1,7 +1,7 @@
 /// \file
 /// \brief Implementation of the [text document
 /// sync](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_synchronization).
-#include "Controller.h"
+#include "nixd/Controller/Controller.h"
 
 #include "lspserver/SourceCode.h"
 

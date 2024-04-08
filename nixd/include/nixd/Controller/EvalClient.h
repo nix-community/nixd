@@ -1,8 +1,8 @@
 #pragma once
 
-#include "nixd/rpc/Protocol.h"
+#include "nixd/Protocol/Protocol.h"
 
-#include "nixd/util/PipedProc.h"
+#include "nixd/Support/PipedProc.h"
 
 #include <lspserver/LSPServer.h>
 
@@ -22,8 +22,6 @@ public:
 
   EvalClient(std::unique_ptr<lspserver::InboundPort> In,
              std::unique_ptr<lspserver::OutboundPort> Out);
-
-  virtual ~EvalClient() = default;
 
   void onReady(const int &Flags) {
     lspserver::log(
@@ -54,7 +52,7 @@ public:
 
   util::PipedProc &proc() { return *Proc; }
 
-  ~OwnedEvalClient() {
+  ~OwnedEvalClient() override {
     closeInbound();
     Input.join();
   }

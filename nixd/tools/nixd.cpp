@@ -3,7 +3,7 @@
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
 
-#include "Controller.h"
+#include "nixd/Controller/Controller.h"
 
 #include <llvm/ADT/ArrayRef.h>
 #include <llvm/Support/CommandLine.h>

@@ -1,6 +1,5 @@
-#include "EvalProvider.h"
-
-#include "nixd/rpc/Protocol.h"
+#include "nixd/Eval/EvalProvider.h"
+#include "nixd/Protocol/Protocol.h"
 
 #include <nixt/Deserialize.h>
 #include <nixt/HackCache.h>
@@ -31,8 +30,7 @@ using namespace rpc;
 EvalProvider::EvalProvider(std::unique_ptr<lspserver::InboundPort> In,
                            std::unique_ptr<lspserver::OutboundPort> Out)
     : lspserver::LSPServer(std::move(In), std::move(Out)),
-      State(std::unique_ptr<nix::EvalState>(
-          new nix::EvalState{{}, nix::openStore("dummy://")})) {
+      State(new nix::EvalState{{}, nix::openStore()}) {
   Registry.addMethod("exprValue", this, &EvalProvider::onExprValue);
   Registry.addNotification("registerBC", this, &EvalProvider::onRegisterBC);
 

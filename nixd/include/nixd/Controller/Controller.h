@@ -60,7 +60,7 @@ public:
   Controller(std::unique_ptr<lspserver::InboundPort> In,
              std::unique_ptr<lspserver::OutboundPort> Out);
 
-  ~Controller() { Pool.join(); }
+  ~Controller() override { Pool.join(); }
 
   void setLitTest(bool LitTest) { this->LitTest = LitTest; }
 

@@ -5,10 +5,9 @@
 
 #include "nixd-config.h"
 
-#include "Controller.h"
-#include "EvalClient.h"
-
-#include "nixd/util/PipedProc.h"
+#include "nixd/Controller/Controller.h"
+#include "nixd/Controller/EvalClient.h"
+#include "nixd/Support/PipedProc.h"
 
 #include <cstring>
 

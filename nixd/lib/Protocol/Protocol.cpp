@@ -1,12 +1,10 @@
-#include "nixd/rpc/Protocol.h"
+#include "nixd/Protocol/Protocol.h"
 
 #include <bc/Read.h>
 #include <bc/Write.h>
 
 namespace nixd::rpc {
 
-using bc::readBytecode;
-using bc::writeBytecode;
 using namespace llvm::json;
 
 Value toJSON(const RegisterBCParams &Params) {

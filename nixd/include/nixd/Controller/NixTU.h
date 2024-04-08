@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nixd/util/OwnedRegion.h"
+#include "nixd/Support/OwnedRegion.h"
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Basic.h"

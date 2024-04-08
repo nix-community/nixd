@@ -1,8 +1,7 @@
 #include "nixd-config.h"
 
-#include "EvalClient.h"
-
-#include "nixd/util/ForkPiped.h"
+#include "nixd/Controller/EvalClient.h"
+#include "nixd/Support/ForkPiped.h"
 
 #include <bc/Read.h>
 #include <bc/Write.h>

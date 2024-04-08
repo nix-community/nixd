@@ -1,7 +1,6 @@
-#include "Controller.h"
-
-#include "nixd/rpc/Protocol.h"
-#include "nixd/util/OwnedRegion.h"
+#include "nixd/Controller/Controller.h"
+#include "nixd/Protocol/Protocol.h"
+#include "nixd/Support/OwnedRegion.h"
 
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Bytecode/Write.h"

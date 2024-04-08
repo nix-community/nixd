@@ -3,8 +3,9 @@
 /// [PublishDiagnostics Notification]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_publishDiagnostics
 
-#include "Controller.h"
 #include "Convert.h"
+
+#include "nixd/Controller/Controller.h"
 
 namespace nixd {
 

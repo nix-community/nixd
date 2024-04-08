@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nixd/rpc/Protocol.h"
+#include "nixd/Protocol/Protocol.h"
 
 #include <lspserver/Function.h>
 #include <lspserver/LSPServer.h>
