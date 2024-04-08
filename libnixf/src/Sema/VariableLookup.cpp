@@ -53,8 +53,10 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
   EnvNode *CurEnv = Env.get();
   std::shared_ptr<Definition> Def;
   for (; CurEnv; CurEnv = CurEnv->parent()) {
-    if (CurEnv->defs().contains(Name))
+    if (CurEnv->defs().contains(Name)) {
       Def = CurEnv->defs().at(Name);
+      break;
+    }
     // Find the most nested `with` expression, and set uses.
     if (CurEnv->isWith() && !EnclosedWith) {
       EnclosedWith = true;

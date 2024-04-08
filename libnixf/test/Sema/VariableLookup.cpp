@@ -133,8 +133,7 @@ TEST_F(VLATest, LivenessNested) {
   ASSERT_EQ(Diags.size(), 1);
 
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
-  // FIXME: this should be place at 'let y = 1;'
-  ASSERT_EQ(Diags[0].range().lCur().column(), 17);
+  ASSERT_EQ(Diags[0].range().lCur().column(), 8);
   ASSERT_EQ(Diags[0].tags().size(), 1);
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
