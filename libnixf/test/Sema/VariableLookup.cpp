@@ -125,4 +125,18 @@ TEST_F(VLATest, LivenessArg) {
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
 
+TEST_F(VLATest, LivenessNested) {
+  std::shared_ptr<Node> AST = parse("let y = 1; in x: y: x + y", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
+  // FIXME: this should be place at 'let y = 1;'
+  ASSERT_EQ(Diags[0].range().lCur().column(), 17);
+  ASSERT_EQ(Diags[0].tags().size(), 1);
+  ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
+}
+
 } // namespace
