@@ -40,4 +40,8 @@ libnixt_test_exe = executable(
     dependencies: [ gtest_main, nixt ]
 )
 
-test('unit/libnixt', libnixt_test_exe)
+test(
+    'unit/libnixt',
+    libnixt_test_exe,
+    env: [ 'ASAN_OPTIONS=detect_leaks=0']
+)

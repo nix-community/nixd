@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         # sanitizer: [ none, thread, undefined ]
-        sanitizer: [ none, undefined ]
+        sanitizer: [ none, address, undefined ]
         buildtype: [ release, debug ]
         ndebug: [ "true", "false" ]
 
