@@ -38,6 +38,7 @@ void Controller::
        },
        {"definitionProvider", true},
        {"referencesProvider", true},
+       {"documentHighlightProvider", true},
        {"hoverProvider", true}},
   };
 
