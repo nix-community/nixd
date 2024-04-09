@@ -120,7 +120,9 @@ public:
 
   void runOnAST(const Node &Root);
 
-  LookupResult query(const ExprVar &Var) { return Results.at(&Var); }
+  [[nodiscard]] LookupResult query(const ExprVar &Var) const {
+    return Results.at(&Var);
+  }
 };
 
 } // namespace nixf
