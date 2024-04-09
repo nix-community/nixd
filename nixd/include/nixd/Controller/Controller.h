@@ -5,6 +5,7 @@
 
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
+#include "lspserver/Protocol.h"
 
 #include <boost/asio/thread_pool.hpp>
 
@@ -82,6 +83,10 @@ class Controller : public lspserver::LSPServer {
   void
   onReferences(const lspserver::TextDocumentPositionParams &Params,
                lspserver::Callback<std::vector<lspserver::Location>> Reply);
+
+  void onDocumentHighlight(
+      const lspserver::TextDocumentPositionParams &Params,
+      lspserver::Callback<std::vector<lspserver::DocumentHighlight>> Reply);
 
   void publishDiagnostics(lspserver::PathRef File,
                           std::optional<int64_t> Version,
