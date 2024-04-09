@@ -20,16 +20,19 @@ class ParentMapAnalysis {
 public:
   void runOnAST(const Node &Root);
 
-  const Node *query(const Node &N);
+  [[nodiscard]] const Node *query(const Node &N) const;
 
   static bool isRoot(const Node *Up, const Node &N);
 
   /// \brief Search up until the node becomes a concrete expression.
   /// a
   /// ^<-----   ID -> ExprVar
-  const Node *upExpr(const Node &N);
+  [[nodiscard]] const Node *upExpr(const Node &N) const;
 
-  bool isRoot(const Node &N);
+  /// \brief Search up until some kind of node is found.
+  [[nodiscard]] const Node *upTo(const Node &N, Node::NodeKind Kind) const;
+
+  [[nodiscard]] bool isRoot(const Node &N) const;
 };
 
 } // namespace nixf
