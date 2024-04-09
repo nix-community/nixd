@@ -42,12 +42,15 @@ void Controller::actOnDocumentAdd(PathRef File,
     if (!AST) {
       std::lock_guard G(TUsLock);
       publishDiagnostics(File, Version, Diagnostics);
-      TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
+      TUs.insert_or_assign(File,
+                           std::make_shared<NixTU>(std::move(Diagnostics),
+                                                   std::move(AST), std::nullopt,
+                                                   /*VLA=*/nullptr));
       return;
     }
 
-    nixf::VariableLookupAnalysis VLA(Diagnostics);
-    VLA.runOnAST(*AST);
+    auto VLA = std::make_unique<nixf::VariableLookupAnalysis>(Diagnostics);
+    VLA->runOnAST(*AST);
 
     publishDiagnostics(File, Version, Diagnostics);
 
@@ -58,7 +61,9 @@ void Controller::actOnDocumentAdd(PathRef File,
     if (Buf.empty()) {
       lspserver::log("empty AST for {0}", File);
       std::lock_guard G(TUsLock);
-      TUs[File] = NixTU(std::move(Diagnostics), std::move(AST), std::nullopt);
+      TUs.insert_or_assign(
+          File, std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
+                                        std::nullopt, std::move(VLA)));
       return;
     }
 
@@ -77,8 +82,11 @@ void Controller::actOnDocumentAdd(PathRef File,
                    Buf.size());
 
     std::lock_guard G(TUsLock);
-    TUs[File] = NixTU(std::move(Diagnostics), std::move(AST),
-                      util::OwnedRegion{std::move(Shm), std::move(Region)});
+    TUs.insert_or_assign(
+        File, std::make_shared<NixTU>(
+                  std::move(Diagnostics), std::move(AST),
+                  util::OwnedRegion{std::move(Shm), std::move(Region)},
+                  std::move(VLA)));
 
     if (Eval) {
       Eval->RegisterBC(rpc::RegisterBCParams{
@@ -91,8 +99,8 @@ void Controller::actOnDocumentAdd(PathRef File,
     // So just invoke the action here.
     Action();
   } else {
-    // Otherwise we may want to concurently parse & serialize the file, so post
-    // it to the thread pool.
+    // Otherwise we may want to concurently parse & serialize the file, so
+    // post it to the thread pool.
     boost::asio::post(Pool, std::move(Action));
   }
 }
@@ -115,6 +123,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                            &Controller::onDocumentDidClose);
 
   // Language Features
+  Registry.addMethod("textDocument/definition", this,
+                     &Controller::onDefinition);
   Registry.addMethod("textDocument/codeAction", this,
                      &Controller::onCodeAction);
   Registry.addMethod("textDocument/hover", this, &Controller::onHover);

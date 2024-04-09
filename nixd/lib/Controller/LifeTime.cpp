@@ -36,6 +36,7 @@ void Controller::
                {"resolveProvider", false},
            },
        },
+       {"definitionProvider", true},
        {"hoverProvider", true}},
   };
 

@@ -12,6 +12,8 @@ namespace nixd {
 
 lspserver::Position toLSPPosition(const nixf::LexerCursor &P);
 
+nixf::Position toNixfPosition(const lspserver::Position &P);
+
 lspserver::Range toLSPRange(const nixf::LexerCursorRange &R);
 
 int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind);

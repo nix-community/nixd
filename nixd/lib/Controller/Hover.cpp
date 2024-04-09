@@ -24,23 +24,25 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
   auto Action = [Reply = std::move(Reply),
                  File = std::string(Params.textDocument.uri.file()),
                  RawPos = Params.position, this]() mutable {
-    std::lock_guard G(TUsLock);
-    const std::shared_ptr<nixf::Node> &AST = TUs[File].ast();
-    nixf::Position Pos{RawPos.line, RawPos.character};
-    const nixf::Node *N = AST->descend({Pos, Pos});
-    if (!N) {
-      Reply(std::nullopt);
-      return;
+    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
+      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
+        nixf::Position Pos{RawPos.line, RawPos.character};
+        const nixf::Node *N = AST->descend({Pos, Pos});
+        if (!N) {
+          Reply(std::nullopt);
+          return;
+        }
+        std::string Name = N->name();
+        Reply(Hover{
+            .contents =
+                MarkupContent{
+                    .kind = MarkupKind::Markdown,
+                    .value = "`" + Name + "`",
+                },
+            .range = toLSPRange(N->range()),
+        });
+      }
     }
-    std::string Name = N->name();
-    Reply(Hover{
-        .contents =
-            MarkupContent{
-                .kind = MarkupKind::Markdown,
-                .value = "`" + Name + "`",
-            },
-        .range = toLSPRange(N->range()),
-    });
   };
   boost::asio::post(Pool, std::move(Action));
 }
