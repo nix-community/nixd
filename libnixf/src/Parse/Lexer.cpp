@@ -270,6 +270,41 @@ bool Lexer::consumeURI() {
   return false;
 }
 
+bool Lexer::consumeSPath() {
+  //  \<{PATH_CHAR}+(\/{PATH_CHAR}+)*\>
+  LexerCursor Saved = cur();
+
+  if (peek() == '<')
+    consume();
+
+  if (!eof() && isPathChar(peekUnwrap())) {
+    // {PATH_CHAR}+
+    while (!eof() && isPathChar(peekUnwrap()))
+      consume();
+    // (\/{PATH_CHAR}+)*
+    while (true) {
+      // \/
+      if (peek() == '/') {
+        consume();
+        // {PATH_CHAR}+
+        if (!eof() && isPathChar(peekUnwrap())) {
+          while (!eof() && isPathChar(peekUnwrap()))
+            consume();
+          continue;
+        }
+      }
+      break;
+    }
+    if (peek() == '>') {
+      consume();
+      return true;
+    }
+  }
+
+  Cur = Saved;
+  return false;
+}
+
 void Lexer::lexIdentifier() {
   // identifier: [a-zA-Z_][a-zA-Z0-9_\'\-]*,
   consume();
@@ -444,6 +479,16 @@ Token Lexer::lex() {
     Tok = tok_id;
     maybeKW();
     return finishToken();
+  }
+
+  if (*Ch == '<') {
+    // Perhaps this is an "SPATH".
+    // e.g. <nixpkgs>
+    // \<{PATH_CHAR}+(\/{PATH_CHAR}+)*\>
+    if (consumeSPath()) {
+      Tok = tok_spath;
+      return finishToken();
+    }
   }
 
   switch (*Ch) {

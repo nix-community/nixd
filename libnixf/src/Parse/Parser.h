@@ -233,6 +233,7 @@ public:
   ///             | string
   ///             | indented_string
   ///             | path
+  ///             | spath
   ///             | hpath
   ///             | uri
   ///             | '(' expr ')'
