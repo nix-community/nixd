@@ -16,6 +16,7 @@ libnixd_lib = library(
     'lib/Controller/LifeTime.cpp',
     'lib/Controller/NixTU.cpp',
     'lib/Controller/Rename.cpp',
+    'lib/Controller/SemanticTokens.cpp',
     'lib/Controller/Support.cpp',
     'lib/Controller/TextDocumentSync.cpp',
     'lib/Eval/EvalProvider.cpp',
