@@ -3,14 +3,16 @@
 /// [Document Symbol]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol
 
-#include "lib/Controller/Convert.h"
-#include "lspserver/Protocol.h"
+#include "Convert.h"
+
 #include "nixd/Controller/Controller.h"
-#include "nixf/Basic/Nodes/Attrs.h"
-#include "nixf/Basic/Nodes/Lambda.h"
-#include "nixf/Sema/VariableLookup.h"
 
 #include <boost/asio/post.hpp>
+#include <lspserver/Protocol.h>
+#include <nixf/Basic/Nodes/Attrs.h>
+#include <nixf/Basic/Nodes/Lambda.h>
+#include <nixf/Sema/VariableLookup.h>
+
 #include <string>
 
 using namespace nixd;
