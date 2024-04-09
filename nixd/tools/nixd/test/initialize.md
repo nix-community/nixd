@@ -34,6 +34,7 @@ CHECK-NEXT:         "resolveProvider": false
 CHECK-NEXT:       },
 CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
+CHECK-NEXT:       "referencesProvider": true,
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,
