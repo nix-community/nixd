@@ -39,7 +39,11 @@ void Controller::
        {"definitionProvider", true},
        {"referencesProvider", true},
        {"documentHighlightProvider", true},
-       {"hoverProvider", true}},
+       {"hoverProvider", true},
+       {"renameProvider",
+        Object{
+            {"prepareProvider", true},
+        }}},
   };
 
   Object Result{{

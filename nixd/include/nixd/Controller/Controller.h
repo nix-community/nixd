@@ -92,6 +92,12 @@ class Controller : public lspserver::LSPServer {
                           std::optional<int64_t> Version,
                           const std::vector<nixf::Diagnostic> &Diagnostics);
 
+  void onRename(const lspserver::RenameParams &Params,
+                lspserver::Callback<lspserver::WorkspaceEdit> Reply);
+
+  void onPrepareRename(const lspserver::TextDocumentPositionParams &Params,
+                       lspserver::Callback<lspserver::Range> Reply);
+
 public:
   Controller(std::unique_ptr<lspserver::InboundPort> In,
              std::unique_ptr<lspserver::OutboundPort> Out);

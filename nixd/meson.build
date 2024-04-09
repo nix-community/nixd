@@ -14,6 +14,7 @@ libnixd_lib = library(
     'lib/Controller/Hover.cpp',
     'lib/Controller/LifeTime.cpp',
     'lib/Controller/NixTU.cpp',
+    'lib/Controller/Rename.cpp',
     'lib/Controller/Support.cpp',
     'lib/Controller/TextDocumentSync.cpp',
     'lib/Eval/EvalProvider.cpp',
