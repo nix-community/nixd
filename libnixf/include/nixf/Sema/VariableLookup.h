@@ -40,7 +40,7 @@ public:
 
   void usedBy(const ExprVar &User) { Uses.emplace_back(&User); }
 
-  [[nodiscard]] bool isBuiltin() const { return Syntax; }
+  [[nodiscard]] bool isBuiltin() const { return !Syntax; }
 };
 
 /// \brief A set of variable definitions, which may inherit parent environment.

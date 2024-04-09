@@ -46,6 +46,7 @@ TEST_F(VLATest, DefinedBuiltin) {
   VLAResult Result = VLA.query(Var);
 
   ASSERT_EQ(Result.Kind, VLAResultKind::Defined);
+  ASSERT_TRUE(Result.Def->isBuiltin());
 }
 
 TEST_F(VLATest, LookupLambda) {
@@ -61,6 +62,7 @@ TEST_F(VLATest, LookupLambda) {
   VLAResult Result = VLA.query(Var);
 
   ASSERT_EQ(Result.Kind, VLAResultKind::Defined);
+  ASSERT_FALSE(Result.Def->isBuiltin());
 }
 
 TEST_F(VLATest, LookupAttrs) {
