@@ -37,6 +37,7 @@ void Controller::
            },
        },
        {"definitionProvider", true},
+       {"documentSymbolProvider", true},
        {"referencesProvider", true},
        {"documentHighlightProvider", true},
        {"hoverProvider", true},
