@@ -198,7 +198,7 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
       collect(Attr.value(), Children, VLA);
       DocumentSymbol Sym{
           .name = Name,
-          .detail = "",
+          .detail = "attribute",
           .kind = SymbolKind::Field,
           .deprecated = false,
           .range = getAttrRange(Attr),
@@ -207,8 +207,20 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
       };
       Symbols.emplace_back(std::move(Sym));
     }
-    for (const nixf::Attribute &Attr : SA.dynamicAttrs())
-      collect(Attr.value(), Symbols, VLA);
+    for (const nixf::Attribute &Attr : SA.dynamicAttrs()) {
+      std::vector<DocumentSymbol> Children;
+      collect(Attr.value(), Children, VLA);
+      DocumentSymbol Sym{
+          .name = "${dynamic attribute}",
+          .detail = "attribute",
+          .kind = SymbolKind::Field,
+          .deprecated = false,
+          .range = getAttrRange(Attr),
+          .selectionRange = toLSPRange(Attr.key().range()),
+          .children = std::move(Children),
+      };
+      Symbols.emplace_back(std::move(Sym));
+    }
     break;
   }
   default:

@@ -128,6 +128,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "anonymousLambda",
 CHECK-NEXT:      "range": {
@@ -179,6 +180,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "bool",
 CHECK-NEXT:      "range": {
@@ -230,6 +232,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "bool2",
 CHECK-NEXT:      "range": {
@@ -358,6 +361,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "list",
 CHECK-NEXT:      "range": {
@@ -436,6 +440,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "namedLambda",
 CHECK-NEXT:      "range": {
@@ -512,6 +517,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "numbers",
 CHECK-NEXT:      "range": {
@@ -563,6 +569,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "string",
 CHECK-NEXT:      "range": {
@@ -614,6 +621,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "string2",
 CHECK-NEXT:      "range": {
@@ -666,6 +674,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "undefined",
 CHECK-NEXT:      "range": {
@@ -717,6 +726,7 @@ CHECK-NEXT:            }
 CHECK-NEXT:          }
 CHECK-NEXT:        }
 CHECK-NEXT:      ],
+CHECK-NEXT:      "detail": "attribute",
 CHECK-NEXT:      "kind": 8,
 CHECK-NEXT:      "name": "x",
 CHECK-NEXT:      "range": {
