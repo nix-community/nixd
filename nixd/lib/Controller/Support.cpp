@@ -125,6 +125,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   // Language Features
   Registry.addMethod("textDocument/definition", this,
                      &Controller::onDefinition);
+  Registry.addMethod("textDocument/references", this,
+                     &Controller::onReferences);
   Registry.addMethod("textDocument/codeAction", this,
                      &Controller::onCodeAction);
   Registry.addMethod("textDocument/hover", this, &Controller::onHover);

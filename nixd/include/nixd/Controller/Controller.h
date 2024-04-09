@@ -79,6 +79,10 @@ class Controller : public lspserver::LSPServer {
   void onDefinition(const lspserver::TextDocumentPositionParams &Params,
                     lspserver::Callback<lspserver::Location> Reply);
 
+  void
+  onReferences(const lspserver::TextDocumentPositionParams &Params,
+               lspserver::Callback<std::vector<lspserver::Location>> Reply);
+
   void publishDiagnostics(lspserver::PathRef File,
                           std::optional<int64_t> Version,
                           const std::vector<nixf::Diagnostic> &Diagnostics);

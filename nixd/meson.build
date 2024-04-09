@@ -9,6 +9,7 @@ libnixd_lib = library(
     'lib/Controller/Definition.cpp',
     'lib/Controller/Diagnostics.cpp',
     'lib/Controller/EvalClient.cpp',
+    'lib/Controller/FindReferences.cpp',
     'lib/Controller/Hover.cpp',
     'lib/Controller/LifeTime.cpp',
     'lib/Controller/NixTU.cpp',
