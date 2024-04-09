@@ -58,7 +58,14 @@ void Controller::onDocumentHighlight(
         std::vector<DocumentHighlight> Highlights;
         if (auto Err = highlight(*Desc, *TU->parentMap(), *TU->variableLookup(),
                                  URI, Highlights)) {
-          Reply(std::move(Err));
+          // FIXME: Empty response if there are no def-use chain found.
+          // For document highlights, the specification explicitly specified LSP
+          // should do "fuzzy" things.
+
+          // Empty response on error, don't reply all errors because this method
+          // is very frequently called.
+          Reply(std::vector<DocumentHighlight>{});
+          lspserver::elog("textDocument/documentHighlight failed: {0}", Err);
           return;
         }
         Reply(std::move(Highlights));
