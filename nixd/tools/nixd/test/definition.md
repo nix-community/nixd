@@ -1,4 +1,3 @@
-
 # RUN: nixd --lit-test < %s | FileCheck %s
 
 <-- initialize(0)
