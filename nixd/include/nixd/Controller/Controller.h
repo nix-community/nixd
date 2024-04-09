@@ -18,7 +18,31 @@ class Controller : public lspserver::LSPServer {
       PublishDiagnostic;
 
   std::mutex TUsLock;
-  llvm::StringMap<NixTU> TUs;
+  llvm::StringMap<std::shared_ptr<NixTU>> TUs;
+
+  template <class T>
+  std::shared_ptr<NixTU> getTU(std::string File, lspserver::Callback<T> &Reply,
+                               bool Ignore = false) {
+    using lspserver::error;
+    std::lock_guard G(TUsLock);
+    if (!TUs.count(File)) [[unlikely]] {
+      if (!Ignore)
+        Reply(error("cannot find corresponding AST on file {0}", File));
+      return nullptr;
+    }
+    return TUs[File];
+  }
+
+  template <class T>
+  std::shared_ptr<nixf::Node> getAST(const NixTU &TU,
+                                     lspserver::Callback<T> &Reply) {
+    using lspserver::error;
+    if (!TU.ast()) {
+      Reply(error("AST is null on this unit"));
+      return nullptr;
+    }
+    return TU.ast();
+  }
 
   boost::asio::thread_pool Pool;
 
@@ -51,6 +75,9 @@ class Controller : public lspserver::LSPServer {
 
   void onHover(const lspserver::TextDocumentPositionParams &Params,
                lspserver::Callback<std::optional<lspserver::Hover>> Reply);
+
+  void onDefinition(const lspserver::TextDocumentPositionParams &Params,
+                    lspserver::Callback<lspserver::Location> Reply);
 
   void publishDiagnostics(lspserver::PathRef File,
                           std::optional<int64_t> Version,
