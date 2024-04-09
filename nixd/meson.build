@@ -20,7 +20,9 @@ libnixd_lib = library(
     'lib/Controller/SemanticTokens.cpp',
     'lib/Controller/Support.cpp',
     'lib/Controller/TextDocumentSync.cpp',
+    'lib/Eval/AttrSetProvider.cpp',
     'lib/Eval/EvalProvider.cpp',
+    'lib/Protocol/AttrSet.cpp',
     'lib/Protocol/Protocol.cpp',
     'lib/Support/AutoCloseFD.cpp',
     'lib/Support/AutoRemoveShm.cpp',
@@ -68,3 +70,26 @@ nix_node_eval = executable(
     dependencies: libnixd,
     install_dir: get_option('libexecdir'),
 )
+
+nixd_attrset_eval = executable(
+    'nixd-attrset-eval',
+    'tools/nixd-attrset-eval.cpp',
+    install: true,
+    dependencies: libnixd,
+    install_dir: get_option('libexecdir'),
+)
+
+regression_env.set('ASAN_OPTIONS', 'detect_leaks=0')
+
+
+if lit.found()
+    test(
+        'regression/nixd-attrset-eval',
+        lit,
+        env: regression_env,
+        args: [
+            '-vv',
+            meson.current_source_dir() + '/tools/nixd-attrset-eval/test'
+        ],
+        depends: [ nixd_attrset_eval ] )
+endif
