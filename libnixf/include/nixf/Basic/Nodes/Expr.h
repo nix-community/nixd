@@ -27,7 +27,7 @@ public:
   [[nodiscard]] AttrPath *path() const { return Path.get(); }
 
   [[nodiscard]] ChildVector children() const override {
-    return {E.get(), Path.get()};
+    return {E.get(), Path.get(), Default.get()};
   }
 };
 
