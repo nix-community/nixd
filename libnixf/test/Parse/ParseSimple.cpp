@@ -294,6 +294,32 @@ TEST(Parser, PathOK) {
   ASSERT_EQ(Parts.fragments()[2].escaped(), "/d");
 }
 
+TEST(Parser, SPath) {
+  auto Src = R"(<nixpkgs>)"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprSPath);
+
+  auto &SPath = static_cast<ExprSPath &>(*AST);
+  ASSERT_EQ(SPath.text(), "nixpkgs");
+}
+
+TEST(Parser, SPath2) {
+  auto Src = R"(<nixpkgs/a/b>)"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprSPath);
+
+  auto &SPath = static_cast<ExprSPath &>(*AST);
+  ASSERT_EQ(SPath.text(), "nixpkgs/a/b");
+}
+
 TEST(Parser, ParenExpr) {
   auto Src = R"((1))"sv;
 

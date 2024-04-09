@@ -40,6 +40,10 @@ TOK(quote2) // ''
 
 // Path.
 TOK(path_fragment)
+
+// <path>
+TOK(spath)
+
 // URI.
 TOK(uri)
 

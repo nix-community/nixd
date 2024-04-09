@@ -116,6 +116,20 @@ TEST_F(WriteTest, SelectNullAttr) {
   ASSERT_EQ(Kind, nixbc::ExprKind::EK_Select);
 }
 
+TEST_F(WriteTest, SPath) {
+  auto AST = nixf::parse(R"(<nixpkgs>)", Diags);
+  ASSERT_TRUE(AST);
+  nixf::writeBytecode(OS, AST.get());
+  std::string Str = OS.str();
+  std::string_view Data(Str);
+
+  ASSERT_EQ(Str.size(), 154);
+
+  auto Kind = bc::eat<nixbc::ExprKind>(Data);
+
+  ASSERT_EQ(Kind, nixbc::ExprKind::EK_Call);
+}
+
 const char *AllGrammar = R"(
 let
   x = 1;

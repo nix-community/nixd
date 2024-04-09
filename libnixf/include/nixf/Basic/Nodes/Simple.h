@@ -157,6 +157,18 @@ public:
   [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
+class ExprSPath : public Expr {
+  std::string Text;
+
+public:
+  ExprSPath(LexerCursorRange Range, std::string Text)
+      : Expr(NK_ExprSPath, Range), Text(std::move(Text)) {}
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
+
+  [[nodiscard]] const std::string &text() const { return Text; }
+};
+
 class ExprParen : public Expr {
   const std::shared_ptr<Expr> E;
   const std::shared_ptr<Misc> LParen;

@@ -116,6 +116,21 @@ void writeExprPath(std::ostream &OS, const ExprPath &Path) {
   }
 }
 
+void writeExprSPath(std::ostream &OS, const ExprSPath &SPath) {
+  // Spath -> (Call __findFile, __nixPath, path)
+  writeBytecode(OS, mkHeader(EK_Call, SPath));
+
+  writeBytecode(OS, mkHeader(EK_Var, SPath));
+  writeBytecode(OS, std::string_view("__findFile"));
+
+  writeBytecode(OS, std::size_t(2));
+  writeBytecode(OS, mkHeader(EK_Var, SPath));
+  writeBytecode(OS, std::string_view("__nixPath"));
+
+  writeBytecode(OS, mkHeader(EK_String, SPath));
+  writeBytecode(OS, SPath.text());
+}
+
 void writeExprVar(std::ostream &OS, const ExprVar &Var) {
   writeBytecode(OS, mkHeader(EK_Var, Var));
   writeBytecode(OS, Var.id().name());
@@ -446,6 +461,9 @@ void nixf::writeBytecode(std::ostream &OS, const Node *N) {
     break;
   case Node::NK_ExprPath:
     writeExprPath(OS, static_cast<const ExprPath &>(*N));
+    break;
+  case Node::NK_ExprSPath:
+    writeExprSPath(OS, static_cast<const ExprSPath &>(*N));
     break;
   case Node::NK_ExprVar:
     writeExprVar(OS, static_cast<const ExprVar &>(*N));

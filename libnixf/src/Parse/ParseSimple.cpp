@@ -81,6 +81,11 @@ std::shared_ptr<Expr> Parser::parseExprSimple() {
     NixFloat N = std::strtof(std::string(Tok.view()).c_str(), nullptr);
     return std::make_shared<ExprFloat>(Tok.range(), N);
   }
+  case tok_spath: {
+    consume();
+    return std::make_shared<ExprSPath>(
+        Tok.range(), std::string(Tok.view().substr(1, Tok.view().size() - 2)));
+  }
   case tok_dquote: // "  - normal strings
     return parseString(/*IsIndented=*/false);
   case tok_quote2: // '' - indented strings

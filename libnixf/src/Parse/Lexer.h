@@ -90,6 +90,8 @@ class Lexer {
 
   bool consumeURI();
 
+  bool consumeSPath();
+
   /// Should be called after lexing a "raw" identifier, we check if it is a
   /// keyword and make assignment: `Tok <- tok_kw_*`
   void maybeKW();
