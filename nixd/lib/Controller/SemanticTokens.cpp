@@ -4,12 +4,12 @@
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
 
 #include "nixd/Controller/Controller.h"
-#include "nixf/Basic/Nodes/Attrs.h"
-#include "nixf/Basic/Nodes/Expr.h"
-#include "nixf/Basic/Nodes/Lambda.h"
 
 #include <boost/asio/post.hpp>
 #include <lspserver/Protocol.h>
+#include <nixf/Basic/Nodes/Attrs.h>
+#include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Basic/Nodes/Lambda.h>
 #include <nixf/Basic/Range.h>
 #include <nixf/Sema/VariableLookup.h>
 
