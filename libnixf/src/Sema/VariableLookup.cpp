@@ -206,7 +206,7 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
                                  const std::shared_ptr<EnvNode> &Env) {
   auto NewEnv = std::make_shared<EnvNode>(Env, EnvNode::DefMap{}, &With);
   if (!WithDefs.contains(&With))
-    WithDefs.insert({&With, std::make_shared<Definition>(&With)});
+    WithDefs.insert({&With, std::make_shared<Definition>(&With.kwWith())});
 
   if (With.with())
     dfs(*With.with(), Env);

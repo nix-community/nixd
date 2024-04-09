@@ -120,6 +120,8 @@ TEST_F(VLATest, LookupWith) {
   VLAResult Result = VLA.query(Var);
 
   ASSERT_EQ(Result.Kind, VLAResultKind::FromWith);
+  ASSERT_EQ(Result.Def->syntax()->range().lCur().column(), 0);
+  ASSERT_EQ(Result.Def->syntax()->range().rCur().column(), 4);
 }
 
 TEST_F(VLATest, LivenessRec) {
