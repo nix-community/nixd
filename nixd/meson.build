@@ -57,5 +57,6 @@ nix_node_eval = executable(
     'nix-node-eval',
     'tools/nix-node-eval.cpp',
     install: true,
-    dependencies: libnixd
+    dependencies: libnixd,
+    install_dir: get_option('libexecdir'),
 )
