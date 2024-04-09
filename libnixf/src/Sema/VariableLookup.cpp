@@ -13,10 +13,17 @@ class DefBuilder {
   EnvNode::DefMap Def;
 
 public:
-  void addBuiltin(std::string Name) { add(std::move(Name), nullptr); }
-  void add(std::string Name, const Node *Entry) {
+  void addBuiltin(std::string Name) {
+    // Don't need to record def map for builtins.
+    auto _ = add(std::move(Name), nullptr);
+  }
+
+  [[nodiscard("Record ToDef Map!")]] std::shared_ptr<Definition>
+  add(std::string Name, const Node *Entry) {
     assert(!Def.contains(Name));
-    Def.insert({std::move(Name), std::make_shared<Definition>(Entry)});
+    auto NewDef = std::make_shared<Definition>(Entry);
+    Def.insert({std::move(Name), NewDef});
+    return NewDef;
   }
 
   EnvNode::DefMap finish() { return std::move(Def); }
@@ -100,14 +107,15 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
     // Function arg cannot duplicate to it's formal.
     // If it this unluckily happens, we would like to skip this definition.
     if (!Arg.formals() || !Arg.formals()->dedup().contains(Arg.id()->name()))
-      DBuilder.add(Arg.id()->name(), Arg.id());
+      ToDef.insert_or_assign(Arg.id(),
+                             DBuilder.add(Arg.id()->name(), Arg.id()));
   }
 
   // { foo, bar, ... } : body
   ///  ^~~~~~~~~<--------------  add function formals.
   if (Arg.formals())
     for (const auto &[Name, Formal] : Arg.formals()->dedup())
-      DBuilder.add(Name, Formal->id());
+      ToDef.insert_or_assign(Formal->id(), DBuilder.add(Name, Formal->id()));
 
   auto NewEnv = std::make_shared<EnvNode>(Env, DBuilder.finish(), &Lambda);
 
@@ -136,7 +144,7 @@ VariableLookupAnalysis::dfsAttrs(const SemaAttrs &SA,
     DefBuilder DB;
     // For each static names, create a name binding.
     for (const auto &[Name, Attr] : SA.staticAttrs())
-      DB.add(Name, &Attr.key());
+      ToDef.insert_or_assign(&Attr.key(), DB.add(Name, &Attr.key()));
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
@@ -205,8 +213,11 @@ void VariableLookupAnalysis::trivialDispatch(
 void VariableLookupAnalysis::dfs(const ExprWith &With,
                                  const std::shared_ptr<EnvNode> &Env) {
   auto NewEnv = std::make_shared<EnvNode>(Env, EnvNode::DefMap{}, &With);
-  if (!WithDefs.contains(&With))
-    WithDefs.insert({&With, std::make_shared<Definition>(&With.kwWith())});
+  if (!WithDefs.contains(&With)) {
+    auto NewDef = std::make_shared<Definition>(&With.kwWith());
+    ToDef.insert_or_assign(&With.kwWith(), NewDef);
+    WithDefs.insert_or_assign(&With, NewDef);
+  }
 
   if (With.with())
     dfs(*With.with(), Env);

@@ -86,11 +86,15 @@ public:
     std::shared_ptr<const Definition> Def;
   };
 
+  using ToDefMap = std::map<const Node *, std::shared_ptr<Definition>>;
+
 private:
   std::vector<Diagnostic> &Diags;
 
   std::map<const Node *, std::shared_ptr<Definition>>
       WithDefs; // record with ... ; users.
+
+  ToDefMap ToDef;
 
   void lookupVar(const ExprVar &Var, const std::shared_ptr<EnvNode> &Env);
 
@@ -118,10 +122,32 @@ private:
 public:
   VariableLookupAnalysis(std::vector<Diagnostic> &Diags);
 
+  /// \brief Perform variable lookup analysis (def-use) on AST.
+  /// \note This method should be invoked after any other method called.
+  /// \note The result remains immutable thus it can be shared among threads.
   void runOnAST(const Node &Root);
 
+  /// \brief Query the which name/with binds to specific varaible.
   [[nodiscard]] LookupResult query(const ExprVar &Var) const {
     return Results.at(&Var);
+  }
+
+  /// \brief Get definition record for some name.
+  ///
+  /// For some cases, we need to get "definition" record to find all references
+  /// to this definition, on AST.
+  ///
+  /// Thus we need to store AST -> Definition
+  /// There are many pointers on AST, the convention is:
+  ///
+  ///   1. attrname "key" syntax is recorded.
+  //        For static attrs, they are Node::NK_AttrName.
+  ///   2. "with" keyword is recorded.
+  ///   3. Lambda arguments, record its identifier.
+  [[nodiscard]] const Definition *toDef(const Node &N) const {
+    if (ToDef.contains(&N))
+      return ToDef.at(&N).get();
+    return nullptr;
   }
 };
 

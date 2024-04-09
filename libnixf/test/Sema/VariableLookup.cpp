@@ -3,6 +3,7 @@
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Expr.h"
 #include "nixf/Parse/Parser.h"
+#include "nixf/Sema/ParentMap.h"
 #include "nixf/Sema/VariableLookup.h"
 
 using namespace nixf;
@@ -169,6 +170,61 @@ TEST_F(VLATest, LivenessDupSymbol) {
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DuplicatedFormalToArg);
   ASSERT_EQ(Diags[0].range().lCur().column(), 0);
   ASSERT_EQ(Diags[0].tags().size(), 0);
+}
+
+TEST_F(VLATest, ToDefAttrs) {
+  std::shared_ptr<Node> AST = parse("rec { x = 1; y = x; z = x; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ParentMapAnalysis PMA;
+  PMA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+
+  ASSERT_TRUE(AST);
+  const Node *ID = AST->descend({{0, 6}, {0, 6}});
+  ID = PMA.upTo(*ID, Node::NK_AttrName);
+  ASSERT_EQ(ID->kind(), Node::NK_AttrName);
+
+  const auto *Def = VLA.toDef(*ID);
+  ASSERT_TRUE(Def);
+
+  ASSERT_EQ(Def->uses().size(), 2);
+}
+
+TEST_F(VLATest, ToDefLambda) {
+  std::shared_ptr<Node> AST =
+      parse("arg: { foo, bar} : arg + foo + bar", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+
+  ASSERT_TRUE(AST);
+  const Node *ID = AST->descend({{0, 1}, {0, 1}});
+  ASSERT_EQ(ID->kind(), Node::NK_Identifer);
+
+  const auto *Def = VLA.toDef(*ID);
+  ASSERT_TRUE(Def);
+
+  ASSERT_EQ(Def->uses().size(), 1);
+}
+
+TEST_F(VLATest, ToDefWith) {
+  std::shared_ptr<Node> AST = parse("with builtins; [ x y z ]", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+
+  ASSERT_TRUE(AST);
+  const Node *KwWith = AST->descend({{0, 1}, {0, 1}});
+
+  const auto *Def = VLA.toDef(*KwWith);
+  ASSERT_TRUE(Def);
+
+  ASSERT_EQ(Def->uses().size(), 3);
 }
 
 } // namespace
