@@ -77,6 +77,10 @@ class Controller : public lspserver::LSPServer {
   void onHover(const lspserver::TextDocumentPositionParams &Params,
                lspserver::Callback<std::optional<lspserver::Hover>> Reply);
 
+  void onDocumentSymbol(
+      const lspserver::DocumentSymbolParams &Params,
+      lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply);
+
   void onDefinition(const lspserver::TextDocumentPositionParams &Params,
                     lspserver::Callback<lspserver::Location> Reply);
 
