@@ -36,9 +36,9 @@ enum SemaType {
 };
 
 enum SemaModifiers {
-  SM_Builtin = 1 << 3,
-  SM_Deprecated = 1 << 4,
-  SM_Dynamic = 1 << 5,
+  SM_Builtin = 1 << 0,
+  SM_Deprecated = 1 << 1,
+  SM_Dynamic = 1 << 2,
 };
 
 struct RawSemanticToken {

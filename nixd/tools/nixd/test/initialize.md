@@ -46,10 +46,7 @@ CHECK-NEXT:         "legend": {
 CHECK-NEXT:           "tokenModifiers": [
 CHECK-NEXT:             "static",
 CHECK-NEXT:             "abstract",
-CHECK-NEXT:             "async",
-CHECK-NEXT:             "readonly",
-CHECK-NEXT:             "deprecated",
-CHECK-NEXT:             "declaration"
+CHECK-NEXT:             "async"
 CHECK-NEXT:           ],
 CHECK-NEXT:           "tokenTypes": [
 CHECK-NEXT:             "function",

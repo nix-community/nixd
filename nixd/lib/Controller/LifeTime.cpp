@@ -62,12 +62,9 @@ void Controller::
                         }},
                        {"tokenModifiers",
                         Array{
-                            "static",      // defined
-                            "abstract",    // undefined
-                            "async",       // with
-                            "readonly",    // builtin
-                            "deprecated",  // deprecated
-                            "declaration", // dynamic
+                            "static",   // builtin
+                            "abstract", // deprecated
+                            "async",    // dynamic
                         }},
                    },
                },
