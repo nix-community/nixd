@@ -79,6 +79,7 @@ public:
     Undefined,
     FromWith,
     Defined,
+    NoSuchVar,
   };
 
   struct LookupResult {
@@ -129,6 +130,8 @@ public:
 
   /// \brief Query the which name/with binds to specific varaible.
   [[nodiscard]] LookupResult query(const ExprVar &Var) const {
+    if (!Results.contains(&Var))
+      return {.Kind = LookupResultKind::NoSuchVar};
     return Results.at(&Var);
   }
 

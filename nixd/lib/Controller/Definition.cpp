@@ -127,10 +127,13 @@ nixd::findDefinition(const Node &N, const ParentMapAnalysis &PMA,
   assert(Var->kind() == Node::NK_ExprVar);
   LookupResult Result = VLA.query(static_cast<const ExprVar &>(*Var));
 
-  assert(Result.Def);
-
   if (Result.Kind == ResultKind::Undefined)
     return error("this varaible is undefined");
+
+  if (Result.Kind == ResultKind::NoSuchVar)
+    return error("this varaible is not used in var lookup (duplicated attr?)");
+
+  assert(Result.Def);
 
   if (Result.Def->isBuiltin())
     return error("this is a builtin variable");

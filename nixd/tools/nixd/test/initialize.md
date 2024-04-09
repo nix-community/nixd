@@ -36,6 +36,9 @@ CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "documentHighlightProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "referencesProvider": true,
+CHECK-NEXT:       "renameProvider": {
+CHECK-NEXT:         "prepareProvider": true
+CHECK-NEXT:       },
 CHECK-NEXT:       "textDocumentSync": {
 CHECK-NEXT:         "change": 2,
 CHECK-NEXT:         "openClose": true,

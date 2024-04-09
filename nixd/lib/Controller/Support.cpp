@@ -132,6 +132,9 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/codeAction", this,
                      &Controller::onCodeAction);
   Registry.addMethod("textDocument/hover", this, &Controller::onHover);
+  Registry.addMethod("textDocument/rename", this, &Controller::onRename);
+  Registry.addMethod("textDocument/prepareRename", this,
+                     &Controller::onPrepareRename);
 }
 
 } // namespace nixd
