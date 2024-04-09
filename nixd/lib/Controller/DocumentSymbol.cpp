@@ -172,7 +172,6 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
     break;
   }
   case Node::NK_ExprList: {
-    // Lambda, special formals.
     std::vector<DocumentSymbol> Children;
     const auto &List = static_cast<const ExprList &>(*AST);
     for (const Node *Ch : AST->children())
@@ -191,7 +190,6 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
     break;
   }
   case Node::NK_ExprAttrs: {
-    // Dispatch to "SemaAttrs", after desugaring.
     const SemaAttrs &SA = static_cast<const ExprAttrs &>(*AST).sema();
     for (const auto &[Name, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
