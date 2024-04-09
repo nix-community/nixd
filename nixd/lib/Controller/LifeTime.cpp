@@ -38,6 +38,40 @@ void Controller::
        },
        {"definitionProvider", true},
        {"documentSymbolProvider", true},
+       {
+           "semanticTokensProvider",
+           Object{
+               {
+                   "legend",
+                   Object{
+                       {"tokenTypes",
+                        Array{
+                            "function",  // function
+                            "string",    // string
+                            "number",    // number
+                            "type",      // select
+                            "keyword",   // builtin
+                            "variable",  // constant
+                            "interface", // fromWith
+                            "variable",  // variable
+                            "regexp",    // null
+                            "macro",     // bool
+                            "method",    // attrname
+                            "regexp",    // lambdaArg
+                            "regexp",    // lambdaFormal
+                        }},
+                       {"tokenModifiers",
+                        Array{
+                            "static",   // builtin
+                            "abstract", // deprecated
+                            "async",    // dynamic
+                        }},
+                   },
+               },
+               {"range", false},
+               {"full", true},
+           },
+       },
        {"referencesProvider", true},
        {"documentHighlightProvider", true},
        {"hoverProvider", true},

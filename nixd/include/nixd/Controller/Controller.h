@@ -81,6 +81,9 @@ class Controller : public lspserver::LSPServer {
       const lspserver::DocumentSymbolParams &Params,
       lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply);
 
+  void onSemanticTokens(const lspserver::SemanticTokensParams &Params,
+                        lspserver::Callback<lspserver::SemanticTokens> Reply);
+
   void onDefinition(const lspserver::TextDocumentPositionParams &Params,
                     lspserver::Callback<lspserver::Location> Reply);
 
