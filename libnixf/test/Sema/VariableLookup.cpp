@@ -88,6 +88,23 @@ TEST_F(VLATest, LookupLet) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, LookupLet2) {
+  std::shared_ptr<Node> AST = parse("let a = 1; b = a; in a", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprLet);
+
+  const Expr *Body = static_cast<const ExprLet &>(*AST).expr();
+  ASSERT_TRUE(Body);
+  ASSERT_EQ(Body->kind(), Node::NK_ExprVar);
+  auto Result = VLA.query(*static_cast<const ExprVar *>(Body));
+  ASSERT_EQ(Result.Kind, VLAResultKind::Defined);
+  ASSERT_EQ(Result.Def->syntax()->lCur().column(), 4);
+  ASSERT_EQ(Result.Def->syntax()->rCur().column(), 5);
+}
+
 TEST_F(VLATest, LookupWith) {
   std::shared_ptr<Node> AST = parse("with 1; foo", Diags);
   VariableLookupAnalysis VLA(Diags);
@@ -133,7 +150,7 @@ TEST_F(VLATest, LivenessNested) {
   ASSERT_EQ(Diags.size(), 1);
 
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
-  ASSERT_EQ(Diags[0].range().lCur().column(), 8);
+  ASSERT_EQ(Diags[0].range().lCur().column(), 4);
   ASSERT_EQ(Diags[0].tags().size(), 1);
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }

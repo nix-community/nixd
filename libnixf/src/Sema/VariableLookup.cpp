@@ -136,7 +136,7 @@ VariableLookupAnalysis::dfsAttrs(const SemaAttrs &SA,
     DefBuilder DB;
     // For each static names, create a name binding.
     for (const auto &[Name, Attr] : SA.staticAttrs())
-      DB.add(Name, Attr.value());
+      DB.add(Name, &Attr.key());
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
