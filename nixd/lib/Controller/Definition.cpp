@@ -7,6 +7,8 @@
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixf/Basic/Nodes/Attrs.h"
+#include "nixf/Basic/Nodes/Basic.h"
 #include "nixf/Sema/VariableLookup.h"
 
 #include <llvm/Support/Error.h>
@@ -67,12 +69,56 @@ const Definition *findSelfDefinition(const Node &N,
   return nullptr;
 }
 
+// Special case, variable in "inherit"
+// inherit name
+//         ^~~~<---  this is an "AttrName", not variable.
+const ExprVar *findInheritVar(const Node &N, const ParentMapAnalysis &PMA,
+                              const VariableLookupAnalysis &VLA) {
+  if (const Node *Up = PMA.upTo(N, Node::NK_Inherit)) {
+    const Node *UpAn = PMA.upTo(N, Node::NK_AttrName);
+    if (!UpAn)
+      return nullptr;
+    const auto &Inh = static_cast<const Inherit &>(*Up);
+    const auto &AN = static_cast<const AttrName &>(*UpAn);
+
+    // Skip:
+    //
+    //    inherit (expr) name1 name2;
+    //
+    if (Inh.expr())
+      return nullptr;
+
+    // Skip dynamic.
+    if (!AN.isStatic())
+      return nullptr;
+
+    // This attrname will be desugared into an "ExprVar".
+    Up = PMA.upTo(Inh, Node::NK_ExprAttrs);
+    if (!Up)
+      return nullptr;
+
+    const SemaAttrs &SA = static_cast<const ExprAttrs &>(*Up).sema();
+    const Node *Var = SA.staticAttrs().at(AN.staticName()).value();
+    assert(Var->kind() == Node::NK_ExprVar);
+    return static_cast<const ExprVar *>(Var);
+  }
+  return nullptr;
+}
+
+const ExprVar *findVar(const Node &N, const ParentMapAnalysis &PMA,
+                       const VariableLookupAnalysis &VLA) {
+  if (const ExprVar *InVar = findInheritVar(N, PMA, VLA))
+    return InVar;
+
+  return static_cast<const ExprVar *>(PMA.upTo(N, Node::NK_ExprVar));
+}
+
 } // namespace
 
 Expected<const Definition &>
 nixd::findDefinition(const Node &N, const ParentMapAnalysis &PMA,
                      const VariableLookupAnalysis &VLA) {
-  const Node *Var = PMA.upTo(N, Node::NK_ExprVar);
+  const ExprVar *Var = findVar(N, PMA, VLA);
   if (!Var) [[unlikely]] {
     if (const Definition *Def = findSelfDefinition(N, PMA, VLA))
       return *Def;
