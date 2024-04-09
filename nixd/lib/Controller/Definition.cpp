@@ -32,7 +32,7 @@ void gotoDefinition(const NixTU &TU, const nixf::Node &AST, nixf::Position Pos,
 
   const nixf::Node *Var = PMA->upTo(*N, nixf::Node::NK_ExprVar);
   if (!Var) [[unlikely]] {
-    Reply(error("cannot find AST node on given position"));
+    Reply(error("cannot find variable on given position"));
     return;
   }
   assert(Var->kind() == nixf::Node::NK_ExprVar);
