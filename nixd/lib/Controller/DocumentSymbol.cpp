@@ -155,7 +155,6 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
     break;
   }
   case Node::NK_ExprLambda: {
-    // Lambda, special formals.
     std::vector<DocumentSymbol> Children;
     const auto &Lambda = static_cast<const ExprLambda &>(*AST);
     collect(Lambda.body(), Children, VLA);
