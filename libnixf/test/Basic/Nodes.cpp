@@ -53,4 +53,14 @@ TEST(Node, ExprString_Children) {
   ASSERT_EQ(Root->children()[0]->children().size(), 1);
 }
 
+TEST(Node, ExprSelect_Children) {
+  auto Src = R"(a.b or c)"sv;
+  std::vector<Diagnostic> Diag;
+  auto Root = parse(Src, Diag);
+
+  ASSERT_EQ(Root->kind(), Node::NK_ExprSelect);
+
+  ASSERT_EQ(Root->children().size(), 3);
+}
+
 } // namespace
