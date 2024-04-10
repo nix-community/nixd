@@ -6,6 +6,7 @@
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
 #include "lspserver/Protocol.h"
+#include "nixd/Eval/AttrSetClient.h"
 
 #include <boost/asio/thread_pool.hpp>
 
@@ -13,6 +14,17 @@ namespace nixd {
 
 class Controller : public lspserver::LSPServer {
   std::unique_ptr<OwnedEvalClient> Eval;
+
+  // Use this worker for evaluating nixpkgs.
+  std::unique_ptr<AttrSetClientProc> NixpkgsEval;
+
+  AttrSetClientProc &nixpkgsEval() {
+    assert(NixpkgsEval);
+    return *NixpkgsEval;
+  }
+
+  AttrSetClient *nixpkgsClient() { return nixpkgsEval().client(); }
+
   lspserver::DraftStore Store;
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
@@ -90,6 +102,10 @@ class Controller : public lspserver::LSPServer {
 
   void onCompletion(const lspserver::CompletionParams &Params,
                     lspserver::Callback<lspserver::CompletionList> Reply);
+
+  void
+  onCompletionItemResolve(const lspserver::CompletionItem &Params,
+                          lspserver::Callback<lspserver::CompletionItem> Reply);
 
   void onDefinition(const lspserver::TextDocumentPositionParams &Params,
                     lspserver::Callback<lspserver::Location> Reply);

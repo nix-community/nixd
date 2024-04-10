@@ -122,6 +122,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                      &Controller::onSemanticTokens);
   Registry.addMethod("textDocument/completion", this,
                      &Controller::onCompletion);
+  Registry.addMethod("completionItem/resolve", this,
+                     &Controller::onCompletionItemResolve);
   Registry.addMethod("textDocument/references", this,
                      &Controller::onReferences);
   Registry.addMethod("textDocument/documentHighlight", this,

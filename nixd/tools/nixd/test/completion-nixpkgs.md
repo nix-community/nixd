@@ -30,7 +30,7 @@
          "uri":"file:///completion.nix",
          "languageId":"nix",
          "version":1,
-         "text":"let xxx = 1; yy = 2 in x"
+         "text":"with pkgs; [  ]"
       }
    }
 }
@@ -47,7 +47,7 @@
         },
         "position": {
             "line": 0,
-            "character": 23
+            "character": 14
         },
         "context": {
             "triggerKind": 1
@@ -57,19 +57,15 @@
 ```
 
 ```
-     CHECK:  "id": 1,
-CHECK-NEXT:  "jsonrpc": "2.0",
-CHECK-NEXT:  "result": {
-CHECK-NEXT:    "isIncomplete": false,
-CHECK-NEXT:    "items": [
-CHECK-NEXT:      {
-CHECK-NEXT:        "data": "",
-CHECK-NEXT:        "kind": 6,
-CHECK-NEXT:        "label": "xxx",
-CHECK-NEXT:        "score": 0
-CHECK-NEXT:      }
-CHECK-NEXT:    ]
-CHECK-NEXT:  }
+     CHECK:    "label": "AMB-plugins",
+CHECK-NEXT:    "score": 0
+CHECK-NEXT:  },
+CHECK-NEXT:  {
+CHECK-NEXT:    "data": "{\"Prefix\":\"\",\"Scope\":[]}",
+CHECK-NEXT:    "kind": 5,
+CHECK-NEXT:    "label": "ArchiSteamFarm",
+CHECK-NEXT:    "score": 0
+CHECK-NEXT:  },
 ```
 
 

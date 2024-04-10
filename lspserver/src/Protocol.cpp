@@ -987,7 +987,19 @@ llvm::json::Value toJSON(const CompletionItem &CI) {
   if (CI.deprecated)
     Result["deprecated"] = CI.deprecated;
   Result["score"] = CI.score;
+  Result["data"] = CI.data;
   return Result;
+}
+
+bool fromJSON(const llvm::json::Value &Params, CompletionItem &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  int Kind;
+  O.mapOptional("kind", Kind);
+  R.kind = static_cast<CompletionItemKind>(Kind);
+  return O                                  //
+         && O.mapOptional("label", R.label) //
+         && O.mapOptional("data", R.data);  //
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const CompletionItem &I) {
