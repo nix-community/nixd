@@ -227,4 +227,19 @@ TEST_F(VLATest, ToDefWith) {
   ASSERT_EQ(Def->uses().size(), 3);
 }
 
+TEST_F(VLATest, Env) {
+  std::shared_ptr<Node> AST = parse("let x = 1; y = 2; in x", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  const Expr *Body = static_cast<ExprLet &>(*AST).expr();
+  ASSERT_TRUE(Body);
+  ASSERT_EQ(Body->kind(), Node::NK_ExprVar);
+
+  const EnvNode *Env = VLA.env(Body);
+  ASSERT_TRUE(Env);
+  ASSERT_TRUE(Env->defs().contains("x"));
+  ASSERT_TRUE(Env->defs().contains("y"));
+}
+
 } // namespace

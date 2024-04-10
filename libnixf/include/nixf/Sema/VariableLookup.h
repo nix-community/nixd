@@ -88,6 +88,7 @@ public:
   };
 
   using ToDefMap = std::map<const Node *, std::shared_ptr<Definition>>;
+  using EnvMap = std::map<const Node *, std::shared_ptr<EnvNode>>;
 
 private:
   std::vector<Diagnostic> &Diags;
@@ -96,6 +97,10 @@ private:
       WithDefs; // record with ... ; users.
 
   ToDefMap ToDef;
+
+  // Record the environment so that we can know which names are available after
+  // name lookup, for later references like code completions.
+  EnvMap Envs;
 
   void lookupVar(const ExprVar &Var, const std::shared_ptr<EnvNode> &Env);
 
@@ -152,6 +157,8 @@ public:
       return ToDef.at(&N).get();
     return nullptr;
   }
+
+  const EnvNode *env(const Node *N) const;
 };
 
 } // namespace nixf
