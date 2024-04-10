@@ -239,6 +239,7 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
 
 void VariableLookupAnalysis::dfs(const Node &Root,
                                  const std::shared_ptr<EnvNode> &Env) {
+  Envs.insert({&Root, Env});
   switch (Root.kind()) {
   case Node::NK_ExprVar: {
     const auto &Var = static_cast<const ExprVar &>(Root);
@@ -403,3 +404,9 @@ void VariableLookupAnalysis::runOnAST(const Node &Root) {
 
 VariableLookupAnalysis::VariableLookupAnalysis(std::vector<Diagnostic> &Diags)
     : Diags(Diags) {}
+
+const EnvNode *VariableLookupAnalysis::env(const Node *N) {
+  if (!Envs.contains(N))
+    return nullptr;
+  return Envs.at(N).get();
+}
