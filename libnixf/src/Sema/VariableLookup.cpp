@@ -405,7 +405,7 @@ void VariableLookupAnalysis::runOnAST(const Node &Root) {
 VariableLookupAnalysis::VariableLookupAnalysis(std::vector<Diagnostic> &Diags)
     : Diags(Diags) {}
 
-const EnvNode *VariableLookupAnalysis::env(const Node *N) {
+const EnvNode *VariableLookupAnalysis::env(const Node *N) const {
   if (!Envs.contains(N))
     return nullptr;
   return Envs.at(N).get();

@@ -158,7 +158,7 @@ public:
     return nullptr;
   }
 
-  const EnvNode *env(const Node *N);
+  const EnvNode *env(const Node *N) const;
 };
 
 } // namespace nixf
