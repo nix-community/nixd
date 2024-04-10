@@ -72,6 +72,7 @@ void Controller::
                {"full", true},
            },
        },
+       {"completionProvider", Object{}},
        {"referencesProvider", true},
        {"documentHighlightProvider", true},
        {"hoverProvider", true},
