@@ -27,8 +27,12 @@ class Controller : public lspserver::LSPServer {
     using lspserver::error;
     std::lock_guard G(TUsLock);
     if (!TUs.count(File)) [[unlikely]] {
-      if (!Ignore)
+      if (!Ignore) {
         Reply(error("cannot find corresponding AST on file {0}", File));
+        return nullptr;
+      }
+      Reply(T{}); // Reply a default constructed response.
+      lspserver::elog("cannot get translation unit: {0}", File);
       return nullptr;
     }
     return TUs[File];
