@@ -55,6 +55,9 @@ class AttrSetClientProc {
   AttrSetClient Client;
   std::thread Input;
 
+  // Thread to read it's error. and write logs.
+  std::thread Error;
+
 public:
   /// \brief Check if the process is still alive
   /// \returns nullptr if it has been dead.

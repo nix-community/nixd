@@ -100,6 +100,10 @@ class Controller : public lspserver::LSPServer {
   void onSemanticTokens(const lspserver::SemanticTokensParams &Params,
                         lspserver::Callback<lspserver::SemanticTokens> Reply);
 
+  void
+  onInlayHint(const lspserver::InlayHintsParams &Params,
+              lspserver::Callback<std::vector<lspserver::InlayHint>> Reply);
+
   void onCompletion(const lspserver::CompletionParams &Params,
                     lspserver::Callback<lspserver::CompletionList> Reply);
 

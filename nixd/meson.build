@@ -16,6 +16,7 @@ libnixd_lib = library(
     'lib/Controller/EvalClient.cpp',
     'lib/Controller/FindReferences.cpp',
     'lib/Controller/Hover.cpp',
+    'lib/Controller/InlayHints.cpp',
     'lib/Controller/LifeTime.cpp',
     'lib/Controller/NixTU.cpp',
     'lib/Controller/Rename.cpp',

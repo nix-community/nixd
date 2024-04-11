@@ -120,6 +120,7 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                      &Controller::onDocumentSymbol);
   Registry.addMethod("textDocument/semanticTokens/full", this,
                      &Controller::onSemanticTokens);
+  Registry.addMethod("textDocument/inlayHint", this, &Controller::onInlayHint);
   Registry.addMethod("textDocument/completion", this,
                      &Controller::onCompletion);
   Registry.addMethod("completionItem/resolve", this,
