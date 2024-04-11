@@ -1,6 +1,8 @@
 #include "nixt/Value.h"
 
 #include <nix/attr-path.hh>
+#include <nix/nixexpr.hh>
+#include <nix/value.hh>
 
 using namespace nixt;
 
@@ -38,4 +40,56 @@ std::string nixt::attrPathStr(nix::EvalState &State, nix::Value &V,
   auto [VPath, Pos] = nix::findAlongAttrPath(State, AttrPath, AutoArgs, V);
   State.forceValue(*VPath, Pos);
   return std::string(State.forceStringNoCtx(*VPath, nix::noPos, ""));
+}
+
+std::vector<nix::Symbol>
+nixt::toSymbols(nix::SymbolTable &STable,
+                const std::vector<std::string> &Names) {
+  std::vector<nix::Symbol> Res;
+  Res.reserve(Names.size());
+  for (const auto &Name : Names) {
+    Res.emplace_back(STable.create(Name));
+  }
+  return Res;
+}
+
+std::vector<nix::Symbol>
+nixt::toSymbols(nix::SymbolTable &STable,
+                const std::vector<std::string_view> &Names) {
+  std::vector<nix::Symbol> Res;
+  Res.reserve(Names.size());
+  for (const auto &Name : Names) {
+    Res.emplace_back(STable.create(Name));
+  }
+  return Res;
+}
+
+nix::Value &nixt::selectAttr(nix::EvalState &State, nix::Value &V,
+                             nix::Symbol Attr) {
+  State.forceValue(V, nix::noPos);
+
+  if (V.type() != nix::ValueType::nAttrs)
+    throw nix::TypeError("value is not an attrset");
+
+  assert(V.attrs && "nix must allocate non-null attrs!");
+  auto *Nested = V.attrs->find(Attr);
+  if (Nested == V.attrs->end())
+    throw nix::AttrPathNotFound("attrname " + State.symbols[Attr] +
+                                " not found in attrset");
+
+  assert(Nested->value && "nix must allocate non-null nested value!");
+  return *Nested->value;
+}
+
+/// \brief Given an attrpath in nix::Value \p V, select it
+nix::Value &nixt::selectAttrPath(nix::EvalState &State, nix::Value &V,
+                                 std::vector<nix::Symbol>::const_iterator Begin,
+                                 std::vector<nix::Symbol>::const_iterator End) {
+  // If the attrpath is emtpy, return value itself.
+  if (Begin == End)
+    return V;
+
+  // Otherwise, select it.
+  nix::Value &Nested = selectAttr(State, V, *Begin);
+  return selectAttrPath(State, Nested, ++Begin, End);
 }

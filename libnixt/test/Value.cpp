@@ -45,4 +45,20 @@ TEST_F(ValueTest, IsDerivation_pos) {
   ASSERT_TRUE(isDerivation(*State, V));
 }
 
+TEST_F(ValueTest, selectAttrPath) {
+  nix::Expr *AST = State->parseExprFromString(R"({ a.b.c.d = 1; })", cwd());
+  nix::Value V;
+  State->eval(AST, V);
+
+  nix::Value &Nested = selectStringViews(*State, V, {"a", "b"});
+
+  // Make sure no extra "force" performed.
+  ASSERT_EQ(Nested.type(), nix::ValueType::nThunk);
+
+  nix::Value &Kern = selectStringViews(*State, Nested, {"c", "d"});
+
+  ASSERT_EQ(Kern.type(), nix::ValueType::nInt);
+  ASSERT_EQ(Kern.integer, 1);
+}
+
 } // namespace
