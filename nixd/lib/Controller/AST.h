@@ -13,10 +13,10 @@ upEnv(const nixf::Node &Desc, const nixf::VariableLookupAnalysis &VLA,
 
 /// \brief Determine whether or not some node has enclosed "with pkgs; [ ]"
 ///
-/// Yes. this is not perfectly evaluated. what about the identifier is not
-/// "pkgs"? We cannot eval all things dynamically, each time, and invalidate
-/// them once after document updates. So this heuristic method is somehow result
-/// of trade off between performance.
+/// Yes, this evaluation isn't flawless. What if the identifier isn't "pkgs"? We
+/// can't dynamically evaluate everything each time and invalidate them
+/// immediately after document updates. Therefore, this heuristic method
+/// represents a trade-off between performance considerations.
 [[nodiscard]] bool havePackageScope(const nixf::Node &N,
                                     const nixf::VariableLookupAnalysis &VLA,
                                     const nixf::ParentMapAnalysis &PM);

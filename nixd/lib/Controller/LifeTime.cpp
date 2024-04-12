@@ -21,6 +21,11 @@ opt<std::string> DefaultNixpkgsExpr{
     desc("Default expression intrepreted as `import <nixpkgs> { }`"),
     cat(NixdCategory), init("import <nixpkgs> { }")};
 
+opt<std::string> NixpkgsWorkerStderr{
+    "nixpkgs-worker-stderr",
+    desc("Writable file path for nixpkgs worker stderr (debugging)"),
+    cat(NixdCategory), init("/dev/null")};
+
 void notifyNixpkgsEval(AttrSetClient &NixpkgsProvider) {
   lspserver::log("launched nixd attrs eval for nixpkgs");
   auto Action = [](llvm::Expected<EvalExprResponse> Resp) {
@@ -31,12 +36,13 @@ void notifyNixpkgsEval(AttrSetClient &NixpkgsProvider) {
     }
     lspserver::log("evaluated nixpkgs entries");
   };
-  // Tell nixpkgs worker to eval, using default options.
+  // Tell nixpkgs worker to eval
   NixpkgsProvider.evalExpr(DefaultNixpkgsExpr, std::move(Action));
 }
 
 void startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {
   NixpkgsEval = std::make_unique<AttrSetClientProc>([]() {
+    freopen(NixpkgsWorkerStderr.c_str(), "w", stderr);
     return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
   });
 }

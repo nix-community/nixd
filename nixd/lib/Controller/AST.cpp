@@ -46,7 +46,7 @@ nixd::getScopeAndPrefix(const Node &N, const ParentMapAnalysis &PM) {
   if (N.kind() != Node::NK_Identifer)
     return {};
 
-  // FIXME: scoped packages is not yet implemented.
+  // FIXME: impl scoped packages
   std::string Prefix = static_cast<const Identifier &>(N).name();
   return {{}, Prefix};
 }
