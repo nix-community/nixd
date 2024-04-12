@@ -5,14 +5,21 @@
 
 #include "nixd-config.h"
 
+#include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
 
 using namespace nixd;
 using namespace util;
 using namespace llvm::json;
+using namespace llvm::cl;
 using namespace lspserver;
 
 namespace {
+
+opt<std::string> DefaultNixpkgsExpr{
+    "nixpkgs-expr",
+    desc("Default expression intrepreted as `import <nixpkgs> { }`"),
+    cat(NixdCategory), init("import <nixpkgs> { }")};
 
 void notifyNixpkgsEval(AttrSetClient &NixpkgsProvider) {
   lspserver::log("launched nixd attrs eval for nixpkgs");
@@ -24,9 +31,8 @@ void notifyNixpkgsEval(AttrSetClient &NixpkgsProvider) {
     }
     lspserver::log("evaluated nixpkgs entries");
   };
-  // Tell nixpkgs worker to eval
-  // FIXME: let this configurable, and support flakes
-  NixpkgsProvider.evalExpr("import <nixpkgs> { }", std::move(Action));
+  // Tell nixpkgs worker to eval, using default options.
+  NixpkgsProvider.evalExpr(DefaultNixpkgsExpr, std::move(Action));
 }
 
 void startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {

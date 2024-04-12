@@ -1,4 +1,6 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test \
+# RUN: --nixpkgs-expr="{ hello.meta.description = \"Very Nice\";  }" \
+# RUN: < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -39,9 +41,7 @@ CHECK-NEXT:    "data": "{  \"Scope\": [ ], \"Prefix\": \"hel\" }",
 CHECK-NEXT:    "detail": "{{.*}}",
 CHECK-NEXT:    "documentation": {
 CHECK-NEXT:      "kind": "markdown",
-CHECK-NEXT:      "value": "A program that produces a familiar, friendly greeting\n\nGNU Hello is a program that prints \"Hello, world!\" when you run it.\nIt is fully customizable.\n"
-CHECK-NEXT:    },
-CHECK-NEXT:    "kind"
+CHECK-NEXT:      "value": "Very Nice\n\n"
 ```
 
 

@@ -4,6 +4,7 @@ libnixd_deps = [ nixd_lsp_server, nixf, llvm, nixt ]
 
 libnixd_lib = library(
     'nixd',
+    'lib/CommandLine/Options.cpp',
     'lib/Controller/AST.cpp',
     'lib/Controller/CodeAction.cpp',
     'lib/Controller/Completion.cpp',
