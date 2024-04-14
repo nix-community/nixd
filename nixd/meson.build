@@ -4,6 +4,8 @@ libnixd_deps = [ nixd_lsp_server, nixf, llvm, nixt ]
 
 libnixd_lib = library(
     'nixd',
+    'lib/CommandLine/Options.cpp',
+    'lib/Controller/AST.cpp',
     'lib/Controller/CodeAction.cpp',
     'lib/Controller/Completion.cpp',
     'lib/Controller/Convert.cpp',
@@ -20,6 +22,7 @@ libnixd_lib = library(
     'lib/Controller/SemanticTokens.cpp',
     'lib/Controller/Support.cpp',
     'lib/Controller/TextDocumentSync.cpp',
+    'lib/Eval/AttrSetClient.cpp',
     'lib/Eval/AttrSetProvider.cpp',
     'lib/Eval/EvalProvider.cpp',
     'lib/Protocol/AttrSet.cpp',
@@ -27,6 +30,7 @@ libnixd_lib = library(
     'lib/Support/AutoCloseFD.cpp',
     'lib/Support/AutoRemoveShm.cpp',
     'lib/Support/ForkPiped.cpp',
+    'lib/Support/StreamProc.cpp',
     dependencies: libnixd_deps,
     include_directories: libnixd_include,
     install: true
@@ -45,31 +49,6 @@ nixd = executable(
     dependencies: libnixd
 )
 
-regression_env = environment()
-
-regression_env.append('PATH', meson.current_build_dir())
-regression_env.set('MESON_BUILD_ROOT', meson.current_build_dir())
-
-if lit.found()
-    test(
-        'regression/nixd',
-        lit,
-        env: regression_env,
-        args: [
-            '-vv',
-            meson.current_source_dir() + '/tools/nixd/test'
-        ],
-        depends: [ nixd ] )
-endif
-
-
-nix_node_eval = executable(
-    'nix-node-eval',
-    'tools/nix-node-eval.cpp',
-    install: true,
-    dependencies: libnixd,
-    install_dir: get_option('libexecdir'),
-)
 
 nixd_attrset_eval = executable(
     'nixd-attrset-eval',
@@ -79,14 +58,48 @@ nixd_attrset_eval = executable(
     install_dir: get_option('libexecdir'),
 )
 
-regression_env.set('ASAN_OPTIONS', 'detect_leaks=0')
+regression_controller_env = environment()
+
+regression_controller_env.append('PATH', meson.current_build_dir())
+regression_controller_env.set('MESON_BUILD_ROOT', meson.current_build_dir())
+regression_controller_env.set('NIXD_ATTRSET_EVAL', nixd_attrset_eval.path())
+
+
+if lit.found()
+    test(
+        'regression/nixd',
+        lit,
+        env: regression_controller_env,
+        args: [
+            '-vv',
+            meson.current_source_dir() + '/tools/nixd/test'
+        ],
+        depends: [ nixd, nixd_attrset_eval ] )
+endif
+
+regression_worker_env = environment()
+
+regression_worker_env.append('PATH', meson.current_build_dir())
+regression_worker_env.set('MESON_BUILD_ROOT', meson.current_build_dir())
+regression_worker_env.set('ASAN_OPTIONS', 'detect_leaks=0')
+
+nix_node_eval = executable(
+    'nix-node-eval',
+    'tools/nix-node-eval.cpp',
+    install: true,
+    dependencies: libnixd,
+    install_dir: get_option('libexecdir'),
+)
+
+
+
 
 
 if lit.found()
     test(
         'regression/nixd-attrset-eval',
         lit,
-        env: regression_env,
+        env: regression_worker_env,
         args: [
             '-vv',
             meson.current_source_dir() + '/tools/nixd-attrset-eval/test'

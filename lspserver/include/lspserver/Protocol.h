@@ -1291,8 +1291,10 @@ struct CompletionItem {
   //
   // data?: any - A data entry field that is preserved on a completion item
   //              between a completion and a completion resolve request.
+  std::string data;
 };
 llvm::json::Value toJSON(const CompletionItem &);
+bool fromJSON(const llvm::json::Value &, CompletionItem &, llvm::json::Path);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &, const CompletionItem &);
 
 bool operator<(const CompletionItem &, const CompletionItem &);

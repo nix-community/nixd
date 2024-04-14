@@ -3,6 +3,7 @@
 #include "lspserver/Connection.h"
 #include "lspserver/Logger.h"
 
+#include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
 
 #include <llvm/ADT/ArrayRef.h>
@@ -17,7 +18,7 @@ using namespace llvm::cl;
 OptionCategory Misc("miscellaneous options");
 OptionCategory Debug("debug-only options (for developers)");
 
-const OptionCategory *NixdCatogories[] = {&Misc, &Debug};
+const OptionCategory *NixdCatogories[] = {&Misc, &Debug, &nixd::NixdCategory};
 
 opt<JSONStreamStyle> InputStyle{
     "input-style",
