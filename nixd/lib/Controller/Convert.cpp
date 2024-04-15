@@ -25,6 +25,10 @@ nixf::Position toNixfPosition(const lspserver::Position &P) {
   return {P.line, P.character};
 }
 
+nixf::PositionRange toNixfRange(const lspserver::Range &P) {
+  return {toNixfPosition(P.start), toNixfPosition(P.end)};
+}
+
 lspserver::Range toLSPRange(const nixf::LexerCursorRange &R) {
   return lspserver::Range{toLSPPosition(R.lCur()), toLSPPosition(R.rCur())};
 }

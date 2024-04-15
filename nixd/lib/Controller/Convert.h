@@ -14,6 +14,8 @@ lspserver::Position toLSPPosition(const nixf::LexerCursor &P);
 
 nixf::Position toNixfPosition(const lspserver::Position &P);
 
+nixf::PositionRange toNixfRange(const lspserver::Range &P);
+
 lspserver::Range toLSPRange(const nixf::LexerCursorRange &R);
 
 int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind);

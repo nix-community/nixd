@@ -104,6 +104,7 @@ void Controller::
                {"full", true},
            },
        },
+       {"inlayHintProvider", true},
        {"completionProvider",
         Object{
             {"resolveProvider", true},
