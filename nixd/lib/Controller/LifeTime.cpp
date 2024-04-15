@@ -26,20 +26,6 @@ opt<std::string> NixpkgsWorkerStderr{
     desc("Writable file path for nixpkgs worker stderr (debugging)"),
     cat(NixdCategory), init("/dev/null")};
 
-void notifyNixpkgsEval(AttrSetClient &NixpkgsProvider) {
-  lspserver::log("launched nixd attrs eval for nixpkgs");
-  auto Action = [](llvm::Expected<EvalExprResponse> Resp) {
-    if (!Resp) {
-      lspserver::elog("error on nixpkgs attrs worker eval: {0}",
-                      Resp.takeError());
-      return;
-    }
-    lspserver::log("evaluated nixpkgs entries");
-  };
-  // Tell nixpkgs worker to eval
-  NixpkgsProvider.evalExpr(DefaultNixpkgsExpr, std::move(Action));
-}
-
 void startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {
   NixpkgsEval = std::make_unique<AttrSetClientProc>([]() {
     freopen(NixpkgsWorkerStderr.c_str(), "w", stderr);
@@ -129,10 +115,31 @@ void Controller::
 
   Reply(std::move(Result));
 
-  PublishDiagnostic = mkOutNotifiction<PublishDiagnosticsParams>(
-      "textDocument/publishDiagnostics");
+  ClientCaps = Params.capabilities;
 
   startNixpkgs(NixpkgsEval);
-  if (auto *Provider = nixpkgsEval().client())
-    notifyNixpkgsEval(*Provider);
+  if (nixpkgsClient()) {
+    auto Token = rand();
+    auto Action = [Token, this](llvm::Expected<EvalExprResponse> Resp) {
+      endWorkDoneProgress({
+          .token = Token,
+          .value = WorkDoneProgressEnd{.message = "evaluated nixpkgs entries"},
+      });
+      if (!Resp) {
+        lspserver::elog("error on nixpkgs attrs worker eval: {0}",
+                        Resp.takeError());
+        return;
+      }
+      lspserver::log("evaluated nixpkgs entries");
+    };
+    createWorkDoneProgress({Token});
+    beginWorkDoneProgress({.token = Token,
+                           .value = WorkDoneProgressBegin{
+                               .title = "evaluating nixipkgs",
+                               .cancellable = false,
+                               .percentage = false,
+                           }});
+    // Tell nixpkgs worker to eval
+    nixpkgsClient()->evalExpr(DefaultNixpkgsExpr, std::move(Action));
+  }
 }
