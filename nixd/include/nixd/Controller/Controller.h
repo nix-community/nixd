@@ -27,8 +27,48 @@ class Controller : public lspserver::LSPServer {
 
   lspserver::DraftStore Store;
 
+  lspserver::ClientCapabilities ClientCaps;
+
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
+  llvm::unique_function<void(const lspserver::WorkDoneProgressCreateParams &,
+                             lspserver::Callback<std::nullptr_t>)>
+      CreateWorkDoneProgress;
+
+  void
+  createWorkDoneProgress(const lspserver::WorkDoneProgressCreateParams &Params);
+
+  llvm::unique_function<void(
+      const lspserver::ProgressParams<lspserver::WorkDoneProgressBegin> &)>
+      BeginWorkDoneProgress;
+
+  void beginWorkDoneProgress(
+      const lspserver::ProgressParams<lspserver::WorkDoneProgressBegin>
+          &Params) {
+    if (ClientCaps.WorkDoneProgress)
+      BeginWorkDoneProgress(Params);
+  }
+
+  llvm::unique_function<void(
+      const lspserver::ProgressParams<lspserver::WorkDoneProgressReport> &)>
+      ReportWorkDoneProgress;
+
+  void reportWorkDoneProgress(
+      const lspserver::ProgressParams<lspserver::WorkDoneProgressReport>
+          &Params) {
+    if (ClientCaps.WorkDoneProgress)
+      ReportWorkDoneProgress(Params);
+  }
+
+  llvm::unique_function<void(
+      lspserver::ProgressParams<lspserver::WorkDoneProgressEnd>)>
+      EndWorkDoneProgress;
+
+  void endWorkDoneProgress(
+      const lspserver::ProgressParams<lspserver::WorkDoneProgressEnd> &Params) {
+    if (ClientCaps.WorkDoneProgress)
+      EndWorkDoneProgress(Params);
+  }
 
   std::mutex TUsLock;
   llvm::StringMap<std::shared_ptr<NixTU>> TUs;

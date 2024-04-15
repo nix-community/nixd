@@ -96,6 +96,15 @@ void Controller::actOnDocumentAdd(PathRef File,
   Action();
 }
 
+void Controller::createWorkDoneProgress(
+    const lspserver::WorkDoneProgressCreateParams &Params) {
+  if (ClientCaps.WorkDoneProgress)
+    CreateWorkDoneProgress(Params, [](llvm::Expected<std::nullptr_t> Reply) {
+      if (!Reply)
+        elog("create workdone progress error: {0}", Reply.takeError());
+    });
+}
+
 Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
     : LSPServer(std::move(In), std::move(Out)), LitTest(false) {
@@ -135,6 +144,18 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/rename", this, &Controller::onRename);
   Registry.addMethod("textDocument/prepareRename", this,
                      &Controller::onPrepareRename);
+
+  PublishDiagnostic = mkOutNotifiction<PublishDiagnosticsParams>(
+      "textDocument/publishDiagnostics");
+  CreateWorkDoneProgress =
+      mkOutMethod<WorkDoneProgressCreateParams, std::nullptr_t>(
+          "window/workDoneProgress/create");
+  BeginWorkDoneProgress =
+      mkOutNotifiction<ProgressParams<WorkDoneProgressBegin>>("$/progress");
+  ReportWorkDoneProgress =
+      mkOutNotifiction<ProgressParams<WorkDoneProgressReport>>("$/progress");
+  EndWorkDoneProgress =
+      mkOutNotifiction<ProgressParams<WorkDoneProgressEnd>>("$/progress");
 }
 
 } // namespace nixd
