@@ -154,6 +154,12 @@ llvm::json::Value toJSON(const Location &P) {
   };
 }
 
+bool fromJSON(const llvm::json::Value &Params, Location &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  return O && O.map("uri", R.uri) && O.map("range", R.range);
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const Location &L) {
   return OS << L.range << '@' << L.uri;
 }

@@ -55,6 +55,17 @@ public:
   /// \brief Complete attrpath entries.
   void onAttrPathComplete(const AttrPathCompleteParams &Params,
                           lspserver::Callback<AttrPathCompleteResponse> Reply);
+
+  /// \brief Provide option information on given attrpath.
+  void onOptionInfo(const AttrPathInfoParams &AttrPath,
+                    lspserver::Callback<OptionInfoResponse> Reply);
+
+  /// \brief Complete attrpath entries. However dive into submodules while
+  /// selecting.
+  ///
+  /// FIXME: suppport list names. i.e.    `foo.*.submodule`
+  void onOptionComplete(const AttrPathCompleteParams &Params,
+                        lspserver::Callback<OptionCompleteResponse> Reply);
 };
 
 } // namespace nixd

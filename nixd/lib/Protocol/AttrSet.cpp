@@ -3,6 +3,54 @@
 using namespace nixd;
 using namespace llvm::json;
 
+Value nixd::toJSON(const OptionType &Params) {
+  return Object{
+      {"Description", Params.Description},
+      {"Name", Params.Name},
+  };
+}
+
+bool nixd::fromJSON(const Value &Params, OptionType &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O                                              //
+         && O.mapOptional("Description", R.Description) //
+         && O.mapOptional("Name", R.Name);
+}
+
+Value nixd::toJSON(const OptionDescription &Params) {
+  return Object{
+      {"Description", Params.Description},
+      {"Declarations", Params.Declarations},
+      {"Definitions", Params.Definitions},
+      {"Example", Params.Example},
+      {"Type", Params.Type},
+  };
+}
+bool nixd::fromJSON(const Value &Params, OptionDescription &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O                                                //
+         && O.mapOptional("Description", R.Description)   //
+         && O.mapOptional("Declarations", R.Declarations) //
+         && O.mapOptional("Definitions", R.Definitions)   //
+         && O.mapOptional("Example", R.Example)           //
+         && O.mapOptional("Type", R.Type)                 //
+      ;
+}
+
+Value nixd::toJSON(const OptionField &Params) {
+  return Object{
+      {"Name", Params.Name},
+      {"Description", Params.Description},
+  };
+}
+bool nixd::fromJSON(const Value &Params, OptionField &R, Path P) {
+  ObjectMapper O(Params, P);
+  return O                                              //
+         && O.mapOptional("Description", R.Description) //
+         && O.mapOptional("Name", R.Name)               //
+      ;
+}
+
 Value nixd::toJSON(const PackageDescription &Params) {
   return Object{
       {"Name", Params.Name},

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <llvm/Support/JSON.h>
+#include <lspserver/Protocol.h>
 
 namespace nixd {
 
@@ -43,5 +44,39 @@ bool fromJSON(const llvm::json::Value &Params, AttrPathCompleteParams &R,
               llvm::json::Path P);
 
 using AttrPathCompleteResponse = std::vector<std::string>;
+
+struct OptionType {
+  std::optional<std::string> Description;
+  std::optional<std::string> Name;
+};
+
+llvm::json::Value toJSON(const OptionType &Params);
+bool fromJSON(const llvm::json::Value &Params, OptionType &R,
+              llvm::json::Path P);
+
+struct OptionDescription {
+  std::optional<std::string> Description;
+  std::vector<lspserver::Location> Declarations;
+  std::vector<lspserver::Location> Definitions;
+  std::optional<std::string> Example;
+  std::optional<OptionType> Type;
+};
+
+llvm::json::Value toJSON(const OptionDescription &Params);
+bool fromJSON(const llvm::json::Value &Params, OptionDescription &R,
+              llvm::json::Path P);
+
+struct OptionField {
+  std::string Name;
+  std::optional<OptionDescription> Description;
+};
+
+llvm::json::Value toJSON(const OptionField &Params);
+bool fromJSON(const llvm::json::Value &Params, OptionField &R,
+              llvm::json::Path P);
+
+using OptionInfoResponse = OptionDescription;
+
+using OptionCompleteResponse = std::vector<OptionField>;
 
 } // namespace nixd
