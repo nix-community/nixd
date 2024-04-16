@@ -1202,6 +1202,7 @@ struct MarkupContent {
   std::string value;
 };
 llvm::json::Value toJSON(const MarkupContent &MC);
+bool fromJSON(const llvm::json::Value &, MarkupContent &, llvm::json::Path);
 
 struct Hover {
   /// The hover's content
