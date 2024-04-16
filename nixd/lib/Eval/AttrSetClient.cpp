@@ -14,6 +14,10 @@ AttrSetClient::AttrSetClient(std::unique_ptr<lspserver::InboundPort> In,
   AttrPathComplete =
       mkOutMethod<AttrPathCompleteParams, AttrPathCompleteResponse>(
           "attrset/attrpathComplete");
+  OptionInfo =
+      mkOutMethod<AttrPathInfoParams, OptionInfoResponse>("attrset/optionInfo");
+  OptionComplete = mkOutMethod<AttrPathCompleteParams, OptionCompleteResponse>(
+      "attrset/optionComplete");
 }
 
 const char *AttrSetClient::getExe() {
