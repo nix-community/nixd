@@ -18,12 +18,21 @@ class Controller : public lspserver::LSPServer {
   // Use this worker for evaluating nixpkgs.
   std::unique_ptr<AttrSetClientProc> NixpkgsEval;
 
+  // Map of option providers.
+  //
+  // e.g. "nixos" -> nixos worker
+  //      "home-manager" -> home-manager worker
+  std::map<std::string, std::unique_ptr<AttrSetClientProc>> Options;
+
   AttrSetClientProc &nixpkgsEval() {
     assert(NixpkgsEval);
     return *NixpkgsEval;
   }
 
   AttrSetClient *nixpkgsClient() { return nixpkgsEval().client(); }
+
+  void evalExprWithProgress(AttrSetClient &Client, const EvalExprParams &Params,
+                            std::string_view Description);
 
   lspserver::DraftStore Store;
 

@@ -24,6 +24,9 @@ namespace {
 /// Items exceed this size should be marked "incomplete" and recomputed.
 constexpr int MaxCompletionSize = 30;
 
+CompletionItemKind OptionKind = CompletionItemKind::Constructor;
+CompletionItemKind OptionAttrKind = CompletionItemKind::Class;
+
 struct ExceedSizeError : std::exception {
   [[nodiscard]] const char *what() const noexcept override {
     return "Size exceeded";
@@ -148,6 +151,84 @@ public:
   }
 };
 
+/// \brief Provide completion list by nixpkgs module system (options).
+class OptionCompletionProvider {
+  AttrSetClient &OptionClient;
+
+  // Where is the module set. (e.g. nixos)
+  std::string ModuleOrigin;
+
+  // Wheter the client support code snippets.
+  bool ClientSupportSnippet;
+
+  void fillInsertText(CompletionItem &Item, const std::string &Name,
+                      const OptionDescription &Desc) const {
+    if (!ClientSupportSnippet) {
+      Item.insertTextFormat = InsertTextFormat::PlainText;
+      Item.insertText = Name + " = " + Desc.Example.value_or("") + ";";
+      return;
+    }
+    Item.insertTextFormat = InsertTextFormat::Snippet;
+    Item.insertText =
+        Name + " = " + "${1:" + Desc.Example.value_or("") + "}" + ";";
+  }
+
+public:
+  OptionCompletionProvider(AttrSetClient &OptionClient,
+                           std::string ModuleOrigin, bool ClientSupportSnippet)
+      : OptionClient(OptionClient), ModuleOrigin(std::move(ModuleOrigin)),
+        ClientSupportSnippet(ClientSupportSnippet) {}
+
+  void completeOptions(std::vector<std::string> Scope, std::string Prefix,
+                       std::vector<CompletionItem> &Items) {
+    std::binary_semaphore Ready(0);
+    OptionCompleteResponse Names;
+    auto OnReply = [&Ready,
+                    &Names](llvm::Expected<OptionCompleteResponse> Resp) {
+      if (!Resp) {
+        lspserver::elog("option worker reported: {0}", Resp.takeError());
+        Ready.release();
+        return;
+      }
+      Names = *Resp; // Copy response to waiting thread.
+      Ready.release();
+    };
+    // Send request.
+    AttrPathCompleteParams Params{std::move(Scope), std::move(Prefix)};
+    OptionClient.optionComplete(Params, std::move(OnReply));
+    Ready.acquire();
+    // Now we have "Names", use these to fill "Items".
+    for (const nixd::OptionField &Field : Names) {
+      CompletionItem Item;
+
+      Item.label = Field.Name;
+      Item.detail = ModuleOrigin;
+
+      if (Field.Description) {
+        const OptionDescription &Desc = *Field.Description;
+        Item.kind = OptionKind;
+        fillInsertText(Item, Field.Name, Desc);
+        Item.documentation = MarkupContent{
+            .kind = MarkupKind::Markdown,
+            .value = Desc.Description.value_or(""),
+        };
+        Item.detail += " | "; // separater between origin and type desc.
+        if (Desc.Type) {
+          std::string TypeName = Desc.Type->Name.value_or("");
+          std::string TypeDesc = Desc.Type->Description.value_or("");
+          Item.detail += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
+        } else {
+          Item.detail += "? (missing type)";
+        }
+        addItem(Items, std::move(Item));
+      } else {
+        Item.kind = OptionAttrKind;
+        addItem(Items, std::move(Item));
+      }
+    }
+  }
+};
+
 } // namespace
 
 void Controller::onCompletion(const CompletionParams &Params,
@@ -165,15 +246,40 @@ void Controller::onCompletion(const CompletionParams &Params,
         CompletionList List;
         try {
           const ParentMapAnalysis &PM = *TU->parentMap();
-          const VariableLookupAnalysis &VLA = *TU->variableLookup();
-          VLACompletionProvider VLAP(VLA);
-          VLAP.complete(*Desc, List.items, PM);
-          if (havePackageScope(*Desc, VLA, PM)) {
-            // Append it with nixpkgs completion
-            // FIXME: handle null nixpkgsClient()
-            NixpkgsCompletionProvider NCP(*nixpkgsClient());
-            auto [Scope, Prefix] = getScopeAndPrefix(*Desc, PM);
-            NCP.completePackages(Scope, Prefix, List.items);
+
+          if (const Node *Name = PM.upTo(*Desc, Node::NK_AttrName)) {
+            // Complete attrpath.
+            auto AttrPath =
+                getSelectAttrPath(static_cast<const AttrName &>(*Name), PM);
+            assert(!AttrPath.empty());
+            std::vector<std::string> Scope;
+            Scope.reserve(AttrPath.size());
+            for (std::string_view Name : AttrPath) {
+              Scope.emplace_back(Name);
+            }
+            std::string Prefix = Scope.back();
+            Scope.pop_back();
+            for (const auto &[Name, Provider] : Options) {
+              AttrSetClient *Client = Options.at(Name)->client();
+              if (!Client) [[unlikely]] {
+                elog("skipped client {0} as it is dead", Name);
+                continue;
+              }
+              OptionCompletionProvider OCP(*Client, Name,
+                                           ClientCaps.CompletionSnippets);
+              OCP.completeOptions(Scope, Prefix, List.items);
+            }
+          } else {
+            const VariableLookupAnalysis &VLA = *TU->variableLookup();
+            VLACompletionProvider VLAP(VLA);
+            VLAP.complete(*Desc, List.items, PM);
+            if (havePackageScope(*Desc, VLA, PM)) {
+              // Append it with nixpkgs completion
+              // FIXME: handle null nixpkgsClient()
+              NixpkgsCompletionProvider NCP(*nixpkgsClient());
+              auto [Scope, Prefix] = getScopeAndPrefix(*Desc, PM);
+              NCP.completePackages(Scope, Prefix, List.items);
+            }
           }
           // Next, add nixpkgs provided names.
         } catch (ExceedSizeError &Err) {
