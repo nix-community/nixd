@@ -249,8 +249,12 @@ void Controller::onCompletion(const CompletionParams &Params,
 
           if (const Node *Name = PM.upTo(*Desc, Node::NK_AttrName)) {
             // Complete attrpath.
-            auto AttrPath =
+            std::vector<std::string_view> AttrPath;
+            if (const auto *Expr = PM.upExpr(*Desc))
+              AttrPath = getValueAttrPath(*Expr, PM);
+            auto Select =
                 getSelectAttrPath(static_cast<const AttrName &>(*Name), PM);
+            AttrPath.insert(AttrPath.end(), Select.begin(), Select.end());
             assert(!AttrPath.empty());
             std::vector<std::string> Scope;
             Scope.reserve(AttrPath.size());
