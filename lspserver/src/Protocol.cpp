@@ -154,6 +154,12 @@ llvm::json::Value toJSON(const Location &P) {
   };
 }
 
+bool fromJSON(const llvm::json::Value &Params, Location &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  return O && O.map("uri", R.uri) && O.map("range", R.range);
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const Location &L) {
   return OS << L.range << '@' << L.uri;
 }
@@ -907,6 +913,16 @@ llvm::json::Value toJSON(const MarkupContent &MC) {
   };
 }
 
+bool fromJSON(const llvm::json::Value &Params, MarkupContent &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  int Kind;
+  if (!O.map("kind", Kind))
+    return false;
+  R.kind = static_cast<MarkupKind>(Kind);
+  return O.mapOptional("value", R.value);
+}
+
 llvm::json::Value toJSON(const Hover &H) {
   llvm::json::Object Result{{"contents", toJSON(H.contents)}};
 
@@ -995,11 +1011,24 @@ bool fromJSON(const llvm::json::Value &Params, CompletionItem &R,
               llvm::json::Path P) {
   llvm::json::ObjectMapper O(Params, P);
   int Kind;
-  O.mapOptional("kind", Kind);
+  if (!O.mapOptional("kind", Kind))
+    return false;
   R.kind = static_cast<CompletionItemKind>(Kind);
-  return O                                  //
-         && O.mapOptional("label", R.label) //
-         && O.mapOptional("data", R.data);  //
+
+  if (!O.mapOptional("insertTextFormat", Kind))
+    return false;
+  R.insertTextFormat = static_cast<InsertTextFormat>(Kind);
+  return O                                                              //
+         && O.map("label", R.label)                                     //
+         && O.mapOptional("detail", R.detail)                           //
+         && O.mapOptional("documentation", R.documentation)             //
+         && O.mapOptional("sortText", R.sortText)                       //
+         && O.mapOptional("filterText", R.filterText)                   //
+         && O.mapOptional("insertText", R.insertText)                   //
+         && O.mapOptional("textEdit", R.textEdit)                       //
+         && O.mapOptional("additionalTextEdits", R.additionalTextEdits) //
+         && O.mapOptional("data", R.data)                               //
+      ;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const CompletionItem &I) {

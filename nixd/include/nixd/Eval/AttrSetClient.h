@@ -24,6 +24,14 @@ class AttrSetClient : public lspserver::LSPServer {
       lspserver::Callback<AttrPathCompleteResponse> Reply)>
       AttrPathComplete;
 
+  llvm::unique_function<void(const AttrPathInfoParams &Params,
+                             lspserver::Callback<OptionInfoResponse> Reply)>
+      OptionInfo;
+
+  llvm::unique_function<void(const AttrPathCompleteParams &Params,
+                             lspserver::Callback<OptionCompleteResponse> Reply)>
+      OptionComplete;
+
 public:
   AttrSetClient(std::unique_ptr<lspserver::InboundPort> In,
                 std::unique_ptr<lspserver::OutboundPort> Out);
@@ -43,6 +51,16 @@ public:
   void attrpathComplete(const AttrPathCompleteParams &Params,
                         lspserver::Callback<AttrPathCompleteResponse> Reply) {
     AttrPathComplete(Params, std::move(Reply));
+  }
+
+  void optionInfo(const AttrPathInfoParams &Params,
+                  lspserver::Callback<OptionInfoResponse> Reply) {
+    OptionInfo(Params, std::move(Reply));
+  }
+
+  void optionComplete(const AttrPathCompleteParams &Params,
+                      lspserver::Callback<OptionCompleteResponse> Reply) {
+    OptionComplete(Params, std::move(Reply));
   }
 
   /// Get executable path for launching the server.

@@ -47,6 +47,7 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
         D.fix("remove extra .").edit(TextEdit::mkRemoval(Tok.range()));
         D.fix("insert dummy attrname")
             .edit(TextEdit::mkInsertion(Tok.rCur(), R"("dummy")"));
+        continue;
       }
       AttrNames.emplace_back(std::move(Next));
       continue;

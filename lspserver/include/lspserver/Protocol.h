@@ -207,6 +207,7 @@ struct Location {
   }
 };
 llvm::json::Value toJSON(const Location &);
+bool fromJSON(const llvm::json::Value &, Location &, llvm::json::Path);
 llvm::raw_ostream &operator<<(llvm::raw_ostream &, const Location &);
 
 /// Extends Locations returned by textDocument/references with extra info.
@@ -1201,6 +1202,7 @@ struct MarkupContent {
   std::string value;
 };
 llvm::json::Value toJSON(const MarkupContent &MC);
+bool fromJSON(const llvm::json::Value &, MarkupContent &, llvm::json::Path);
 
 struct Hover {
   /// The hover's content

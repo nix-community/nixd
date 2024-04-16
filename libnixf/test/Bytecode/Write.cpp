@@ -109,7 +109,7 @@ TEST_F(WriteTest, SelectNullAttr) {
   std::string Str = OS.str();
   std::string_view Data(Str);
 
-  ASSERT_EQ(Str.size(), 146);
+  ASSERT_EQ(Str.size(), 122);
 
   auto Kind = bc::eat<nixbc::ExprKind>(Data);
 
