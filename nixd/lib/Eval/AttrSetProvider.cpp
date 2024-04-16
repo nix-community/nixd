@@ -83,12 +83,26 @@ void fillOptionDeclarations(nix::EvalState &State, nix::Value &V,
   }
 }
 
+void fillOptionType(nix::EvalState &State, nix::Value &VType, OptionType &R) {
+  fillString(State, VType, {"description"}, R.Description);
+  fillString(State, VType, {"name"}, R.Name);
+}
+
 void fillOptionDescription(nix::EvalState &State, nix::Value &V,
                            OptionDescription &R) {
   fillString(State, V, {"description"}, R.Description);
   fillString(State, V, {"example"}, R.Example);
   fillOptionDeclarations(State, V, R);
   // FIXME: add definitions location.
+  if (V.type() == nix::ValueType::nAttrs) [[likely]] {
+    assert(V.attrs);
+    if (auto *It = V.attrs->find(State.symbols.create("type"));
+        It != V.attrs->end()) [[likely]] {
+      OptionType Type;
+      fillOptionType(State, *It->value, Type);
+      R.Type = std::move(Type);
+    }
+  }
 }
 
 } // namespace

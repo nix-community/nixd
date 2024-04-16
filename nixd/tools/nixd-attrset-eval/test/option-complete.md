@@ -40,7 +40,10 @@ CHECK-NEXT:           "range": {
 CHECK-NEXT:             "end": {
      CHECK:     "Description": "Alias of {option}`boot.binfmt.registrations`.",
 CHECK-NEXT:     "Example": null,
-CHECK-NEXT:     "Type": null
+CHECK-NEXT:     "Type": {
+CHECK-NEXT:        "Description": "attribute set of (submodule)",
+CHECK-NEXT:        "Name": "attrsOf"
+CHECK-NEXT:     }
 CHECK-NEXT:   },
 CHECK-NEXT:   "Name": "binfmtMiscRegistrations"
 ```
