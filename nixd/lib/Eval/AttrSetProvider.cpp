@@ -126,9 +126,11 @@ void AttrSetProvider::onEvalExpr(
     const std::string &Name,
     lspserver::Callback<std::optional<std::string>> Reply) {
   try {
+    ValueValid = false;
     nix::Expr *AST = state().parseExprFromString(
         Name, state().rootPath(nix::CanonPath::fromCwd()));
-    state().eval(AST, Nixpkgs);
+    state().eval(AST, Val);
+    ValueValid = true;
     Reply(std::nullopt);
     return;
   } catch (const nix::BaseError &Err) {
@@ -149,7 +151,7 @@ void AttrSetProvider::onAttrPathInfo(
       return;
     }
 
-    nix::Value &Package = nixt::selectStrings(state(), Nixpkgs, AttrPath);
+    nix::Value &Package = nixt::selectStrings(state(), validValue(), AttrPath);
 
     AttrPathInfoResponse R;
     fillPackageDescription(state(), Package, R);
@@ -169,7 +171,8 @@ void AttrSetProvider::onAttrPathComplete(
     const AttrPathCompleteParams &Params,
     lspserver::Callback<AttrPathCompleteResponse> Reply) {
   try {
-    nix::Value &Scope = nixt::selectStrings(state(), Nixpkgs, Params.Scope);
+    nix::Value &Scope =
+        nixt::selectStrings(state(), validValue(), Params.Scope);
 
     state().forceValue(Scope, nix::noPos);
 
@@ -217,7 +220,7 @@ void AttrSetProvider::onOptionInfo(
       return;
     }
 
-    nix::Value &Option = nixt::selectStrings(state(), Nixpkgs, AttrPath);
+    nix::Value &Option = nixt::selectStrings(state(), validValue(), AttrPath);
 
     OptionInfoResponse R;
 
@@ -238,7 +241,8 @@ void AttrSetProvider::onOptionComplete(
     const AttrPathCompleteParams &Params,
     lspserver::Callback<OptionCompleteResponse> Reply) {
   try {
-    nix::Value &Scope = nixt::selectStrings(state(), Nixpkgs, Params.Scope);
+    nix::Value &Scope =
+        nixt::selectStrings(state(), validValue(), Params.Scope);
 
     state().forceValue(Scope, nix::noPos);
 

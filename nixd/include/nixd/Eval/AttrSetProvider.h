@@ -32,12 +32,26 @@ class AttrSetProvider : public lspserver::LSPServer {
 
   std::unique_ptr<nix::EvalState> State;
 
-  nix::Value Nixpkgs;
+  nix::Value Val;
+
+  // If this value is valid
+  bool ValueValid = false;
 
   /// Convenient method for get state. Basically assume this->State is not null
   nix::EvalState &state() {
     assert(State && "State should be allocated by ctor!");
     return *State;
+  }
+
+  /// \brief Check if the value is valid. \throw an exception if it is not.
+  void checkValueValid() const {
+    if (!ValueValid)
+      throw std::runtime_error("value is invalid");
+  }
+
+  nix::Value &validValue() {
+    checkValueValid();
+    return Val;
   }
 
 public:
