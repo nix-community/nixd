@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Configuration.h"
 #include "EvalClient.h"
 #include "NixTU.h"
 
@@ -37,6 +38,24 @@ class Controller : public lspserver::LSPServer {
   lspserver::DraftStore Store;
 
   lspserver::ClientCapabilities ClientCaps;
+
+  std::mutex ConfigLock;
+  Configuration Config; // GUARDED_BY(ConfigLock)
+
+  llvm::unique_function<void(const lspserver::ConfigurationParams &,
+                             lspserver::Callback<llvm::json::Value>)>
+      WorkspaceConfiguration;
+
+  void workspaceConfiguration(const lspserver::ConfigurationParams &Params,
+                              lspserver::Callback<llvm::json::Value> Reply);
+
+  /// \brief Update the configuration, do necessary adjusting for updates.
+  ///
+  /// \example If asked to change eval settings, send eval requests to workers.
+  void updateConfig(Configuration NewConfig);
+
+  /// \brief Get configuration from LSP client. Update the config.
+  void fetchConfig();
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
@@ -121,12 +140,10 @@ class Controller : public lspserver::LSPServer {
 
   void removeDocument(lspserver::PathRef File) { Store.removeDraft(File); }
 
-  void onInitialize( // NOLINT(readability-convert-member-functions-to-static)
-      [[maybe_unused]] const lspserver::InitializeParams &Params,
-      lspserver::Callback<llvm::json::Value> Reply);
+  void onInitialize(const lspserver::InitializeParams &Params,
+                    lspserver::Callback<llvm::json::Value> Reply);
 
-  void
-  onInitialized([[maybe_unused]] const lspserver::InitializedParams &Params) {}
+  void onInitialized(const lspserver::InitializedParams &Params);
 
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
@@ -180,6 +197,12 @@ class Controller : public lspserver::LSPServer {
 
   void onPrepareRename(const lspserver::TextDocumentPositionParams &Params,
                        lspserver::Callback<lspserver::Range> Reply);
+
+  //---------------------------------------------------------------------------/
+  // Workspace features
+  //---------------------------------------------------------------------------/
+  void onDidChangeConfiguration(
+      const lspserver::DidChangeConfigurationParams &Params);
 
 public:
   Controller(std::unique_ptr<lspserver::InboundPort> In,

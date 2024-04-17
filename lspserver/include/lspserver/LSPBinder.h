@@ -7,33 +7,13 @@
 #include <llvm/ADT/StringMap.h>
 #include <llvm/Support/JSON.h>
 
-#include <type_traits>
-
 namespace lspserver {
 
-namespace detail {
-
 template <typename T>
-typename std::enable_if_t<std::is_default_constructible_v<T>, T>
-valueOrDefault(const std::optional<T> &OptionalDefault) {
-  T Result{};
-  if (OptionalDefault) {
-    Result = OptionalDefault.value();
-  }
-  return Result;
-}
-
-template <typename T>
-typename std::enable_if_t<!std::is_default_constructible_v<T>, T>
-valueOrUninitialized(const std::optional<T> &OptionalDefault) {
-  return OptionalDefault.value();
-}
-
-template <typename T>
-llvm::Expected<T> parseParamWithOptionalDefault(
-    const llvm::json::Value &Raw, llvm::StringRef PayloadName,
-    llvm::StringRef PayloadKind, std::optional<T> OptionalDefault = {}) {
-  T Result = valueOrDefault(OptionalDefault);
+llvm::Expected<T> parseParam(const llvm::json::Value &Raw,
+                             llvm::StringRef PayloadName,
+                             llvm::StringRef PayloadKind) {
+  T Result;
   llvm::json::Path::Root Root;
   if (!fromJSON(Raw, Result, Root)) {
     elog("Failed to decode {0} {1}: {2}", PayloadName, PayloadKind,
@@ -49,25 +29,14 @@ llvm::Expected<T> parseParamWithOptionalDefault(
                       fmt_consume(Root.getError())),
         ErrorCode::InvalidParams);
   }
-  return Result;
+  return std::move(Result);
 }
 
-} // namespace detail
-
-template <typename T>
-typename std::enable_if_t<std::is_default_constructible_v<T>, llvm::Expected<T>>
+template <>
+inline llvm::Expected<llvm::json::Value>
 parseParam(const llvm::json::Value &Raw, llvm::StringRef PayloadName,
            llvm::StringRef PayloadKind) {
-  return detail::parseParamWithOptionalDefault<T>(Raw, PayloadName,
-                                                  PayloadKind);
-}
-
-template <typename T>
-llvm::Expected<T>
-parseParamWithDefault(const llvm::json::Value &Raw, llvm::StringRef PayloadName,
-                      llvm::StringRef PayloadKind, T Default) {
-  return detail::parseParamWithOptionalDefault<T>(Raw, PayloadName, PayloadKind,
-                                                  Default);
+  return Raw;
 }
 
 struct HandlerRegistry {

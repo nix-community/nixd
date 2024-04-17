@@ -145,6 +145,13 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("textDocument/prepareRename", this,
                      &Controller::onPrepareRename);
 
+  // Workspace features
+  Registry.addNotification("workspace/didChangeConfiguration", this,
+                           &Controller::onDidChangeConfiguration);
+
+  WorkspaceConfiguration = mkOutMethod<ConfigurationParams, llvm::json::Value>(
+      "workspace/configuration");
+
   PublishDiagnostic = mkOutNotifiction<PublishDiagnosticsParams>(
       "textDocument/publishDiagnostics");
   CreateWorkDoneProgress =
