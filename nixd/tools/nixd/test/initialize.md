@@ -36,6 +36,7 @@ CHECK-NEXT:       "completionProvider": {
 CHECK-NEXT:         "resolveProvider": true
 CHECK-NEXT:       },
 CHECK-NEXT:       "definitionProvider": true,
+CHECK-NEXT:       "documentFormattingProvider": true,
 CHECK-NEXT:       "documentHighlightProvider": true,
 CHECK-NEXT:       "documentSymbolProvider": true,
 CHECK-NEXT:       "hoverProvider": true,

@@ -121,6 +121,7 @@ void Controller::
        {"referencesProvider", true},
        {"documentHighlightProvider", true},
        {"hoverProvider", true},
+       {"documentFormattingProvider", true},
        {"renameProvider",
         Object{
             {"prepareProvider", true},
