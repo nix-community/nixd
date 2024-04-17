@@ -24,13 +24,39 @@ namespace nixf {
 
 /// \brief Represents a definition
 class Definition {
+public:
+  /// \brief "Source" information so we can know where the def comes from.
+  enum DefinitionSource {
+    /// \brief From with <expr>;
+    DS_With,
+
+    /// \brief From let ... in ...
+    DS_Let,
+
+    /// \brief From ambda arg e.g.  a: a + 1
+    DS_LambdaArg,
+
+    /// \brief From lambda formal, e.g. { a }: a + 1
+    DS_LambdaFormal,
+
+    /// \brief From recursive attribute set.  e.g. rec { }
+    DS_Rec,
+
+    /// \brief Builtin names.
+    DS_Builtin,
+  };
+
+private:
   std::vector<const ExprVar *> Uses;
   const Node *Syntax;
+  DefinitionSource Source;
 
 public:
-  explicit Definition(const Node *Syntax) : Syntax(Syntax) {}
-  Definition(std::vector<const ExprVar *> Uses, const Node *Syntax)
-      : Uses(std::move(Uses)), Syntax(Syntax) {}
+  Definition(const Node *Syntax, DefinitionSource Source)
+      : Syntax(Syntax), Source(Source) {}
+  Definition(std::vector<const ExprVar *> Uses, const Node *Syntax,
+             DefinitionSource Source)
+      : Uses(std::move(Uses)), Syntax(Syntax), Source(Source) {}
 
   [[nodiscard]] const Node *syntax() const { return Syntax; }
 
@@ -38,9 +64,11 @@ public:
     return Uses;
   }
 
+  [[nodiscard]] DefinitionSource source() const { return Source; }
+
   void usedBy(const ExprVar &User) { Uses.emplace_back(&User); }
 
-  [[nodiscard]] bool isBuiltin() const { return !Syntax; }
+  [[nodiscard]] bool isBuiltin() const { return Source == DS_Builtin; }
 };
 
 /// \brief A set of variable definitions, which may inherit parent environment.
@@ -106,7 +134,8 @@ private:
 
   std::shared_ptr<EnvNode> dfsAttrs(const SemaAttrs &SA,
                                     const std::shared_ptr<EnvNode> &Env,
-                                    const Node *Syntax);
+                                    const Node *Syntax,
+                                    Definition::DefinitionSource Source);
 
   void emitEnvLivenessWarning(const std::shared_ptr<EnvNode> &NewEnv);
 
