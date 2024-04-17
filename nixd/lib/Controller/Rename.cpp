@@ -28,6 +28,12 @@ llvm::Expected<WorkspaceEdit> rename(const nixf::Node &Desc,
   if (!Def)
     return Def.takeError();
 
+  if (Def->source() == Definition::DS_With)
+    return error("cannot rename `with` defined variables");
+
+  if (Def->isBuiltin())
+    return error("cannot rename builtin variable");
+
   std::vector<TextEdit> Edits;
 
   for (const auto *Use : Def->uses()) {

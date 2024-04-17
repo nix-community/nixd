@@ -44,6 +44,10 @@ void gotoDefinition(const NixTU &TU, const Node &AST, nixf::Position Pos,
   }
 
   if (Expected<const Definition &> ExpDef = findDefinition(*N, *PMA, *VLA)) {
+    if (ExpDef->isBuiltin()) {
+      Reply(error("this is a builtin variable defined by nix interpreter"));
+      return;
+    }
     assert(ExpDef->syntax());
     Reply(Location{
         .uri = std::move(URI),
@@ -134,9 +138,6 @@ nixd::findDefinition(const Node &N, const ParentMapAnalysis &PMA,
     return error("this varaible is not used in var lookup (duplicated attr?)");
 
   assert(Result.Def);
-
-  if (Result.Def->isBuiltin())
-    return error("this is a builtin variable");
 
   return *Result.Def;
 }

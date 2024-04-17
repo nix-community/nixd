@@ -32,10 +32,13 @@ Error highlight(const nixf::Node &Desc, const ParentMapAnalysis &PMA,
           .kind = DocumentHighlightKind::Read,
       });
     }
-    Highlights.emplace_back(DocumentHighlight{
-        .range = toLSPRange(Def->syntax()->range()),
-        .kind = DocumentHighlightKind::Write,
-    });
+    if (Def->syntax()) {
+      const Node &Syntax = *Def->syntax();
+      Highlights.emplace_back(DocumentHighlight{
+          .range = toLSPRange(Syntax.range()),
+          .kind = DocumentHighlightKind::Write,
+      });
+    }
     return Error::success();
   }
   return error("Cannot find definition of this node");
