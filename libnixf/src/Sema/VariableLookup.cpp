@@ -15,13 +15,14 @@ class DefBuilder {
 public:
   void addBuiltin(std::string Name) {
     // Don't need to record def map for builtins.
-    auto _ = add(std::move(Name), nullptr);
+    auto _ = add(std::move(Name), nullptr, Definition::DS_Builtin);
   }
 
   [[nodiscard("Record ToDef Map!")]] std::shared_ptr<Definition>
-  add(std::string Name, const Node *Entry) {
+  add(std::string Name, const Node *Entry,
+      Definition::DefinitionSource Source) {
     assert(!Def.contains(Name));
-    auto NewDef = std::make_shared<Definition>(Entry);
+    auto NewDef = std::make_shared<Definition>(Entry, Source);
     Def.insert({std::move(Name), NewDef});
     return NewDef;
   }
@@ -107,15 +108,17 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
     // Function arg cannot duplicate to it's formal.
     // If it this unluckily happens, we would like to skip this definition.
     if (!Arg.formals() || !Arg.formals()->dedup().contains(Arg.id()->name()))
-      ToDef.insert_or_assign(Arg.id(),
-                             DBuilder.add(Arg.id()->name(), Arg.id()));
+      ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
+                                                    Definition::DS_LambdaArg));
   }
 
   // { foo, bar, ... } : body
   ///  ^~~~~~~~~<--------------  add function formals.
   if (Arg.formals())
     for (const auto &[Name, Formal] : Arg.formals()->dedup())
-      ToDef.insert_or_assign(Formal->id(), DBuilder.add(Name, Formal->id()));
+      ToDef.insert_or_assign(
+          Formal->id(),
+          DBuilder.add(Name, Formal->id(), Definition::DS_LambdaFormal));
 
   auto NewEnv = std::make_shared<EnvNode>(Env, DBuilder.finish(), &Lambda);
 
@@ -135,16 +138,15 @@ void VariableLookupAnalysis::dfsDynamicAttrs(
   }
 }
 
-std::shared_ptr<EnvNode>
-VariableLookupAnalysis::dfsAttrs(const SemaAttrs &SA,
-                                 const std::shared_ptr<EnvNode> &Env,
-                                 const Node *Syntax) {
+std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
+    const SemaAttrs &SA, const std::shared_ptr<EnvNode> &Env,
+    const Node *Syntax, Definition::DefinitionSource Source) {
   if (SA.isRecursive()) {
     // rec { }, or let ... in ...
     DefBuilder DB;
     // For each static names, create a name binding.
     for (const auto &[Name, Attr] : SA.staticAttrs())
-      ToDef.insert_or_assign(&Attr.key(), DB.add(Name, &Attr.key()));
+      ToDef.insert_or_assign(&Attr.key(), DB.add(Name, &Attr.key(), Source));
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
@@ -174,7 +176,8 @@ VariableLookupAnalysis::dfsAttrs(const SemaAttrs &SA,
 void VariableLookupAnalysis::dfs(const ExprAttrs &Attrs,
                                  const std::shared_ptr<EnvNode> &Env) {
   const SemaAttrs &SA = Attrs.sema();
-  std::shared_ptr<EnvNode> NewEnv = dfsAttrs(SA, Env, &Attrs);
+  std::shared_ptr<EnvNode> NewEnv =
+      dfsAttrs(SA, Env, &Attrs, Definition::DS_Rec);
   if (NewEnv != Env) {
     assert(Attrs.isRecursive() &&
            "NewEnv must be created for recursive attrset");
@@ -194,7 +197,7 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
     return;
   const SemaAttrs &SA = Let.attrs()->sema();
   assert(SA.isRecursive() && "let ... in ... attrset must be recursive");
-  std::shared_ptr<EnvNode> NewEnv = dfsAttrs(SA, Env, &Let);
+  std::shared_ptr<EnvNode> NewEnv = dfsAttrs(SA, Env, &Let, Definition::DS_Let);
   if (Let.expr())
     dfs(*Let.expr(), NewEnv);
 
@@ -214,7 +217,8 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
                                  const std::shared_ptr<EnvNode> &Env) {
   auto NewEnv = std::make_shared<EnvNode>(Env, EnvNode::DefMap{}, &With);
   if (!WithDefs.contains(&With)) {
-    auto NewDef = std::make_shared<Definition>(&With.kwWith());
+    auto NewDef =
+        std::make_shared<Definition>(&With.kwWith(), Definition::DS_With);
     ToDef.insert_or_assign(&With.kwWith(), NewDef);
     WithDefs.insert_or_assign(&With, NewDef);
   }
