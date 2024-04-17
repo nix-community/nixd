@@ -1,12 +1,13 @@
 #pragma once
 
 #include "AutoCloseFD.h"
-#include "AutoHUPPID.h"
+
+#include <sys/types.h>
 
 namespace nixd::util {
 
 struct PipedProc {
-  AutoHUPPID PID;
+  pid_t PID;
 
   // Piped descriptors
   AutoCloseFD Stdin;

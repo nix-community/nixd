@@ -2,6 +2,8 @@
 
 #include "nixd/Eval/AttrSetClient.h"
 
+#include <signal.h> // NOLINT(modernize-deprecated-headers)
+
 using namespace nixd;
 using namespace lspserver;
 
@@ -18,6 +20,7 @@ AttrSetClient::AttrSetClient(std::unique_ptr<lspserver::InboundPort> In,
       mkOutMethod<AttrPathInfoParams, OptionInfoResponse>("attrset/optionInfo");
   OptionComplete = mkOutMethod<AttrPathCompleteParams, OptionCompleteResponse>(
       "attrset/optionComplete");
+  Exit = mkOutNotifiction<std::nullptr_t>("exit");
 }
 
 const char *AttrSetClient::getExe() {

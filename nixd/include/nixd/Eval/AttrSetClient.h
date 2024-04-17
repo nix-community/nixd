@@ -32,6 +32,8 @@ class AttrSetClient : public lspserver::LSPServer {
                              lspserver::Callback<OptionCompleteResponse> Reply)>
       OptionComplete;
 
+  llvm::unique_function<void(std::nullptr_t)> Exit;
+
 public:
   AttrSetClient(std::unique_ptr<lspserver::InboundPort> In,
                 std::unique_ptr<lspserver::OutboundPort> Out);
@@ -63,6 +65,8 @@ public:
     OptionComplete(Params, std::move(Reply));
   }
 
+  void exit() { Exit(nullptr); }
+
   /// Get executable path for launching the server.
   /// \returns null terminated string.
   static const char *getExe();
@@ -78,6 +82,7 @@ public:
   /// \returns nullptr if it has been dead.
   AttrSetClient *client();
   ~AttrSetClientProc() {
+    Client.exit();
     Client.closeInbound();
     Input.join();
   }
