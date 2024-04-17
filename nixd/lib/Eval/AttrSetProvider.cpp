@@ -256,7 +256,7 @@ void AttrSetProvider::onOptionComplete(
     for (const auto *AttrPtr :
          Scope.attrs->lexicographicOrder(state().symbols)) {
       const nix::Attr &Attr = *AttrPtr;
-      const std::string &Name = state().symbols[Attr.name];
+      std::string Name = state().symbols[Attr.name];
       if (Name.starts_with(Params.Prefix)) {
         // Add a new "OptionField", see it's type.
         assert(Attr.value);
