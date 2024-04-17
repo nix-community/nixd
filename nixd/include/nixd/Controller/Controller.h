@@ -198,6 +198,9 @@ class Controller : public lspserver::LSPServer {
   void onPrepareRename(const lspserver::TextDocumentPositionParams &Params,
                        lspserver::Callback<lspserver::Range> Reply);
 
+  void onFormat(const lspserver::DocumentFormattingParams &Params,
+                lspserver::Callback<std::vector<lspserver::TextEdit>> Reply);
+
   //---------------------------------------------------------------------------/
   // Workspace features
   //---------------------------------------------------------------------------/

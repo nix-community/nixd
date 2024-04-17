@@ -18,12 +18,22 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
 
   if (Child == 0) {
     // Redirect stdin, stdout, stderr.
+    close(PipeIn[WRITE]);
+    close(PipeOut[READ]);
+    close(PipeErr[READ]);
     dup2(PipeIn[READ], STDIN_FILENO);
     dup2(PipeOut[WRITE], STDOUT_FILENO);
     dup2(PipeErr[WRITE], STDERR_FILENO);
+    close(PipeIn[READ]);
+    close(PipeOut[WRITE]);
+    close(PipeErr[WRITE]);
     // Child process.
     return 0;
   }
+
+  close(PipeIn[READ]);
+  close(PipeOut[WRITE]);
+  close(PipeErr[WRITE]);
 
   if (Child == -1)
     throw std::system_error(errno, std::generic_category());
