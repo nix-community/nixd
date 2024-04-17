@@ -6,7 +6,7 @@
    "jsonrpc":"2.0",
    "id":0,
    "method":"attrset/evalExpr",
-   "params": "import <nixpkgs> { }"
+   "params": "{ a = 1; llvmPackages = { clang = 1; clang-manpages = 1; }; }"
 }
 ```
 
@@ -28,13 +28,7 @@
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": [
 CHECK-NEXT:     "clang",
-CHECK-NEXT:     "clang-manpages",
-CHECK-NEXT:     "clang-unwrapped",
-CHECK-NEXT:     "clangNoCompilerRt",
-CHECK-NEXT:     "clangNoCompilerRtWithLibc",
-CHECK-NEXT:     "clangNoLibc",
-CHECK-NEXT:     "clangNoLibcxx",
-CHECK-NEXT:     "clangUseLLVM"
+CHECK-NEXT:     "clang-manpages"
 ```
 
 ```json

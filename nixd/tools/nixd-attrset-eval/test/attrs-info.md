@@ -6,7 +6,7 @@
    "jsonrpc":"2.0",
    "id":0,
    "method":"attrset/evalExpr",
-   "params": "import <nixpkgs> { }"
+   "params": "{ hello.meta.description = \"A program that produces a familiar, friendly greeting\"; }"
 }
 ```
 
