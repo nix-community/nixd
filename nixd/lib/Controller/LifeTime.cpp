@@ -7,6 +7,7 @@
 
 #include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
+#include "nixd/Eval/Launch.h"
 
 using namespace nixd;
 using namespace util;
@@ -15,8 +16,6 @@ using namespace llvm::cl;
 using namespace lspserver;
 
 namespace {
-
-#define NULL_DEVICE "/dev/null"
 
 opt<std::string> DefaultNixpkgsExpr{
     "nixpkgs-expr",
@@ -31,42 +30,13 @@ opt<std::string> DefaultNixOSOptionsExpr{
          "=  (import <nixpkgs/nixos/modules/module-list.nix>) ++ [ ({...}: { "
          "nixpkgs.hostPlatform = builtins.currentSystem;} ) ] ; })).options")};
 
-opt<std::string> OptionWorkerStderr{
-    "option-worker-stderr", desc("Directory to write options worker stderr"),
-    cat(NixdCategory), init(NULL_DEVICE)};
-
-opt<std::string> NixpkgsWorkerStderr{
-    "nixpkgs-worker-stderr",
-    desc("Writable file path for nixpkgs worker stderr (debugging)"),
-    cat(NixdCategory), init(NULL_DEVICE)};
-
-void startAttrSetEval(const std::string &Name,
-                      std::unique_ptr<AttrSetClientProc> &Worker) {
-  Worker = std::make_unique<AttrSetClientProc>([&Name]() {
-    freopen(Name.c_str(), "w", stderr);
-    return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
-  });
-}
-
-void startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {
-  startAttrSetEval(NixpkgsWorkerStderr, NixpkgsEval);
-}
-
-void startOption(const std::string &Name,
-                 std::unique_ptr<AttrSetClientProc> &Worker) {
-  std::string NewName = NULL_DEVICE;
-  if (OptionWorkerStderr.getNumOccurrences())
-    NewName = OptionWorkerStderr.getValue() + "/" + Name;
-  startAttrSetEval(NewName, Worker);
-}
-
 } // namespace
 
 void Controller::evalExprWithProgress(AttrSetClient &Client,
                                       const EvalExprParams &Params,
                                       std::string_view Description) {
   auto Token = rand();
-  auto Action = [Token, Description,
+  auto Action = [Token, Description = std::string(Description),
                  this](llvm::Expected<EvalExprResponse> Resp) {
     endWorkDoneProgress({
         .token = Token,
@@ -170,7 +140,9 @@ void Controller::
 
   ClientCaps = Params.capabilities;
 
+  // Start default workers.
   startNixpkgs(NixpkgsEval);
+
   if (nixpkgsClient()) {
     evalExprWithProgress(*nixpkgsClient(), DefaultNixpkgsExpr,
                          "nixpkgs entries");
@@ -181,4 +153,8 @@ void Controller::
 
   if (AttrSetClient *Client = Options["nixos"]->client())
     evalExprWithProgress(*Client, DefaultNixOSOptionsExpr, "nixos options");
+
+  fetchConfig();
 }
+
+void Controller::onInitialized(const lspserver::InitializedParams &Params) {}
