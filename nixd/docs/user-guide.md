@@ -219,7 +219,7 @@ Here is the demo video that I used the above installable in my workspace:
 
 Nix evaluator will be lazily peform evaluation on your specified task[^nix-evaluation-peformance].
 
-[^nix-evaluation-peformance]: https://nixos.wiki/wiki/Nix_Evaluation_Performance
+[^nix-evaluation-peformance]: https://wiki.nixos.org/wiki/Nix_Evaluation_Performance
 
 As for language service, we have an custom extension to nix evaluator that allows you to force thunks being evaluated in a desired depth.
 
