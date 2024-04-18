@@ -33,7 +33,10 @@ CHECK-NEXT:         ],
 CHECK-NEXT:         "resolveProvider": false
 CHECK-NEXT:       },
 CHECK-NEXT:       "completionProvider": {
-CHECK-NEXT:         "resolveProvider": true
+CHECK-NEXT:         "resolveProvider": true,
+CHECK-NEXT:         "triggerCharacters": [
+CHECK-NEXT:           "."
+CHECK-NEXT:         ]
 CHECK-NEXT:       },
 CHECK-NEXT:       "definitionProvider": true,
 CHECK-NEXT:       "documentFormattingProvider": true,

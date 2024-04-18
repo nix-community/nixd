@@ -4,6 +4,8 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <optional>
+
 namespace nixd {
 
 /// \brief Search up until there are some node associated with "EnvNode".
@@ -44,5 +46,10 @@ getValueAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
 /// \copydoc getValueAttrPath
 std::vector<std::string_view>
 getSelectAttrPath(const nixf::AttrName &N, const nixf::ParentMapAnalysis &PM);
+
+/// \brief Heuristically find attrpath suitable for "attrpath" completion.
+/// \returns non-empty std::vector attrpath.
+std::optional<std::vector<std::string_view>>
+findAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
 
 } // namespace nixd

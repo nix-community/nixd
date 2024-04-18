@@ -123,3 +123,30 @@ nixd::getSelectAttrPath(const nixf::AttrName &N,
     __builtin_unreachable();
   }
 }
+
+std::optional<std::vector<std::string_view>>
+nixd::findAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM) {
+  if (const Node *Name = PM.upTo(N, Node::NK_AttrName)) {
+    std::vector<std::string_view> AttrPath;
+    if (const auto *Expr = PM.upExpr(N))
+      AttrPath = getValueAttrPath(*Expr, PM);
+    auto Select = getSelectAttrPath(static_cast<const AttrName &>(*Name), PM);
+    AttrPath.insert(AttrPath.end(), Select.begin(), Select.end());
+    assert(!AttrPath.empty());
+    return AttrPath;
+  }
+
+  // Consider this is an "extra" dot.
+  if (const Node *APNode = PM.upTo(N, Node::NK_AttrPath)) {
+    const auto &AP = static_cast<const AttrPath &>(*APNode);
+    std::vector<std::string_view> AttrPathVec;
+    if (const auto *Expr = PM.upExpr(N))
+      AttrPathVec = getValueAttrPath(*Expr, PM);
+    assert(!AP.names().empty());
+    auto Select = getSelectAttrPath(*AP.names().back(), PM);
+    AttrPathVec.insert(AttrPathVec.end(), Select.begin(), Select.end());
+    AttrPathVec.emplace_back("");
+    return AttrPathVec;
+  }
+  return std::nullopt;
+}
