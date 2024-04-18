@@ -58,6 +58,7 @@ void Controller::updateConfig(Configuration NewConfig) {
     }
   }
   if (!Config.options.empty()) {
+    std::lock_guard _(OptionsLock);
     // Stop option workers that are not listed in config.
     for (const auto &[Name, _] : Options) {
       if (!Config.options.contains(Name)) {

@@ -89,10 +89,14 @@ public:
 
 class AttrPath : public Node {
   const std::vector<std::shared_ptr<AttrName>> Names;
+  // FIXME: workaround for just recording the trailing dot.
+  const std::shared_ptr<Misc> TrailingDot;
 
 public:
-  AttrPath(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names)
-      : Node(NK_AttrPath, Range), Names(std::move(Names)) {}
+  AttrPath(LexerCursorRange Range, std::vector<std::shared_ptr<AttrName>> Names,
+           std::shared_ptr<Misc> TrailingDot)
+      : Node(NK_AttrPath, Range), Names(std::move(Names)),
+        TrailingDot(std::move(TrailingDot)) {}
 
   [[nodiscard]] const std::vector<std::shared_ptr<AttrName>> &names() const {
     return Names;
@@ -100,10 +104,11 @@ public:
 
   [[nodiscard]] ChildVector children() const override {
     ChildVector Children;
-    Children.reserve(Names.size());
+    Children.reserve(Names.size() + 1);
     for (const auto &Name : Names) {
       Children.push_back(Name.get());
     }
+    Children.emplace_back(TrailingDot.get());
     return Children;
   }
 };

@@ -36,6 +36,7 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
   assert(LastToken && "LastToken should be set after valid attrname");
   std::vector<std::shared_ptr<AttrName>> AttrNames;
   AttrNames.emplace_back(std::move(First));
+  std::shared_ptr<Misc> TrailingDot;
   while (true) {
     if (Token Tok = peek(); Tok.kind() == tok_dot) {
       consume();
@@ -47,6 +48,7 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
         D.fix("remove extra .").edit(TextEdit::mkRemoval(Tok.range()));
         D.fix("insert dummy attrname")
             .edit(TextEdit::mkInsertion(Tok.rCur(), R"("dummy")"));
+        TrailingDot = std::make_shared<Misc>(Tok.range());
         continue;
       }
       AttrNames.emplace_back(std::move(Next));
@@ -55,7 +57,8 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
     break;
   }
   return std::make_shared<AttrPath>(LexerCursorRange{Begin, LastToken->rCur()},
-                                    std::move(AttrNames));
+                                    std::move(AttrNames),
+                                    std::move(TrailingDot));
 }
 
 std::shared_ptr<Binding> Parser::parseBinding() {

@@ -229,6 +229,20 @@ public:
   }
 };
 
+void completeAttrName(std::vector<std::string> Scope, std::string Prefix,
+                      Controller::OptionMapTy &Options, bool CompletionSnippets,
+                      std::vector<CompletionItem> &List) {
+  for (const auto &[Name, Provider] : Options) {
+    AttrSetClient *Client = Options.at(Name)->client();
+    if (!Client) [[unlikely]] {
+      elog("skipped client {0} as it is dead", Name);
+      continue;
+    }
+    OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
+    OCP.completeOptions(Scope, Prefix, List);
+  }
+}
+
 } // namespace
 
 void Controller::onCompletion(const CompletionParams &Params,
@@ -246,32 +260,19 @@ void Controller::onCompletion(const CompletionParams &Params,
         CompletionList List;
         try {
           const ParentMapAnalysis &PM = *TU->parentMap();
-
-          if (const Node *Name = PM.upTo(*Desc, Node::NK_AttrName)) {
-            // Complete attrpath.
-            std::vector<std::string_view> AttrPath;
-            if (const auto *Expr = PM.upExpr(*Desc))
-              AttrPath = getValueAttrPath(*Expr, PM);
-            auto Select =
-                getSelectAttrPath(static_cast<const AttrName &>(*Name), PM);
-            AttrPath.insert(AttrPath.end(), Select.begin(), Select.end());
-            assert(!AttrPath.empty());
+          if (auto AP = findAttrPath(*Desc, PM)) {
+            // Construct request.
             std::vector<std::string> Scope;
-            Scope.reserve(AttrPath.size());
-            for (std::string_view Name : AttrPath) {
+            Scope.reserve(AP->size());
+            for (std::string_view Name : *AP) {
               Scope.emplace_back(Name);
             }
             std::string Prefix = Scope.back();
             Scope.pop_back();
-            for (const auto &[Name, Provider] : Options) {
-              AttrSetClient *Client = Options.at(Name)->client();
-              if (!Client) [[unlikely]] {
-                elog("skipped client {0} as it is dead", Name);
-                continue;
-              }
-              OptionCompletionProvider OCP(*Client, Name,
-                                           ClientCaps.CompletionSnippets);
-              OCP.completeOptions(Scope, Prefix, List.items);
+            {
+              std::lock_guard _(OptionsLock);
+              completeAttrName(std::move(Scope), std::move(Prefix), Options,
+                               ClientCaps.CompletionSnippets, List.items);
             }
           } else {
             const VariableLookupAnalysis &VLA = *TU->variableLookup();

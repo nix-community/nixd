@@ -117,6 +117,7 @@ void Controller::
        {"completionProvider",
         Object{
             {"resolveProvider", true},
+            {"triggerCharacters", {"."}},
         }},
        {"referencesProvider", true},
        {"documentHighlightProvider", true},
@@ -150,11 +151,13 @@ void Controller::
   }
 
   // Launch nixos worker also.
-  startOption("nixos", Options["nixos"]);
+  {
+    std::lock_guard _(OptionsLock);
+    startOption("nixos", Options["nixos"]);
 
-  if (AttrSetClient *Client = Options["nixos"]->client())
-    evalExprWithProgress(*Client, DefaultNixOSOptionsExpr, "nixos options");
-
+    if (AttrSetClient *Client = Options["nixos"]->client())
+      evalExprWithProgress(*Client, DefaultNixOSOptionsExpr, "nixos options");
+  }
   fetchConfig();
 }
 

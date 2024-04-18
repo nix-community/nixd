@@ -14,16 +14,21 @@
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
+public:
+  using OptionMapTy = std::map<std::string, std::unique_ptr<AttrSetClientProc>>;
+
+private:
   std::unique_ptr<OwnedEvalClient> Eval;
 
   // Use this worker for evaluating nixpkgs.
   std::unique_ptr<AttrSetClientProc> NixpkgsEval;
 
+  std::mutex OptionsLock;
   // Map of option providers.
   //
   // e.g. "nixos" -> nixos worker
   //      "home-manager" -> home-manager worker
-  std::map<std::string, std::unique_ptr<AttrSetClientProc>> Options;
+  OptionMapTy Options; // GUARDED_BY(OptionsLock)
 
   AttrSetClientProc &nixpkgsEval() {
     assert(NixpkgsEval);
