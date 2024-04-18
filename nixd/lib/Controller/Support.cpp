@@ -138,6 +138,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                      &Controller::onReferences);
   Registry.addMethod("textDocument/documentHighlight", this,
                      &Controller::onDocumentHighlight);
+  Registry.addMethod("textDocument/documentLink", this,
+                     &Controller::onDocumentLink);
   Registry.addMethod("textDocument/codeAction", this,
                      &Controller::onCodeAction);
   Registry.addMethod("textDocument/hover", this, &Controller::onHover);
