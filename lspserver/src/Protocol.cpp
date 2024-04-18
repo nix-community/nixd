@@ -882,6 +882,14 @@ static llvm::StringRef toTextKind(MarkupKind Kind) {
   llvm_unreachable("Invalid MarkupKind");
 }
 
+static MarkupKind fromTextKind(llvm::StringRef Kind) {
+  if (Kind == "plaintext")
+    return MarkupKind::PlainText;
+  if (Kind == "markdown")
+    return MarkupKind::Markdown;
+  llvm_unreachable("Invalid MarkupKind");
+}
+
 bool fromJSON(const llvm::json::Value &V, MarkupKind &K, llvm::json::Path P) {
   auto Str = V.getAsString();
   if (!Str) {
@@ -916,10 +924,9 @@ llvm::json::Value toJSON(const MarkupContent &MC) {
 bool fromJSON(const llvm::json::Value &Params, MarkupContent &R,
               llvm::json::Path P) {
   llvm::json::ObjectMapper O(Params, P);
-  int Kind;
-  if (!O.map("kind", Kind))
-    return false;
-  R.kind = static_cast<MarkupKind>(Kind);
+  std::string MarkupKind;
+  O.map("kind", MarkupKind);
+  R.kind = fromTextKind(MarkupKind);
   return O.mapOptional("value", R.value);
 }
 
