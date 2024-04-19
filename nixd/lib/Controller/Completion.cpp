@@ -229,7 +229,8 @@ public:
   }
 };
 
-void completeAttrName(std::vector<std::string> Scope, std::string Prefix,
+void completeAttrName(const std::vector<std::string> &Scope,
+                      const std::string &Prefix,
                       Controller::OptionMapTy &Options, bool CompletionSnippets,
                       std::vector<CompletionItem> &List) {
   for (const auto &[Name, Provider] : Options) {
@@ -260,13 +261,11 @@ void Controller::onCompletion(const CompletionParams &Params,
         CompletionList List;
         try {
           const ParentMapAnalysis &PM = *TU->parentMap();
-          if (auto AP = findAttrPath(*Desc, PM)) {
+          std::vector<std::string> Scope;
+          using PathResult = FindAttrPathResult;
+          auto R = findAttrPath(*Desc, PM, Scope);
+          if (R == PathResult::OK) {
             // Construct request.
-            std::vector<std::string> Scope;
-            Scope.reserve(AP->size());
-            for (std::string_view Name : *AP) {
-              Scope.emplace_back(Name);
-            }
             std::string Prefix = Scope.back();
             Scope.pop_back();
             {

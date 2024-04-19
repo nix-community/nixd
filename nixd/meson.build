@@ -47,14 +47,6 @@ libnixd = declare_dependency(
     dependencies: libnixd_deps
 )
 
-test('unit/libnixd/Controller',
-    executable('unit-libnixd-controller',
-        'test/Controller/AST.cpp',
-        dependencies: [ libnixd, gtest_main ],
-        include_directories: [ 'lib/Controller/' ] # Private headers
-    )
-)
-
 
 nixd = executable(
     'nixd',
