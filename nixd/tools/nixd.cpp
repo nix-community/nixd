@@ -10,6 +10,7 @@
 #include <llvm/Support/CommandLine.h>
 
 using namespace lspserver;
+using namespace nixd;
 
 namespace {
 
@@ -32,11 +33,7 @@ opt<JSONStreamStyle> InputStyle{
     cat(Debug),
     Hidden,
 };
-opt<bool> LitTest{
-    "lit-test",
-    desc("Abbreviation for -input-style=delimited -pretty -log=verbose. "
-         "Intended to simplify lit tests"),
-    init(false), cat(Debug)};
+
 opt<Logger::Level> LogLevel{
     "log", desc("Verbosity of log messages written to stderr"),
     values(
@@ -80,9 +77,6 @@ int main(int argc, char *argv[]) {
 
   auto Controller =
       std::make_unique<nixd::Controller>(std::move(In), std::move(Out));
-
-  if (LitTest)
-    Controller->setLitTest(LitTest);
 
   Controller->run();
 

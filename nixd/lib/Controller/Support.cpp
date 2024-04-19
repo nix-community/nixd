@@ -107,7 +107,7 @@ void Controller::createWorkDoneProgress(
 
 Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                        std::unique_ptr<lspserver::OutboundPort> Out)
-    : LSPServer(std::move(In), std::move(Out)), LitTest(false) {
+    : LSPServer(std::move(In), std::move(Out)) {
 
   // Life Cycle
   Registry.addMethod("initialize", this, &Controller::onInitialize);
