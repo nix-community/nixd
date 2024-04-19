@@ -20,7 +20,7 @@ libnixt = library('nixt',
 )
 
 pkgconfig.generate(name: 'libnixt',
-                   version: 'nightly',
+                   version: '2.0.0',
                    description: 'nix tooling',
                    subdirs: [ 'nixt' ],
                    libraries: libnixt
