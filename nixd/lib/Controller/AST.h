@@ -4,8 +4,6 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
-#include <optional>
-
 namespace nixd {
 
 /// \brief Search up until there are some node associated with "EnvNode".
