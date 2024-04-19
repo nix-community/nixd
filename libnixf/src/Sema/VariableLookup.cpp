@@ -122,6 +122,14 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
 
   auto NewEnv = std::make_shared<EnvNode>(Env, DBuilder.finish(), &Lambda);
 
+  if (Arg.formals()) {
+    for (const auto &Formal : Arg.formals()->members()) {
+      if (const Expr *Def = Formal->defaultExpr()) {
+        dfs(*Def, NewEnv);
+      }
+    }
+  }
+
   dfs(*Lambda.body(), NewEnv);
 
   emitEnvLivenessWarning(NewEnv);

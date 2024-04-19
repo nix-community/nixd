@@ -247,7 +247,7 @@ TEST_F(VLATest, FormalDef) {
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
 
-  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags.size(), 0);
 }
 
 } // namespace
