@@ -1,5 +1,6 @@
 #include "nixd-config.h"
 
+#include "nixd/CommandLine/Options.h"
 #include "nixd/Eval/AttrSetProvider.h"
 
 #include <llvm/Support/CommandLine.h>
@@ -10,6 +11,7 @@
 
 using namespace llvm::cl;
 using namespace lspserver;
+using namespace nixd;
 
 namespace {
 
@@ -28,12 +30,6 @@ opt<JSONStreamStyle> InputStyle{
     cat(Debug),
     Hidden,
 };
-
-opt<bool> LitTest{
-    "lit-test",
-    desc("Abbreviation for -input-style=delimited -pretty -log=verbose. "
-         "Intended to simplify lit tests"),
-    init(false), cat(Debug)};
 
 opt<Logger::Level> LogLevel{
     "log", desc("Verbosity of log messages written to stderr"),
