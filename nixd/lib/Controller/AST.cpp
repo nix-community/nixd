@@ -144,10 +144,11 @@ nixd::FindAttrPathResult nixd::findAttrPath(const nixf::Node &N,
                                             const nixf::ParentMapAnalysis &PM,
                                             std::vector<std::string> &Path) {
   using R = nixd::FindAttrPathResult;
+  // If this is in "inherit", don't consider it is an attrpath.
+  if (PM.upTo(N, Node::NK_Inherit))
+    return R::Inherit;
+
   if (const Node *Name = PM.upTo(N, Node::NK_AttrName)) {
-    // If this is in "inherit", don't consider it is an attrpath.
-    if (const Node *Inherit = PM.upTo(N, Node::NK_Inherit))
-      return R::Inherit;
     try {
       getNestedAttrPath(static_cast<const AttrName &>(*Name), PM, Path);
     } catch (AttrPathHasDynamicError &E) {
