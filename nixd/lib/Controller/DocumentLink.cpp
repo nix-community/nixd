@@ -3,8 +3,7 @@
 /// [Document Link]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentLink
 ///
-/// In nix language there are a few things interesting and it's nice to
-/// underline them.
+/// In Nix language, there are a few interesting constructs worth highlighting:
 ///
 ///   1. URL literal. Writing URls directly without quotes, supported by vscode.
 ///   2. Path. (Append "default.nix", perhaps)
@@ -29,23 +28,26 @@ using namespace lspserver;
 using namespace nixf;
 
 namespace {
-using std::string;
 
-// Resolve expr path to "real" path.
-std::optional<std::string> resolveExprPath(const std::string &File) {
+/// \brief Resolve expr path to "real" path.
+std::optional<std::string> resolveExprPath(const std::string &BasePath,
+                                           const std::string &ExprPath) {
+
+  namespace fs = std::filesystem;
   // FIXME: we do not use complete "symbolic resolve" here.
-  auto Path = std::filesystem::absolute((File));
+  fs::path Path = fs::absolute((BasePath)).remove_filename().append(ExprPath);
 
-  if (!std::filesystem::exists(Path))
+  if (!fs::exists(Path))
     return std::nullopt;
 
-  if (std::filesystem::is_directory(Path))
+  if (fs::is_directory(Path))
     return Path.append("default.nix");
 
-  return std::filesystem::absolute(File);
+  return Path;
 }
 
-void dfs(const Node *N, std::vector<DocumentLink> &Links) {
+void dfs(const Node *N, const std::string &BasePath,
+         std::vector<DocumentLink> &Links) {
   if (!N)
     return;
 
@@ -55,7 +57,7 @@ void dfs(const Node *N, std::vector<DocumentLink> &Links) {
     const auto &Path = static_cast<const ExprPath &>(*N);
     if (Path.parts().isLiteral()) {
       // Provide literal path linking.
-      if (auto Link = resolveExprPath(Path.parts().literal())) {
+      if (auto Link = resolveExprPath(BasePath, Path.parts().literal())) {
         Links.emplace_back(
             DocumentLink{.range = toLSPRange(N->range()),
                          .target = URIForFile::canonicalize(*Link, *Link)});
@@ -69,7 +71,7 @@ void dfs(const Node *N, std::vector<DocumentLink> &Links) {
 
   // Traverse on all children
   for (const Node *Ch : N->children()) {
-    dfs(Ch, Links);
+    dfs(Ch, BasePath, Links);
   }
 }
 
@@ -84,7 +86,7 @@ void Controller::onDocumentLink(
       if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
         // Traverse the AST, provide the links
         std::vector<DocumentLink> Links;
-        dfs(AST.get(), Links);
+        dfs(AST.get(), File, Links);
         Reply(std::move(Links));
       }
     }
