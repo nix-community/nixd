@@ -242,4 +242,12 @@ TEST_F(VLATest, Env) {
   ASSERT_TRUE(Env->defs().contains("y"));
 }
 
+TEST_F(VLATest, FormalDef) {
+  std::shared_ptr<Node> AST = parse("{ a ? 1, b ? a}: b", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
