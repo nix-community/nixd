@@ -3,16 +3,28 @@
 #include "lspserver/Protocol.h"
 
 #include <llvm/ADT/SmallString.h>
+#include <llvm/Support/CommandLine.h>
 
 #include <poll.h>
 #include <sys/poll.h>
 #include <sys/stat.h>
 
+#include <csignal>
 #include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <optional>
 #include <system_error>
+
+namespace {
+
+llvm::cl::opt<int> ClientProcessID{
+    "clientProcessId",
+    llvm::cl::desc(
+        "Client process ID, if this PID died, the server should exit."),
+    llvm::cl::init(getppid())};
+
+} // namespace
 
 namespace lspserver {
 
@@ -157,6 +169,11 @@ bool readLine(int fd, const std::atomic<bool> &Close,
           return true;
         Line += Ch;
       }
+    }
+
+    if (kill(ClientProcessID, 0) < 0) {
+      // Parent died.
+      return false;
     }
   }
 }
