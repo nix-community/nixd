@@ -180,7 +180,7 @@ private:
                           lspserver::Callback<lspserver::CompletionItem> Reply);
 
   void onDefinition(const lspserver::TextDocumentPositionParams &Params,
-                    lspserver::Callback<lspserver::Location> Reply);
+                    lspserver::Callback<llvm::json::Value> Reply);
 
   void
   onReferences(const lspserver::TextDocumentPositionParams &Params,

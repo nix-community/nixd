@@ -26,6 +26,7 @@ using namespace llvm;
 
 using LookupResult = VariableLookupAnalysis::LookupResult;
 using ResultKind = VariableLookupAnalysis::LookupResultKind;
+using Locations = std::vector<Location>;
 
 namespace {
 
@@ -165,6 +166,36 @@ public:
   }
 };
 
+/// \brief Try to get "location" by invoking options worker
+class OptionsDefinitionProvider {
+  AttrSetClient &Client;
+
+public:
+  OptionsDefinitionProvider(AttrSetClient &Client) : Client(Client) {}
+  void resolveLocations(const std::vector<std::string> &Params,
+                        Locations &Locs) {
+    std::binary_semaphore Ready(0);
+    Expected<OptionInfoResponse> Info = error("not replied");
+    OptionCompleteResponse Names;
+    auto OnReply = [&Ready, &Info](llvm::Expected<OptionInfoResponse> Resp) {
+      Info = std::move(Resp);
+      Ready.release();
+    };
+    // Send request.
+
+    Client.optionInfo(Params, std::move(OnReply));
+    Ready.acquire();
+
+    if (!Info) {
+      elog("getting locations: {0}", Info.takeError());
+      return;
+    }
+
+    for (const auto &Decl : Info->Declarations)
+      Locs.emplace_back(Decl);
+  }
+};
+
 } // namespace
 
 Expected<const Definition &>
@@ -191,7 +222,7 @@ nixd::findDefinition(const Node &N, const ParentMapAnalysis &PMA,
 }
 
 void Controller::onDefinition(const TextDocumentPositionParams &Params,
-                              Callback<Location> Reply) {
+                              Callback<llvm::json::Value> Reply) {
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
     std::string File(URI.file());
@@ -200,24 +231,54 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
         const VariableLookupAnalysis &VLA = *TU->variableLookup();
         const ParentMapAnalysis &PM = *TU->parentMap();
         const Node *N = AST->descend({Pos, Pos});
+        Locations Locs;
         if (!N) [[unlikely]] {
           Reply(error("cannot find AST node on given position"));
           return;
+        }
+        if (std::optional<std::vector<std::string_view>> Path =
+                findAttrPath(*N, PM)) {
+          std::lock_guard _(OptionsLock);
+          // For each option worker, try to get it's decl position.
+          for (const auto &[_, Client] : Options) {
+            if (AttrSetClient *C = Client->client()) {
+              OptionsDefinitionProvider ODP(*C);
+              std::vector<std::string> Params;
+              Params.reserve(Path->size());
+              for (const auto &P : *Path)
+                Params.emplace_back(P);
+              ODP.resolveLocations(Params, Locs);
+            }
+          }
         }
         if (havePackageScope(*N, VLA, PM) && nixpkgsClient()) {
           // Ask nixpkgs client what's current package documentation.
           NixpkgsDefinitionProvider NDP(*nixpkgsClient());
           auto [Scope, Name] = getScopeAndPrefix(*N, PM);
-          Expected<Location> Loc =
-              NDP.resolvePackage(std::move(Scope), std::move(Name));
-          if (Loc) {
-            Reply(std::move(*Loc));
-            return;
-          }
-          elog("cannot get nixpkgs definition for this package: {0}",
-               Loc.takeError());
+          if (Expected<Location> Loc =
+                  NDP.resolvePackage(std::move(Scope), std::move(Name)))
+            Locs.emplace_back(*Loc);
+          else
+            elog("cannot get nixpkgs definition for package: {0}",
+                 Loc.takeError());
         }
-        Reply(staticDef(URI, *N, PM, VLA));
+
+        if (Expected<Location> StaticLoc = staticDef(URI, *N, PM, VLA))
+          Locs.emplace_back(*StaticLoc);
+        else
+          elog("cannot get static def location: {0}", StaticLoc.takeError());
+
+        if (Locs.empty()) {
+          Reply(nullptr);
+          return;
+        }
+
+        if (Locs.size() == 1) {
+          Reply(Locs.back());
+          return;
+        }
+
+        Reply(std::move(Locs));
         return;
       }
     }

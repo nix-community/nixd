@@ -132,7 +132,9 @@ nixd::findAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM) {
       AttrPath = getValueAttrPath(*Expr, PM);
     auto Select = getSelectAttrPath(static_cast<const AttrName &>(*Name), PM);
     AttrPath.insert(AttrPath.end(), Select.begin(), Select.end());
-    assert(!AttrPath.empty());
+    // Select "AttrPath" might come from "inherit", thus it can be empty.
+    if (AttrPath.empty())
+      return std::nullopt;
     return AttrPath;
   }
 
