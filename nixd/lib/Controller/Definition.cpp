@@ -236,18 +236,16 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
           Reply(error("cannot find AST node on given position"));
           return;
         }
-        if (std::optional<std::vector<std::string_view>> Path =
-                findAttrPath(*N, PM)) {
+        using PathResult = FindAttrPathResult;
+        std::vector<std::string> Scope;
+        auto R = findAttrPath(*N, PM, Scope);
+        if (R == PathResult::OK) {
           std::lock_guard _(OptionsLock);
           // For each option worker, try to get it's decl position.
           for (const auto &[_, Client] : Options) {
             if (AttrSetClient *C = Client->client()) {
               OptionsDefinitionProvider ODP(*C);
-              std::vector<std::string> Params;
-              Params.reserve(Path->size());
-              for (const auto &P : *Path)
-                Params.emplace_back(P);
-              ODP.resolveLocations(Params, Locs);
+              ODP.resolveLocations(Scope, Locs);
             }
           }
         }

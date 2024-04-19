@@ -4,8 +4,6 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
-#include <optional>
-
 namespace nixd {
 
 /// \brief Search up until there are some node associated with "EnvNode".
@@ -31,25 +29,17 @@ upEnv(const nixf::Node &Desc, const nixf::VariableLookupAnalysis &VLA,
 std::pair<std::vector<std::string>, std::string>
 getScopeAndPrefix(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
 
-/// \brief Find nested attrpath.
-/// e.g.   a.b.c.d
-///               ^<-  a.b.c.d
-/// { a = 1; b = { c = d; }; }
-///                 ^ b.c
-///
-/// SelectAttrPath := { a.b.c.d = 1; }
-///                     ^~~~~~~<--------- such "selection"
-/// ValueAttrPath := N is a "value", find how it's nested.
-std::vector<std::string_view>
-getValueAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
-
-/// \copydoc getValueAttrPath
-std::vector<std::string_view>
-getSelectAttrPath(const nixf::AttrName &N, const nixf::ParentMapAnalysis &PM);
+enum class FindAttrPathResult {
+  OK,
+  Inherit,
+  NotAttrPath,
+  WithDynamic,
+};
 
 /// \brief Heuristically find attrpath suitable for "attrpath" completion.
-/// \returns non-empty std::vector attrpath.
-std::optional<std::vector<std::string_view>>
-findAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
+/// \param[out] Path the attrpath.
+FindAttrPathResult findAttrPath(const nixf::Node &N,
+                                const nixf::ParentMapAnalysis &PM,
+                                std::vector<std::string> &Path);
 
 } // namespace nixd
