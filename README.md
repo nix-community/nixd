@@ -8,7 +8,7 @@
 
 ## About
 
-This is a feature-rich nix language server interoperate with C++ nix.
+This is a feature-rich nix language server interoperating with C++ nix.
 
 Some notable features provided by linking with the Nix library include:
 
