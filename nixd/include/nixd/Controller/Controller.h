@@ -140,7 +140,7 @@ private:
   void actOnDocumentAdd(lspserver::PathRef File,
                         std::optional<int64_t> Version);
 
-  void removeDocument(lspserver::PathRef File) { Store.removeDraft(File); }
+  void removeDocument(lspserver::PathRef File);
 
   void onInitialize(const lspserver::InitializeParams &Params,
                     lspserver::Callback<llvm::json::Value> Reply);

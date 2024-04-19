@@ -27,7 +27,13 @@ std::string getShmName(std::string_view File) {
 
 } // namespace
 
-namespace nixd {
+void Controller::removeDocument(lspserver::PathRef File) {
+  Store.removeDraft(File);
+  {
+    std::lock_guard _(TUsLock);
+    TUs.erase(File);
+  }
+}
 
 void Controller::actOnDocumentAdd(PathRef File,
                                   std::optional<int64_t> Version) {
@@ -167,5 +173,3 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   EndWorkDoneProgress =
       mkOutNotifiction<ProgressParams<WorkDoneProgressEnd>>("$/progress");
 }
-
-} // namespace nixd
