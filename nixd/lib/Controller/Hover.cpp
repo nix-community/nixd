@@ -12,6 +12,8 @@
 
 #include <llvm/Support/Error.h>
 
+#include <semaphore>
+
 using namespace nixd;
 using namespace llvm::json;
 using namespace nixf;
