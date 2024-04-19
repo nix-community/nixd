@@ -13,6 +13,7 @@ libnixd_lib = library(
     'lib/Controller/Definition.cpp',
     'lib/Controller/Diagnostics.cpp',
     'lib/Controller/DocumentHighlight.cpp',
+    'lib/Controller/DocumentLink.cpp',
     'lib/Controller/DocumentSymbol.cpp',
     'lib/Controller/EvalClient.cpp',
     'lib/Controller/FindReferences.cpp',

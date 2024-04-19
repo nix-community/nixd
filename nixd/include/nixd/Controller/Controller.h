@@ -193,6 +193,10 @@ private:
       const lspserver::TextDocumentPositionParams &Params,
       lspserver::Callback<std::vector<lspserver::DocumentHighlight>> Reply);
 
+  void onDocumentLink(
+      const lspserver::DocumentLinkParams &Params,
+      lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply);
+
   void publishDiagnostics(lspserver::PathRef File,
                           std::optional<int64_t> Version,
                           const std::vector<nixf::Diagnostic> &Diagnostics);

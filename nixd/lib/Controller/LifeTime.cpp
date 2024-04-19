@@ -78,6 +78,7 @@ void Controller::
            },
        },
        {"definitionProvider", true},
+       {"documentLinkProvider", Object{}},
        {"documentSymbolProvider", true},
        {
            "semanticTokensProvider",
