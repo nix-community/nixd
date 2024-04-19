@@ -11,6 +11,7 @@
 #include <boost/asio/post.hpp>
 
 #include <semaphore>
+#include <set>
 #include <utility>
 
 using namespace nixd;
@@ -161,6 +162,22 @@ class OptionCompletionProvider {
   // Wheter the client support code snippets.
   bool ClientSupportSnippet;
 
+  static std::string escapeCharacters(const std::set<char> &Charset,
+                                      const std::string &Origin) {
+    // Escape characters listed in charset.
+    std::string Ret;
+    Ret.reserve(Origin.size());
+    for (const auto Ch : Origin) {
+      if (Charset.contains(Ch)) {
+        Ret += "\\";
+        Ret += Ch;
+      } else {
+        Ret += Ch;
+      }
+    }
+    return Ret;
+  }
+
   void fillInsertText(CompletionItem &Item, const std::string &Name,
                       const OptionDescription &Desc) const {
     if (!ClientSupportSnippet) {
@@ -170,7 +187,9 @@ class OptionCompletionProvider {
     }
     Item.insertTextFormat = InsertTextFormat::Snippet;
     Item.insertText =
-        Name + " = " + "${1:" + Desc.Example.value_or("") + "}" + ";";
+        Name + " = " +
+        "${1:" + escapeCharacters({'\\', '$', '}'}, Desc.Example.value_or("")) +
+        "}" + ";";
   }
 
 public:

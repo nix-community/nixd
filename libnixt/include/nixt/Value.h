@@ -2,6 +2,19 @@
 
 namespace nixt {
 
+std::optional<nix::Value> getField(nix::EvalState &State, nix::Value &V,
+                                   std::string_view Field);
+std::optional<std::string_view>
+getFieldString(nix::EvalState &State, nix::Value &V, std::string_view Field);
+
+/// \brief Check if value \p V is an attrset, has the field, and equals to \p
+/// Pred
+bool checkField(nix::EvalState &State, nix::Value &V, std::string_view Field,
+                std::string_view Pred);
+
+/// \brief Check if value is an attrset, and it's "_type" equals to \p Pred
+bool checkType(nix::EvalState &State, nix::Value &V, std::string_view Pred);
+
 bool isOption(nix::EvalState &State, nix::Value &V);
 
 bool isDerivation(nix::EvalState &State, nix::Value &V);

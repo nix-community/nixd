@@ -6,32 +6,48 @@
 
 using namespace nixt;
 
-bool nixt::isOption(nix::EvalState &State, nix::Value &V) {
+std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
+                                         std::string_view Field) {
   State.forceValue(V, nix::noPos);
   if (V.type() != nix::ValueType::nAttrs)
-    return false;
+    return std::nullopt;
 
-  // https://github.com/NixOS/nixpkgs/blob/58ca986543b591a8269cbce3328293ca8d64480f/lib/options.nix#L89
-  try {
-    auto S = attrPathStr(State, V, "_type");
-    return S == "option";
-  } catch (nix::AttrPathNotFound &Error) {
-    return false;
+  nix::Symbol SFiled = State.symbols.create(Field);
+  if (auto *It = V.attrs->find(SFiled); It != V.attrs->end())
+    return *It->value;
+
+  return std::nullopt;
+}
+
+std::optional<std::string_view> nixt::getFieldString(nix::EvalState &State,
+                                                     nix::Value &V,
+                                                     std::string_view Field) {
+  if (auto OptV = getField(State, V, Field)) {
+    State.forceValue(*OptV, nix::noPos);
+    if (OptV->type() == nix::ValueType::nString) {
+      return State.forceStringNoCtx(*OptV, nix::noPos,
+                                    "nixt::getFieldString()");
+    }
   }
+  return std::nullopt;
+}
+
+bool nixt::checkField(nix::EvalState &State, nix::Value &V,
+                      std::string_view Field, std::string_view Pred) {
+  return getFieldString(State, V, Field) == Pred;
+}
+
+bool nixt::checkType(nix::EvalState &State, nix::Value &V,
+                     std::string_view Pred) {
+  return checkField(State, V, "_type", Pred);
+}
+
+bool nixt::isOption(nix::EvalState &State, nix::Value &V) {
+  return checkType(State, V, "option");
 };
 
 bool nixt::isDerivation(nix::EvalState &State, nix::Value &V) {
-  State.forceValue(V, nix::noPos);
-  if (V.type() != nix::ValueType::nAttrs)
-    return false;
-
-  try {
-    // Derivations has a special attribute "type" == "derivation"
-    auto S = attrPathStr(State, V, "type");
-    return S == "derivation";
-  } catch (nix::AttrPathNotFound &Error) {
-    return false;
-  }
+  return checkField(State, V, "type", "derivation");
 }
 
 std::string nixt::attrPathStr(nix::EvalState &State, nix::Value &V,

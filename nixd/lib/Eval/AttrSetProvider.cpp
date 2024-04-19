@@ -91,7 +91,6 @@ void fillOptionType(nix::EvalState &State, nix::Value &VType, OptionType &R) {
 void fillOptionDescription(nix::EvalState &State, nix::Value &V,
                            OptionDescription &R) {
   fillString(State, V, {"description"}, R.Description);
-  fillString(State, V, {"example"}, R.Example);
   fillOptionDeclarations(State, V, R);
   // FIXME: add definitions location.
   if (V.type() == nix::ValueType::nAttrs) [[likely]] {
@@ -101,6 +100,20 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
       OptionType Type;
       fillOptionType(State, *It->value, Type);
       R.Type = std::move(Type);
+    }
+
+    if (auto *It = V.attrs->find(State.symbols.create("example"));
+        It != V.attrs->end()) {
+      State.forceValue(*It->value, It->pos);
+
+      // In nixpkgs some examples are nested in "literalExpression"
+      if (nixt::checkField(State, *It->value, "_type", "literalExpression")) {
+        R.Example = nixt::getFieldString(State, *It->value, "text");
+      } else {
+        std::ostringstream OS;
+        It->value->print(State.symbols, OS);
+        R.Example = OS.str();
+      }
     }
   }
 }
