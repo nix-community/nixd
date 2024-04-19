@@ -4,16 +4,20 @@
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_definition
 
 #include "Definition.h"
+#include "AST.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
-#include "nixf/Basic/Nodes/Attrs.h"
-#include "nixf/Basic/Nodes/Basic.h"
-#include "nixf/Sema/VariableLookup.h"
+
+#include <boost/asio/post.hpp>
 
 #include <llvm/Support/Error.h>
 
-#include <boost/asio/post.hpp>
+#include <nixf/Basic/Nodes/Attrs.h>
+#include <nixf/Basic/Nodes/Basic.h>
+#include <nixf/Sema/VariableLookup.h>
+
+#include <semaphore>
 
 using namespace nixd;
 using namespace nixf;
@@ -24,39 +28,6 @@ using LookupResult = VariableLookupAnalysis::LookupResult;
 using ResultKind = VariableLookupAnalysis::LookupResultKind;
 
 namespace {
-
-void gotoDefinition(const NixTU &TU, const Node &AST, nixf::Position Pos,
-                    URIForFile URI, Callback<Location> &Reply) {
-  const Node *N = AST.descend({Pos, Pos});
-  if (!N) [[unlikely]] {
-    Reply(error("cannot find AST node on given position"));
-    return;
-  }
-
-  const ParentMapAnalysis *PMA = TU.parentMap();
-  assert(PMA && "ParentMap should not be null as AST is not null");
-
-  // OK, this is an variable. Lookup it in VLA entries.
-  const VariableLookupAnalysis *VLA = TU.variableLookup();
-  if (!VLA) [[unlikely]] {
-    Reply(error("cannot get variable analysis for nix unit"));
-    return;
-  }
-
-  if (Expected<const Definition &> ExpDef = findDefinition(*N, *PMA, *VLA)) {
-    if (ExpDef->isBuiltin()) {
-      Reply(error("this is a builtin variable defined by nix interpreter"));
-      return;
-    }
-    assert(ExpDef->syntax());
-    Reply(Location{
-        .uri = std::move(URI),
-        .range = toLSPRange(ExpDef->syntax()->range()),
-    });
-  } else {
-    Reply(ExpDef.takeError());
-  }
-}
 
 const Definition *findSelfDefinition(const Node &N,
                                      const ParentMapAnalysis &PMA,
@@ -117,6 +88,83 @@ const ExprVar *findVar(const Node &N, const ParentMapAnalysis &PMA,
   return static_cast<const ExprVar *>(PMA.upTo(N, Node::NK_ExprVar));
 }
 
+Expected<Location> staticDef(URIForFile URI, const Node &N,
+                             const ParentMapAnalysis &PMA,
+                             const VariableLookupAnalysis &VLA) {
+  Expected<const Definition &> ExpDef = findDefinition(N, PMA, VLA);
+  if (!ExpDef)
+    return ExpDef.takeError();
+
+  if (ExpDef->isBuiltin())
+    return error("this is a builtin variable defined by nix interpreter");
+  assert(ExpDef->syntax());
+
+  return Location{
+      .uri = std::move(URI),
+      .range = toLSPRange(ExpDef->syntax()->range()),
+  };
+}
+
+/// \brief Resolve definition by invoking nixpkgs provider.
+///
+/// Useful for users inspecting nixpkgs packages. For example, someone clicks
+/// "with pkgs; [ hello ]", it's better to goto nixpkgs position, instead of
+/// "with pkgs;"
+class NixpkgsDefinitionProvider {
+  AttrSetClient &NixpkgsClient;
+
+  /// \brief Parse nix-rolled location: file:line -> lsp Location
+  static Location parseLocation(std::string_view Position) {
+    // Firstly, find ":"
+    auto Pos = Position.find_first_of(':');
+    if (Pos == std::string_view::npos) {
+      return Location{
+          .uri = URIForFile::canonicalize(Position, Position),
+          .range = {{0, 0}, {0, 0}},
+      };
+    }
+    int PosL = std::stoi(std::string(Position.substr(Pos + 1)));
+    lspserver::Position P{PosL, PosL};
+    std::string_view File = Position.substr(0, Pos);
+    return Location{
+        .uri = URIForFile::canonicalize(File, File),
+        .range = {P, P},
+    };
+  }
+
+public:
+  NixpkgsDefinitionProvider(AttrSetClient &NixpkgsClient)
+      : NixpkgsClient(NixpkgsClient) {}
+
+  Expected<lspserver::Location> resolvePackage(std::vector<std::string> Scope,
+                                               std::string Name) {
+    std::binary_semaphore Ready(0);
+    Expected<PackageDescription> Desc = error("not replied");
+    auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
+      if (Resp)
+        Desc = *Resp;
+      else
+        Desc = Resp.takeError();
+      Ready.release();
+    };
+    Scope.emplace_back(std::move(Name));
+    NixpkgsClient.attrpathInfo(Scope, std::move(OnReply));
+    Ready.acquire();
+
+    if (!Desc)
+      return Desc.takeError();
+
+    if (!Desc->Position)
+      return error("meta.position is not available for this package");
+
+    try {
+      return parseLocation(*Desc->Position);
+    } catch (std::exception &E) {
+      return error(E.what());
+    }
+  }
+};
+
 } // namespace
 
 Expected<const Definition &>
@@ -149,7 +197,28 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
     std::string File(URI.file());
     if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) [[likely]] {
-        gotoDefinition(*TU, *AST, Pos, std::move(URI), Reply);
+        const VariableLookupAnalysis &VLA = *TU->variableLookup();
+        const ParentMapAnalysis &PM = *TU->parentMap();
+        const Node *N = AST->descend({Pos, Pos});
+        if (!N) [[unlikely]] {
+          Reply(error("cannot find AST node on given position"));
+          return;
+        }
+        if (havePackageScope(*N, VLA, PM) && nixpkgsClient()) {
+          // Ask nixpkgs client what's current package documentation.
+          NixpkgsDefinitionProvider NDP(*nixpkgsClient());
+          auto [Scope, Name] = getScopeAndPrefix(*N, PM);
+          Expected<Location> Loc =
+              NDP.resolvePackage(std::move(Scope), std::move(Name));
+          if (Loc) {
+            Reply(std::move(*Loc));
+            return;
+          }
+          elog("cannot get nixpkgs definition for this package: {0}",
+               Loc.takeError());
+        }
+        Reply(staticDef(URI, *N, PM, VLA));
+        return;
       }
     }
   };
