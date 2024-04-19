@@ -1,11 +1,8 @@
 #include "nixd/Controller/Controller.h"
-#include "nixd/Protocol/Protocol.h"
-#include "nixd/Support/OwnedRegion.h"
 
-#include "nixf/Basic/Diagnostic.h"
-#include "nixf/Bytecode/Write.h"
-#include "nixf/Parse/Parser.h"
-#include "nixf/Sema/VariableLookup.h"
+#include <nixf/Basic/Diagnostic.h>
+#include <nixf/Parse/Parser.h>
+#include <nixf/Sema/VariableLookup.h>
 
 #include <boost/asio/post.hpp>
 
@@ -13,19 +10,6 @@
 
 using namespace lspserver;
 using namespace nixd;
-
-namespace bipc = boost::interprocess;
-
-namespace {
-
-std::string getShmName(std::string_view File) {
-  std::stringstream SS;
-  SS << "nixd-tu-" << getpid() << "-"
-     << reinterpret_cast<std::uintptr_t>(File.data());
-  return SS.str();
-}
-
-} // namespace
 
 void Controller::removeDocument(lspserver::PathRef File) {
   Store.removeDraft(File);
@@ -60,43 +44,12 @@ void Controller::actOnDocumentAdd(PathRef File,
 
     publishDiagnostics(File, Version, Diagnostics);
 
-    // Serialize the AST into shared memory. Prepare for evaluation.
-    std::stringstream OS;
-    nixf::writeBytecode(OS, AST.get());
-    std::string Buf = OS.str();
-    if (Buf.empty()) {
-      lspserver::log("empty AST for {0}", File);
+    {
       std::lock_guard G(TUsLock);
       TUs.insert_or_assign(
           File, std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
                                         std::nullopt, std::move(VLA)));
       return;
-    }
-
-    // Create an mmap()-ed region, and write AST byte code there.
-    std::string ShmName = getShmName(File);
-
-    auto Shm = std::make_unique<util::AutoRemoveShm>(
-        ShmName, static_cast<bipc::offset_t>(Buf.size()));
-
-    auto Region =
-        std::make_unique<bipc::mapped_region>(Shm->get(), bipc::read_write);
-
-    std::memcpy(Region->get_address(), Buf.data(), Buf.size());
-
-    lspserver::log("serialized AST {0} to {1}, size: {2}", File, ShmName,
-                   Buf.size());
-
-    std::lock_guard G(TUsLock);
-    TUs.insert_or_assign(
-        File, std::make_shared<NixTU>(
-                  std::move(Diagnostics), std::move(AST),
-                  util::OwnedRegion{std::move(Shm), std::move(Region)},
-                  std::move(VLA)));
-
-    if (Eval) {
-      Eval->RegisterBC(rpc::RegisterBCParams{
-          ShmName, ".", ".", static_cast<std::int64_t>(Buf.size())});
     }
   };
   Action();
