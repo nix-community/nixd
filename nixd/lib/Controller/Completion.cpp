@@ -270,7 +270,7 @@ void Controller::onCompletion(const CompletionParams &Params,
             Scope.pop_back();
             {
               std::lock_guard _(OptionsLock);
-              completeAttrName(std::move(Scope), std::move(Prefix), Options,
+              completeAttrName(Scope, Prefix, Options,
                                ClientCaps.CompletionSnippets, List.items);
             }
           } else {
