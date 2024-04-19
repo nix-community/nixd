@@ -136,9 +136,6 @@ private:
 
   boost::asio::thread_pool Pool;
 
-  /// In lit-test mode. Disable some concurrency for better text-testing.
-  bool LitTest;
-
   /// Action right after a document is added (including updates).
   void actOnDocumentAdd(lspserver::PathRef File,
                         std::optional<int64_t> Version);
@@ -221,8 +218,6 @@ public:
              std::unique_ptr<lspserver::OutboundPort> Out);
 
   ~Controller() override { Pool.join(); }
-
-  void setLitTest(bool LitTest) { this->LitTest = LitTest; }
 
   bool isReadyToEval() { return Eval && Eval->ready(); }
 };

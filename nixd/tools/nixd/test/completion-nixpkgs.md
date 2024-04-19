@@ -1,4 +1,4 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --nixpkgs-expr='{ a = 1; b = 2; }' --lit-test < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -57,15 +57,15 @@
 ```
 
 ```
-     CHECK:    "label": "AMB-plugins",
+     CHECK:    "kind": 5,
+CHECK-NEXT:    "label": "a",
 CHECK-NEXT:    "score": 0
 CHECK-NEXT:  },
 CHECK-NEXT:  {
 CHECK-NEXT:    "data": "{\"Prefix\":\"\",\"Scope\":[]}",
 CHECK-NEXT:    "kind": 5,
-CHECK-NEXT:    "label": "ArchiSteamFarm",
+CHECK-NEXT:    "label": "b",
 CHECK-NEXT:    "score": 0
-CHECK-NEXT:  },
 ```
 
 

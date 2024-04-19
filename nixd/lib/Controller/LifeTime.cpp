@@ -30,6 +30,21 @@ opt<std::string> DefaultNixOSOptionsExpr{
          "=  (import <nixpkgs/nixos/modules/module-list.nix>) ++ [ ({...}: { "
          "nixpkgs.hostPlatform = builtins.currentSystem;} ) ] ; })).options")};
 
+// Here we try to wrap nixpkgs, nixos options in a single emtpy attrset in test.
+std::string getDefaultNixpkgsExpr() {
+  if (LitTest && !DefaultNixpkgsExpr.getNumOccurrences()) {
+    return "{ }";
+  }
+  return DefaultNixpkgsExpr;
+}
+
+std::string getDefaultNixOSOptionsExpr() {
+  if (LitTest && !DefaultNixOSOptionsExpr.getNumOccurrences()) {
+    return "{ }";
+  }
+  return DefaultNixOSOptionsExpr;
+}
+
 } // namespace
 
 void Controller::evalExprWithProgress(AttrSetClient &Client,
@@ -147,7 +162,7 @@ void Controller::
   startNixpkgs(NixpkgsEval);
 
   if (nixpkgsClient()) {
-    evalExprWithProgress(*nixpkgsClient(), DefaultNixpkgsExpr,
+    evalExprWithProgress(*nixpkgsClient(), getDefaultNixpkgsExpr(),
                          "nixpkgs entries");
   }
 
@@ -157,7 +172,8 @@ void Controller::
     startOption("nixos", Options["nixos"]);
 
     if (AttrSetClient *Client = Options["nixos"]->client())
-      evalExprWithProgress(*Client, DefaultNixOSOptionsExpr, "nixos options");
+      evalExprWithProgress(*Client, getDefaultNixOSOptionsExpr(),
+                           "nixos options");
   }
   fetchConfig();
 }
