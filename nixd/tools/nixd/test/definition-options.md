@@ -63,12 +63,12 @@ CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": {
 CHECK-NEXT:   "range": {
 CHECK-NEXT:     "end": {
-CHECK-NEXT:       "character": 7,
-CHECK-NEXT:       "line": 8
+CHECK-NEXT:       "character": 6,
+CHECK-NEXT:       "line": 7
 CHECK-NEXT:     },
 CHECK-NEXT:     "start": {
-CHECK-NEXT:       "character": 7,
-CHECK-NEXT:       "line": 8
+CHECK-NEXT:       "character": 6,
+CHECK-NEXT:       "line": 7
 CHECK-NEXT:     }
 CHECK-NEXT:   },
 CHECK-NEXT:   "uri": "file:///foo"

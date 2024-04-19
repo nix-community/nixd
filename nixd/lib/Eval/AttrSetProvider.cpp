@@ -48,9 +48,11 @@ void fillUnsafeGetAttrPosLocation(nix::EvalState &State, nix::Value &V,
 
   if (Line.type() == nix::ValueType::nInt &&
       Column.type() == nix::ValueType::nInt) {
-    Loc.range = {
-        {static_cast<int>(Line.integer), static_cast<int>(Column.integer)},
-        {static_cast<int>(Line.integer), static_cast<int>(Column.integer)}};
+
+    // Nix position starts from "1" however lsp starts from zero.
+    lspserver::Position Pos = {static_cast<int>(Line.integer) - 1,
+                               static_cast<int>(Column.integer) - 1};
+    Loc.range = {Pos, Pos};
   }
 }
 
