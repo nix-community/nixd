@@ -35,12 +35,23 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
   LexerCursor Begin = First->lCur();
   assert(LastToken && "LastToken should be set after valid attrname");
   std::vector<std::shared_ptr<AttrName>> AttrNames;
+  const AttrName *PrevName = First.get();
+  const AttrName *NextName = nullptr;
   AttrNames.emplace_back(std::move(First));
-  std::shared_ptr<Misc> TrailingDot;
+  std::vector<std::shared_ptr<Dot>> Dots;
+  auto SyncDot = withSync(tok_dot);
   while (true) {
     if (Token Tok = peek(); Tok.kind() == tok_dot) {
       consume();
       auto Next = parseAttrName();
+      NextName = Next.get();
+      // Make a "dot" node.
+      auto Do = std::make_shared<Dot>(Tok.range(), PrevName, NextName);
+      // Only update "PrevName" if "Next" is not nullptr.
+      // More information could be obtained by those dots.
+      if (NextName)
+        PrevName = NextName;
+      Dots.emplace_back(std::move(Do));
       if (!Next) {
         // extra ".", consider remove it.
         Diagnostic &D =
@@ -48,7 +59,6 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
         D.fix("remove extra .").edit(TextEdit::mkRemoval(Tok.range()));
         D.fix("insert dummy attrname")
             .edit(TextEdit::mkInsertion(Tok.rCur(), R"("dummy")"));
-        TrailingDot = std::make_shared<Misc>(Tok.range());
         continue;
       }
       AttrNames.emplace_back(std::move(Next));
@@ -57,8 +67,7 @@ std::shared_ptr<AttrPath> Parser::parseAttrPath() {
     break;
   }
   return std::make_shared<AttrPath>(LexerCursorRange{Begin, LastToken->rCur()},
-                                    std::move(AttrNames),
-                                    std::move(TrailingDot));
+                                    std::move(AttrNames), std::move(Dots));
 }
 
 std::shared_ptr<Binding> Parser::parseBinding() {

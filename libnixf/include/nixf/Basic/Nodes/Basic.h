@@ -122,4 +122,24 @@ public:
   [[nodiscard]] ChildVector children() const override { return {}; }
 };
 
+/// \brief Holds a "." in the language.
+class Dot : public Node {
+  const Node *Prev;
+  const Node *Next;
+
+public:
+  Dot(LexerCursorRange Range, const Node *Prev, const Node *Next)
+      : Node(NK_Dot, Range), Prev(Prev), Next(Next) {
+    assert(Prev);
+  }
+
+  [[nodiscard]] ChildVector children() const override { return {}; }
+
+  [[nodiscard]] const Node &prev() const {
+    assert(Prev);
+    return *Prev;
+  }
+  [[nodiscard]] const Node *next() const { return Next; }
+};
+
 } // namespace nixf
