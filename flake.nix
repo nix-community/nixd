@@ -24,7 +24,6 @@
         regressionDeps = with pkgs; [
           clang-tools
           nixpkgs-fmt
-          valgrind
         ];
         shellOverride = old: {
           nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
