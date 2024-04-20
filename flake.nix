@@ -29,7 +29,6 @@
           nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
           shellHook = ''
             export PATH="${pkgs.clang-tools}/bin:$PATH"
-            export NIX_DEBUG_INFO_DIRS=${nix.debug}/lib/debug
             export NIX_SRC=${nix.src}
             export NIX_PATH=nixpkgs=${nixpkgs}
           '';
