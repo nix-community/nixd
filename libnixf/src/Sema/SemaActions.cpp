@@ -331,7 +331,7 @@ std::shared_ptr<Expr> Sema::desugarInheritExpr(std::shared_ptr<AttrName> Name,
 
   auto Path = std::make_shared<AttrPath>(
       Range, std::vector<std::shared_ptr<AttrName>>{std::move(Name)},
-      /*TrailingDot=*/nullptr);
+      std::vector<std::shared_ptr<Dot>>{});
   return std::make_shared<ExprSelect>(Range, std::move(E), std::move(Path),
                                       nullptr);
 }

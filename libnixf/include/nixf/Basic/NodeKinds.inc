@@ -9,6 +9,7 @@ NODE(InterpolableParts)
 /// \brief Misc node used for parentheses keywords etc.
 /// \see Misc
 NODE(Misc)
+NODE(Dot)
 NODE(Identifer)
 NODE(AttrName)
 NODE(AttrPath)

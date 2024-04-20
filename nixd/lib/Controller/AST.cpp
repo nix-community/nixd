@@ -158,16 +158,19 @@ nixd::FindAttrPathResult nixd::findAttrPath(const nixf::Node &N,
   }
 
   // Consider this is an "extra" dot.
-  if (const Node *APNode = PM.upTo(N, Node::NK_AttrPath)) {
-    const auto &AP = static_cast<const AttrPath &>(*APNode);
+  if (const Node *DotNode = PM.upTo(N, Node::NK_Dot)) {
+    const auto &D = static_cast<const Dot &>(*DotNode);
+
+    if (D.prev().kind() != Node::NK_AttrName)
+      return R::NotAttrPath;
+
     try {
-      assert(!AP.names().empty());
-      getNestedAttrPath(*AP.names().back(), PM, Path);
+      getNestedAttrPath(static_cast<const AttrName &>(D.prev()), PM, Path);
+      Path.emplace_back("");
+      return R::OK;
     } catch (AttrPathHasDynamicError &E) {
       return R::WithDynamic;
     }
-    Path.emplace_back("");
-    return R::OK;
   }
 
   return R::NotAttrPath;
