@@ -1,7 +1,6 @@
 #include "Parser.h"
 
-namespace nixf {
-
+using namespace nixf;
 using namespace detail;
 
 std::shared_ptr<AttrName> Parser::parseAttrName() {
@@ -204,5 +203,3 @@ std::shared_ptr<ExprAttrs> Parser::parseExprAttrs() {
   return Act.onExprAttrs(LexerCursorRange{Begin, LastToken->rCur()},
                          std::move(Binds), std::move(Rec));
 }
-
-} // namespace nixf

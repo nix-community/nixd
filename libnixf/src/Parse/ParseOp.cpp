@@ -9,6 +9,7 @@
 
 using namespace nixf::tok;
 using namespace nixf::detail;
+using namespace nixf;
 
 /// Operators.
 namespace {
@@ -72,8 +73,6 @@ unsigned getUnaryBP(TokenKind Kind) {
 }
 
 } // namespace
-
-namespace nixf {
 
 std::shared_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
   std::shared_ptr<Expr> Prefix;
@@ -148,5 +147,3 @@ std::shared_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
     }
   }
 }
-
-} // namespace nixf

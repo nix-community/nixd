@@ -5,8 +5,7 @@
 #include <cassert>
 #include <cctype>
 
-namespace nixf {
-
+using namespace nixf;
 using namespace tok;
 
 namespace {
@@ -635,4 +634,3 @@ Token Lexer::lex() {
     consume();
   return finishToken();
 }
-} // namespace nixf

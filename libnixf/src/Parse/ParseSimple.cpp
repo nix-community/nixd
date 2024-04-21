@@ -2,9 +2,8 @@
 
 #include <charconv>
 
-namespace nixf {
-
-using namespace detail;
+using namespace nixf;
+using namespace nixf::detail;
 
 std::shared_ptr<ExprParen> Parser::parseExprParen() {
   Token L = peek();
@@ -107,5 +106,3 @@ std::shared_ptr<Expr> Parser::parseExprSimple() {
     return nullptr;
   }
 }
-
-} // namespace nixf

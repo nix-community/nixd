@@ -1,8 +1,7 @@
 #include "Parser.h"
 
-namespace nixf {
-
-using namespace detail;
+using namespace nixf;
+using namespace nixf::detail;
 
 std::shared_ptr<Interpolation> Parser::parseInterpolation() {
   Token TokDollarCurly = peek();
@@ -110,5 +109,3 @@ std::shared_ptr<ExprString> Parser::parseString(bool IsIndented) {
 
   } // with(PS_String / PS_IndString)
 }
-
-} // namespace nixf
