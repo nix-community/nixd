@@ -59,17 +59,6 @@ void Controller::updateConfig(Configuration NewConfig) {
   }
   if (!Config.options.empty()) {
     std::lock_guard _(OptionsLock);
-    // Stop option workers that are not listed in config.
-    for (const auto &[Name, _] : Options) {
-      if (!Config.options.contains(Name)) {
-        log("stopping option worker {0}, as it is not listed in config", Name);
-        // This "erasing" does not invalidate options iterator.
-        // Only iterators and references to the erased elements are invalidated
-        // [23.1.2/8]
-        Options.erase(Name);
-      }
-    }
-
     // For each option configuration, update the worker.
     for (const auto &[Name, Opt] : Config.options) {
       auto &Client = Options[Name];
