@@ -18,6 +18,17 @@ TEST(Parser, Integer) {
   ASSERT_EQ(static_cast<ExprInt *>(Expr.get())->value(), 1);
 }
 
+TEST(Parser, BigInteger) {
+  auto Src = "111111111111111111111111111"sv;
+  std::vector<Diagnostic> Diags;
+  auto Expr = nixf::parse(Src, Diags);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_IntTooBig);
+  ASSERT_TRUE(Expr);
+  ASSERT_EQ(Expr->kind(), Node::NK_ExprInt);
+  ASSERT_EQ(static_cast<ExprInt *>(Expr.get())->value(), 0);
+}
+
 TEST(Parser, Float) {
   auto Src = "1.0"sv;
   std::vector<Diagnostic> Diags;
