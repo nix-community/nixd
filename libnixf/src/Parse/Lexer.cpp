@@ -54,7 +54,7 @@ std::optional<LexerCursorRange> Lexer::consumeManyOf(std::string_view Chars) {
     return std::nullopt;
   if (Chars.find(peekUnwrap()) != std::string_view::npos) {
     auto Start = Cur;
-    while (Chars.find(peekUnwrap()) != std::string_view::npos) {
+    while (!eof() && Chars.find(peekUnwrap()) != std::string_view::npos) {
       consume();
     }
     return LexerCursorRange{Start, Cur};
