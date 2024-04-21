@@ -9,6 +9,7 @@ DIAG("lex-float-no-exp", FloatNoExp, Fatal,
 DIAG("lex-float-leading-zero", FloatLeadingZero, Warning,
      "float begins with extra zeros `{}` is nixf extension")
 DIAG("parse-expected", Expected, Error, "expected {}")
+DIAG("parse-int-too-big", IntTooBig, Error, "this integer is too big for nix interpreter")
 DIAG("parse-attrpath-extra-dot", AttrPathExtraDot, Error,
      "extra `.` at the end of attrpath")
 DIAG("parse-select-extra-dot", SelectExtraDot, Error,
@@ -35,9 +36,6 @@ DIAG("path-trailing-slash", PathTrailingSlash, Fatal,
 DIAG("merge-diff-rec", MergeDiffRec, Warning,
      "merging two attributes with different `rec` modifiers, the latter "
      "will be implicitly ignored")
-DIAG("bison", BisonParse, Fatal, "{}")
-DIAG("invalid-float", InvalidFloat, Fatal, "invalid float {}")
-DIAG("invalid-integer", InvalidInteger, Fatal, "invalid integer {}")
 DIAG("sema-duplicated-attrname", DuplicatedAttrName, Error,
      "duplicated attrname `{}`")
 DIAG("sema-dynamic-inherit", DynamicInherit, Error,

@@ -80,6 +80,7 @@ if lit.found()
             '-vv',
             meson.current_source_dir() + '/tools/nixd/test'
         ],
+        timeout: 60,
         depends: [ nixd, nixd_attrset_eval ] )
 endif
 

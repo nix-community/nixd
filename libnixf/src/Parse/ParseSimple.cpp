@@ -69,10 +69,14 @@ std::shared_ptr<Expr> Parser::parseExprSimple() {
   }
   case tok_int: {
     consume();
-    NixInt N;
-    std::from_chars_result Result [[maybe_unused]] =
-        std::from_chars(Tok.view().begin(), Tok.view().end(), N);
-    assert(Result.ec == std::errc() && "should be a valid integer");
+    NixInt N = 0;
+    auto [Ptr, Errc] = std::from_chars(Tok.view().begin(), Tok.view().end(), N);
+    if (Errc != std::errc()) {
+      // Cannot decode int from tok_int.
+      assert(Errc == std::errc::result_out_of_range);
+      // emit a diagnostic saying we cannot decode integer to NixInt.
+      Diags.emplace_back(Diagnostic::DK_IntTooBig, Tok.range());
+    }
     return std::make_shared<ExprInt>(Tok.range(), N);
   }
   case tok_float: {
