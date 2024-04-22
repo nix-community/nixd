@@ -20,7 +20,7 @@ bool PrettyPrint = false;
 bool VLA;
 
 void parseArgs(int Argc, const char *Argv[]) {
-  for (unsigned I = 0; I < Argc; I++) {
+  for (int I = 0; I < Argc; I++) {
     if (std::string_view(Argv[I]) == "--pretty-print")
       PrettyPrint = true;
     else if (std::string_view(Argv[I]) == "--variable-lookup")
