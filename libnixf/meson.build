@@ -1,10 +1,11 @@
-libnixf_deps = [ boost, libnixbc ]
+libnixf_deps = [ boost, libnixbc, nlohmann_json ]
 
 libnixf_inc = include_directories('include')
 
 libnixf = library(
     'nixf',
     'src/Basic/Nodes.cpp',
+    'src/Basic/JSONDiagnostic.cpp',
     'src/Basic/Diagnostic.cpp',
     'src/Bytecode/Write.cpp',
     'src/Parse/Lexer.cpp',
@@ -76,5 +77,11 @@ test('unit/libnixf/Sema',
 )
 
 subdir('tools')
+
+nixf_tidy = executable('nixf-tidy',
+    'tools/nixf-tidy.cpp',
+    dependencies: [ nixf ],
+    install: true
+)
 
 install_subdir('include/nixf', install_dir: 'include')
