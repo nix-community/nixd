@@ -1,7 +1,6 @@
 #include "Parser.h"
 
-namespace nixf {
-
+using namespace nixf;
 using namespace detail;
 
 std::shared_ptr<Formal> Parser::parseFormal() {
@@ -146,5 +145,3 @@ std::shared_ptr<ExprLambda> Parser::parseExprLambda() {
   return std::make_shared<ExprLambda>(LexerCursorRange{LCur, LastToken->rCur()},
                                       std::move(Arg), std::move(Body));
 }
-
-} // namespace nixf

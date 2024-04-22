@@ -2,6 +2,8 @@
 
 #include <sstream>
 
+using namespace nixf;
+
 namespace {
 
 std::string simpleFormat(const char *Fmt,
@@ -21,8 +23,6 @@ std::string simpleFormat(const char *Fmt,
 }
 
 } // namespace
-
-namespace nixf {
 
 const char *nixf::Note::sname(NoteKind Kind) {
   switch (Kind) {
@@ -84,5 +84,3 @@ const char *nixf::Note::message(NoteKind Kind) {
 std::string PartialDiagnostic::format() const {
   return simpleFormat(message(), Args);
 }
-
-} // namespace nixf

@@ -1,8 +1,7 @@
 #include "Parser.h"
 
-namespace nixf {
-
-using namespace detail;
+using namespace nixf;
+using namespace nixf::detail;
 
 std::shared_ptr<Expr> Parser::parseExprSelect() {
   std::shared_ptr<Expr> Expr = parseExprSimple();
@@ -312,5 +311,3 @@ std::shared_ptr<ExprWith> Parser::parseExprWith() {
                                     std::move(KwWith), std::move(TokSemi),
                                     std::move(With), std::move(E));
 }
-
-} // namespace nixf

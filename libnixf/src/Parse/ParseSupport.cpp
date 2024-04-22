@@ -3,20 +3,18 @@
 
 #include "Parser.h"
 
-namespace nixf {
+#include "nixf/Parse/Parser.h"
 
-namespace detail {
+using namespace nixf;
 
-Diagnostic &diagNullExpr(std::vector<Diagnostic> &Diags, LexerCursor Loc,
-                         std::string As) {
+Diagnostic &detail::diagNullExpr(std::vector<Diagnostic> &Diags,
+                                 LexerCursor Loc, std::string As) {
   Diagnostic &D =
       Diags.emplace_back(Diagnostic::DK_Expected, LexerCursorRange(Loc));
   D << std::move(As) + " expression";
   D.fix("insert dummy expression").edit(TextEdit::mkInsertion(Loc, " expr"));
   return D;
 }
-
-} // namespace detail
 
 void Parser::pushState(ParserState NewState) {
   resetLookAheadBuf();
@@ -35,8 +33,8 @@ Parser::StateRAII Parser::withState(ParserState NewState) {
 
 Parser::SyncRAII Parser::withSync(TokenKind Kind) { return {*this, Kind}; }
 
-std::shared_ptr<Node> parse(std::string_view Src,
-                            std::vector<Diagnostic> &Diags) {
+std::shared_ptr<Node> nixf::parse(std::string_view Src,
+                                  std::vector<Diagnostic> &Diags) {
   Parser P(Src, Diags);
   return P.parse();
 }
@@ -109,5 +107,3 @@ Parser::ExpectResult Parser::expect(TokenKind Kind) {
       .edit(TextEdit::mkInsertion(Insert, std::string(tok::spelling(Kind))));
   return {&D};
 }
-
-} // namespace nixf
