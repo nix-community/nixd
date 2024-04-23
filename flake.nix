@@ -52,6 +52,15 @@
             pkgs.nixpkgs-fmt
             (import ./nixd/docs/editors/nvim-lsp.nix { inherit pkgs; })
           ];
+          shellHook = ''
+            echo -e "\033[1;34mEntering the nvim test environment...\033[0m"
+            mkdir -p /tmp/NixOS_Home-Manager
+            cp -r ./nixd/docs/examples/NixOS_Home-Manager/* /tmp/NixOS_Home-Manager/
+            cd /tmp/NixOS_Home-Manager
+            echo -e "\033[1;32mNow, you can edit the nix file by running the following command:\033[0m"
+            echo -e "\033[1;33m'nvim-lsp flake.nix'\033[0m"
+            echo -e "\033[1;34mEnvironment setup complete.\033[0m"
+          '';
         };
         devShells.vscodium = pkgs.mkShell {
           nativeBuildInputs = [
