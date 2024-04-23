@@ -372,10 +372,10 @@ let
                 },
                 options = {
                     nixos = {
-                        expr = '(builtins.getFlake "/tmp/nixd-example").nixosConfigurations.hostname.options',
+                        expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").nixosConfigurations.hostname.options',
                     },
                     home_manager = {
-                        expr = '(builtins.getFlake "/tmp/nixd-example").homeConfigurations."user@hostname".options',
+                        expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").homeConfigurations."user@hostname".options',
                     },
                 },
             },
