@@ -5,10 +5,55 @@ Please update this doc (tweaks, tricks, or how to setup for another editor)!
 ## Editor Setup Guide
 
 This is the description about how to setup your editor to use nixd.
-Before you do these steps, please ensure that you have a working nixd binary.
 
-Refer to https://github.com/nix-community/nixd/blob/main/nixd/docs/user-guide.md#installation for more information.
+## Installation - get a working executable
 
+Package `nixd` can be found in [nixpkgs](https://github.com/NixOS/nixpkgs).
+
+<details>
+<summary>NixOS Configuration</summary>
+
+```nix
+{ pkgs, ... }: {
+  environment.systemPackages = with pkgs; [
+    nixd
+  ];
+}
+```
+
+</details>
+
+<details>
+<summary><b>nix-env</b>(legacy commands)</summary>
+On NixOS:
+
+```console
+nix-env -iA nixos.nixd
+```
+
+On Non NixOS:
+
+```console
+nix-env -iA nixpkgs.nixd
+```
+
+</details>
+
+<details>
+<summary><b>nix profile</b></summary>
+
+```console
+nix profile install github:nixos/nixpkgs#nixd
+```
+
+</details>
+
+And our flake.nix provides a package named `nixd` with "unstable" experience.
+
+Note that please do NOT override nixpkgs revision for nixd inputs.
+The source code have tested on specific version on NixOS/nix, which may not work at your version.
+
+## Teach your editor find the executable, and setup configurations.
 
 ### VSCode
 
@@ -64,3 +109,7 @@ A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is
                      :priority 0
                      :server-id 'nixd)))
 ```
+
+## Change the configuration.
+
+Read the [configuration](configuration.md) docs here.

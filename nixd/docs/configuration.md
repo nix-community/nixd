@@ -1,67 +1,4 @@
-## User Guide
-
-### Installation
-
-Package `nixd` can be found in [nixpkgs](https://github.com/NixOS/nixpkgs).
-
-<details>
-<summary>NixOS Configuration</summary>
-
-```nix
-{ pkgs, ... }: {
-  environment.systemPackages = with pkgs; [
-    nixd
-  ];
-}
-```
-
-</details>
-
-<details>
-<summary><b>nix-env</b>(legacy commands)</summary>
-On NixOS:
-
-```console
-nix-env -iA nixos.nixd
-```
-
-On Non NixOS:
-
-```console
-nix-env -iA nixpkgs.nixd
-```
-
-</details>
-
-<details>
-<summary><b>nix profile</b></summary>
-
-```console
-nix profile install github:nixos/nixpkgs#nixd
-```
-
-</details>
-
-And our flake.nix provides a package named `nixd` with "unstable" experience.
-
-Note that please do NOT override nixpkgs revision for nixd inputs.
-The source code have tested on specific version on NixOS/nix, which may not work at your version.
-
-### Build the project from source
-
-This is a guide for build the project from git source.
-
-#### nix-build
-``` sh
-nix-build --expr 'with import <nixpkgs> { }; callPackage ./. { }'
-```
-
-#### Nix Flakes
-``` sh
-nix build -L .#
-```
-
-### Configuration
+## Configuration
 
 
 We support LSP standard `workspace/configuration` for server configurations.
@@ -95,9 +32,8 @@ For advanced users, e.g. having many custom modules, or want to extend anyother 
 * custom module system (home-manager, nix-darwin, flake-parts, ...)
 * custom nixpkgs path, input from your "system" flake
 
-### The configuration
 
-#### Where to place the configuration
+### Where to place the configuration
 
 > In legacy versions (v1.x), configurations are written in ".nixd.json", please remove them and nixd won't even read such files anymore.
 
@@ -173,7 +109,7 @@ For vscode users you should write `settings.json`[^settings] like this:
 ```
 </details>
 
-#### Configuration overview
+### Configuration overview
 
 > Note: This annotated json are under the key "nixd". If you don't know what does exactly this mean please see editor examples above.
 
@@ -211,8 +147,9 @@ For vscode users you should write `settings.json`[^settings] like this:
 }
 ```
 
+### Fields explanation
 
-#### Format
+#### Format ("formating")
 
 To configure which command will be used for formatting, you can change the "formatting" section.
 
@@ -225,7 +162,7 @@ To configure which command will be used for formatting, you can change the "form
 }
 ```
 
-#### Options
+#### Options ("options")
 
 This is our support for nixpkgs option system.
 
