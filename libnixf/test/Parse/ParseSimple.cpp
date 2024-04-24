@@ -337,6 +337,26 @@ TEST(Parser, ParenExpr) {
   std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_RedundantParen);
+
+  // Check the fix.
+
+  const Diagnostic &D = Diags[0];
+
+  ASSERT_EQ(D.fixes().size(), 1);
+
+  const Fix &F = D.fixes()[0];
+
+  ASSERT_EQ(F.message(), "remove ( and )");
+  ASSERT_EQ(F.edits().size(), 2);
+  ASSERT_TRUE(F.edits()[0].isRemoval());
+  ASSERT_EQ(F.edits()[0].oldRange().lCur().offset(), 0);
+  ASSERT_EQ(F.edits()[0].oldRange().rCur().offset(), 1);
+
+  // Also remove )
+  ASSERT_EQ(F.edits()[1].oldRange().lCur().offset(), 2);
+  ASSERT_EQ(F.edits()[1].oldRange().rCur().offset(), 3);
   ASSERT_EQ(AST->kind(), Node::NK_ExprParen);
   ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
   ASSERT_TRUE(AST->range().rCur().isAt(0, 3, 3));
@@ -355,6 +375,25 @@ TEST(Parser, ParenExprMissingRParen) {
   std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
   ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 2);
+
+  {
+    ASSERT_EQ(Diags[1].kind(), Diagnostic::DK_RedundantParen);
+    // Check the fix.
+    const Diagnostic &D = Diags[1];
+
+    ASSERT_EQ(D.fixes().size(), 1);
+
+    const Fix &F = D.fixes()[0];
+
+    ASSERT_EQ(F.message(), "remove (");
+    ASSERT_EQ(F.edits().size(), 1);
+    ASSERT_TRUE(F.edits()[0].isRemoval());
+    ASSERT_EQ(F.edits()[0].oldRange().lCur().offset(), 0);
+    ASSERT_EQ(F.edits()[0].oldRange().rCur().offset(), 1);
+  }
+
   ASSERT_EQ(AST->kind(), Node::NK_ExprParen);
   ASSERT_TRUE(AST->range().lCur().isAt(0, 0, 0));
   ASSERT_TRUE(AST->range().rCur().isAt(0, 2, 2));
