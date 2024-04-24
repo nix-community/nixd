@@ -258,6 +258,13 @@ In our option system, you need to specify which option set you'd like to use.
     // By default there is no home-manager options completion, thus you can add this entry.
     "home-manager": {
       "expr": "(builtins.getFlake \"/home/lyc/flakes\").homeConfigurations.\"lyc@adrastea\".options"
+    },
+
+    // For flake-parts opitons.
+    // Firstly read the docs here to enable "debugging", exposing declarations for nixd.
+    // https://flake.parts/debug
+    "flake-parts": {
+      "expr": "(builtins.getFlake \"/path/to/your/flake\").debug.options"
     }
   }
 }
