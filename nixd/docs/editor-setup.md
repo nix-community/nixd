@@ -53,7 +53,6 @@ The following configuration can be used with the built-in Emacs LSP client: [Egl
 ```
 
 #### lsp-mode
-[This PR](https://github.com/emacs-lsp/lsp-mode/pull/4125) should add nixd support to [LSP Mode](https://github.com/emacs-lsp/lsp-mode).
 
 A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is as follows:
 
