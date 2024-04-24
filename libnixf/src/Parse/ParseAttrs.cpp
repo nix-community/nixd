@@ -133,7 +133,8 @@ std::shared_ptr<Inherit> Parser::parseInherit() {
     }
     break;
   }
-  if (ExpectResult ER = expect(tok_semi_colon); ER.ok())
+  ExpectResult ER = expect(tok_semi_colon);
+  if (ER.ok())
     consume();
   else
     ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
@@ -146,6 +147,10 @@ std::shared_ptr<Inherit> Parser::parseInherit() {
     D.tag(DiagnosticTag::Faded);
     Fix &F = D.fix("remove `inherit` keyword");
     F.edit(TextEdit::mkRemoval(TokInherit.range()));
+    if (ER.ok()) {
+      // Remove ";" also.
+      F.edit(TextEdit::mkRemoval(ER.tok().range()));
+    }
   }
   return std::make_shared<Inherit>(
       LexerCursorRange{TokInherit.lCur(), LastToken->rCur()},
