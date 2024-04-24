@@ -81,31 +81,32 @@ For vscode users you should write `settings.json`[^settings] like this:
 
 <details>
  <summary>Neovim</summary>
- Write your settings in Lua, in `setup()` function argument.
+
+ Configuration via [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) plugin. If you want to make configuration changes based on different projects, you can see nvim-lspconfig official [wiki-Project_local_settings](https://github.com/neovim/nvim-lspconfig/wiki/Project-local-settings)
 
 ```lua
-    nvim_lsp.nixd.setup({
-        on_attach = on_attach(),
-        capabilities = capabilities,
-        settings = {
-            nixd = {
-                nixpkgs = {
-                    expr = "import <nixpkgs> { }",
-                },
-                formatting = {
-                    command = { "nixpkgs-fmt" },
-                },
-                options = {
-                    nixos = {
-                        expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").nixosConfigurations.hostname.options',
-                    },
-                    home_manager = {
-                        expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").homeConfigurations."user@hostname".options',
-                    },
-                },
+local nvim_lsp = require("lspconfig")
+nvim_lsp.nixd.setup({
+   cmd = { "nixd" },
+   settings = {
+      nixd = {
+         nixpkgs = {
+            expr = "import <nixpkgs> { }",
+         },
+         formatting = {
+            command = { "nixpkgs-fmt" },
+         },
+         options = {
+            nixos = {
+               expr = '(builtins.getFlake ("git+file://" + toString ./.)).nixosConfigurations.k-on.options',
             },
-        },
-    })
+            home_manager = {
+               expr = '(builtins.getFlake ("git+file://" + toString ./.)).homeConfigurations."ruixi@k-on".options',
+            },
+         },
+      },
+   },
+})
 ```
 </details>
 
