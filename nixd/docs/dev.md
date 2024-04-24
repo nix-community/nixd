@@ -1,5 +1,56 @@
 ## Developers' Manual
 
+### Hack nixd from source
+
+Clone this project and `cd` into the cloned repoistory.
+
+Enter the development shell, using
+
+```
+nix develop
+```
+
+> Tip: use `direnv` & the vscode extension (direnv) + clangd, gives you IDE experience in vsocde
+> Write `echo "use flake" >> .envrc` should be sufficient for basic setup.
+
+Then configure the project, using meson.
+* `--buildtype=debug` is suitable for most developers.
+* `--prefix=` is used for non-privileged installation[^prefix-ignore].
+* `--default-library=static` enable static linking for `libnixf`, `libnixt`, ... thus you can avoid RPATH issues in custom installation prefix.
+* `-Dwerror=true` to make sure you can pass nixd CI (we enable Werror in testing env).
+
+[^prefix-ignore]: after the installation, your worktree is tidy. A trick to resolve this is: `echo "local" >> .git/info/exclude`.
+
+```
+meson setup build --buildtype=debug --default-library=static --prefix=$PWD/local/install -Dwarning_level=3 -Dwerror=true
+```
+
+Finally, invoke
+
+```
+meson compile -C build
+```
+
+And
+
+```
+ninja -C build install
+```
+
+Then you can lauch an editor to quick test nixd, under `local/install/bin`.
+
+> Note: `nixd` cannot be properly launched from "build" directory (i.e. it requires installation for editor testing).
+
+To run unit/regression test, invoke:
+
+```
+ninja -C build test
+```
+
+Remember to make sure unit/regression tests are passing before submiting PRs!
+
+Happy hacking!
+
 
 ### Design
 
