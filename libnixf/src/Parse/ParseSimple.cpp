@@ -50,6 +50,7 @@ std::shared_ptr<ExprParen> Parser::parseExprParen() {
     if (mayProducedBySimple(Expr.get())) {
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_RedundantParen, LParen->range());
+      D.tag(DiagnosticTag::Faded);
       Fix &F = D.fix("remove ( and )");
       F.edit(TextEdit::mkRemoval(LParen->range()));
       F.edit(TextEdit::mkRemoval(RParen->range()));
@@ -63,6 +64,7 @@ std::shared_ptr<ExprParen> Parser::parseExprParen() {
     if (mayProducedBySimple(Expr.get())) {
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_RedundantParen, LParen->range());
+      D.tag(DiagnosticTag::Faded);
       Fix &F = D.fix("remove (");
       F.edit(TextEdit::mkRemoval(LParen->range()));
     }
