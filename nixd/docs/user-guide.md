@@ -66,13 +66,14 @@ nix build -L .#
 
 We support LSP standard `workspace/configuration` for server configurations.
 
-### Default configuration
+### Default configuration & Who needs configuration
 
 Most important part of package/options features is the path of "nixpkgs".
 By default, this is search via standard nix search path.
 That is, find nixpkgs via `<nixpkgs>`.
 
 For nix-channels users: nixos option & package features shall work out of box, without any extra effort.
+
 For nix-flake users: (suggestion) you can set $NIX_PATH env to your flake input. e.g.
 
 ```nix
@@ -83,9 +84,98 @@ For nix-flake users: (suggestion) you can set $NIX_PATH env to your flake input.
 }
 ```
 
+If you do not config anything in nixd, here are the defaults (suitable for most nix newbies).
+
+* nixpkgs packages comes from `import <nixpkgs> { }`
+* nixos options, evaluated from `<nixpkgs>`
+
+For advanced users, e.g. having many custom modules, or want to extend anyother options system,
+"options" field must be extended in the settings, to tell nixd how to get the modules. tldr:
+
+* custom module system (home-manager, nix-darwin, flake-parts, ...)
+* custom nixpkgs path, input from your "system" flake
+
 ### The configuration
 
-Configuration overview:
+#### Where to place the configuration
+
+> In legacy versions (v1.x), configurations are written in ".nixd.json", please remove them and nixd won't even read such files anymore.
+
+All configuration should go in `nixd` section.
+`nixd` accept language server protocol specified `workspace/configuration` to fetch config file.
+So the location of configuration file basically determined by your editor setup.
+
+
+> Please extend this list for your editor, thanks!
+
+<details>
+ <summary>VSCode</summary>
+
+For vscode users you should write `settings.json`[^settings] like this:
+
+[^settings]: the file could be applied per-workspace, i.e. `.vscode/settings.json`, our globally, remotely. VSCode users should familiar with [these locations](https://code.visualstudio.com/docs/getstarted/settings).
+
+
+```
+{
+    "nix.serverSettings": {
+        // settings for 'nixd' LSP
+        "nixd": {
+            "formatting": {
+                // This is the default if ommited.
+                "command": [ "nixpkgs-fmt" ]
+            },
+            "options": {
+                // By default, this entriy will be read from `import <nixpkgs> { }`
+                // You can write arbitary nix expression here, to produce valid "options" declaration result.
+                // Tip: for flake-based configuration, utilize `builtins.getFlake`
+                "nixos": {
+                    "expr": "(builtins.getFlake \"/absolute/path/to/flake\").nixosConfigurations.<name>.options"
+                },
+                "home-manager": {
+                    "expr": "(builtins.getFlake \"/absolute/path/to/flake\").homeConfigurations.<name>.options"
+                }
+            }
+        }
+  }
+}
+```
+
+</details>
+
+<details>
+ <summary>Neovim</summary>
+ Write your settings in Lua, in `setup()` function argument.
+
+```lua
+    nvim_lsp.nixd.setup({
+        on_attach = on_attach(),
+        capabilities = capabilities,
+        settings = {
+            nixd = {
+                nixpkgs = {
+                    expr = "import <nixpkgs> { }",
+                },
+                formatting = {
+                    command = { "nixpkgs-fmt" },
+                },
+                options = {
+                    nixos = {
+                        expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").nixosConfigurations.hostname.options',
+                    },
+                    home_manager = {
+                        expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").homeConfigurations."user@hostname".options',
+                    },
+                },
+            },
+        },
+    })
+```
+</details>
+
+#### Configuration overview
+
+> Note: This annotated json are under the key "nixd". If you don't know what does exactly this mean please see editor examples above.
 
 ```jsonc
 {
