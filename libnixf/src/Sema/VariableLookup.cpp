@@ -79,6 +79,8 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     if (EnclosedWith) {
       // Escaping from "with" to outer scope.
       // https://github.com/NixOS/nix/issues/490
+
+      assert(WithEnv && "EnclosedWith -> WithEnv");
       // Make a diagnostic.
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_EscapingWith, Var.range());
