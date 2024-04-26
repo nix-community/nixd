@@ -100,6 +100,15 @@ std::shared_ptr<Expr> Parser::parseExpr() {
       }
       break;
     }
+    case tok_r_curly:
+      switch (peek(2).kind()) {
+      case tok_at:    // { } @
+      case tok_colon: // { } :
+        return parseExprLambda();
+      default:
+        break;
+      }
+      break;
     case tok_ellipsis: // { ...
       return parseExprLambda();
     default:
