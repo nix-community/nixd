@@ -177,12 +177,10 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
-    // inherit (expr) attrs;
-    //         ~~~~~~<------- this expression should have "parent scope".
     for (const auto &[_, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
         continue;
-      dfs(*Attr.value(), Attr.fromInherit() ? Env : NewEnv);
+      dfs(*Attr.value(), NewEnv);
     }
 
     dfsDynamicAttrs(SA.dynamicAttrs(), NewEnv);

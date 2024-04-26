@@ -262,4 +262,14 @@ TEST_F(VLATest, EscapingWith) {
   ASSERT_EQ(D.notes().size(), 2);
 }
 
+TEST_F(VLATest, InheritRec) {
+  // Make sure inheirt (expr), the expression is binded to "NewEnv".
+  std::shared_ptr<Node> AST =
+      parse("rec { inherit (foo) bar; foo.bar = 1; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
