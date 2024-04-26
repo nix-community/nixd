@@ -232,7 +232,8 @@ void AttrSetProvider::onOptionInfo(
       return;
     }
 
-    nix::Value &Option = nixt::selectStrings(state(), Nixpkgs, AttrPath);
+    nix::Value &Option = nixt::selectOptions(
+        state(), Nixpkgs, nixt::toSymbols(state().symbols, AttrPath));
 
     OptionInfoResponse R;
 
@@ -253,7 +254,8 @@ void AttrSetProvider::onOptionComplete(
     const AttrPathCompleteParams &Params,
     lspserver::Callback<OptionCompleteResponse> Reply) {
   try {
-    nix::Value &Scope = nixt::selectStrings(state(), Nixpkgs, Params.Scope);
+    nix::Value &Scope = nixt::selectOptions(
+        state(), Nixpkgs, nixt::toSymbols(state().symbols, Params.Scope));
 
     state().forceValue(Scope, nix::noPos);
 
