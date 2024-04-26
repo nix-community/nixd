@@ -43,6 +43,11 @@ bool EnvNode::isLive() const {
 void VariableLookupAnalysis::emitEnvLivenessWarning(
     const std::shared_ptr<EnvNode> &NewEnv) {
   for (const auto &[Name, Def] : NewEnv->defs()) {
+    // If the definition comes from lambda arg, omit the diagnostic
+    // because there is no elegant way to "fix" this trivially & keep
+    // the lambda signature.
+    if (Def->source() == Definition::DS_LambdaArg)
+      continue;
     if (Def->uses().empty()) {
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_DefinitionNotUsed,
                                          Def->syntax()->range());
