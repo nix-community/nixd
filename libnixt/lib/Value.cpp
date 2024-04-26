@@ -109,3 +109,45 @@ nix::Value &nixt::selectAttrPath(nix::EvalState &State, nix::Value &V,
   nix::Value &Nested = selectAttr(State, V, *Begin);
   return selectAttrPath(State, Nested, ++Begin, End);
 }
+
+nix::Value &nixt::selectOptions(nix::EvalState &State, nix::Value &V,
+                                std::vector<nix::Symbol>::const_iterator Begin,
+                                std::vector<nix::Symbol>::const_iterator End) {
+  if (Begin == End)
+    return V;
+
+  if (isOption(State, V)) {
+    // If currently "V" is an option, it can still be submodules.
+    //
+    // e.g. users.users <-- the main option stops at here.
+    //      networking.interfaces
+    //
+    // Take care of such case.
+    nix::Value &Type = selectAttr(State, V, State.sType);
+    if (checkField(State, Type, "name", "attrsOf")) {
+      nix::Value NestedTypes =
+          selectAttr(State, Type, State.symbols.create("nestedTypes"));
+      nix::Value ElemType =
+          selectAttr(State, NestedTypes, State.symbols.create("elemType"));
+
+      if (checkField(State, ElemType, "name", "submodule")) {
+        // Current iterator may be ommited, and V becomes "V.getSubOptions []"
+        nix::Value &GetSubOptions =
+            selectAttr(State, ElemType, State.symbols.create("getSubOptions"));
+
+        nix::Value EmptyList;
+        EmptyList.mkList(0);
+
+        // Invoke "GetSubOptions"
+        nix::Value Next;
+        State.callFunction(GetSubOptions, EmptyList, Next, nix::noPos);
+
+        return selectOptions(State, Next, ++Begin, End);
+      }
+    }
+  }
+
+  // Otherwise, simply select it.
+  nix::Value &Nested = selectAttr(State, V, *Begin);
+  return selectOptions(State, Nested, ++Begin, End);
+}

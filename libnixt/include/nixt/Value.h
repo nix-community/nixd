@@ -33,10 +33,23 @@ std::vector<nix::Symbol> toSymbols(nix::SymbolTable &STable,
 /// \brief Select attribute \p Attr
 nix::Value &selectAttr(nix::EvalState &State, nix::Value &V, nix::Symbol Attr);
 
+nix::Value &selectOption(nix::EvalState &State, nix::Value &V,
+                         nix::Symbol Attr);
+
 /// \brief Given an attrpath in nix::Value \p V, select it
 nix::Value &selectAttrPath(nix::EvalState &State, nix::Value &V,
                            std::vector<nix::Symbol>::const_iterator Begin,
                            std::vector<nix::Symbol>::const_iterator End);
+
+/// \brief Select the option declaration list, \p V,  dive into "submodules".
+nix::Value &selectOptions(nix::EvalState &State, nix::Value &V,
+                          std::vector<nix::Symbol>::const_iterator Begin,
+                          std::vector<nix::Symbol>::const_iterator End);
+
+inline nix::Value &selectOptions(nix::EvalState &State, nix::Value &V,
+                                 const std::vector<nix::Symbol> &AttrPath) {
+  return selectOptions(State, V, AttrPath.begin(), AttrPath.end());
+}
 
 /// \copydoc selectAttrPath
 inline nix::Value &selectSymbols(nix::EvalState &State, nix::Value &V,
