@@ -73,6 +73,7 @@ stdenv.mkDerivation {
   '';
 
   meta = {
+    mainProgram = "nixd";
     description = "Nix language server";
     homepage = "https://github.com/nix-community/nixd";
     license = lib.licenses.lgpl3Plus;
