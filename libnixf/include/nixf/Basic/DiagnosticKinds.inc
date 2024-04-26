@@ -9,7 +9,8 @@ DIAG("lex-float-no-exp", FloatNoExp, Fatal,
 DIAG("lex-float-leading-zero", FloatLeadingZero, Warning,
      "float begins with extra zeros `{}` is nixf extension")
 DIAG("parse-expected", Expected, Error, "expected {}")
-DIAG("parse-int-too-big", IntTooBig, Error, "this integer is too big for nix interpreter")
+DIAG("parse-int-too-big", IntTooBig, Error,
+     "this integer is too big for nix interpreter")
 DIAG("parse-redundant-paren", RedundantParen, Warning, "redundant parentheses")
 DIAG("parse-attrpath-extra-dot", AttrPathExtraDot, Error,
      "extra `.` at the end of attrpath")
@@ -58,4 +59,10 @@ DIAG("sema-def-not-used", DefinitionNotUsed, Warning,
 DIAG("sema-extra-rec", ExtraRecursive, Warning,
      "attrset is not necessary to be `rec`ursive ")
 DIAG("sema-extra-with", ExtraWith, Warning, "unused `with` expression")
+
+// let a = 1; b = { a = 2; }; with b;  a
+// "a" will bind to "let", not "with", that is not very intuitive.
+DIAG("sema-escaping-with", EscapingWith, Warning,
+     "this variable will escape nested `with`, binding to static name")
+
 #endif // DIAG
