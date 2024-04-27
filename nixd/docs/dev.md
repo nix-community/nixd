@@ -39,7 +39,8 @@ ninja -C build install
 
 Then you can lauch an editor to quick test nixd, under `local/install/bin`.
 
-> Note: `nixd` cannot be properly launched from "build" directory (i.e. it requires installation for editor testing).
+> [!WARNING]
+> `nixd` cannot be properly launched from "build" directory (i.e. it requires installation for editor testing).
 
 To run unit/regression test, invoke:
 

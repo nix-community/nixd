@@ -112,7 +112,8 @@ nvim_lsp.nixd.setup({
 
 ### Configuration overview
 
-> Note: This annotated json are under the key "nixd". If you don't know what does exactly this mean please see editor examples above.
+> [!NOTE]
+> This annotated json are under the key "nixd". If you don't know what does exactly this mean please see editor examples above.
 
 ```jsonc
 {
