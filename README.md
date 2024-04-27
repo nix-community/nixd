@@ -27,5 +27,6 @@ We have tested some working & reproducible [editor environments](/nixd/docs/edit
 
 - [Editor Setup](nixd/docs/editor-setup.md) (get basic working language server out of box)
 - [Configuration](nixd/docs/configuration.md) (see how to, and which options are tunable)
+- [Features](nixd/docs/features.md) (features explanation)
 - [Developers' Manual](nixd/docs/dev.md) (internal design, contributing)
 - Project matrix room: https://matrix.to/#/#nixd:matrix.org
