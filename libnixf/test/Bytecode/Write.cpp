@@ -167,7 +167,7 @@ TEST_F(WriteTest, Complex) {
   std::string Str = OS.str();
   std::string_view Data(Str);
 
-  ASSERT_EQ(Str.size(), 2238);
+  ASSERT_EQ(Str.size(), 3334);
 
   auto Kind = bc::eat<nixbc::ExprKind>(Data);
 

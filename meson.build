@@ -59,6 +59,7 @@ gtest_main = dependency('gtest_main')
 llvm = dependency('llvm')
 boost = dependency('boost')
 fmt = dependency('fmt')
+nlohmann_json = dependency('nlohmann_json')
 
 backtrace = cpp.find_library('backtrace')
 lit = find_program('lit', required: false)

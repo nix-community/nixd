@@ -250,4 +250,26 @@ TEST_F(VLATest, FormalDef) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, EscapingWith) {
+  std::shared_ptr<Node> AST = parse("a: with { a = 1; b = 2; }; a + b", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  const Diagnostic &D = Diags[0];
+
+  ASSERT_EQ(D.notes().size(), 2);
+}
+
+TEST_F(VLATest, InheritRec) {
+  // Make sure inheirt (expr), the expression is binded to "NewEnv".
+  std::shared_ptr<Node> AST =
+      parse("rec { inherit (foo) bar; foo.bar = 1; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace

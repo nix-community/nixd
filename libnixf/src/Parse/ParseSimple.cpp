@@ -5,6 +5,35 @@
 using namespace nixf;
 using namespace nixf::detail;
 
+namespace {
+
+/// \brief  Whether the node could be produced by non-term \p expr_simple
+bool mayProducedBySimple(Node::NodeKind NK) {
+  switch (NK) {
+  case Node::NK_ExprVar:
+  case Node::NK_ExprInt:
+  case Node::NK_ExprFloat:
+  case Node::NK_ExprSPath:
+  case Node::NK_ExprString:
+  case Node::NK_ExprPath:
+  case Node::NK_ExprParen:
+  case Node::NK_ExprAttrs:
+  case Node::NK_ExprList:
+    return true;
+  default:
+    break;
+  }
+  return false;
+}
+
+bool mayProducedBySimple(const Expr *E) {
+  if (!E)
+    return false;
+  return mayProducedBySimple(E->kind());
+}
+
+} // namespace
+
 std::shared_ptr<ExprParen> Parser::parseExprParen() {
   Token L = peek();
   auto LParen = std::make_shared<Misc>(L.range());
@@ -18,12 +47,27 @@ std::shared_ptr<ExprParen> Parser::parseExprParen() {
   if (ExpectResult ER = expect(tok_r_paren); ER.ok()) {
     consume(); // )
     auto RParen = std::make_shared<Misc>(ER.tok().range());
+    if (mayProducedBySimple(Expr.get())) {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_RedundantParen, LParen->range());
+      D.tag(DiagnosticTag::Faded);
+      Fix &F = D.fix("remove ( and )");
+      F.edit(TextEdit::mkRemoval(LParen->range()));
+      F.edit(TextEdit::mkRemoval(RParen->range()));
+    }
     return std::make_shared<ExprParen>(
         LexerCursorRange{L.lCur(), ER.tok().rCur()}, std::move(Expr),
         std::move(LParen), std::move(RParen));
   } else { // NOLINT(readability-else-after-return)
     ER.diag().note(Note::NK_ToMachThis, L.range())
         << std::string(tok::spelling(tok_l_paren));
+    if (mayProducedBySimple(Expr.get())) {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_RedundantParen, LParen->range());
+      D.tag(DiagnosticTag::Faded);
+      Fix &F = D.fix("remove (");
+      F.edit(TextEdit::mkRemoval(LParen->range()));
+    }
     return std::make_shared<ExprParen>(
         LexerCursorRange{L.lCur(), LastToken->rCur()}, std::move(Expr),
         std::move(LParen),

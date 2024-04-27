@@ -36,28 +36,7 @@
 ```
 
 ```
-     CHECK: "diagnostics": [
-CHECK-NEXT:   {
-CHECK-NEXT:     "code": "sema-def-not-used",
-CHECK-NEXT:     "message": "definition `y` is not used",
-CHECK-NEXT:     "range": {
-CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 4,
-CHECK-NEXT:         "line": 0
-CHECK-NEXT:       },
-CHECK-NEXT:       "start": {
-CHECK-NEXT:         "character": 3,
-CHECK-NEXT:         "line": 0
-CHECK-NEXT:       }
-CHECK-NEXT:     },
-CHECK-NEXT:     "relatedInformation": [],
-CHECK-NEXT:     "severity": 2,
-CHECK-NEXT:     "source": "nixf",
-CHECK-NEXT:     "tags": [
-CHECK-NEXT:       1
-CHECK-NEXT:     ]
-CHECK-NEXT:   }
-CHECK-NEXT: ],
+     CHECK: "diagnostics": [],
 CHECK-NEXT: "uri": "file:///basic.nix",
 CHECK-NEXT: "version": 1
 ```

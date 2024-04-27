@@ -10,4 +10,7 @@ DIAG_NOTE("merge-diff-rec-consider", RecConsider,
           "will be considered as {}recursive")
 DIAG_NOTE("note-bcomment-begin", BCommentBegin, "/* comment begins at here")
 DIAG_NOTE("to-match-this", ToMachThis, "to match this {}")
+DIAG_NOTE("var-bind-to-this", VarBindToThis,
+          "variable will bind to this definition")
+DIAG_NOTE("escaping-this-with", EscapingWith, "escaping this with expression")
 #endif // DIAG_NOTE

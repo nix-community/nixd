@@ -13,6 +13,7 @@
 , nix
 , nixpkgs-fmt
 , pkg-config
+, nlohmann_json
 }:
 
 stdenv.mkDerivation {
@@ -43,6 +44,7 @@ stdenv.mkDerivation {
     boost182
     llvmPackages.llvm
     fmt
+    nlohmann_json
   ];
 
   env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
@@ -71,6 +73,7 @@ stdenv.mkDerivation {
   '';
 
   meta = {
+    mainProgram = "nixd";
     description = "Nix language server";
     homepage = "https://github.com/nix-community/nixd";
     license = lib.licenses.lgpl3Plus;

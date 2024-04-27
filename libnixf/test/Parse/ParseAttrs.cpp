@@ -275,7 +275,7 @@ TEST(Parser, AttrsBindingInherit) {
   auto AST = nixf::parse(Src, Diags);
 
   ASSERT_TRUE(AST);
-  ASSERT_EQ(Diags.size(), 5);
+  ASSERT_EQ(Diags.size(), 6);
 
   // Check the bindings.
   const auto &B = static_cast<ExprAttrs *>(AST.get())->binds()->bindings();
@@ -421,6 +421,36 @@ TEST(Parser, SyncInherit3) {
   ASSERT_EQ(N.args()[0], "(");
 }
 
+TEST(Parser, InheritEmpty) {
+  auto Src = R"({ inherit; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  auto &D = Diags[0];
+  ASSERT_TRUE(D.range().lCur().isAt(0, 2, 2));
+  ASSERT_TRUE(D.range().rCur().isAt(0, 9, 9));
+
+  // Check the fix.
+  const Fix &F = Diags[0].fixes()[0];
+
+  ASSERT_EQ(F.edits().size(), 2);
+  ASSERT_TRUE(F.edits()[0].isRemoval());
+  ASSERT_EQ(F.edits()[0].oldRange().lCur().line(), 0);
+  ASSERT_EQ(F.edits()[0].oldRange().lCur().column(), 2);
+  ASSERT_EQ(F.edits()[0].oldRange().rCur().line(), 0);
+  ASSERT_EQ(F.edits()[0].oldRange().rCur().column(), 9);
+
+  // Second, remove the semicolon.
+  ASSERT_EQ(F.edits()[1].oldRange().lCur().line(), 0);
+  ASSERT_EQ(F.edits()[1].oldRange().lCur().column(), 9);
+  ASSERT_EQ(F.edits()[1].oldRange().rCur().line(), 0);
+  ASSERT_EQ(F.edits()[1].oldRange().rCur().column(), 10);
+}
+
 TEST(Parser, InheritMissingSemi) {
   auto Src = R"(
 {
@@ -433,7 +463,7 @@ TEST(Parser, InheritMissingSemi) {
 
   ASSERT_TRUE(AST);
 
-  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags.size(), 2);
   auto &D = Diags[0];
   ASSERT_TRUE(D.range().lCur().isAt(2, 9, 12));
   ASSERT_TRUE(D.range().rCur().isAt(2, 9, 12));

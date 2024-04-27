@@ -133,11 +133,25 @@ std::shared_ptr<Inherit> Parser::parseInherit() {
     }
     break;
   }
-  if (ExpectResult ER = expect(tok_semi_colon); ER.ok())
+  ExpectResult ER = expect(tok_semi_colon);
+  if (ER.ok())
     consume();
   else
     ER.diag().note(Note::NK_ToMachThis, TokInherit.range())
         << std::string(tok::spelling(tok_kw_inherit));
+
+  // If attrnames are emtpy, this is an emtpy "inherit";
+  if (AttrNames.empty()) {
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_EmptyInherit, TokInherit.range());
+    D.tag(DiagnosticTag::Faded);
+    Fix &F = D.fix("remove `inherit` keyword");
+    F.edit(TextEdit::mkRemoval(TokInherit.range()));
+    if (ER.ok()) {
+      // Remove ";" also.
+      F.edit(TextEdit::mkRemoval(ER.tok().range()));
+    }
+  }
   return std::make_shared<Inherit>(
       LexerCursorRange{TokInherit.lCur(), LastToken->rCur()},
       std::move(AttrNames), std::move(Expr));

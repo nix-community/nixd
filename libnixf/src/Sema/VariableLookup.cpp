@@ -43,6 +43,11 @@ bool EnvNode::isLive() const {
 void VariableLookupAnalysis::emitEnvLivenessWarning(
     const std::shared_ptr<EnvNode> &NewEnv) {
   for (const auto &[Name, Def] : NewEnv->defs()) {
+    // If the definition comes from lambda arg, omit the diagnostic
+    // because there is no elegant way to "fix" this trivially & keep
+    // the lambda signature.
+    if (Def->source() == Definition::DS_LambdaArg)
+      continue;
     if (Def->uses().empty()) {
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_DefinitionNotUsed,
                                          Def->syntax()->range());
@@ -75,6 +80,20 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
   if (Def) {
     Def->usedBy(Var);
     Results.insert({&Var, LookupResult{LookupResultKind::Defined, Def}});
+
+    if (EnclosedWith) {
+      // Escaping from "with" to outer scope.
+      // https://github.com/NixOS/nix/issues/490
+
+      assert(WithEnv && "EnclosedWith -> WithEnv");
+      // Make a diagnostic.
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_EscapingWith, Var.range());
+      if (Def->syntax()) {
+        D.note(Note::NK_VarBindToThis, Def->syntax()->range());
+      }
+      D.note(Note::NK_EscapingWith, WithEnv->syntax()->range());
+    }
     return;
   }
   if (EnclosedWith) {
@@ -158,12 +177,10 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
-    // inherit (expr) attrs;
-    //         ~~~~~~<------- this expression should have "parent scope".
     for (const auto &[_, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
         continue;
-      dfs(*Attr.value(), Attr.fromInherit() ? Env : NewEnv);
+      dfs(*Attr.value(), NewEnv);
     }
 
     dfsDynamicAttrs(SA.dynamicAttrs(), NewEnv);
