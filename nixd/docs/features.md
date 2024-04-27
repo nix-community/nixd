@@ -30,6 +30,9 @@ However, types in nix language is pretty different from standard LSP types.
 So, as a result, attrnames, selection, variables are colored as different integers,
 but the colors may, or may not rendered properly in your editor.
 
+> [!TIP]
+> `--semantic-tokens=false` to disable the feature.
+
 #### Attribute name coloring
 
 Colors may be different for attribute path creating nested attribute set between the path just "select"s into it.

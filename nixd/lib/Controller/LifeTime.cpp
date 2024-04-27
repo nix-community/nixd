@@ -9,6 +9,8 @@
 #include "nixd/Controller/Controller.h"
 #include "nixd/Eval/Launch.h"
 
+#include <llvm/Support/CommandLine.h>
+
 using namespace nixd;
 using namespace util;
 using namespace llvm::json;
@@ -29,6 +31,10 @@ opt<std::string> DefaultNixOSOptionsExpr{
     init("(let pkgs = import <nixpkgs> { }; in (pkgs.lib.evalModules { modules "
          "=  (import <nixpkgs/nixos/modules/module-list.nix>) ++ [ ({...}: { "
          "nixpkgs.hostPlatform = builtins.currentSystem;} ) ] ; })).options")};
+
+opt<bool> EnableSemanticTokens{"semantic-tokens",
+                               desc("Enable/Disable semantic tokens"),
+                               init(true), cat(NixdCategory)};
 
 // Here we try to wrap nixpkgs, nixos options in a single emtpy attrset in test.
 std::string getDefaultNixpkgsExpr() {
@@ -95,40 +101,6 @@ void Controller::
        {"definitionProvider", true},
        {"documentLinkProvider", Object{}},
        {"documentSymbolProvider", true},
-       {
-           "semanticTokensProvider",
-           Object{
-               {
-                   "legend",
-                   Object{
-                       {"tokenTypes",
-                        Array{
-                            "function",  // function
-                            "string",    // string
-                            "number",    // number
-                            "type",      // select
-                            "keyword",   // builtin
-                            "variable",  // constant
-                            "interface", // fromWith
-                            "variable",  // variable
-                            "regexp",    // null
-                            "macro",     // bool
-                            "method",    // attrname
-                            "regexp",    // lambdaArg
-                            "regexp",    // lambdaFormal
-                        }},
-                       {"tokenModifiers",
-                        Array{
-                            "static",   // builtin
-                            "abstract", // deprecated
-                            "async",    // dynamic
-                        }},
-                   },
-               },
-               {"range", false},
-               {"full", true},
-           },
-       },
        {"inlayHintProvider", true},
        {"completionProvider",
         Object{
@@ -144,6 +116,40 @@ void Controller::
             {"prepareProvider", true},
         }}},
   };
+
+  if (EnableSemanticTokens) {
+    ServerCaps["semanticTokensProvider"] = Object{
+        {
+            "legend",
+            Object{
+                {"tokenTypes",
+                 Array{
+                     "function",  // function
+                     "string",    // string
+                     "number",    // number
+                     "type",      // select
+                     "keyword",   // builtin
+                     "variable",  // constant
+                     "interface", // fromWith
+                     "variable",  // variable
+                     "regexp",    // null
+                     "macro",     // bool
+                     "method",    // attrname
+                     "regexp",    // lambdaArg
+                     "regexp",    // lambdaFormal
+                 }},
+                {"tokenModifiers",
+                 Array{
+                     "static",   // builtin
+                     "abstract", // deprecated
+                     "async",    // dynamic
+                 }},
+            },
+        },
+        {"range", false},
+        {"full", true},
+    };
+  }
 
   Object Result{{
       {"serverInfo",
