@@ -1,5 +1,27 @@
 ## Features in nixd
 
+### Inlay Hints
+
+Inlay hints, in nixd, is used for give you package versions in your system configuration.
+It will make a "floating" text right after the package name, with it's version.
+
+Version strings are evaluated by `name.version` attrpath, it should be consistent with your configured `nixpkgs`. Read the [configuration docs](./configuration.md) if you don't know how to setup.
+
+```
+with pkgs; [
+    nix: 2.19.0
+#       ~~~~~~~~~~~~~~ <-- the version, floating.
+]
+```
+
+Screenshots:
+
+<img width="381" alt="inlay hints" src="https://github.com/nix-community/nixd/assets/36667224/c0928920-a5d6-4d13-aaa0-8f292e6c1b49">
+
+
+> [!TIP]
+> Use `--inlay-hints=false` to completely disable the feature.
+
 
 ### Semantic Tokens
 
