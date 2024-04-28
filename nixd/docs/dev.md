@@ -1,5 +1,13 @@
 ## Developers' Manual
 
+### First place to make diff
+
+See our "issues" page. And some issues are marked with [good first issue](https://github.com/nix-community/nixd/issues?q=is%3Aissue+label%3A%22good+first+issue%22+is%3Aopen).
+Such issues are intentially left for new contributors.
+i.e. main developers usasually won't touch them, and there are some detailed instructions about how to do.
+
+Please comment on that issue so that it can be assigned to you, to avoid any duplicated work in the community.
+
 ### Hack nixd from source
 
 Clone this project and `cd` into the cloned repoistory.
