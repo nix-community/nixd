@@ -42,12 +42,12 @@ nix::Value &selectAttrPath(nix::EvalState &State, nix::Value &V,
                            std::vector<nix::Symbol>::const_iterator End);
 
 /// \brief Select the option declaration list, \p V,  dive into "submodules".
-nix::Value &selectOptions(nix::EvalState &State, nix::Value &V,
-                          std::vector<nix::Symbol>::const_iterator Begin,
-                          std::vector<nix::Symbol>::const_iterator End);
+nix::Value selectOptions(nix::EvalState &State, nix::Value &V,
+                         std::vector<nix::Symbol>::const_iterator Begin,
+                         std::vector<nix::Symbol>::const_iterator End);
 
-inline nix::Value &selectOptions(nix::EvalState &State, nix::Value &V,
-                                 const std::vector<nix::Symbol> &AttrPath) {
+inline nix::Value selectOptions(nix::EvalState &State, nix::Value &V,
+                                const std::vector<nix::Symbol> &AttrPath) {
   return selectOptions(State, V, AttrPath.begin(), AttrPath.end());
 }
 
