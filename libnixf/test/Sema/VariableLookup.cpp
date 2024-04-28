@@ -260,6 +260,14 @@ TEST_F(VLATest, EscapingWith) {
   const Diagnostic &D = Diags[0];
 
   ASSERT_EQ(D.notes().size(), 2);
+
+  ASSERT_EQ(D.notes()[0].kind(), Note::NK_VarBindToThis);
+  ASSERT_EQ(D.notes()[0].range().lCur().offset(), 0);
+  ASSERT_EQ(D.notes()[0].range().rCur().offset(), 1);
+
+  ASSERT_EQ(D.notes()[1].kind(), Note::NK_EscapingWith);
+  ASSERT_EQ(D.notes()[1].range().lCur().offset(), 3);
+  ASSERT_EQ(D.notes()[1].range().rCur().offset(), 7);
 }
 
 TEST_F(VLATest, InheritRec) {
