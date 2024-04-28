@@ -92,7 +92,9 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
       if (Def->syntax()) {
         D.note(Note::NK_VarBindToThis, Def->syntax()->range());
       }
-      D.note(Note::NK_EscapingWith, WithEnv->syntax()->range());
+      const auto &KwWith =
+          static_cast<const nixf::ExprWith *>(WithEnv->syntax())->kwWith();
+      D.note(Note::NK_EscapingWith, KwWith.range());
     }
     return;
   }
