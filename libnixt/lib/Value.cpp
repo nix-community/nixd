@@ -110,9 +110,9 @@ nix::Value &nixt::selectAttrPath(nix::EvalState &State, nix::Value &V,
   return selectAttrPath(State, Nested, ++Begin, End);
 }
 
-nix::Value &nixt::selectOptions(nix::EvalState &State, nix::Value &V,
-                                std::vector<nix::Symbol>::const_iterator Begin,
-                                std::vector<nix::Symbol>::const_iterator End) {
+nix::Value nixt::selectOptions(nix::EvalState &State, nix::Value &V,
+                               std::vector<nix::Symbol>::const_iterator Begin,
+                               std::vector<nix::Symbol>::const_iterator End) {
   if (Begin == End)
     return V;
 
