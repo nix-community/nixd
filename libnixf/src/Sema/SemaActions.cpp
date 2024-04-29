@@ -226,7 +226,14 @@ void Sema::checkFormalSep(const FormalVector &FV) {
 }
 
 void Sema::checkFormalEmpty(const FormalVector &FV) {
-  for (const std::shared_ptr<Formal> &FPtr : FV) {
+  for (auto It = FV.cbegin(); It != FV.cend(); It++) {
+    // Special case, ignore the last one.
+    // Because the nix formatting guide explicitly place a "comma" at the
+    // trailing of formals.
+    if (It + 1 == FV.cend())
+      break;
+
+    const std::shared_ptr<Formal> &FPtr = *It;
     const Formal &F = *FPtr;
     // Check if the formal is emtpy, e.g.
     // { , }
