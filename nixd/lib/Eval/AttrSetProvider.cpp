@@ -264,6 +264,11 @@ void AttrSetProvider::onOptionComplete(
       return;
     }
 
+    if (nixt::isOption(state(), Scope)) {
+      Reply(error("scope is already an option"));
+      return;
+    }
+
     std::vector<OptionField> Response;
 
     // FIXME: we may want to use "Trie" to speedup the string searching.
