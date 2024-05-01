@@ -204,6 +204,10 @@ In our option system, you need to specify which option set you'd like to use.
     // https://flake.parts/debug
     "flake-parts": {
       "expr": "(builtins.getFlake \"/path/to/your/flake\").debug.options"
+    },
+    // For a `perSystem` flake-parts option:
+    "flake-parts2": {
+      "expr": "(builtins.getFlake \"/path/to/your/flake\").currentSystem.options"
     }
   }
 }
