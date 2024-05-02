@@ -154,7 +154,7 @@ public:
     return *Parts;
   }
 
-  [[nodiscard]] ChildVector children() const override { return {}; }
+  [[nodiscard]] ChildVector children() const override { return {Parts.get()}; }
 };
 
 class ExprSPath : public Expr {
