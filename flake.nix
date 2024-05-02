@@ -12,9 +12,9 @@
       inputs.flake-parts.flakeModules.easyOverlay
       inputs.flake-root.flakeModule
     ];
-    perSystem = { config, self', inputs', pkgs, system, ... }:
-      with pkgs;
+    perSystem = { config, pkgs, ... }:
       let
+        inherit (pkgs) nixVersions llvmPackages_16 callPackage stdenv;
         nix = nixVersions.nix_2_19;
         llvmPackages = llvmPackages_16;
         nixd = callPackage ./default.nix {
