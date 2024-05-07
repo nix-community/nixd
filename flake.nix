@@ -17,16 +17,24 @@
         inherit (pkgs) nixVersions llvmPackages_16 callPackage stdenv;
         nix = nixVersions.nix_2_19;
         llvmPackages = llvmPackages_16;
-        nixd = callPackage ./default.nix {
+        nixf = callPackage ./libnixf { };
+        nixt = callPackage ./libnixt {
           inherit nix;
+        };
+        nixd = callPackage ./nixd {
+          inherit nix nixf nixt;
           inherit llvmPackages;
         };
-        nixdLLVM = nixd.override {
+        nixdMono = callPackage ./. {
+          inherit nix llvmPackages;
+        };
+        nixdLLVM = nixdMono.override {
           stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv;
         };
         regressionDeps = with pkgs; [
           clang-tools
           nixpkgs-fmt
+          lit
         ];
         shellOverride = old: {
           nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
@@ -43,11 +51,11 @@
         overlayAttrs = {
           inherit (config.packages) nixd;
         };
-        packages.nixd = nixd;
+        packages = { inherit nixd nixf nixt; };
 
         devShells.llvm = nixdLLVM.overrideAttrs shellOverride;
 
-        devShells.default = nixd.overrideAttrs shellOverride;
+        devShells.default = nixdMono.overrideAttrs shellOverride;
 
         devShells.nvim = pkgs.mkShell {
           nativeBuildInputs = [
