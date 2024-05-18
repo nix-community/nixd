@@ -13,6 +13,7 @@
 #include <llvm/Support/Error.h>
 
 #include <semaphore>
+#include <sstream>
 
 using namespace nixd;
 using namespace llvm::json;
