@@ -3,6 +3,7 @@
 /// [Server Lifecycle]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#lifeCycleMessages
 
+#include "lspserver/Protocol.h"
 #include "nixd-config.h"
 
 #include "nixd/CommandLine/Options.h"
@@ -185,3 +186,9 @@ void Controller::
 }
 
 void Controller::onInitialized(const lspserver::InitializedParams &Params) {}
+
+void Controller::onShutdown(const lspserver::NoParams &,
+                            lspserver::Callback<std::nullptr_t> Reply) {
+  ReceivedShutdown = true;
+  Reply(nullptr);
+}
