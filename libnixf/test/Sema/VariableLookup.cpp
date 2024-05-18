@@ -280,4 +280,14 @@ TEST_F(VLATest, InheritRec) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, EmptyLetIn) {
+  // Test that emtpy let ... in ... expression is considered.
+  // https://github.com/nix-community/nixd/issues/500
+  std::shared_ptr<Node> AST = parse("{ config }: let in config", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace

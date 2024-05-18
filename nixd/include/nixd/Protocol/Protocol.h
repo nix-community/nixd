@@ -1,12 +1,8 @@
 #pragma once
 
-#include <bc/Read.h>
-#include <bc/Write.h>
-
 #include <llvm/Support/JSON.h>
 
 #include <cstdint>
-#include <cstring>
 #include <string>
 
 namespace nixd::rpc {
