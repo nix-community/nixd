@@ -220,15 +220,26 @@ void VariableLookupAnalysis::dfs(const ExprAttrs &Attrs,
 
 void VariableLookupAnalysis::dfs(const ExprLet &Let,
                                  const std::shared_ptr<EnvNode> &Env) {
-  if (!Let.attrs())
-    return;
-  const SemaAttrs &SA = Let.attrs()->sema();
-  assert(SA.isRecursive() && "let ... in ... attrset must be recursive");
-  std::shared_ptr<EnvNode> NewEnv = dfsAttrs(SA, Env, &Let, Definition::DS_Let);
-  if (Let.expr())
-    dfs(*Let.expr(), NewEnv);
 
-  emitEnvLivenessWarning(NewEnv);
+  // Obtain the env object suitable for "in" expression.
+  auto GetLetEnv = [&Env, &Let, this]() -> std::shared_ptr<EnvNode> {
+    // This is an empty let ... in ... expr, definitely anti-pattern in
+    // nix language. We want to passthrough the env then.
+    if (!Let.attrs()) {
+      return Env;
+    }
+
+    // If there are some attributes actually, create a new env.
+    const SemaAttrs &SA = Let.attrs()->sema();
+    assert(SA.isRecursive() && "let ... in ... attrset must be recursive");
+    return dfsAttrs(SA, Env, &Let, Definition::DS_Let);
+  };
+
+  auto LetEnv = GetLetEnv();
+
+  if (Let.expr())
+    dfs(*Let.expr(), LetEnv);
+  emitEnvLivenessWarning(LetEnv);
 }
 
 void VariableLookupAnalysis::trivialDispatch(
