@@ -1,5 +1,3 @@
-[TOC]
-
 ## `libnixf`, The nix frontend
 
 This is a nix language frontend (lexer + parser, semantic analysis) focusing on editing experience.
