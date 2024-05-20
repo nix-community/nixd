@@ -147,6 +147,11 @@ private:
 
   void onInitialized(const lspserver::InitializedParams &Params);
 
+  bool ReceivedShutdown = false;
+
+  void onShutdown(const lspserver::NoParams &,
+                  lspserver::Callback<std::nullptr_t> Reply);
+
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
   void
