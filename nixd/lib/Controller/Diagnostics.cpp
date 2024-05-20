@@ -30,7 +30,7 @@ void Controller::updateSuppressed(const std::vector<std::string> &Sup) {
 
   // Insert declared sname in nixf, diagnostics.
   struct AddDK {
-    AddDK(std::string Name, DK Kind) { DKMap.insert({Name, Kind}); }
+    AddDK(const std::string &Name, DK Kind) { DKMap.insert({Name, Kind}); }
   };
 #define DIAG(SNAME, CNAME, LEVEL, STR)                                         \
   static AddDK DK_Add_##CNAME(SNAME, DK::DK_##CNAME);
