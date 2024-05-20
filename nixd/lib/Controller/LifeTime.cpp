@@ -3,12 +3,13 @@
 /// [Server Lifecycle]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#lifeCycleMessages
 
-#include "lspserver/Protocol.h"
 #include "nixd-config.h"
 
 #include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
 #include "nixd/Eval/Launch.h"
+
+#include "lspserver/Protocol.h"
 
 #include <llvm/Support/CommandLine.h>
 
