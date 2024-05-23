@@ -292,7 +292,7 @@ TEST(Parser, URLLiteral) {
   Diagnostic &D = Diags[0];
   ASSERT_EQ(D.fixes().size(), 1);
 
-  ASSERT_EQ(D.fixes()[0].edits(), 2);
+  ASSERT_EQ(D.fixes()[0].edits().size(), 2);
 }
 
 TEST(Parser, PathOK) {
