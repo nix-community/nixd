@@ -8,6 +8,12 @@ using namespace lspserver;
 using llvm::json::ObjectMapper;
 using llvm::json::Value;
 
+bool nixd::fromJSON(const Value &Params, Configuration::Diagnostic &R,
+                    llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O && O.mapOptional("suppress", R.suppress);
+}
+
 bool nixd::fromJSON(const Value &Params, Configuration::Formatting &R,
                     llvm::json::Path P) {
   // If it is a single string, treat it as a single vector
@@ -37,6 +43,7 @@ bool nixd::fromJSON(const Value &Params, Configuration &R, llvm::json::Path P) {
          && O.mapOptional("formatting", R.formatting) //
          && O.mapOptional("options", R.options)       //
          && O.mapOptional("nixpkgs", R.nixpkgs)       //
+         && O.mapOptional("diagnostic", R.diagnostic) //
       ;
 }
 
@@ -69,6 +76,15 @@ void Controller::updateConfig(Configuration NewConfig) {
       assert(Client);
       evalExprWithProgress(*Client->client(), Opt.expr, Name);
     }
+  }
+
+  // Update the diagnostic part.
+  updateSuppressed(Config.diagnostic.suppress);
+
+  // After all, notify all AST modules the diagnostic set has been updated.
+  std::lock_guard TUsGuard(TUsLock);
+  for (const auto &[File, TU] : TUs) {
+    publishDiagnostics(File, std::nullopt, TU->diagnostics());
   }
 }
 

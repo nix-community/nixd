@@ -145,11 +145,33 @@ nvim_lsp.nixd.setup({
     "home-manager": {
       "expr": "(builtins.getFlake \"/home/lyc/flakes\").homeConfigurations.\"lyc@adrastea\".options"
     }
+  },
+  // Control the diagnostic system
+  "diagnostic": {
+    "suppress": [
+      "sema-escaping-with"
+    ]
   }
 }
 ```
 
 ### Fields explanation
+
+#### Diagnostic Control ("diagnostic")
+
+Some users might feel confident in their understanding of the language and
+prefer to suppress diagnostics altogether. This can be achieved by utilizing the diagnostic field.
+
+```jsonc
+{
+  "diagnostic": {
+    // A list of diagnostic short names
+    "suppress": [
+      "sema-escaping-with"
+    ]
+  }
+}
+```
 
 #### Format ("formating")
 
