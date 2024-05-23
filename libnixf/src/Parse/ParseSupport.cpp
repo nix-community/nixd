@@ -3,6 +3,7 @@
 
 #include "Parser.h"
 
+#include "nixf/Basic/TokenKinds.h"
 #include "nixf/Parse/Parser.h"
 
 using namespace nixf;
@@ -37,6 +38,16 @@ std::shared_ptr<Node> nixf::parse(std::string_view Src,
                                   std::vector<Diagnostic> &Diags) {
   Parser P(Src, Diags);
   return P.parse();
+}
+
+std::shared_ptr<Expr> nixf::Parser::parse() {
+  auto Expr = parseExpr();
+  if (Token Tok = peek(); Tok.kind() != tok::tok_eof) {
+    // TODO: maybe we'd like to have multiple expressions in a single file.
+    // Report an error.
+    Diags.emplace_back(Diagnostic::DK_UnexpectedText, Tok.range());
+  }
+  return Expr;
 }
 
 void Parser::resetLookAheadBuf() {

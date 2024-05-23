@@ -334,7 +334,8 @@ public:
   /// \endcode
   std::shared_ptr<ExprWith> parseExprWith();
 
-  std::shared_ptr<Expr> parse() { return parseExpr(); }
+  /// Top-level parsing.
+  std::shared_ptr<Expr> parse();
 };
 
 } // namespace nixf
