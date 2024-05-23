@@ -117,3 +117,35 @@ However, in the libnixf parser, since `1` will definitely not be evaluated as a 
     b = 2; # Correctly parse this as "b = 2"
 }
 ```
+
+
+# Standalone tools provided along libnixf
+
+## `nixf-tidy`
+
+### Usage
+
+```
+nixf-tidy
+
+--pretty-print  Pretty print the JSON data
+--variable-lookup  Peform Variable Lookup Analysis on the source code, including detecting dead code, and unused variables.
+```
+
+Basic CLI usage:
+
+```
+cat foo.nix | nixf-tidy --variable-lookup
+```
+A dedicated tool tailored for linting Nix projects,
+`nixf-tidy` is crafted specifically for seamless integration into CI pipelines like GitHub Actions or commit hooks.
+As such, it prioritizes functionality over flashy CLI output.
+Tasks such as rendering code lines or applying color distinctions are beyond the scope of `nixf-tidy`.
+
+The JSON fields provided by nixf-tidy are documented [here](https://nix-community.github.io/nixd/classnixf_1_1Diagnostic.html).
+
+
+#### Use `nixf-tidy` in your workflow
+
+Please update this section if you want to take fancy "rendering" job for libnixf,
+and link your projects!
