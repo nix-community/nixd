@@ -131,7 +131,7 @@ public:
 
   [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 
-  NoteKind kind() const { return Kind; }
+  [[nodiscard]] NoteKind kind() const { return Kind; }
 
   [[nodiscard]] static const char *message(NoteKind Kind);
 

@@ -232,7 +232,7 @@ void AttrSetProvider::onOptionInfo(
       return;
     }
 
-    nix::Value &Option = nixt::selectOptions(
+    nix::Value Option = nixt::selectOptions(
         state(), Nixpkgs, nixt::toSymbols(state().symbols, AttrPath));
 
     OptionInfoResponse R;
@@ -254,13 +254,18 @@ void AttrSetProvider::onOptionComplete(
     const AttrPathCompleteParams &Params,
     lspserver::Callback<OptionCompleteResponse> Reply) {
   try {
-    nix::Value &Scope = nixt::selectOptions(
+    nix::Value Scope = nixt::selectOptions(
         state(), Nixpkgs, nixt::toSymbols(state().symbols, Params.Scope));
 
     state().forceValue(Scope, nix::noPos);
 
     if (Scope.type() != nix::ValueType::nAttrs) {
       Reply(error("scope is not an attrset"));
+      return;
+    }
+
+    if (nixt::isOption(state(), Scope)) {
+      Reply(error("scope is already an option"));
       return;
     }
 

@@ -8,8 +8,11 @@
 #include "lspserver/LSPServer.h"
 #include "lspserver/Protocol.h"
 #include "nixd/Eval/AttrSetClient.h"
+#include "nixf/Basic/Diagnostic.h"
 
 #include <boost/asio/thread_pool.hpp>
+
+#include <set>
 
 namespace nixd {
 
@@ -147,6 +150,11 @@ private:
 
   void onInitialized(const lspserver::InitializedParams &Params);
 
+  bool ReceivedShutdown = false;
+
+  void onShutdown(const lspserver::NoParams &,
+                  lspserver::Callback<std::nullptr_t> Reply);
+
   void onDocumentDidOpen(const lspserver::DidOpenTextDocumentParams &Params);
 
   void
@@ -194,6 +202,17 @@ private:
       const lspserver::DocumentLinkParams &Params,
       lspserver::Callback<std::vector<lspserver::DocumentLink>> Reply);
 
+  std::set<nixf::Diagnostic::DiagnosticKind>
+      SuppressedDiagnostics; // GUARDED_BY(SuppressedDiagnosticsLock)
+
+  std::mutex SuppressedDiagnosticsLock;
+
+  /// Update the suppressing set. There might be some invalid names, should be
+  /// logged then.
+  void updateSuppressed(const std::vector<std::string> &Sup);
+
+  /// Determine whether or not this diagnostic is suppressed.
+  bool isSuppressed(nixf::Diagnostic::DiagnosticKind Kind);
   void publishDiagnostics(lspserver::PathRef File,
                           std::optional<int64_t> Version,
                           const std::vector<nixf::Diagnostic> &Diagnostics);

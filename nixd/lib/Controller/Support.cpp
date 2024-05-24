@@ -72,6 +72,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   Registry.addMethod("initialize", this, &Controller::onInitialize);
   Registry.addNotification("initialized", this, &Controller::onInitialized);
 
+  Registry.addMethod("shutdown", this, &Controller::onShutdown);
+
   // Text Document Synchronization
   Registry.addNotification("textDocument/didOpen", this,
                            &Controller::onDocumentDidOpen);

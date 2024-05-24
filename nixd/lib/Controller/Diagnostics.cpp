@@ -7,10 +7,52 @@
 
 #include "nixd/Controller/Controller.h"
 
-namespace nixd {
+#include <nixf/Basic/Diagnostic.h>
 
+#include <mutex>
+#include <optional>
+
+using namespace nixd;
 using namespace llvm::json;
 using namespace lspserver;
+
+void Controller::updateSuppressed(const std::vector<std::string> &Sup) {
+  // For convenience, alias it to a short name
+  using DK = nixf::Diagnostic::DiagnosticKind;
+  // Acquire the lock because the set needs to be written.
+  std::lock_guard _(SuppressedDiagnosticsLock);
+  // Clear the set, just construct a new one.
+  SuppressedDiagnostics.clear();
+
+  // Hashed string used for lookup names
+  static std::unordered_map<std::string, nixf::Diagnostic::DiagnosticKind>
+      DKMap;
+
+  // Insert declared sname in nixf, diagnostics.
+  struct AddDK {
+    AddDK(const std::string &Name, DK Kind) { DKMap.insert({Name, Kind}); }
+  };
+#define DIAG(SNAME, CNAME, LEVEL, STR)                                         \
+  static AddDK DK_Add_##CNAME(SNAME, DK::DK_##CNAME);
+#include <nixf/Basic/DiagnosticKinds.inc>
+#undef DIAG
+
+  // For each element, see if the name matches some declared name.
+  // If so, insert the set.
+  for (const auto &Name : Sup) {
+    if (auto It = DKMap.find(Name); It != DKMap.end()) {
+      SuppressedDiagnostics.insert(It->second);
+    } else {
+      // The name is not listed in knwon names. Log error here
+      lspserver::elog("diagnostic suppressing sname {0} is unknown", Name);
+    }
+  }
+}
+
+bool Controller::isSuppressed(nixf::Diagnostic::DiagnosticKind Kind) {
+  std::lock_guard _(SuppressedDiagnosticsLock);
+  return SuppressedDiagnostics.contains(Kind);
+}
 
 void Controller::publishDiagnostics(
     PathRef File, std::optional<int64_t> Version,
@@ -18,6 +60,12 @@ void Controller::publishDiagnostics(
   std::vector<Diagnostic> LSPDiags;
   LSPDiags.reserve(Diagnostics.size());
   for (const nixf::Diagnostic &D : Diagnostics) {
+    // Before actually doing anything,
+    // let's check if the diagnostic is suppressed.
+    // If suppressed, just skip it.
+    if (isSuppressed(D.kind()))
+      continue;
+
     // Format the message.
     std::string Message = D.format();
 
@@ -85,5 +133,3 @@ void Controller::publishDiagnostics(
       .version = Version,
   });
 }
-
-} // namespace nixd

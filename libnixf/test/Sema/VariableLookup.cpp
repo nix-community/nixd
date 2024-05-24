@@ -260,12 +260,30 @@ TEST_F(VLATest, EscapingWith) {
   const Diagnostic &D = Diags[0];
 
   ASSERT_EQ(D.notes().size(), 2);
+
+  ASSERT_EQ(D.notes()[0].kind(), Note::NK_VarBindToThis);
+  ASSERT_EQ(D.notes()[0].range().lCur().offset(), 0);
+  ASSERT_EQ(D.notes()[0].range().rCur().offset(), 1);
+
+  ASSERT_EQ(D.notes()[1].kind(), Note::NK_EscapingWith);
+  ASSERT_EQ(D.notes()[1].range().lCur().offset(), 3);
+  ASSERT_EQ(D.notes()[1].range().rCur().offset(), 7);
 }
 
 TEST_F(VLATest, InheritRec) {
   // Make sure inheirt (expr), the expression is binded to "NewEnv".
   std::shared_ptr<Node> AST =
       parse("rec { inherit (foo) bar; foo.bar = 1; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, EmptyLetIn) {
+  // Test that emtpy let ... in ... expression is considered.
+  // https://github.com/nix-community/nixd/issues/500
+  std::shared_ptr<Node> AST = parse("{ config }: let in config", Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
 

@@ -243,4 +243,11 @@ TEST_F(SemaActionTest, mergeAttrSets) {
   ASSERT_EQ(Range.lCur().line(), 2);
 }
 
+TEST_F(SemaActionTest, lastComma) {
+  std::vector<Diagnostic> Diags;
+  nixf::parse("{a, b, c,}: a + b + c", Diags);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace

@@ -1,11 +1,7 @@
 { lib
 , stdenv
-, bison
 , boost182
-, flex
-, fmt
 , gtest
-, libbacktrace
 , lit
 , llvmPackages
 , meson
@@ -28,8 +24,6 @@ stdenv.mkDerivation {
     meson
     ninja
     pkg-config
-    bison
-    flex
   ];
 
   nativeCheckInputs = [
@@ -38,12 +32,10 @@ stdenv.mkDerivation {
   ];
 
   buildInputs = [
-    libbacktrace
     nix
     gtest
     boost182
     llvmPackages.llvm
-    fmt
     nlohmann_json
   ];
 
@@ -74,7 +66,7 @@ stdenv.mkDerivation {
 
   meta = {
     mainProgram = "nixd";
-    description = "Nix language server";
+    description = "A feature-rich Nix language server interoperating with C++ nix";
     homepage = "https://github.com/nix-community/nixd";
     license = lib.licenses.lgpl3Plus;
     maintainers = with lib.maintainers; [ inclyc ];

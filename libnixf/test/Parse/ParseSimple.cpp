@@ -2,6 +2,7 @@
 
 #include "Parser.h"
 
+#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Parse/Parser.h"
 
 namespace {
@@ -273,6 +274,25 @@ TEST(Parser, InterpolationNullExpr) {
   ASSERT_TRUE(F.oldRange().lCur().isAt(0, 3, 3));
   ASSERT_TRUE(F.oldRange().rCur().isAt(0, 3, 3));
   ASSERT_EQ(F.newText(), " expr");
+}
+
+TEST(Parser, URLLiteral) {
+  auto Src = R"(https://nixos.org)"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+  ASSERT_TRUE(AST);
+
+  // Currently just treat URLs string literal, there is no dedicated node
+  // created.
+  ASSERT_EQ(AST->kind(), Node::NK_ExprString);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  Diagnostic &D = Diags[0];
+  ASSERT_EQ(D.fixes().size(), 1);
+
+  ASSERT_EQ(D.fixes()[0].edits().size(), 2);
 }
 
 TEST(Parser, PathOK) {

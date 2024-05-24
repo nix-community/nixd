@@ -1,5 +1,12 @@
 ## Features in nixd
 
+> [!TIP]
+> Use environment variable `NIXD_FLAGS` if you cannot pass args to nixd easily.
+>
+> For example:
+>
+> `export NIXD_FLAGS="--inlay-hints=false"`
+
 ### Inlay Hints
 
 Inlay hints, in nixd, is used for give you package versions in your system configuration.

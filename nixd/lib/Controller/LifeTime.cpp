@@ -9,6 +9,8 @@
 #include "nixd/Controller/Controller.h"
 #include "nixd/Eval/Launch.h"
 
+#include "lspserver/Protocol.h"
+
 #include <llvm/Support/CommandLine.h>
 
 using namespace nixd;
@@ -185,3 +187,9 @@ void Controller::
 }
 
 void Controller::onInitialized(const lspserver::InitializedParams &Params) {}
+
+void Controller::onShutdown(const lspserver::NoParams &,
+                            lspserver::Callback<std::nullptr_t> Reply) {
+  ReceivedShutdown = true;
+  Reply(nullptr);
+}

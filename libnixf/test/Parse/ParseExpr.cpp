@@ -7,6 +7,18 @@ namespace {
 using namespace nixf;
 using namespace std::string_view_literals;
 
+TEST(Parser, ParseEnd) {
+  auto Src = R"({a = 1;},)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+
+  P.parse();
+
+  // See that we have diagnostic at the last token ","
+  ASSERT_EQ(Diags.size(), 1);
+}
+
 TEST(Parser, SelectOK) {
   auto Src = R"(a.b.c)"sv;
 

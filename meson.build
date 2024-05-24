@@ -58,17 +58,29 @@ gtest_main = dependency('gtest_main')
 
 llvm = dependency('llvm')
 boost = dependency('boost')
-fmt = dependency('fmt')
 nlohmann_json = dependency('nlohmann_json')
 
-backtrace = cpp.find_library('backtrace')
 lit = find_program('lit', required: false)
 
 pkgconfig = import('pkgconfig')
 
-subdir('libbc')
-subdir('lspserver')
-subdir('libnixbc')
-subdir('libnixf')
-subdir('libnixt')
-subdir('nixd')
+
+subdir('libnixf/src')
+subdir('libnixf/tools')
+subdir('libnixf/test')
+
+
+nix_main = dependency('nix-main')
+nix_expr = dependency('nix-expr')
+nix_cmd = dependency('nix-cmd')
+
+
+subdir('libnixt/lib')
+subdir('libnixt/test')
+
+subdir('nixd/lspserver')
+subdir('nixd/lib')
+subdir('nixd/tools')
+
+
+

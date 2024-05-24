@@ -27,7 +27,14 @@ struct Configuration {
     /// \brief Expression to eval. Treat it as "import <nixpkgs> { }"
     std::string expr;
   } nixpkgs;
+
+  struct Diagnostic {
+    std::vector<std::string> suppress;
+  } diagnostic;
 };
+
+bool fromJSON(const llvm::json::Value &Params, Configuration::Diagnostic &R,
+              llvm::json::Path P);
 
 bool fromJSON(const llvm::json::Value &Params, Configuration::Formatting &R,
               llvm::json::Path P);

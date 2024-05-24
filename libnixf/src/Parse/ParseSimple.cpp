@@ -1,5 +1,8 @@
 #include "Parser.h"
 
+#include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Nodes/Simple.h"
+
 #include <charconv>
 
 using namespace nixf;
@@ -104,6 +107,25 @@ std::shared_ptr<ExprList> Parser::parseExprList() {
 std::shared_ptr<Expr> Parser::parseExprSimple() {
   Token Tok = peek();
   switch (Tok.kind()) {
+  case tok_uri: {
+    // URI is desugared into string
+    consume();
+    auto Literal = std::string(Tok.view());
+    // Create the string used for this URI
+    auto Parts = std::make_shared<InterpolatedParts>(
+        Tok.range(), std::vector<InterpolablePart>{
+                         InterpolablePart{std::move(Literal)},
+                     });
+    auto Str = std::make_shared<ExprString>(Tok.range(), std::move(Parts));
+    // Report warning about URL deprecation.
+    Diagnostic &D =
+        Diags.emplace_back(Diagnostic::DK_DeprecatedURL, Tok.range());
+    Fix &F = D.fix("convert it to string");
+    // Insert a pair of quotes
+    F.edit(TextEdit::mkInsertion(Tok.lCur(), "\""));
+    F.edit(TextEdit::mkInsertion(Tok.rCur(), "\""));
+    return Str;
+  }
   case tok_id: {
     consume();
     auto ID =

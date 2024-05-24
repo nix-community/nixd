@@ -1,8 +1,5 @@
 #include "nixd/Protocol/Protocol.h"
 
-#include <bc/Read.h>
-#include <bc/Write.h>
-
 namespace nixd::rpc {
 
 using namespace llvm::json;

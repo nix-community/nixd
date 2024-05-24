@@ -377,6 +377,9 @@ let
                     home_manager = {
                         expr = '(builtins.getFlake "/tmp/NixOS_Home-Manager").homeConfigurations."user@hostname".options',
                     },
+                    flake_parts = {
+                        expr = 'let flake = builtins.getFlake ("/tmp/NixOS_Home-Manager"); in flake.debug.options // flake.currentSystem.options',
+                    },
                 },
             },
         },
