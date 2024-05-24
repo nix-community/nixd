@@ -10,7 +10,7 @@
 
 stdenv.mkDerivation {
   pname = "nixt";
-  version = "nightly";
+  version = "2.2.0";
 
   src = ../.;
 

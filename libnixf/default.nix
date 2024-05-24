@@ -12,7 +12,7 @@
 
 stdenv.mkDerivation {
   pname = "nixf";
-  version = "nightly";
+  version = "2.2.0";
 
   src = ../.;
 

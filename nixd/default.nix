@@ -16,7 +16,7 @@ let
 in
 stdenv.mkDerivation {
   inherit pname;
-  version = "nightly";
+  version = "2.2.0";
 
   src = ../.;
 
