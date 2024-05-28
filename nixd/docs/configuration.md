@@ -124,7 +124,7 @@ nvim_lsp.nixd.setup({
     // This expression will be interpreted as "nixpkgs" toplevel
     // Nixd provides package, lib completion/information from it.
     ///
-    // Resouces Usage: Entries are lazily evaluated, entire nixpkgs takes 200~300MB for just "names".
+    // Resource Usage: Entries are lazily evaluated, entire nixpkgs takes 200~300MB for just "names".
     ///                Package documentation, versions, are evaluated by-need.
     "expr": "import <nixpkgs> { }"
   },
@@ -135,9 +135,9 @@ nvim_lsp.nixd.setup({
   // Tell the language server your desired option set, for completion
   // This is lazily evaluated.
   "options": { // Map of eval information
-    // If this is ommited, default search path (<nixpkgs>) will be used.
-    "nixos": { // This name "nixos" could be arbitary.
-      // The expression to eval, intepret it as option declarations.
+    // If this is omitted, default search path (<nixpkgs>) will be used.
+    "nixos": { // This name "nixos" could be arbitrary.
+      // The expression to eval, interpret it as option declarations.
       "expr": "(builtins.getFlake \"/home/lyc/flakes\").nixosConfigurations.adrastea.options"
     },
 
