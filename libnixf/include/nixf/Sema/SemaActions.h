@@ -45,7 +45,7 @@ public:
   std::shared_ptr<Formals> onFormals(LexerCursorRange Range, FormalVector FV);
 
   /// \brief Desugar inherit (expr) a, inherit a, into select, or variable.
-  static std::shared_ptr<Expr>
+  static std::pair<std::shared_ptr<Expr>, Attribute::AttributeKind>
   desugarInheritExpr(std::shared_ptr<AttrName> Name, std::shared_ptr<Expr> E);
 
   void dupAttr(std::string Name, LexerCursorRange Range, LexerCursorRange Prev);
@@ -72,7 +72,7 @@ public:
 
   /// \note Name must not be null
   void insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
-                  std::shared_ptr<Expr> E, bool IsInherit);
+                  std::shared_ptr<Expr> E, Attribute::AttributeKind Kind);
 
   /// Select into \p Attr the attribute specified by \p Path, or create one if
   /// not exists, until reached the inner-most attr. Similar to `mkdir -p`.
@@ -85,7 +85,8 @@ public:
   void addAttr(SemaAttrs &Attr, const AttrPath &Path, std::shared_ptr<Expr> E);
 
   void lowerInheritName(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
-                        std::shared_ptr<Expr> E);
+                        std::shared_ptr<Expr> E,
+                        Attribute::AttributeKind InheritKind);
 
   void lowerInherit(SemaAttrs &Attr, const Inherit &Inherit);
 
