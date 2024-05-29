@@ -303,6 +303,9 @@ rec {
   std::shared_ptr<Node> AST = parse(Src, Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].range().lCur().line(), 3);
 }
 
 } // namespace
