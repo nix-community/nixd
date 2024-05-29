@@ -183,9 +183,9 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
       if (!Attr.value())
         continue;
       if (Attr.kind() == Attribute::AttributeKind::Plain ||
-          Attr.kind() == Attribute::AttributeKind::InheritFrom)
+          Attr.kind() == Attribute::AttributeKind::InheritFrom) {
         dfs(*Attr.value(), NewEnv);
-      else {
+      } else {
         assert(Attr.kind() == Attribute::AttributeKind::Inherit);
         dfs(*Attr.value(), Env);
       }
