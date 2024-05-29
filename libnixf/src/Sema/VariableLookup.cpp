@@ -182,7 +182,13 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
     for (const auto &[_, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
         continue;
-      dfs(*Attr.value(), NewEnv);
+      if (Attr.kind() == Attribute::AttributeKind::Plain ||
+          Attr.kind() == Attribute::AttributeKind::InheritFrom)
+        dfs(*Attr.value(), NewEnv);
+      else {
+        assert(Attr.kind() == Attribute::AttributeKind::Inherit);
+        dfs(*Attr.value(), Env);
+      }
     }
 
     dfsDynamicAttrs(SA.dynamicAttrs(), NewEnv);

@@ -187,14 +187,25 @@ public:
 };
 
 class Attribute {
+public:
+  enum class AttributeKind {
+    /// a = b;
+    Plain,
+    /// inherit a b c;
+    Inherit,
+    /// inherit (expr) a b c
+    InheritFrom,
+  };
+
+private:
   const std::shared_ptr<Node> Key;
   const std::shared_ptr<Expr> Value;
-  const bool FromInherit;
+  AttributeKind Kind;
 
 public:
   Attribute(std::shared_ptr<Node> Key, std::shared_ptr<Expr> Value,
-            bool FromInherit)
-      : Key(std::move(Key)), Value(std::move(Value)), FromInherit(FromInherit) {
+            AttributeKind Kind)
+      : Key(std::move(Key)), Value(std::move(Value)), Kind(Kind) {
     assert(this->Key && "Key must not be null");
   }
 
@@ -202,7 +213,11 @@ public:
 
   [[nodiscard]] Expr *value() const { return Value.get(); }
 
-  [[nodiscard]] bool fromInherit() const { return FromInherit; }
+  [[nodiscard]] AttributeKind kind() const { return Kind; }
+
+  [[nodiscard]] bool fromInherit() const {
+    return Kind == AttributeKind::InheritFrom || Kind == AttributeKind::Inherit;
+  }
 };
 
 /// \brief Attribute set after deduplication.

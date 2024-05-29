@@ -290,4 +290,19 @@ TEST_F(VLATest, EmptyLetIn) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Issue513) {
+  // #513
+  const char *Src = R"(
+rec {
+  a = 1;
+  b = rec {
+    inherit a;
+  };
+})";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+}
+
 } // namespace
