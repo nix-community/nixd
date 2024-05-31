@@ -63,6 +63,6 @@ DIAG("sema-extra-with", ExtraWith, Warning, "unused `with` expression")
 // let a = 1; b = { a = 2; }; with b;  a
 // "a" will bind to "let", not "with", that is not very intuitive.
 DIAG("sema-escaping-with", EscapingWith, Warning,
-     "this variable will escape nested `with`, binding to static name")
+     "this variable comes from the scope outside of the `with` expression")
 
 #endif // DIAG
