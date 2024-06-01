@@ -27,8 +27,6 @@ bool isSubmodule(nix::EvalState &State, nix::Value &V) {
 
 /// \brief Do proper operations to get options declaration on submodule type.
 nix::Value getSubOptions(nix::EvalState &State, nix::Value &Type) {
-  // Mangle the value if only V.type.name == "submodule"
-  // If "V" is an option, and the type is "submodule".
   // For example, programs.nixvim has all options nested into this attrpath.
   nix::Value &GetSubOptions =
       selectAttr(State, Type, State.symbols.create("getSubOptions"));
