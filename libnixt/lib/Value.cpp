@@ -6,6 +6,43 @@
 
 using namespace nixt;
 
+namespace {
+
+/// \brief Check if the value \p V is a submodule.
+bool isSubmodule(nix::EvalState &State, nix::Value &V) {
+  try {
+    nix::Value &Type = selectAttr(State, V, State.sType);
+    if (checkField(State, Type, "name", "submodule")) {
+      return true;
+    }
+  } catch (nix::TypeError &) {
+    // The value is not an attrset, thus it definitely cannot be a submodule.
+    return false;
+  } catch (nix::AttrPathNotFound &) {
+    // The value has no "type" field.
+    return false;
+  }
+  return false;
+}
+
+/// \brief Do proper operations to get options declaration on submodule type.
+nix::Value getSubOptions(nix::EvalState &State, nix::Value &Type) {
+  // Mangle the value if only V.type.name == "submodule"
+  // If "V" is an option, and the type is "submodule".
+  // For example, programs.nixvim has all options nested into this attrpath.
+  nix::Value &GetSubOptions =
+      selectAttr(State, Type, State.symbols.create("getSubOptions"));
+
+  nix::Value EmptyList;
+  EmptyList.mkList(0);
+  // Invoke "GetSubOptions"
+  nix::Value VResult;
+  State.callFunction(GetSubOptions, EmptyList, VResult, nix::noPos);
+  return VResult;
+}
+
+} // namespace
+
 std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
                                          std::string_view Field) {
   State.forceValue(V, nix::noPos);
@@ -113,6 +150,12 @@ nix::Value &nixt::selectAttrPath(nix::EvalState &State, nix::Value &V,
 nix::Value nixt::selectOptions(nix::EvalState &State, nix::Value &V,
                                std::vector<nix::Symbol>::const_iterator Begin,
                                std::vector<nix::Symbol>::const_iterator End) {
+  // Always try to mangle the value if it is a submodule
+  if (isSubmodule(State, V)) {
+    nix::Value &Type = selectAttr(State, V, State.sType);
+    V = getSubOptions(State, Type);
+  }
+
   if (Begin == End)
     return V;
 
@@ -131,18 +174,8 @@ nix::Value nixt::selectOptions(nix::EvalState &State, nix::Value &V,
           selectAttr(State, NestedTypes, State.symbols.create("elemType"));
 
       if (checkField(State, ElemType, "name", "submodule")) {
-        // Current iterator may be ommited, and V becomes "V.getSubOptions []"
-        nix::Value &GetSubOptions =
-            selectAttr(State, ElemType, State.symbols.create("getSubOptions"));
-
-        nix::Value EmptyList;
-        EmptyList.mkList(0);
-
-        // Invoke "GetSubOptions"
-        nix::Value Next;
-        State.callFunction(GetSubOptions, EmptyList, Next, nix::noPos);
-
-        return selectOptions(State, Next, ++Begin, End);
+        nix::Value ElemOptions = getSubOptions(State, ElemType);
+        return selectOptions(State, ElemOptions, ++Begin, End);
       }
     }
   }
