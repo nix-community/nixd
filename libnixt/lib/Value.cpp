@@ -2,44 +2,10 @@
 
 #include <nix/attr-path.hh>
 #include <nix/nixexpr.hh>
+#include <nix/symbol-table.hh>
 #include <nix/value.hh>
 
 using namespace nixt;
-
-namespace {
-
-/// \brief Check if the value \p V is a submodule.
-bool isSubmodule(nix::EvalState &State, nix::Value &V) {
-  try {
-    nix::Value &Type = selectAttr(State, V, State.sType);
-    if (checkField(State, Type, "name", "submodule")) {
-      return true;
-    }
-  } catch (nix::TypeError &) {
-    // The value is not an attrset, thus it definitely cannot be a submodule.
-    return false;
-  } catch (nix::AttrPathNotFound &) {
-    // The value has no "type" field.
-    return false;
-  }
-  return false;
-}
-
-/// \brief Do proper operations to get options declaration on submodule type.
-nix::Value getSubOptions(nix::EvalState &State, nix::Value &Type) {
-  // For example, programs.nixvim has all options nested into this attrpath.
-  nix::Value &GetSubOptions =
-      selectAttr(State, Type, State.symbols.create("getSubOptions"));
-
-  nix::Value EmptyList;
-  EmptyList.mkList(0);
-  // Invoke "GetSubOptions"
-  nix::Value VResult;
-  State.callFunction(GetSubOptions, EmptyList, VResult, nix::noPos);
-  return VResult;
-}
-
-} // namespace
 
 std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
                                          std::string_view Field) {
@@ -145,14 +111,57 @@ nix::Value &nixt::selectAttrPath(nix::EvalState &State, nix::Value &V,
   return selectAttrPath(State, Nested, ++Begin, End);
 }
 
+namespace {
+
+/// \brief Check if the \p Type is a submodule.
+bool isTypeSubmodule(nix::EvalState &State, nix::Value &Type) {
+  return checkField(State, Type, "name", "submodule");
+}
+
+nix::Value *trySelectAttr(nix::EvalState &State, nix::Value &V, nix::Symbol S) {
+  try {
+    nix::Value &Type = selectAttr(State, V, State.sType);
+    return &Type;
+  } catch (nix::TypeError &) {
+    // The value is not an attrset, thus it definitely cannot be a submodule.
+    return nullptr;
+  } catch (nix::AttrPathNotFound &) {
+    // The value has no "type" field.
+    return nullptr;
+  }
+  return nullptr;
+}
+
+/// \brief Get the type of an option.
+nix::Value *tryGetSubmoduleType(nix::EvalState &State, nix::Value &V) {
+  if (nix::Value *Type = trySelectAttr(State, V, State.sType))
+    return isTypeSubmodule(State, *Type) ? Type : nullptr;
+  return nullptr;
+}
+
+/// \brief Do proper operations to get options declaration on submodule type.
+nix::Value getSubOptions(nix::EvalState &State, nix::Value &Type) {
+  // For example, programs.nixvim has all options nested into this attrpath.
+  nix::Value &GetSubOptions =
+      selectAttr(State, Type, State.symbols.create("getSubOptions"));
+
+  nix::Value EmptyList;
+  EmptyList.mkList(0);
+  // Invoke "GetSubOptions"
+  nix::Value VResult;
+  State.callFunction(GetSubOptions, EmptyList, VResult, nix::noPos);
+  return VResult;
+}
+
+} // namespace
+
 nix::Value nixt::selectOptions(nix::EvalState &State, nix::Value &V,
                                std::vector<nix::Symbol>::const_iterator Begin,
                                std::vector<nix::Symbol>::const_iterator End) {
   // Always try to mangle the value if it is a submodule
-  if (isSubmodule(State, V)) {
-    nix::Value &Type = selectAttr(State, V, State.sType);
-    V = getSubOptions(State, Type);
-  }
+  if (nix::Value *SubType = tryGetSubmoduleType(State, V))
+    // Invoke getSubOptions on that type, and reset the value to it.
+    V = getSubOptions(State, *SubType);
 
   if (Begin == End)
     return V;
@@ -171,7 +180,7 @@ nix::Value nixt::selectOptions(nix::EvalState &State, nix::Value &V,
       nix::Value ElemType =
           selectAttr(State, NestedTypes, State.symbols.create("elemType"));
 
-      if (checkField(State, ElemType, "name", "submodule")) {
+      if (isTypeSubmodule(State, ElemType)) {
         nix::Value ElemOptions = getSubOptions(State, ElemType);
         return selectOptions(State, ElemOptions, ++Begin, End);
       }
