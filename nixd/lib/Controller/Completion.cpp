@@ -6,6 +6,8 @@
 #include "AST.h"
 #include "Convert.h"
 
+#include "lspserver/Protocol.h"
+
 #include "nixd/Controller/Controller.h"
 
 #include <boost/asio/post.hpp>
@@ -275,6 +277,10 @@ void Controller::onCompletion(const CompletionParams &Params,
         const nixf::Node *Desc = AST->descend({Pos, Pos});
         if (!Desc) {
           Reply(error("cannot find corresponding node on given position"));
+          return;
+        }
+        if (!Desc->children().empty()) {
+          Reply(CompletionList{});
           return;
         }
         CompletionList List;
