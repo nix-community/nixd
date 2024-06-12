@@ -62,11 +62,11 @@ CHECK-NEXT: "result": [
 CHECK-NEXT:   {
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 33,
+CHECK-NEXT:         "character": 0,
 CHECK-NEXT:         "line": 33
 CHECK-NEXT:       },
 CHECK-NEXT:       "start": {
-CHECK-NEXT:         "character": 33,
+CHECK-NEXT:         "character": 0,
 CHECK-NEXT:         "line": 33
 CHECK-NEXT:       }
 CHECK-NEXT:     },
