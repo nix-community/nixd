@@ -125,7 +125,7 @@ class NixpkgsDefinitionProvider {
       };
     }
     int PosL = std::stoi(std::string(Position.substr(Pos + 1)));
-    lspserver::Position P{PosL, PosL};
+    lspserver::Position P{PosL, 0};
     std::string_view File = Position.substr(0, Pos);
     return Location{
         .uri = URIForFile::canonicalize(File, File),
