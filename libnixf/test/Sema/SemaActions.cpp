@@ -110,11 +110,12 @@ TEST_F(SemaActionTest, insertAttrDup) {
       {"a", Attribute(
                 /*Key=*/Name,
                 /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-                /*FromInherit=*/false)});
+                Attribute::AttributeKind::Plain)});
 
   SemaAttrs A(std::move(Attrs), {}, nullptr);
   std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
-  L.insertAttr(A, std::move(Name), std::move(E), false); // Duplicated
+  L.insertAttr(A, std::move(Name), std::move(E),
+               Attribute::AttributeKind::Plain); // Duplicated
 
   ASSERT_EQ(A.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 1);
@@ -126,7 +127,7 @@ TEST_F(SemaActionTest, insertAttrOK) {
   // Check we can detect duplicated attr.
   std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
   L.insertAttr(SA, std::move(Name), std::move(E),
-               /*IsInherit=*/false); // Duplicated
+               Attribute::AttributeKind::Plain); // Duplicated
   ASSERT_EQ(SA.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
 }
@@ -136,7 +137,7 @@ TEST_F(SemaActionTest, insertAttrNullptr) {
   auto Name = getStaticName("a");
   std::shared_ptr<ExprInt> E(new ExprInt{{}, 1});
   L.insertAttr(SA, std::move(Name), std::move(E),
-               /*IsInherit=*/false); // Duplicated
+               Attribute::AttributeKind::Plain); // Duplicated
   ASSERT_EQ(SA.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
 }
@@ -144,8 +145,7 @@ TEST_F(SemaActionTest, insertAttrNullptr) {
 TEST_F(SemaActionTest, insertAttrNullptr2) {
   SemaAttrs SA(nullptr);
   auto Name = getDynamicName();
-  L.insertAttr(SA, std::move(Name), nullptr,
-               /*IsInherit=*/false);
+  L.insertAttr(SA, std::move(Name), nullptr, Attribute::AttributeKind::Plain);
   ASSERT_EQ(SA.staticAttrs().size(), 0);
   ASSERT_EQ(SA.dynamicAttrs().size(), 0);
   ASSERT_EQ(Diags.size(), 0);
@@ -155,7 +155,8 @@ TEST_F(SemaActionTest, inheritName) {
   SemaAttrs Attr(nullptr);
   auto Name = getStaticName("a");
 
-  L.lowerInheritName(Attr, std::move(Name), nullptr);
+  L.lowerInheritName(Attr, std::move(Name), nullptr,
+                     Attribute::AttributeKind::Inherit);
   ASSERT_EQ(Attr.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 0);
 }
@@ -164,7 +165,7 @@ TEST_F(SemaActionTest, inheritNameNullptr) {
   SemaAttrs Attr(nullptr);
   auto Name = getStaticName("a");
 
-  L.lowerInheritName(Attr, nullptr, nullptr);
+  L.lowerInheritName(Attr, nullptr, nullptr, Attribute::AttributeKind::Inherit);
   ASSERT_EQ(Attr.staticAttrs().size(), 0);
   ASSERT_EQ(Diags.size(), 0);
 }
@@ -174,7 +175,7 @@ TEST_F(SemaActionTest, inheritNameDynamic) {
   auto Name = getDynamicName(
       {LexerCursor::unsafeCreate(0, 0, 1), LexerCursor::unsafeCreate(0, 1, 2)});
 
-  L.lowerInheritName(Attr, Name, nullptr);
+  L.lowerInheritName(Attr, Name, nullptr, Attribute::AttributeKind::Inherit);
   ASSERT_EQ(Attr.staticAttrs().size(), 0);
   ASSERT_EQ(Attr.dynamicAttrs().size(), 0);
   ASSERT_EQ(Diags.size(), 1);
@@ -198,10 +199,10 @@ TEST_F(SemaActionTest, inheritNameDuplicated) {
       {"a", Attribute(
                 /*Key=*/Name,
                 /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-                /*FromInherit=*/false)});
+                Attribute::AttributeKind::Plain)});
 
   SemaAttrs SA(std::move(Attrs), {}, nullptr);
-  L.lowerInheritName(SA, Name, nullptr);
+  L.lowerInheritName(SA, Name, nullptr, Attribute::AttributeKind::Inherit);
   ASSERT_EQ(SA.staticAttrs().size(), 1);
   ASSERT_EQ(Diags.size(), 1);
 }
@@ -222,13 +223,13 @@ TEST_F(SemaActionTest, mergeAttrSets) {
       {"a", Attribute(
                 /*Key=*/XName,
                 /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-                /*FromInherit=*/false)});
+                Attribute::AttributeKind::Plain)});
 
   YAttrs.insert(
       {"a", Attribute(
                 /*Key=*/YName,
                 /*Value=*/std::make_shared<ExprInt>(LexerCursorRange{}, 1),
-                /*FromInherit=*/false)});
+                Attribute::AttributeKind::Plain)});
 
   SemaAttrs XA(XAttrs, {}, nullptr);
   SemaAttrs YA(YAttrs, {}, nullptr);

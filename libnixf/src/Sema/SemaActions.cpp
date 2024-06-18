@@ -65,7 +65,7 @@ void Sema::mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs) {
 }
 
 void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
-                      std::shared_ptr<Expr> E, bool IsInherit) {
+                      std::shared_ptr<Expr> E, Attribute::AttributeKind Kind) {
   // In this function we accept nullptr "E".
   //
   // e.g. { a = ; }
@@ -76,7 +76,7 @@ void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
   assert(Name);
   if (!Name->isStatic()) {
     if (E)
-      SA.Dynamic.emplace_back(std::move(Name), std::move(E), IsInherit);
+      SA.Dynamic.emplace_back(std::move(Name), std::move(E), Kind);
     return;
   }
   auto &Attrs = SA.Static;
@@ -97,8 +97,7 @@ void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
   }
   if (!E)
     return;
-  Attrs.insert(
-      {StaticName, Attribute(std::move(Name), std::move(E), IsInherit)});
+  Attrs.insert({StaticName, Attribute(std::move(Name), std::move(E), Kind)});
 }
 
 SemaAttrs *
@@ -135,8 +134,9 @@ Sema::selectOrCreate(SemaAttrs &SA,
         auto NewNested = std::make_shared<ExprAttrs>(
             Name->range(), nullptr, nullptr, SemaAttrs(/*Recursive=*/nullptr));
         Inner = &NewNested->SA;
-        StaticAttrs.insert({StaticName, Attribute(Name, std::move(NewNested),
-                                                  /*FromInherit=*/false)});
+        StaticAttrs.insert(
+            {StaticName, Attribute(Name, std::move(NewNested),
+                                   Attribute::AttributeKind::Plain)});
       }
     } else {
       // Create a dynamic attribute.
@@ -146,7 +146,7 @@ Sema::selectOrCreate(SemaAttrs &SA,
       Inner = &NewNested->SA;
       DynamicAttrs.emplace_back(Name,
                                 std::shared_ptr<Expr>(std::move(NewNested)),
-                                /*FromInherit=*/false);
+                                Attribute::AttributeKind::Plain);
     }
   }
   return Inner;
@@ -163,7 +163,8 @@ void Sema::addAttr(SemaAttrs &Attr, const AttrPath &Path,
   std::shared_ptr<AttrName> Name = Path.names().back();
   if (!Name)
     return;
-  insertAttr(*Inner, std::move(Name), std::move(E), false);
+  insertAttr(*Inner, std::move(Name), std::move(E),
+             Attribute::AttributeKind::Plain);
 }
 
 void Sema::removeFormal(Fix &F, const FormalVector::const_iterator &Rm,
@@ -279,7 +280,9 @@ std::shared_ptr<Formals> Sema::onFormals(LexerCursorRange Range,
 }
 
 void Sema::lowerInheritName(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
-                            std::shared_ptr<Expr> E) {
+                            std::shared_ptr<Expr> E,
+                            Attribute::AttributeKind InheritKind) {
+  assert(InheritKind != Attribute::AttributeKind::Plain);
   if (!Name)
     return;
   if (!Name->isStatic()) {
@@ -298,15 +301,15 @@ void Sema::lowerInheritName(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
   }
   // Insert the attr.
   std::string StaticName = Name->staticName();
-  SA.Static.insert({StaticName, Attribute(std::move(Name), std::move(E),
-                                          /*FromInherit=*/true)});
+  SA.Static.insert(
+      {StaticName, Attribute(std::move(Name), std::move(E), InheritKind)});
 }
 
 void Sema::lowerInherit(SemaAttrs &Attr, const Inherit &Inherit) {
   for (const std::shared_ptr<AttrName> &Name : Inherit.names()) {
     assert(Name);
-    std::shared_ptr<Expr> Desugar = desugarInheritExpr(Name, Inherit.expr());
-    lowerInheritName(Attr, Name, std::move(Desugar));
+    auto [Desugar, Kind] = desugarInheritExpr(Name, Inherit.expr());
+    lowerInheritName(Attr, Name, std::move(Desugar), Kind);
   }
 }
 
@@ -330,17 +333,20 @@ void Sema::lowerBinds(SemaAttrs &SA, const Binds &B) {
   }
 }
 
-std::shared_ptr<Expr> Sema::desugarInheritExpr(std::shared_ptr<AttrName> Name,
-                                               std::shared_ptr<Expr> E) {
+std::pair<std::shared_ptr<Expr>, Attribute::AttributeKind>
+Sema::desugarInheritExpr(std::shared_ptr<AttrName> Name,
+                         std::shared_ptr<Expr> E) {
   auto Range = Name->range();
   if (!E)
-    return std::make_shared<ExprVar>(Range, Name->id());
+    return {std::make_shared<ExprVar>(Range, Name->id()),
+            Attribute::AttributeKind::Inherit};
 
   auto Path = std::make_shared<AttrPath>(
       Range, std::vector<std::shared_ptr<AttrName>>{std::move(Name)},
       std::vector<std::shared_ptr<Dot>>{});
-  return std::make_shared<ExprSelect>(Range, std::move(E), std::move(Path),
-                                      nullptr);
+  return {std::make_shared<ExprSelect>(Range, std::move(E), std::move(Path),
+                                       nullptr),
+          Attribute::AttributeKind::InheritFrom};
 }
 
 std::shared_ptr<ExprAttrs> Sema::onExprAttrs(LexerCursorRange Range,
