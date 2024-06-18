@@ -1,22 +1,27 @@
-{ lib
-, stdenv
-, meson
-, ninja
-, pkg-config
-, lit
-, nixpkgs-fmt
-, gtest
-, boost182
-, nlohmann_json
+{
+  lib,
+  stdenv,
+  meson,
+  ninja,
+  pkg-config,
+  lit,
+  nixpkgs-fmt,
+  gtest,
+  boost182,
+  nlohmann_json,
 }:
 
 stdenv.mkDerivation {
   pname = "nixf";
-  version = "2.2.0";
+  version = "2.2.1";
 
   src = ../.;
 
-  outputs = [ "out" "bin" "dev" ];
+  outputs = [
+    "out"
+    "bin"
+    "dev"
+  ];
 
   mesonBuildType = "release";
 
@@ -40,7 +45,6 @@ stdenv.mkDerivation {
     boost182
     nlohmann_json
   ];
-
 
   meta = {
     mainProgram = "nixf";

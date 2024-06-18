@@ -1,20 +1,21 @@
-{ lib
-, stdenv
-, boost182
-, gtest
-, lit
-, llvmPackages
-, meson
-, ninja
-, nix
-, nixpkgs-fmt
-, pkg-config
-, nlohmann_json
+{
+  lib,
+  stdenv,
+  boost182,
+  gtest,
+  lit,
+  llvmPackages,
+  meson,
+  ninja,
+  nix,
+  nixpkgs-fmt,
+  pkg-config,
+  nlohmann_json,
 }:
 
 stdenv.mkDerivation {
   pname = "nixd";
-  version = "2.1.0";
+  version = "2.2.1";
 
   src = ./.;
 
