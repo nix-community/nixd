@@ -27,7 +27,7 @@ class OptionsHoverProvider {
 
 public:
   OptionsHoverProvider(AttrSetClient &Client) : Client(Client) {}
-  std::optional<OptionDescription> resolveHover(std::vector<std::string> Scope,
+  std::optional<OptionDescription> resolveHover(const std::vector<std::string> &Scope,
                                                 std::string Name) {
     std::binary_semaphore Ready(0);
     std::optional<OptionDescription> Desc;
