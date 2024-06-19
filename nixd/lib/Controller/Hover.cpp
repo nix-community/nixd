@@ -156,7 +156,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
               OptionsHoverProvider OHP(*C);
               std::optional<OptionDescription> Desc =
                   OHP.resolveHover(Scope, Name);
-              std::string Docs = "";
+              std::string Docs;
               if (Desc) {
                 if (Desc->Type) {
                   std::string TypeName = Desc->Type->Name.value_or("");
