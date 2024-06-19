@@ -70,8 +70,7 @@ class NixpkgsHoverProvider {
     }
 
     if (Package.Description) {
-      OS << "## Description"
-         << "\n\n";
+      OS << "## Description" << "\n\n";
       OS << *Package.Description;
       OS << "\n\n";
 
@@ -154,8 +153,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
           for (const auto &[_, Client] : Options) {
             if (AttrSetClient *C = Client->client()) {
               OptionsHoverProvider OHP(*C);
-              std::optional<OptionDescription> Desc =
-                  OHP.resolveHover(Scope, Name);
+              std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
               std::string Docs;
               if (Desc) {
                 if (Desc->Type) {
