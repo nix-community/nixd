@@ -71,7 +71,8 @@ class NixpkgsHoverProvider {
     }
 
     if (Package.Description) {
-      OS << "## Description" << "\n\n";
+      OS << "## Description"
+         << "\n\n";
       OS << *Package.Description;
       OS << "\n\n";
 
