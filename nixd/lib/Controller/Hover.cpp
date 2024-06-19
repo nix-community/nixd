@@ -27,8 +27,8 @@ class OptionsHoverProvider {
 
 public:
   OptionsHoverProvider(AttrSetClient &Client) : Client(Client) {}
-  std::optional<OptionDescription> resolveHover(const std::vector<std::string> &Scope,
-                                                std::string Name) {
+  std::optional<OptionDescription>
+  resolveHover(const std::vector<std::string> &Scope) {
     std::binary_semaphore Ready(0);
     std::optional<OptionDescription> Desc;
     auto OnReply = [&Ready, &Desc](llvm::Expected<OptionInfoResponse> Resp) {
@@ -40,7 +40,6 @@ public:
     };
 
     Client.optionInfo(Scope, std::move(OnReply));
-    Scope.emplace_back(std::move(Name));
     Ready.acquire();
 
     return Desc;
