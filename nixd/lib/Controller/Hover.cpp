@@ -164,7 +164,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
                   Docs += "? (missing type)";
                 }
                 if (Desc->Description) {
-                  Docs += "\n" + Desc->Description.value_or("");
+                  Docs += "\n\n" + Desc->Description.value_or("");
                 }
                 Reply(Hover{
                     .contents =
