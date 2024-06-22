@@ -51,7 +51,7 @@ CHECK-NEXT:         "line": 0
 CHECK-NEXT:       }
 CHECK-NEXT:     },
 CHECK-NEXT:     "relatedInformation": [],
-CHECK-NEXT:     "severity": 2,
+CHECK-NEXT:     "severity": 4,
 CHECK-NEXT:     "source": "nixf",
 CHECK-NEXT:     "tags": [
 CHECK-NEXT:       1

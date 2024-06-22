@@ -54,11 +54,11 @@ DIAG("sema-dup-formal-arg", DuplicatedFormalToArg, Error,
      "function argument duplicated to a function formal")
 DIAG("sema-undefined-variable", UndefinedVariable, Error,
      "undefined variable `{}`")
-DIAG("sema-def-not-used", DefinitionNotUsed, Warning,
+DIAG("sema-def-not-used", DefinitionNotUsed, Hint,
      "definition `{}` is not used")
-DIAG("sema-extra-rec", ExtraRecursive, Warning,
+DIAG("sema-extra-rec", ExtraRecursive, Hint,
      "attrset is not necessary to be `rec`ursive ")
-DIAG("sema-extra-with", ExtraWith, Warning, "unused `with` expression")
+DIAG("sema-extra-with", ExtraWith, Hint, "unused `with` expression")
 
 // let a = 1; b = { a = 2; }; with b;  a
 // "a" will bind to "let", not "with", that is not very intuitive.
