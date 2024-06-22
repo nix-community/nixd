@@ -64,7 +64,7 @@ CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": {
 CHECK-NEXT:   "contents": {
 CHECK-NEXT:     "kind": "markdown",
-CHECK-NEXT:     "value": "`Identifer`"
+CHECK-NEXT:     "value": "? (missing type)"
 CHECK-NEXT:   },
 CHECK-NEXT:   "range": {
 CHECK-NEXT:     "end": {
