@@ -1,5 +1,5 @@
 # RUN: nixd --lit-test \
-# RUN: --nixos-options-expr="{ foo.bar = { _type = \"option\"; }; }" \
+# RUN: --nixos-options-expr="{ foo.bar = { _type = \"option\";  description = \"test\"; type.description = \"hello type\"; }; }" \
 # RUN: < %s | FileCheck %s
 
 
@@ -59,23 +59,24 @@
 ```
 
 ```
-     CHECK: "id": 2,
-CHECK-NEXT: "jsonrpc": "2.0",
-CHECK-NEXT: "result": {
-CHECK-NEXT:   "contents": {
-CHECK-NEXT:     "kind": "markdown",
-CHECK-NEXT:     "value": "? (missing type)"
-CHECK-NEXT:   },
-CHECK-NEXT:   "range": {
-CHECK-NEXT:     "end": {
-CHECK-NEXT:       "character": 9,
-CHECK-NEXT:       "line": 0
-CHECK-NEXT:     },
-CHECK-NEXT:     "start": {
-CHECK-NEXT:       "character": 6,
-CHECK-NEXT:       "line": 0
-CHECK-NEXT:     }
-CHECK-NEXT:   }
+     CHECK:  "id": 2,
+CHECK-NEXT:  "jsonrpc": "2.0",
+CHECK-NEXT:  "result": {
+CHECK-NEXT:    "contents": {
+CHECK-NEXT:      "kind": "markdown",
+CHECK-NEXT:      "value": " (hello type)\ntest"
+CHECK-NEXT:    },
+CHECK-NEXT:    "range": {
+CHECK-NEXT:      "end": {
+CHECK-NEXT:        "character": 9,
+CHECK-NEXT:        "line": 0
+CHECK-NEXT:      },
+CHECK-NEXT:      "start": {
+CHECK-NEXT:        "character": 6,
+CHECK-NEXT:        "line": 0
+CHECK-NEXT:      }
+CHECK-NEXT:    }
+CHECK-NEXT:  }
 ```
 
 ```json
