@@ -270,6 +270,14 @@ TEST_F(VLATest, EscapingWith) {
   ASSERT_EQ(D.notes()[1].range().rCur().offset(), 7);
 }
 
+TEST_F(VLATest, EscapingWithButBuiltin) {
+  std::shared_ptr<Node> AST = parse("with { a = 1; }; [ a true false null ]", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 TEST_F(VLATest, InheritRec) {
   // Make sure inheirt (expr), the expression is binded to "NewEnv".
   std::shared_ptr<Node> AST =
