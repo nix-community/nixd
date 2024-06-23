@@ -111,7 +111,7 @@ private:
 
   template <class T>
   std::shared_ptr<NixTU> getTU(std::string File, lspserver::Callback<T> &Reply,
-                               bool Ignore = false) {
+                               bool Ignore = true) {
     using lspserver::error;
     std::lock_guard G(TUsLock);
     if (!TUs.count(File)) [[unlikely]] {
