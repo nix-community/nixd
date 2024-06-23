@@ -22,6 +22,30 @@ using namespace lspserver;
 
 namespace {
 
+class OptionsHoverProvider {
+  AttrSetClient &Client;
+
+public:
+  OptionsHoverProvider(AttrSetClient &Client) : Client(Client) {}
+  std::optional<OptionDescription>
+  resolveHover(const std::vector<std::string> &Scope) {
+    std::binary_semaphore Ready(0);
+    std::optional<OptionDescription> Desc;
+    auto OnReply = [&Ready, &Desc](llvm::Expected<OptionInfoResponse> Resp) {
+      if (Resp)
+        Desc = *Resp;
+      else
+        elog("options hover: {0}", Resp.takeError());
+      Ready.release();
+    };
+
+    Client.optionInfo(Scope, std::move(OnReply));
+    Ready.acquire();
+
+    return Desc;
+  }
+};
+
 /// \brief Provide package information, library information ... , from nixpkgs.
 class NixpkgsHoverProvider {
   AttrSetClient &NixpkgsClient;
@@ -46,8 +70,7 @@ class NixpkgsHoverProvider {
     }
 
     if (Package.Description) {
-      OS << "## Description"
-         << "\n\n";
+      OS << "## Description" << "\n\n";
       OS << *Package.Description;
       OS << "\n\n";
 
@@ -122,6 +145,41 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
             return;
           }
         }
+
+        std::vector<std::string> Scope;
+        auto R = findAttrPath(*N, PM, Scope);
+        if (R == FindAttrPathResult::OK) {
+          std::lock_guard _(OptionsLock);
+          for (const auto &[_, Client] : Options) {
+            if (AttrSetClient *C = Client->client()) {
+              OptionsHoverProvider OHP(*C);
+              std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
+              std::string Docs;
+              if (Desc) {
+                if (Desc->Type) {
+                  std::string TypeName = Desc->Type->Name.value_or("");
+                  std::string TypeDesc = Desc->Type->Description.value_or("");
+                  Docs += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
+                } else {
+                  Docs += "? (missing type)";
+                }
+                if (Desc->Description) {
+                  Docs += "\n\n" + Desc->Description.value_or("");
+                }
+                Reply(Hover{
+                    .contents =
+                        MarkupContent{
+                            .kind = MarkupKind::Markdown,
+                            .value = std::move(Docs),
+                        },
+                    .range = toLSPRange(N->range()),
+                });
+                return;
+              }
+            }
+          }
+        }
+
         // Reply it's kind by static analysis
         // FIXME: support more.
         Reply(Hover{

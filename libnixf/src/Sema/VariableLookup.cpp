@@ -81,7 +81,7 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     Def->usedBy(Var);
     Results.insert({&Var, LookupResult{LookupResultKind::Defined, Def}});
 
-    if (EnclosedWith) {
+    if (EnclosedWith && !Def->isBuiltin()) {
       // Escaping from "with" to outer scope.
       // https://github.com/NixOS/nix/issues/490
 

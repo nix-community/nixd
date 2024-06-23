@@ -149,11 +149,22 @@ public:
   /// should be "Fatal", "Error" or "Warning"
   /// this will affect the eval process.
   ///
-  /// "Fatal"   -- shouldn't eval the code, e.g. parsing error.
-  /// "Error"   -- trigger an error in nix, but we can recover & eval the code.
   /// "Warning" -- just a warning.
-  /// "Note"    -- some additional information about the error.
-  enum Severity { DS_Fatal, DS_Error, DS_Warning };
+  enum Severity {
+    /// shouldn't eval the code, e.g. parsing error.
+    DS_Fatal,
+    /// trigger an error in nix, but we can recover & eval the code.
+    DS_Error,
+    /// A warning.
+    DS_Warning,
+    /// An information.
+    DS_Info,
+
+    /// A hint. Hints are usually not rendered directly in some editor GUI
+    /// So this is suitable for liveness analysis results.
+    /// For example, "unused xxx"
+    DS_Hint,
+  };
 
   /// Internal kind
   enum DiagnosticKind {

@@ -1,4 +1,5 @@
 #include "Convert.h"
+#include "nixf/Basic/Diagnostic.h"
 
 using namespace lspserver;
 
@@ -11,6 +12,10 @@ int getLSPSeverity(nixf::Diagnostic::DiagnosticKind Kind) {
     return 1;
   case nixf::Diagnostic::DS_Warning:
     return 2;
+  case nixf::Diagnostic::DS_Info:
+    return 3;
+  case nixf::Diagnostic::DS_Hint:
+    return 4;
   }
   assert(false && "Invalid severity");
   __builtin_unreachable();
