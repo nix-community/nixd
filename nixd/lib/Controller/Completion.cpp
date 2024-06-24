@@ -324,12 +324,11 @@ void Controller::onCompletion(const CompletionParams &Params,
         }
         CompletionList List;
         try {
-          bool FinishedCompletion = false;
           const ParentMapAnalysis &PM = *TU->parentMap();
-
-          // if we are in an attribute path, use AttrCompletionProvider only
           std::vector<std::string> Scope;
-          if (findAttrPath(*Desc, PM, Scope) == FindAttrPathResult::OK) {
+          using PathResult = FindAttrPathResult;
+          auto R = findAttrPath(*Desc, PM, Scope);
+          if (R == PathResult::OK) {
             // Construct request.
             std::string Prefix = Scope.back();
             Scope.pop_back();
@@ -338,32 +337,25 @@ void Controller::onCompletion(const CompletionParams &Params,
               completeAttrName(Scope, Prefix, Options,
                                ClientCaps.CompletionSnippets, List.items);
             }
-            FinishedCompletion = true;
-          }
-
-          // if we are in a literal path, use PathCompletionProvider only
-          if (!FinishedCompletion) {
+          } else {
             const auto *Parent = PM.upExpr(*Desc);
+            // if we are in a literal path, use PathCompletionProvider
             if (Parent->kind() == Node::NK_ExprPath) {
               const auto &Path = static_cast<const nixf::ExprPath &>(*Parent);
               if (Path.parts().isLiteral()) {
                 completeExprPath(File, Path, List.items);
-                FinishedCompletion = true;
               }
-            }
-          }
-
-          // otherwise, fallback to VLACompletionProvider
-          if (!FinishedCompletion) {
-            const VariableLookupAnalysis &VLA = *TU->variableLookup();
-            VLACompletionProvider VLAP(VLA);
-            VLAP.complete(*Desc, List.items, PM);
-            if (havePackageScope(*Desc, VLA, PM)) {
-              // Append it with nixpkgs completion
-              // FIXME: handle null nixpkgsClient()
-              NixpkgsCompletionProvider NCP(*nixpkgsClient());
-              auto [Scope, Prefix] = getScopeAndPrefix(*Desc, PM);
-              NCP.completePackages(Scope, Prefix, List.items);
+            } else {
+              const VariableLookupAnalysis &VLA = *TU->variableLookup();
+              VLACompletionProvider VLAP(VLA);
+              VLAP.complete(*Desc, List.items, PM);
+              if (havePackageScope(*Desc, VLA, PM)) {
+                // Append it with nixpkgs completion
+                // FIXME: handle null nixpkgsClient()
+                NixpkgsCompletionProvider NCP(*nixpkgsClient());
+                auto [Scope, Prefix] = getScopeAndPrefix(*Desc, PM);
+                NCP.completePackages(Scope, Prefix, List.items);
+              }
             }
           }
           // Next, add nixpkgs provided names.

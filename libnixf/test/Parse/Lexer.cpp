@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "Lexer.h"
-
 #include "Token.h"
+
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/TokenKinds.h"
 
