@@ -2,7 +2,9 @@
 
 #include "Lexer.h"
 
+#include "Token.h"
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/TokenKinds.h"
 
 #include <cstddef>
 
@@ -165,6 +167,18 @@ TEST_F(LexerTest, lexIDPath) {
       tok_id,            // id
       tok_path_fragment, // pa/
       tok_id,            // t
+  };
+  auto Tokens = collect(Lexer, &Lexer::lex);
+  for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {
+    ASSERT_EQ(Tokens[I].kind(), Match[I]);
+  }
+  ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
+}
+
+TEST_F(LexerTest, lexPathStart) {
+  Lexer Lexer(R"(./)", Diags);
+  const TokenKind Match[] = {
+      tok_path_fragment,
   };
   auto Tokens = collect(Lexer, &Lexer::lex);
   for (size_t I = 0; I < sizeof(Match) / sizeof(TokenKind); I++) {

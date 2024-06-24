@@ -220,6 +220,8 @@ bool Lexer::consumePathStart() {
   // And also check if it contains a slash.
   LexerCursor Saved = cur();
 
+  bool IsStartedWithDot = peek() == '.';
+
   // {PATH_CHAR}*
   consumeManyPathChar();
 
@@ -232,6 +234,10 @@ bool Lexer::consumePathStart() {
     // Or, look ahead to see if is a dollar curly. ${
     // This should be parsed as path-interpolation.
     if (peekPrefix("${"))
+      return true;
+    // Or, look back to see if is a './'.
+    // This should be parsed as path
+    if (IsStartedWithDot)
       return true;
   }
 
