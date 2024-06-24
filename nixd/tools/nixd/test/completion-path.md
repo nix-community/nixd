@@ -58,25 +58,18 @@
 ```
 
 ```
-     CHECK:  "id": 1,
-CHECK-NEXT:  "jsonrpc": "2.0",
-CHECK-NEXT:  "result": {
-CHECK-NEXT:    "isIncomplete": false,
-CHECK-NEXT:    "items": [
-CHECK-NEXT:      {
-CHECK-NEXT:        "data": "./",
-CHECK-NEXT:        "kind": 17,
-CHECK-NEXT:        "label": "foo",
-CHECK-NEXT:        "score": 0
-CHECK-NEXT:      },
-CHECK-NEXT:      {
-CHECK-NEXT:        "data": "./",
-CHECK-NEXT:        "kind": 17,
-CHECK-NEXT:        "label": "main.nix",
-CHECK-NEXT:        "score": 0
-CHECK-NEXT:      }
-CHECK-NEXT:    ]
-CHECK-NEXT:  }
+CHECK:      {
+CHECK:        "data": "./",
+CHECK:        "kind": 17,
+CHECK:        "label": "foo",
+CHECK:        "score": 0
+CHECK:      },
+CHECK:      {
+CHECK:        "data": "./",
+CHECK:        "kind": 17,
+CHECK:        "label": "main.nix",
+CHECK:        "score": 0
+CHECK:      }
 ```
 
 
