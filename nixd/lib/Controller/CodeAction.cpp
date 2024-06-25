@@ -19,7 +19,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
   std::string File(Params.textDocument.uri.file());
   Range Range = Params.range;
   auto Action = [Reply = std::move(Reply), File, Range, this]() mutable {
-    if (auto TU = getTU(File, Reply, /*Ignore=*/true)) {
+    if (auto TU = getTU(File, Reply)) {
       std::vector<nixf::Diagnostic> Diagnostics = TU->diagnostics();
       std::vector<CodeAction> Actions;
       Actions.reserve(Diagnostics.size());

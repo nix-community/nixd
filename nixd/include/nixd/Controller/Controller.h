@@ -110,15 +110,11 @@ private:
   llvm::StringMap<std::shared_ptr<NixTU>> TUs;
 
   template <class T>
-  std::shared_ptr<NixTU> getTU(std::string File, lspserver::Callback<T> &Reply,
-                               bool Ignore = true) {
+  std::shared_ptr<NixTU> getTU(std::string File,
+                               lspserver::Callback<T> &Reply) {
     using lspserver::error;
     std::lock_guard G(TUsLock);
     if (!TUs.count(File)) [[unlikely]] {
-      if (!Ignore) {
-        Reply(error("cannot find corresponding AST on file {0}", File));
-        return nullptr;
-      }
       Reply(T{}); // Reply a default constructed response.
       lspserver::elog("cannot get translation unit: {0}", File);
       return nullptr;
@@ -131,7 +127,8 @@ private:
                                      lspserver::Callback<T> &Reply) {
     using lspserver::error;
     if (!TU.ast()) {
-      Reply(error("AST is null on this unit"));
+      Reply(T{});
+      lspserver::elog("AST is null on this unit");
       return nullptr;
     }
     return TU.ast();
