@@ -228,8 +228,7 @@ void Controller::onSemanticTokens(const SemanticTokensParams &Params,
                                   Callback<SemanticTokens> Reply) {
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  this]() mutable {
-    if (std::shared_ptr<NixTU> TU =
-            getTU(URI.file().str(), Reply, /*Ignore=*/true)) {
+    if (std::shared_ptr<NixTU> TU = getTU(URI.file().str(), Reply)) {
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) {
         SemanticTokenBuilder Builder(*TU->variableLookup());
         Builder.dfs(AST.get());
