@@ -142,6 +142,11 @@ public:
     for (const auto &[Name, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
         continue;
+      // If this attribute comes from "inherit", don't mark it as "AttrName"
+      // The rationale behind this is that we don't want to mark same token
+      // twice because "inherit"ed names also create variables.
+      if (Attr.fromInherit())
+        continue;
       add(Attr.key(), ST_AttrName, 0);
       dfs(Attr.value());
     }
