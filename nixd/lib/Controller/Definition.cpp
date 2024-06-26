@@ -155,11 +155,13 @@ public:
     if (!Desc)
       return Desc.takeError();
 
-    if (!Desc->Position)
+    const std::optional<std::string> &Position = Desc->Position;
+
+    if (!Position)
       return error("meta.position is not available for this package");
 
     try {
-      return parseLocation(*Desc->Position);
+      return parseLocation(*Position);
     } catch (std::exception &E) {
       return error(E.what());
     }
