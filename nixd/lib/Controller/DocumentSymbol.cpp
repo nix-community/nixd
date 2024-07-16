@@ -236,8 +236,7 @@ void Controller::onDocumentSymbol(const DocumentSymbolParams &Params,
                                   Callback<std::vector<DocumentSymbol>> Reply) {
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  this]() mutable {
-    if (std::shared_ptr<NixTU> TU =
-            getTU(URI.file().str(), Reply, /*Ignore=*/true)) {
+    if (std::shared_ptr<NixTU> TU = getTU(URI.file().str(), Reply)) {
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) {
         std::vector<DocumentSymbol> Symbols;
         collect(AST.get(), Symbols, *TU->variableLookup());

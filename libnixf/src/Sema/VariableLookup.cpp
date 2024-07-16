@@ -48,6 +48,9 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
     // the lambda signature.
     if (Def->source() == Definition::DS_LambdaArg)
       continue;
+    // Ignore builtins usage.
+    if (!Def->syntax())
+      continue;
     if (Def->uses().empty()) {
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_DefinitionNotUsed,
                                          Def->syntax()->range());

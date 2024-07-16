@@ -316,4 +316,17 @@ rec {
   ASSERT_EQ(Diags[0].range().lCur().line(), 3);
 }
 
+TEST_F(VLATest, Issue533) {
+  const char *Src = R"(
+let ;
+in 1
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+}
+
 } // namespace

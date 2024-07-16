@@ -17,7 +17,7 @@ nixd_attrset_eval = executable(
 
 regression_controller_env = environment()
 
-regression_controller_env.append('PATH', meson.current_build_dir())
+regression_controller_env.prepend('PATH', meson.current_build_dir())
 regression_controller_env.set('MESON_BUILD_ROOT', meson.current_build_dir())
 regression_controller_env.set('NIXD_ATTRSET_EVAL', nixd_attrset_eval.path())
 
