@@ -12,6 +12,8 @@
 
 #include <boost/asio/post.hpp>
 
+#include <llvm/Support/FileSystem.h>
+#include <llvm/Support/Path.h>
 #include <semaphore>
 #include <set>
 #include <utility>
@@ -250,6 +252,43 @@ public:
   }
 };
 
+void completeExprPath(const std::string &CurFilePath,
+                      const nixf::ExprPath &ExprPath,
+                      std::vector<CompletionItem> &Items) {
+  using namespace llvm::sys;
+
+  if (!ExprPath.parts().isLiteral()) {
+    return;
+  }
+
+  const auto &PathLiteral = ExprPath.parts().literal();
+  if (PathLiteral.empty()) {
+    return;
+  }
+
+  llvm::SmallVector<char, 32> Path{PathLiteral.begin(), PathLiteral.end()};
+  if (PathLiteral[0] == '.') {
+    const auto &CurFileDir = path::parent_path(CurFilePath);
+    fs::make_absolute(CurFileDir, Path);
+  }
+
+  if (fs::exists(Path) && fs::is_directory(Path)) {
+    std::error_code EC;
+    for (auto Iter = fs::directory_iterator(Path, EC, false);
+         Iter != fs::directory_iterator(); Iter.increment(EC)) {
+      if (EC) {
+        vlog("failed to read directory: {0}", EC.message());
+        break;
+      }
+      addItem(Items, CompletionItem{
+                         .label = path::filename(Iter->path()).str(),
+                         .kind = CompletionItemKind::File,
+                         .data = ExprPath.parts().literal(),
+                     });
+    }
+  }
+}
+
 void completeAttrName(const std::vector<std::string> &Scope,
                       const std::string &Prefix,
                       Controller::OptionMapTy &Options, bool CompletionSnippets,
@@ -299,15 +338,24 @@ void Controller::onCompletion(const CompletionParams &Params,
                                ClientCaps.CompletionSnippets, List.items);
             }
           } else {
-            const VariableLookupAnalysis &VLA = *TU->variableLookup();
-            VLACompletionProvider VLAP(VLA);
-            VLAP.complete(*Desc, List.items, PM);
-            if (havePackageScope(*Desc, VLA, PM)) {
-              // Append it with nixpkgs completion
-              // FIXME: handle null nixpkgsClient()
-              NixpkgsCompletionProvider NCP(*nixpkgsClient());
-              auto [Scope, Prefix] = getScopeAndPrefix(*Desc, PM);
-              NCP.completePackages(Scope, Prefix, List.items);
+            const auto *Parent = PM.upExpr(*Desc);
+            // if we are in a literal path, use PathCompletionProvider
+            if (Parent->kind() == Node::NK_ExprPath) {
+              const auto &Path = static_cast<const nixf::ExprPath &>(*Parent);
+              if (Path.parts().isLiteral()) {
+                completeExprPath(File, Path, List.items);
+              }
+            } else {
+              const VariableLookupAnalysis &VLA = *TU->variableLookup();
+              VLACompletionProvider VLAP(VLA);
+              VLAP.complete(*Desc, List.items, PM);
+              if (havePackageScope(*Desc, VLA, PM)) {
+                // Append it with nixpkgs completion
+                // FIXME: handle null nixpkgsClient()
+                NixpkgsCompletionProvider NCP(*nixpkgsClient());
+                auto [Scope, Prefix] = getScopeAndPrefix(*Desc, PM);
+                NCP.completePackages(Scope, Prefix, List.items);
+              }
             }
           }
           // Next, add nixpkgs provided names.
