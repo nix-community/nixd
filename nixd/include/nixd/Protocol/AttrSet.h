@@ -26,7 +26,13 @@ constexpr inline std::string_view Exit = "exit";
 using EvalExprParams = std::string;
 using EvalExprResponse = std::optional<std::string>;
 
-using AttrPathInfoParams = std::vector<std::string>;
+/// \brief A list of strings that "select"s into a attribute set.
+using Selector = std::vector<std::string>;
+
+using PackageInfoParams = Selector;
+using OptionInfoParams = Selector;
+
+using AttrPathInfoParams = Selector;
 
 struct PackageDescription {
   std::optional<std::string> Name;
@@ -45,7 +51,7 @@ bool fromJSON(const llvm::json::Value &Params, PackageDescription &R,
               llvm::json::Path P);
 
 struct AttrPathCompleteParams {
-  std::vector<std::string> Scope;
+  Selector Scope;
   /// \brief Search for packages prefixed with this "prefix"
   std::string Prefix;
 };
