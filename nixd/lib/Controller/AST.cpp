@@ -124,10 +124,29 @@ bool nixd::havePackageScope(const Node &N, const VariableLookupAnalysis &VLA,
       continue;
 
     // Hardcoded "pkgs", even more stupid.
-    if (static_cast<const ExprVar &>(*WithBody).id().name() == "pkgs")
+    if (static_cast<const ExprVar &>(*WithBody).id().name() == idioms::Pkgs)
       return true;
   }
   return false;
+}
+
+nixd::Selector nixd::mkSelector(const nixf::AttrPath &AP,
+                                Selector BaseSelector) {
+  const auto &Names = AP.names();
+  for (const auto &Name : Names) {
+    if (!Name->isStatic())
+      throw DynamicNameException();
+    BaseSelector.emplace_back(Name->staticName());
+  }
+  return BaseSelector;
+}
+
+nixd::Selector nixd::mkSelector(const nixf::ExprSelect &Select,
+                                nixd::Selector BaseSelector) {
+  if (Select.path())
+    return nixd::mkSelector(*static_cast<const nixf::AttrPath *>(Select.path()),
+                            std::move(BaseSelector));
+  return BaseSelector;
 }
 
 std::pair<std::vector<std::string>, std::string>
