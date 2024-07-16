@@ -1,7 +1,7 @@
 project( 'nixf'
        , ['c', 'cpp']
        , default_options : ['cpp_std=gnu++20']
-       , version: '2.2.2'
+       , version: '2.2.3'
        )
 
 nlohmann_json = dependency('nlohmann_json')

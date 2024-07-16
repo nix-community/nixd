@@ -11,7 +11,7 @@
 
 stdenv.mkDerivation {
   pname = "nixt";
-  version = "2.2.2";
+  version = "2.2.3";
 
   src = ../.;
 
