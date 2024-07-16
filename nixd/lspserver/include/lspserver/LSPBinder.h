@@ -54,7 +54,7 @@ public:
   /// Handler should be e.g. void peek(const PeekParams&, Callback<PeekResult>);
   /// PeekParams must be JSON-parseable and PeekResult must be serializable.
   template <typename Param, typename Result, typename ThisT>
-  void addMethod(llvm::StringLiteral Method, ThisT *This,
+  void addMethod(llvm::StringRef Method, ThisT *This,
                  void (ThisT::*Handler)(const Param &, Callback<Result>)) {
     MethodHandlers[Method] = [Method, Handler, This](JSON RawParams,
                                                      Callback<JSON> Reply) {

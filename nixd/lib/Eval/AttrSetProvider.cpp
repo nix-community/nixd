@@ -126,14 +126,14 @@ AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
                                  std::unique_ptr<OutboundPort> Out)
     : LSPServer(std::move(In), std::move(Out)),
       State(new nix::EvalState({}, nix::openStore())) {
-  Registry.addMethod("attrset/evalExpr", this, &AttrSetProvider::onEvalExpr);
-  Registry.addMethod("attrset/attrpathInfo", this,
+  Registry.addMethod(rpcMethod::EvalExpr, this, &AttrSetProvider::onEvalExpr);
+  Registry.addMethod(rpcMethod::AttrPathInfo, this,
                      &AttrSetProvider::onAttrPathInfo);
-  Registry.addMethod("attrset/attrpathComplete", this,
+  Registry.addMethod(rpcMethod::AttrPathComplete, this,
                      &AttrSetProvider::onAttrPathComplete);
-  Registry.addMethod("attrset/optionInfo", this,
+  Registry.addMethod(rpcMethod::OptionInfo, this,
                      &AttrSetProvider::onOptionInfo);
-  Registry.addMethod("attrset/optionComplete", this,
+  Registry.addMethod(rpcMethod::OptionComplete, this,
                      &AttrSetProvider::onOptionComplete);
 }
 

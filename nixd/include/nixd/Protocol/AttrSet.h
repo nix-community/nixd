@@ -12,6 +12,17 @@
 
 namespace nixd {
 
+namespace rpcMethod {
+
+constexpr inline std::string_view EvalExpr = "attrset/evalExpr";
+constexpr inline std::string_view AttrPathInfo = "attrset/attrpathInfo";
+constexpr inline std::string_view AttrPathComplete = "attrset/attrpathComplete";
+constexpr inline std::string_view OptionInfo = "attrset/optionInfo";
+constexpr inline std::string_view OptionComplete = "attrset/optionComplete";
+constexpr inline std::string_view Exit = "exit";
+
+} // namespace rpcMethod
+
 using EvalExprParams = std::string;
 using EvalExprResponse = std::optional<std::string>;
 
