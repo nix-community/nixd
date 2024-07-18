@@ -8,6 +8,7 @@
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixd/Protocol/AttrSet.h"
 
 #include <boost/asio/post.hpp>
 
@@ -140,7 +141,7 @@ public:
   Expected<lspserver::Location> resolvePackage(std::vector<std::string> Scope,
                                                std::string Name) {
     std::binary_semaphore Ready(0);
-    Expected<PackageDescription> Desc = error("not replied");
+    Expected<AttrPathInfoResponse> Desc = error("not replied");
     auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
       if (Resp)
         Desc = *Resp;
@@ -155,8 +156,7 @@ public:
     if (!Desc)
       return Desc.takeError();
 
-    const std::optional<std::string> &Position = Desc->Position;
-
+    const std::optional<std::string> &Position = Desc->PackageDesc.Position;
     if (!Position)
       return error("meta.position is not available for this package");
 
