@@ -1,13 +1,15 @@
-{ lib
-, stdenv
-, meson
-, ninja
-, pkg-config
-, lit
-, nixpkgs-fmt
-, gtest
-, boost182
-, nlohmann_json
+{
+  lib,
+  stdenv,
+  meson,
+  ninja,
+  pkg-config,
+  lit,
+  nixpkgs-fmt,
+  gtest,
+  boost182,
+  nlohmann_json,
+  python312,
 }:
 
 stdenv.mkDerivation {
@@ -16,7 +18,11 @@ stdenv.mkDerivation {
 
   src = ../.;
 
-  outputs = [ "out" "bin" "dev" ];
+  outputs = [
+    "out"
+    "bin"
+    "dev"
+  ];
 
   mesonBuildType = "release";
 
@@ -28,6 +34,7 @@ stdenv.mkDerivation {
     meson
     ninja
     pkg-config
+    python312
   ];
 
   nativeCheckInputs = [
@@ -40,7 +47,6 @@ stdenv.mkDerivation {
     boost182
     nlohmann_json
   ];
-
 
   meta = {
     mainProgram = "nixf";
