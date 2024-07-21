@@ -36,39 +36,6 @@ const char *nixf::Note::sname(NoteKind Kind) {
   __builtin_unreachable();
 }
 
-nixf::Diagnostic::Severity nixf::Diagnostic::severity(DiagnosticKind Kind) {
-  switch (Kind) {
-#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
-  case DK_##CNAME:                                                             \
-    return DS_##SEVERITY;
-#include "nixf/Basic/DiagnosticKinds.inc"
-#undef DIAG
-  }
-  assert(false && "Invalid diagnostic kind");
-  __builtin_unreachable();
-}
-const char *nixf::Diagnostic::message(DiagnosticKind Kind) {
-  switch (Kind) {
-#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
-  case DK_##CNAME:                                                             \
-    return MESSAGE;
-#include "nixf/Basic/DiagnosticKinds.inc"
-#undef DIAG
-  }
-  assert(false && "Invalid diagnostic kind");
-  __builtin_unreachable();
-}
-const char *nixf::Diagnostic::sname(DiagnosticKind Kind) {
-  switch (Kind) {
-#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE)                                  \
-  case DK_##CNAME:                                                             \
-    return SNAME;
-#include "nixf/Basic/DiagnosticKinds.inc"
-#undef DIAG
-  }
-  assert(false && "Invalid diagnostic kind");
-  __builtin_unreachable();
-}
 const char *nixf::Note::message(NoteKind Kind) {
   switch (Kind) {
 #define DIAG_NOTE(SNAME, CNAME, MESSAGE)                                       \

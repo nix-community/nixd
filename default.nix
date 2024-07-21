@@ -1,15 +1,17 @@
-{ lib
-, stdenv
-, boost182
-, gtest
-, lit
-, llvmPackages
-, meson
-, ninja
-, nix
-, nixpkgs-fmt
-, pkg-config
-, nlohmann_json
+{
+  lib,
+  stdenv,
+  boost182,
+  gtest,
+  lit,
+  llvmPackages,
+  meson,
+  ninja,
+  nix,
+  nixpkgs-fmt,
+  pkg-config,
+  nlohmann_json,
+  python312,
 }:
 
 stdenv.mkDerivation {
@@ -23,6 +25,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     meson
     ninja
+    python312
     pkg-config
   ];
 
