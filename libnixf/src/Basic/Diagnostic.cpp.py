@@ -109,7 +109,6 @@ _ = output.write(
     lines(
         [
             '#include "nixf/Basic/Diagnostic.h"',
-            "#include <optional>",
             "using namespace nixf;",
             *gen_sname(),
             *gen_serverity(),
