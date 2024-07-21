@@ -223,6 +223,9 @@ nixd::Selector nixd::mkIdiomSelector(const nixf::ExprVar &Var,
   case ResultKind::NoSuchVar:
     throw NoSuchVarException();
   }
+  assert(false && "switch fallthrough!");
+  __builtin_unreachable();
+  return {};
 }
 
 nixd::Selector nixd::mkSelector(const nixf::AttrPath &AP,
