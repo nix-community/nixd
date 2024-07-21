@@ -1,4 +1,4 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --nixpkgs-expr='{ ax = 1; ay = 2; }' --lit-test < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -30,7 +30,7 @@
          "uri":"file:///completion.nix",
          "languageId":"nix",
          "version":1,
-         "text":"let xxx = 1; yy = 2 in x"
+         "text":"with pkgs; [ a ]"
       }
    }
 }
@@ -47,7 +47,7 @@
         },
         "position": {
             "line": 0,
-            "character": 23
+            "character": 13
         },
         "context": {
             "triggerKind": 1
@@ -64,8 +64,20 @@ CHECK-NEXT:    "isIncomplete": false,
 CHECK-NEXT:    "items": [
 CHECK-NEXT:      {
 CHECK-NEXT:        "data": "",
-CHECK-NEXT:        "kind": 6,
-CHECK-NEXT:        "label": "xxx",
+CHECK-NEXT:        "kind": 14,
+CHECK-NEXT:        "label": "abort",
+CHECK-NEXT:        "score": 0
+CHECK-NEXT:      },
+CHECK-NEXT:      {
+CHECK-NEXT:        "data": "{\"Prefix\":\"a\",\"Scope\":[]}",
+CHECK-NEXT:        "kind": 5,
+CHECK-NEXT:        "label": "ax",
+CHECK-NEXT:        "score": 0
+CHECK-NEXT:      },
+CHECK-NEXT:      {
+CHECK-NEXT:        "data": "{\"Prefix\":\"a\",\"Scope\":[]}",
+CHECK-NEXT:        "kind": 5,
+CHECK-NEXT:        "label": "ay",
 CHECK-NEXT:        "score": 0
 CHECK-NEXT:      }
 CHECK-NEXT:    ]
