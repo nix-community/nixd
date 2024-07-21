@@ -6,6 +6,8 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <exception>
+
 namespace nixd {
 
 namespace idioms {
@@ -47,9 +49,40 @@ upEnv(const nixf::Node &Desc, const nixf::VariableLookupAnalysis &VLA,
 std::pair<std::vector<std::string>, std::string>
 getScopeAndPrefix(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
 
+/// \brief Exceptions scoped in nixd::mkIdiomSelector
+struct IdiomSelectorException : std::exception {};
+
+/// \brief The pattern of this variable cannot be recognized by known idioms.
+struct NotAnIdiomException : IdiomSelectorException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "not an idiom";
+  }
+};
+
+/// \brief No such variable.
+struct NoSuchVarException : IdiomSelectorException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "no such variable";
+  }
+};
+
+/// \brief Construct a nixd::Selector from \p Var.
+///
+/// Try to heuristically find a selector of a variable, based on some known
+/// idioms.
+Selector mkIdiomSelector(const nixf::ExprVar &Var,
+                         const nixf::VariableLookupAnalysis &VLA,
+                         const nixf::ParentMapAnalysis &PM);
+
+struct SelectorException : std::exception {};
+
 /// \brief The attrpath has a dynamic name, thus it cannot be trivially
 /// transformed to "static" selector.
-struct DynamicNameException : std::exception {};
+struct DynamicNameException : SelectorException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "dynamic attribute path encountered";
+  }
+};
 
 /// \brief Construct a nixd::Selector from \p AP.
 Selector mkSelector(const nixf::AttrPath &AP, Selector BaseSelector);

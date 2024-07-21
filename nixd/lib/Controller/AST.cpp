@@ -1,5 +1,9 @@
 #include "AST.h"
 
+#include "nixd/Protocol/AttrSet.h"
+
+#include <unordered_set>
+
 using namespace nixf;
 
 namespace {
@@ -128,6 +132,97 @@ bool nixd::havePackageScope(const Node &N, const VariableLookupAnalysis &VLA,
       return true;
   }
   return false;
+}
+
+// Idioms.
+namespace {
+
+using IdiomSetT = std::unordered_set<std::string_view>;
+
+IdiomSetT IdiomSet{nixd::idioms::Pkgs, nixd::idioms::Lib};
+
+auto ItLib = IdiomSet.find(nixd::idioms::Lib);
+auto ItPkgs = IdiomSet.find(nixd::idioms::Pkgs);
+
+nixd::Selector idiomItSelector(IdiomSetT::iterator It) {
+  // Unknown name, cannot deal with it.
+  if (It == IdiomSet.end())
+    throw nixd::NotAnIdiomException();
+
+  return [&]() -> nixd::Selector {
+    if (It == ItLib) {
+      return {std::string(nixd::idioms::Lib)};
+    }
+    if (It == ItPkgs) {
+      return {};
+    }
+    assert(false && "Unhandled idiom iterator?");
+    __builtin_unreachable();
+    return {};
+  }();
+}
+
+IdiomSetT::iterator varIdiomIt(const nixf::ExprVar &Var) {
+  return IdiomSet.find(Var.id().name());
+};
+
+nixd::Selector varSelector(const nixf::ExprVar &Var) {
+  return idiomItSelector(varIdiomIt(Var));
+};
+
+nixd::Selector withSelector(const nixf::ExprWith &With) {
+  if (!With.with() || With.with()->kind() != Node::NK_ExprVar)
+    throw nixd::NotAnIdiomException();
+  return varSelector(static_cast<const nixf::ExprVar &>(*With.with()));
+}
+
+} // namespace
+
+nixd::Selector nixd::mkIdiomSelector(const nixf::ExprVar &Var,
+                                     const nixf::VariableLookupAnalysis &VLA,
+                                     const nixf::ParentMapAnalysis &PM) {
+  // Only check if the variable can be recogonized by some idiom.
+
+  using ResultKind = VariableLookupAnalysis::LookupResultKind;
+  auto Result = VLA.query(Var);
+  switch (Result.Kind) {
+  case ResultKind::Undefined:
+  case ResultKind::Defined:
+    return varSelector(Var);
+  case ResultKind::FromWith: {
+    assert(Result.Def && "FromWith variables should contains definition");
+    const nixf::Definition &Def = *Result.Def;
+    if (!Def.syntax())
+      throw NotAnIdiomException();
+
+    // The syntax
+    //
+    //    with pkgs; with lib; [ ]
+    //
+    // does provide both "pkgs" + "lib" scopes.
+    //
+    // However, in current implementation we will only consider nested "with".
+    // That is, only "lib" variables will be considered.
+    const nixf::Node &Syntax = *Def.syntax();
+    const nixf::Node *With = PM.query(Syntax);
+    assert(With && "parent of kwWith should be the with expression");
+    assert(With->kind() == nixf::Node::NK_ExprWith);
+    Selector WithSelector =
+        withSelector(static_cast<const nixf::ExprWith &>(*With));
+
+    // Append variable name after "with" expression selector.
+    // e.g.
+    //
+    //      with pkgs; [ fo ]
+    //                   ^
+    // The result will be {pkgs, fo}
+    WithSelector.emplace_back(Var.id().name());
+
+    return WithSelector;
+  }
+  case ResultKind::NoSuchVar:
+    throw NoSuchVarException();
+  }
 }
 
 nixd::Selector nixd::mkSelector(const nixf::AttrPath &AP,

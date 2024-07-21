@@ -10,6 +10,8 @@
 
 #include "nixd/Controller/Controller.h"
 
+#include <nixf/Sema/VariableLookup.h>
+
 #include <boost/asio/post.hpp>
 
 #include <semaphore>
@@ -78,11 +80,9 @@ public:
   VLACompletionProvider(const VariableLookupAnalysis &VLA) : VLA(VLA) {}
 
   /// Perform code completion right after this node.
-  void complete(const nixf::Node &Desc, std::vector<CompletionItem> &Items,
+  void complete(const nixf::ExprVar &Desc, std::vector<CompletionItem> &Items,
                 const ParentMapAnalysis &PM) {
-    std::string Prefix; // empty string, accept all prefixes
-    if (Desc.kind() == Node::NK_Identifer)
-      Prefix = static_cast<const Identifier &>(Desc).name();
+    std::string Prefix = Desc.id().name();
     collectDef(Items, upEnv(Desc, VLA, PM), Prefix);
   }
 };
@@ -283,20 +283,6 @@ void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
   }
 }
 
-void completeVarName(const VariableLookupAnalysis &VLA,
-                     const ParentMapAnalysis &PM, const nixf::Node &N,
-                     AttrSetClient &Client, std::vector<CompletionItem> &List) {
-  VLACompletionProvider VLAP(VLA);
-  VLAP.complete(N, List, PM);
-  if (havePackageScope(N, VLA, PM)) {
-    // Append it with nixpkgs completion
-    // FIXME: handle null nixpkgsClient()
-    NixpkgsCompletionProvider NCP(Client);
-    auto [Scope, Prefix] = getScopeAndPrefix(N, PM);
-    NCP.completePackages({Scope, Prefix}, List);
-  }
-}
-
 AttrPathCompleteParams mkParams(nixd::Selector Sel, bool IsComplete) {
   if (IsComplete) {
     return {
@@ -312,6 +298,32 @@ AttrPathCompleteParams mkParams(nixd::Selector Sel, bool IsComplete) {
   };
 }
 
+#define DBG DBGPREFIX ": "
+
+void completeVarName(const VariableLookupAnalysis &VLA,
+                     const ParentMapAnalysis &PM, const nixf::ExprVar &N,
+                     AttrSetClient &Client, std::vector<CompletionItem> &List) {
+#define DBGPREFIX "completion/var"
+
+  VLACompletionProvider VLAP(VLA);
+  VLAP.complete(N, List, PM);
+
+  // Try to complete the name by known idioms.
+  try {
+    Selector Sel = mkIdiomSelector(N, VLA, PM);
+    NixpkgsCompletionProvider NCP(Client);
+
+    // Invoke nixpkgs provider to get the completion list.
+    // Variable names are always incomplete.
+    NCP.completePackages(mkParams(Sel, /*IsComplete=*/false), List);
+  } catch (IdiomSelectorException &E) {
+    log(DBG "skipped, reason: {0}", E.what());
+    return;
+  }
+
+#undef DBGPREFIX
+}
+
 /// \brief Complete a "select" expression.
 /// \param IsComplete Whether or not the last element of the selector is
 /// effectively incomplete.
@@ -319,7 +331,10 @@ AttrPathCompleteParams mkParams(nixd::Selector Sel, bool IsComplete) {
 ///      - incomplete: `lib.gen|`
 ///      - complete:   `lib.attrset.|`
 void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
-                    bool IsComplete, std::vector<CompletionItem> &List) {
+                    const nixf::VariableLookupAnalysis &VLA,
+                    const nixf::ParentMapAnalysis &PM, bool IsComplete,
+                    std::vector<CompletionItem> &List) {
+#define DBGPREFIX "completion/select"
   // The base expr for selecting.
   const nixf::Expr &BaseExpr = Select.expr();
 
@@ -331,30 +346,24 @@ void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
   }
 
   const auto &Var = static_cast<const nixf::ExprVar &>(BaseExpr);
-
-  // See if the variable matches some idioms name we alreay know.
-  std::unordered_set<std::string_view> S{idioms::Pkgs, idioms::Lib};
-  auto It = S.find(Var.id().name());
-
-  // Unknown name, cannot deal with it.
-  if (It == S.end())
-    return;
-
   // Ask nixpkgs provider to get idioms completion.
   NixpkgsCompletionProvider NCP(Client);
 
-  // Construct the scope & prefix suitable for this "select".
-  Selector BaseSelector = It == S.find(idioms::Lib)
-                              ? Selector{std::string(idioms::Lib)}
-                              : Selector{};
+  const auto Handler = [](std::exception &E) noexcept {
+    log(DBG "skipped, reason: {0}", E.what());
+  };
   try {
-    Selector Sel = mkSelector(Select, std::move(BaseSelector));
+    Selector Sel = mkSelector(Select, mkIdiomSelector(Var, VLA, PM));
     NCP.completePackages(mkParams(Sel, IsComplete), List);
-  } catch (DynamicNameException &DE) {
-    lspserver::log(
-        "completion/select: skip because attribute path contains dynamic attr");
+  } catch (IdiomSelectorException &E) {
+    Handler(E);
+    return;
+  } catch (SelectorException &E) {
+    Handler(E);
     return;
   }
+
+#undef DBGPREFIX
 }
 
 } // namespace
@@ -388,14 +397,14 @@ void Controller::onCompletion(const CompletionParams &Params,
         const Node &UpExpr = *MaybeUpExpr;
         Reply([&]() -> CompletionList {
           CompletionList List;
+          const VariableLookupAnalysis &VLA = *TU->variableLookup();
           try {
             switch (UpExpr.kind()) {
             // In these cases, assume the cursor have "variable" scoping.
-            case Node::NK_ExprWith:
-            case Node::NK_ExprList:
             case Node::NK_ExprVar: {
-              const VariableLookupAnalysis &VLA = *TU->variableLookup();
-              completeVarName(VLA, PM, N, *nixpkgsClient(), List.items);
+              completeVarName(VLA, PM,
+                              static_cast<const nixf::ExprVar &>(UpExpr),
+                              *nixpkgsClient(), List.items);
               break;
             }
             // A "select" expression. e.g.
@@ -405,8 +414,8 @@ void Controller::onCompletion(const CompletionParams &Params,
             case Node::NK_ExprSelect: {
               const auto &Select =
                   static_cast<const nixf::ExprSelect &>(UpExpr);
-              completeSelect(Select, *nixpkgsClient(), N.kind() == Node::NK_Dot,
-                             List.items);
+              completeSelect(Select, *nixpkgsClient(), VLA, PM,
+                             N.kind() == Node::NK_Dot, List.items);
               break;
             }
             case Node::NK_ExprAttrs: {
