@@ -109,6 +109,7 @@ _ = output.write(
     lines(
         [
             '#include "nixf/Basic/Diagnostic.h"',
+            "#include <unordered_map>",
             "using namespace nixf;",
             *gen_sname(),
             *gen_serverity(),
