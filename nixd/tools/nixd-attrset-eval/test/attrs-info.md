@@ -21,10 +21,16 @@
 ```
 
 ```
-     CHECK: "id": 1,
+     CHECK:  "id": 1,
 CHECK-NEXT:  "jsonrpc": "2.0",
 CHECK-NEXT:  "result": {
-CHECK-NEXT:    "Description": "A program that produces a familiar, friendly greeting",
+CHECK-NEXT:    "Meta": {
+CHECK-NEXT:      "Location": null,
+CHECK-NEXT:      "Type": 7
+CHECK-NEXT:    },
+CHECK-NEXT:    "PackageDesc": {
+CHECK-NEXT:      "Description": "A program that produces a familiar, friendly greeting",
+CHECK-NEXT:      "Homepage": null,
 ```
 
 ```json

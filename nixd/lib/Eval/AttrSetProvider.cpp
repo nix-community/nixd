@@ -1,6 +1,10 @@
 #include "nixd/Eval/AttrSetProvider.h"
+#include "nixd/Protocol/AttrSet.h"
+
+#include "lspserver/Protocol.h"
 
 #include <nix/attr-path.hh>
+#include <nix/nixexpr.hh>
 #include <nix/store-api.hh>
 #include <nixt/Value.h>
 
@@ -24,8 +28,9 @@ void fillString(nix::EvalState &State, nix::Value &V,
   }
 }
 
-void fillPackageDescription(nix::EvalState &State, nix::Value &Package,
-                            PackageDescription &R) {
+/// Describe the value as if \p Package is actually a nixpkgs package.
+PackageDescription describePackage(nix::EvalState &State, nix::Value &Package) {
+  PackageDescription R;
   fillString(State, Package, {"name"}, R.Name);
   fillString(State, Package, {"pname"}, R.PName);
   fillString(State, Package, {"version"}, R.Version);
@@ -33,6 +38,36 @@ void fillPackageDescription(nix::EvalState &State, nix::Value &Package,
   fillString(State, Package, {"meta", "longDescription"}, R.LongDescription);
   fillString(State, Package, {"meta", "position"}, R.Position);
   fillString(State, Package, {"meta", "homepage"}, R.Homepage);
+  return R;
+}
+
+std::optional<Location> locationOf(nix::PosTable &PTable, nix::Value &V) {
+  nix::PosIdx P = V.determinePos(nix::noPos);
+  if (!P)
+    return std::nullopt;
+
+  nix::Pos NixPos = PTable[P];
+  const auto *SP = std::get_if<nix::SourcePath>(&NixPos.origin);
+
+  if (!SP)
+    return std::nullopt;
+
+  Position LPos = {
+      .line = static_cast<int>(NixPos.line - 1),
+      .character = static_cast<int>(NixPos.column - 1),
+  };
+
+  return Location{
+      .uri = URIForFile::canonicalize(SP->path.abs(), SP->path.abs()),
+      .range = {LPos, LPos},
+  };
+}
+
+ValueMeta metadataOf(nix::EvalState &State, nix::Value &V) {
+  return {
+      .Type = V.type(true),
+      .Location = locationOf(State.positions, V),
+  };
 }
 
 void fillUnsafeGetAttrPosLocation(nix::EvalState &State, nix::Value &V,
@@ -158,26 +193,24 @@ void AttrSetProvider::onEvalExpr(
 void AttrSetProvider::onAttrPathInfo(
     const AttrPathInfoParams &AttrPath,
     lspserver::Callback<AttrPathInfoResponse> Reply) {
-  try {
-    if (AttrPath.empty()) {
-      Reply(error("attrpath is empty!"));
-      return;
+  using RespT = AttrPathInfoResponse;
+  Reply([&]() -> llvm::Expected<RespT> {
+    try {
+      if (AttrPath.empty())
+        return error("attrpath is empty!");
+
+      nix::Value &V = nixt::selectStrings(state(), Nixpkgs, AttrPath);
+      state().forceValue(V, nix::noPos);
+      return RespT{
+          .Meta = metadataOf(state(), V),
+          .PackageDesc = describePackage(state(), V),
+      };
+    } catch (const nix::BaseError &Err) {
+      return error(Err.info().msg.str());
+    } catch (const std::exception &Err) {
+      return error(Err.what());
     }
-
-    nix::Value &Package = nixt::selectStrings(state(), Nixpkgs, AttrPath);
-
-    AttrPathInfoResponse R;
-    fillPackageDescription(state(), Package, R);
-
-    Reply(std::move(R));
-    return;
-  } catch (const nix::BaseError &Err) {
-    Reply(error(Err.info().msg.str()));
-    return;
-  } catch (const std::exception &Err) {
-    Reply(error(Err.what()));
-    return;
-  }
+  }());
 }
 
 void AttrSetProvider::onAttrPathComplete(

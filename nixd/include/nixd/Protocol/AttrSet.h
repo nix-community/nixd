@@ -10,6 +10,18 @@
 #include <llvm/Support/JSON.h>
 #include <lspserver/Protocol.h>
 
+// https://github.com/NixOS/nix/issues/11136
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdocumentation"
+#endif
+
+#include <nix/value.hh>
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+
 namespace nixd {
 
 namespace rpcMethod {
@@ -44,10 +56,38 @@ struct PackageDescription {
   std::optional<std::string> Homepage;
 };
 
-using AttrPathInfoResponse = PackageDescription;
-
 llvm::json::Value toJSON(const PackageDescription &Params);
 bool fromJSON(const llvm::json::Value &Params, PackageDescription &R,
+              llvm::json::Path P);
+
+/// \brief General metadata of all `nix::Value`s
+struct ValueMeta {
+  /// \brief Type of this value.
+  int Type;
+
+  /// \brief Location of the value.
+  ///
+  /// This presence of this value is determined by the nix evaluator.
+  /// In nix 2.19.x and later:
+  ///   1. It is available only for attribute sets and lambdas.
+  ///   2. There is no practical "range" information, only the starting point.
+  std::optional<lspserver::Location> Location;
+};
+
+llvm::json::Value toJSON(const ValueMeta &Params);
+bool fromJSON(const llvm::json::Value &Params, ValueMeta &R,
+              llvm::json::Path P);
+
+struct AttrPathInfoResponse {
+  /// \brief General value description
+  ValueMeta Meta;
+
+  /// \brief Package description of the attribute path, if available.
+  PackageDescription PackageDesc;
+};
+
+llvm::json::Value toJSON(const AttrPathInfoResponse &Params);
+bool fromJSON(const llvm::json::Value &Params, AttrPathInfoResponse &R,
               llvm::json::Path P);
 
 struct AttrPathCompleteParams {

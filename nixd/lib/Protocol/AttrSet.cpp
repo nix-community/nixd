@@ -77,6 +77,38 @@ bool nixd::fromJSON(const llvm::json::Value &Params, PackageDescription &R,
       ;
 }
 
+Value nixd::toJSON(const ValueMeta &Params) {
+  return Object{
+      {"Type", Params.Type},
+      {"Location", Params.Location},
+  };
+}
+
+bool nixd::fromJSON(const llvm::json::Value &Params, ValueMeta &R,
+                    llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O                                        //
+         && O.map("Type", R.Type)                 //
+         && O.mapOptional("Location", R.Location) //
+      ;
+}
+
+Value nixd::toJSON(const AttrPathInfoResponse &Params) {
+  return Object{
+      {"Meta", Params.Meta},
+      {"PackageDesc", Params.PackageDesc},
+  };
+}
+
+bool nixd::fromJSON(const llvm::json::Value &Params, AttrPathInfoResponse &R,
+                    llvm::json::Path P) {
+  ObjectMapper O(Params, P);
+  return O                                              //
+         && O.map("Meta", R.Meta)                       //
+         && O.mapOptional("PackageDesc", R.PackageDesc) //
+      ;
+}
+
 Value nixd::toJSON(const AttrPathCompleteParams &Params) {
   return Object{{"Scope", Params.Scope}, {"Prefix", Params.Prefix}};
 }

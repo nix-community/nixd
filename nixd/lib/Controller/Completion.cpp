@@ -9,6 +9,7 @@
 #include "lspserver/Protocol.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixd/Protocol/AttrSet.h"
 
 #include <nixf/Sema/VariableLookup.h>
 
@@ -105,7 +106,7 @@ public:
   void resolvePackage(std::vector<std::string> Scope, std::string Name,
                       CompletionItem &Item) {
     std::binary_semaphore Ready(0);
-    PackageDescription Desc;
+    AttrPathInfoResponse Desc;
     auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
       if (Resp)
         Desc = *Resp;
@@ -115,12 +116,13 @@ public:
     NixpkgsClient.attrpathInfo(Scope, std::move(OnReply));
     Ready.acquire();
     // Format "detail" and document.
+    const PackageDescription &PD = Desc.PackageDesc;
     Item.documentation = MarkupContent{
         .kind = MarkupKind::Markdown,
-        .value = Desc.Description.value_or("") + "\n\n" +
-                 Desc.LongDescription.value_or(""),
+        .value = PD.Description.value_or("") + "\n\n" +
+                 PD.LongDescription.value_or(""),
     };
-    Item.detail = Desc.Version.value_or("?");
+    Item.detail = PD.Version.value_or("?");
   }
 
   /// \brief Ask nixpkgs provider, give us a list of names. (thunks)
