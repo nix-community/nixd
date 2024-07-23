@@ -13,11 +13,15 @@
 #include <boost/asio/post.hpp>
 
 #include <llvm/Support/Error.h>
+#include <llvm/Support/JSON.h>
 
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Basic.h>
+#include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <exception>
 #include <semaphore>
 
 using namespace nixd;
@@ -107,6 +111,24 @@ Expected<Location> staticDef(URIForFile URI, const Node &N,
   };
 }
 
+struct NoLocationsFoundInNixpkgsException : std::exception {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "no locations found in nixpkgs";
+  }
+};
+
+class WorkerReportedException : std::exception {
+  llvm::Error E;
+
+public:
+  WorkerReportedException(llvm::Error E) : E(std::move(E)){};
+
+  llvm::Error takeError() { return std::move(E); }
+  [[nodiscard]] const char *what() const noexcept override {
+    return "worker reported some error";
+  }
+};
+
 /// \brief Resolve definition by invoking nixpkgs provider.
 ///
 /// Useful for users inspecting nixpkgs packages. For example, someone clicks
@@ -138,8 +160,7 @@ public:
   NixpkgsDefinitionProvider(AttrSetClient &NixpkgsClient)
       : NixpkgsClient(NixpkgsClient) {}
 
-  Expected<lspserver::Location> resolvePackage(std::vector<std::string> Scope,
-                                               std::string Name) {
+  Locations resolveSelector(const nixd::Selector &Sel) {
     std::binary_semaphore Ready(0);
     Expected<AttrPathInfoResponse> Desc = error("not replied");
     auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
@@ -149,22 +170,21 @@ public:
         Desc = Resp.takeError();
       Ready.release();
     };
-    Scope.emplace_back(std::move(Name));
-    NixpkgsClient.attrpathInfo(Scope, std::move(OnReply));
+    NixpkgsClient.attrpathInfo(Sel, std::move(OnReply));
     Ready.acquire();
 
     if (!Desc)
-      return Desc.takeError();
+      throw WorkerReportedException(Desc.takeError());
 
-    const std::optional<std::string> &Position = Desc->PackageDesc.Position;
-    if (!Position)
-      return error("meta.position is not available for this package");
+    // Prioritize package location if it exists.
+    if (const std::optional<std::string> &Position = Desc->PackageDesc.Position)
+      return Locations{parseLocation(*Position)};
 
-    try {
-      return parseLocation(*Position);
-    } catch (std::exception &E) {
-      return error(E.what());
-    }
+    // Use the location in "ValueMeta".
+    if (const auto &Loc = Desc->Meta.Location)
+      return Locations{*Loc};
+
+    throw NoLocationsFoundInNixpkgsException();
   }
 };
 
@@ -197,6 +217,79 @@ public:
       Locs.emplace_back(Decl);
   }
 };
+
+/// \brief Get the locations of some attribute path.
+///
+/// Usually this function will return a list of option declarations via RPC
+Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
+                         std::mutex &OptionsLock,
+                         Controller::OptionMapTy &Options) {
+  using PathResult = FindAttrPathResult;
+  std::vector<std::string> Scope;
+  auto R = findAttrPath(N, PM, Scope);
+  Locations Locs;
+  if (R == PathResult::OK) {
+    std::lock_guard _(OptionsLock);
+    // For each option worker, try to get it's decl position.
+    for (const auto &[_, Client] : Options) {
+      if (AttrSetClient *C = Client->client()) {
+        OptionsDefinitionProvider ODP(*C);
+        ODP.resolveLocations(Scope, Locs);
+      }
+    }
+  }
+  return Locs;
+}
+
+/// \brief Get nixpkgs definition from a selector.
+Locations defineNixpkgsSelector(const Selector &Sel,
+                                AttrSetClient &NixpkgsClient) {
+  try {
+    // Ask nixpkgs provider information about this selector.
+    NixpkgsDefinitionProvider NDP(NixpkgsClient);
+    return NDP.resolveSelector(Sel);
+  } catch (NoLocationsFoundInNixpkgsException &E) {
+    elog("definition/idiom: {0}", E.what());
+  } catch (WorkerReportedException &E) {
+    elog("definition/idiom/worker: {0}", E.takeError());
+  }
+  return {};
+}
+
+/// \brief Get definiton of select expressions.
+Locations defineSelect(const ExprSelect &Sel, const VariableLookupAnalysis &VLA,
+                       const ParentMapAnalysis &PM,
+                       AttrSetClient &NixpkgsClient) {
+  // Currently we can only deal with idioms.
+  // Maybe more data-flow analysis will be added though.
+  try {
+    return defineNixpkgsSelector(mkSelector(Sel, VLA, PM), NixpkgsClient);
+  } catch (IdiomSelectorException &E) {
+    elog("defintion/idiom/selector: {0}", E.what());
+  }
+  return {};
+}
+
+/// \brief Squash a vector into smaller json variant.
+template <class T> llvm::json::Value squash(std::vector<T> List) {
+  std::size_t Size = List.size();
+  switch (Size) {
+  case 0:
+    return nullptr;
+  case 1:
+    return std::move(List.back());
+  default:
+    break;
+  }
+  return std::move(List);
+}
+
+template <class T>
+llvm::Expected<llvm::json::Value> squash(llvm::Expected<std::vector<T>> List) {
+  if (!List)
+    return List.takeError();
+  return squash(std::move(*List));
+}
 
 } // namespace
 
@@ -232,54 +325,42 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) [[likely]] {
         const VariableLookupAnalysis &VLA = *TU->variableLookup();
         const ParentMapAnalysis &PM = *TU->parentMap();
-        const Node *N = AST->descend({Pos, Pos});
-        Locations Locs;
-        if (!N) [[unlikely]] {
+        const Node *MaybeN = AST->descend({Pos, Pos});
+        if (!MaybeN) [[unlikely]] {
           Reply(error("cannot find AST node on given position"));
           return;
         }
-        using PathResult = FindAttrPathResult;
-        std::vector<std::string> Scope;
-        auto R = findAttrPath(*N, PM, Scope);
-        if (R == PathResult::OK) {
-          std::lock_guard _(OptionsLock);
-          // For each option worker, try to get it's decl position.
-          for (const auto &[_, Client] : Options) {
-            if (AttrSetClient *C = Client->client()) {
-              OptionsDefinitionProvider ODP(*C);
-              ODP.resolveLocations(Scope, Locs);
-            }
-          }
-        }
-        if (havePackageScope(*N, VLA, PM) && nixpkgsClient()) {
-          // Ask nixpkgs client what's current package documentation.
-          NixpkgsDefinitionProvider NDP(*nixpkgsClient());
-          auto [Scope, Name] = getScopeAndPrefix(*N, PM);
-          if (Expected<Location> Loc =
-                  NDP.resolvePackage(std::move(Scope), std::move(Name)))
-            Locs.emplace_back(*Loc);
-          else
-            elog("cannot get nixpkgs definition for package: {0}",
-                 Loc.takeError());
-        }
-
-        if (Expected<Location> StaticLoc = staticDef(URI, *N, PM, VLA))
-          Locs.emplace_back(*StaticLoc);
-        else
-          elog("cannot get static def location: {0}", StaticLoc.takeError());
-
-        if (Locs.empty()) {
+        const Node &N = *MaybeN;
+        const Node *MaybeUpExpr = PM.upExpr(N);
+        if (!MaybeUpExpr) {
           Reply(nullptr);
           return;
         }
 
-        if (Locs.size() == 1) {
-          Reply(Locs.back());
-          return;
-        }
+        const Node &UpExpr = *MaybeUpExpr;
 
-        Reply(std::move(Locs));
-        return;
+        return Reply(squash([&]() -> llvm::Expected<Locations> {
+          switch (UpExpr.kind()) {
+          case Node::NK_ExprSelect: {
+            const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
+            return defineSelect(Sel, VLA, PM, *nixpkgsClient());
+          }
+          case Node::NK_ExprAttrs:
+            return defineAttrPath(N, PM, OptionsLock, Options);
+          default:
+            break;
+          }
+
+          // Get static locations.
+          // Likely this will fail, thus just logging errors.
+          return [&]() -> Locations {
+            Expected<Location> StaticLoc = staticDef(URI, *MaybeN, PM, VLA);
+            if (StaticLoc)
+              return {*StaticLoc};
+            elog("definition/static: {0}", StaticLoc.takeError());
+            return {};
+          }();
+        }()));
       }
     }
   };
