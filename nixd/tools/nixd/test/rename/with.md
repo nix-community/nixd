@@ -58,7 +58,7 @@
 ```
 
 ```
-     CHECK:   "message": "cannot rename `with` defined variables"
+     CHECK:   "message": "cannot rename `with` defined variable"
 CHECK-NEXT: },
 CHECK-NEXT: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0"

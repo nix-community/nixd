@@ -61,7 +61,7 @@
 ```
      CHECK: "error": {
 CHECK-NEXT:   "code": -32001,
-CHECK-NEXT:   "message": "this varaible is not used in var lookup (duplicated attr?)"
+CHECK-NEXT:   "message": "no such variable"
 CHECK-NEXT: },
 CHECK-NEXT: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0"

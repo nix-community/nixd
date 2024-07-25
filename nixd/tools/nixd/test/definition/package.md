@@ -62,19 +62,6 @@ CHECK-NEXT: "result": [
 CHECK-NEXT:   {
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 0,
-CHECK-NEXT:         "line": 33
-CHECK-NEXT:       },
-CHECK-NEXT:       "start": {
-CHECK-NEXT:         "character": 0,
-CHECK-NEXT:         "line": 33
-CHECK-NEXT:       }
-CHECK-NEXT:     },
-CHECK-NEXT:     "uri": "file:///foo"
-CHECK-NEXT:   },
-CHECK-NEXT:   {
-CHECK-NEXT:     "range": {
-CHECK-NEXT:       "end": {
 CHECK-NEXT:         "character": 4,
 CHECK-NEXT:         "line": 0
 CHECK-NEXT:       },
@@ -84,6 +71,19 @@ CHECK-NEXT:         "line": 0
 CHECK-NEXT:       }
 CHECK-NEXT:     },
 CHECK-NEXT:     "uri": "file:///basic.nix"
+CHECK-NEXT:   },
+CHECK-NEXT:   {
+CHECK-NEXT:     "range": {
+CHECK-NEXT:       "end": {
+CHECK-NEXT:         "character": 0,
+CHECK-NEXT:         "line": 33
+CHECK-NEXT:       },
+CHECK-NEXT:       "start": {
+CHECK-NEXT:         "character": 0,
+CHECK-NEXT:         "line": 33
+CHECK-NEXT:       }
+CHECK-NEXT:     },
+CHECK-NEXT:     "uri": "file:///foo"
 CHECK-NEXT:   }
 ```
 

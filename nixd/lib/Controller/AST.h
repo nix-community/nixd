@@ -62,10 +62,18 @@ struct NotAnIdiomException : IdiomSelectorException {
   }
 };
 
+struct VLAException : std::exception {};
+
 /// \brief No such variable.
-struct NoSuchVarException : IdiomSelectorException {
+struct NoSuchVarException : VLAException {
   [[nodiscard]] const char *what() const noexcept override {
     return "no such variable";
+  }
+};
+
+struct UndefinedVarException : VLAException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "undefined variable";
   }
 };
 

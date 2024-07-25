@@ -10,6 +10,8 @@
 #include "nixd/Controller/Controller.h"
 #include "nixd/Protocol/AttrSet.h"
 
+#include "lspserver/Protocol.h"
+
 #include <boost/asio/post.hpp>
 
 #include <llvm/Support/Error.h>
@@ -94,20 +96,26 @@ const ExprVar *findVar(const Node &N, const ParentMapAnalysis &PMA,
   return static_cast<const ExprVar *>(PMA.upTo(N, Node::NK_ExprVar));
 }
 
-Expected<Location> staticDef(URIForFile URI, const Node &N,
-                             const ParentMapAnalysis &PMA,
-                             const VariableLookupAnalysis &VLA) {
-  Expected<const Definition &> ExpDef = findDefinition(N, PMA, VLA);
-  if (!ExpDef)
-    return ExpDef.takeError();
+const Definition &findVarDefinition(const ExprVar &Var,
+                                    const VariableLookupAnalysis &VLA) {
+  LookupResult Result = VLA.query(static_cast<const ExprVar &>(Var));
 
-  if (ExpDef->isBuiltin())
-    return error("this is a builtin variable defined by nix interpreter");
-  assert(ExpDef->syntax());
+  if (Result.Kind == ResultKind::Undefined)
+    throw UndefinedVarException();
 
+  if (Result.Kind == ResultKind::NoSuchVar)
+    throw NoSuchVarException();
+
+  assert(Result.Def);
+
+  return *Result.Def;
+}
+
+/// \brief Convert nixf::Definition to lspserver::Location
+Location convertToLocation(const Definition &Def, URIForFile URI) {
   return Location{
       .uri = std::move(URI),
-      .range = toLSPRange(ExpDef->syntax()->range()),
+      .range = toLSPRange(Def.syntax()->range()),
   };
 }
 
@@ -270,6 +278,39 @@ Locations defineSelect(const ExprSelect &Sel, const VariableLookupAnalysis &VLA,
   return {};
 }
 
+Locations defineVarStatic(const ExprVar &Var, const VariableLookupAnalysis &VLA,
+                          const URIForFile &URI) {
+  const Definition &Def = findVarDefinition(Var, VLA);
+  return {convertToLocation(Def, URI)};
+}
+
+template <class T>
+std::vector<T> mergeVec(std::vector<T> A, const std::vector<T> &B) {
+  A.insert(A.end(), B.begin(), B.end());
+  return A;
+}
+
+Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
+                    const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
+                    const URIForFile &URI) {
+  try {
+    Locations StaticLocs = defineVarStatic(Var, VLA, URI);
+
+    // Nixpkgs locations.
+    try {
+      Selector Sel = mkIdiomSelector(Var, VLA, PM);
+      Locations NixpkgsLocs = defineNixpkgsSelector(Sel, NixpkgsClient);
+      return mergeVec(std::move(StaticLocs), NixpkgsLocs);
+    } catch (std::exception &E) {
+      elog("definition/idiom/selector: {0}", E.what());
+      return StaticLocs;
+    }
+  } catch (std::exception &E) {
+    elog("definition/static: {0}", E.what());
+  }
+  return {};
+}
+
 /// \brief Squash a vector into smaller json variant.
 template <class T> llvm::json::Value squash(std::vector<T> List) {
   std::size_t Size = List.size();
@@ -293,27 +334,17 @@ llvm::Expected<llvm::json::Value> squash(llvm::Expected<std::vector<T>> List) {
 
 } // namespace
 
-Expected<const Definition &>
-nixd::findDefinition(const Node &N, const ParentMapAnalysis &PMA,
-                     const VariableLookupAnalysis &VLA) {
+const Definition &nixd::findDefinition(const Node &N,
+                                       const ParentMapAnalysis &PMA,
+                                       const VariableLookupAnalysis &VLA) {
   const ExprVar *Var = findVar(N, PMA, VLA);
   if (!Var) [[unlikely]] {
     if (const Definition *Def = findSelfDefinition(N, PMA, VLA))
       return *Def;
-    return error("cannot find variable on given position");
+    throw CannotFindVarException();
   }
   assert(Var->kind() == Node::NK_ExprVar);
-  LookupResult Result = VLA.query(static_cast<const ExprVar &>(*Var));
-
-  if (Result.Kind == ResultKind::Undefined)
-    return error("this varaible is undefined");
-
-  if (Result.Kind == ResultKind::NoSuchVar)
-    return error("this varaible is not used in var lookup (duplicated attr?)");
-
-  assert(Result.Def);
-
-  return *Result.Def;
+  return findVarDefinition(*Var, VLA);
 }
 
 void Controller::onDefinition(const TextDocumentPositionParams &Params,
@@ -340,7 +371,15 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
         const Node &UpExpr = *MaybeUpExpr;
 
         return Reply(squash([&]() -> llvm::Expected<Locations> {
+          // Special case for inherited names.
+          if (const ExprVar *Var = findInheritVar(N, PM, VLA))
+            return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI);
+
           switch (UpExpr.kind()) {
+          case Node::NK_ExprVar: {
+            const auto &Var = static_cast<const ExprVar &>(UpExpr);
+            return defineVar(Var, VLA, PM, *nixpkgsClient(), URI);
+          }
           case Node::NK_ExprSelect: {
             const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
             return defineSelect(Sel, VLA, PM, *nixpkgsClient());
@@ -350,16 +389,7 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
           default:
             break;
           }
-
-          // Get static locations.
-          // Likely this will fail, thus just logging errors.
-          return [&]() -> Locations {
-            Expected<Location> StaticLoc = staticDef(URI, *MaybeN, PM, VLA);
-            if (StaticLoc)
-              return {*StaticLoc};
-            elog("definition/static: {0}", StaticLoc.takeError());
-            return {};
-          }();
+          return error("unknown node type for definition");
         }()));
       }
     }
