@@ -9,10 +9,11 @@
 #include "nixd/Controller/Controller.h"
 
 #include <boost/asio/post.hpp>
-#include <exception>
 #include <lspserver/Protocol.h>
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
+
+#include <exception>
 
 using namespace lspserver;
 using namespace nixd;
