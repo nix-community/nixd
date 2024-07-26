@@ -8,15 +8,22 @@
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixd/Protocol/AttrSet.h"
+
+#include "lspserver/Protocol.h"
 
 #include <boost/asio/post.hpp>
 
 #include <llvm/Support/Error.h>
+#include <llvm/Support/JSON.h>
 
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Basic.h>
+#include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <exception>
 #include <semaphore>
 
 using namespace nixd;
@@ -89,22 +96,46 @@ const ExprVar *findVar(const Node &N, const ParentMapAnalysis &PMA,
   return static_cast<const ExprVar *>(PMA.upTo(N, Node::NK_ExprVar));
 }
 
-Expected<Location> staticDef(URIForFile URI, const Node &N,
-                             const ParentMapAnalysis &PMA,
-                             const VariableLookupAnalysis &VLA) {
-  Expected<const Definition &> ExpDef = findDefinition(N, PMA, VLA);
-  if (!ExpDef)
-    return ExpDef.takeError();
+const Definition &findVarDefinition(const ExprVar &Var,
+                                    const VariableLookupAnalysis &VLA) {
+  LookupResult Result = VLA.query(static_cast<const ExprVar &>(Var));
 
-  if (ExpDef->isBuiltin())
-    return error("this is a builtin variable defined by nix interpreter");
-  assert(ExpDef->syntax());
+  if (Result.Kind == ResultKind::Undefined)
+    throw UndefinedVarException();
 
+  if (Result.Kind == ResultKind::NoSuchVar)
+    throw NoSuchVarException();
+
+  assert(Result.Def);
+
+  return *Result.Def;
+}
+
+/// \brief Convert nixf::Definition to lspserver::Location
+Location convertToLocation(const Definition &Def, URIForFile URI) {
   return Location{
       .uri = std::move(URI),
-      .range = toLSPRange(ExpDef->syntax()->range()),
+      .range = toLSPRange(Def.syntax()->range()),
   };
 }
+
+struct NoLocationsFoundInNixpkgsException : std::exception {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "no locations found in nixpkgs";
+  }
+};
+
+class WorkerReportedException : std::exception {
+  llvm::Error E;
+
+public:
+  WorkerReportedException(llvm::Error E) : E(std::move(E)){};
+
+  llvm::Error takeError() { return std::move(E); }
+  [[nodiscard]] const char *what() const noexcept override {
+    return "worker reported some error";
+  }
+};
 
 /// \brief Resolve definition by invoking nixpkgs provider.
 ///
@@ -137,10 +168,9 @@ public:
   NixpkgsDefinitionProvider(AttrSetClient &NixpkgsClient)
       : NixpkgsClient(NixpkgsClient) {}
 
-  Expected<lspserver::Location> resolvePackage(std::vector<std::string> Scope,
-                                               std::string Name) {
+  Locations resolveSelector(const nixd::Selector &Sel) {
     std::binary_semaphore Ready(0);
-    Expected<PackageDescription> Desc = error("not replied");
+    Expected<AttrPathInfoResponse> Desc = error("not replied");
     auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
       if (Resp)
         Desc = *Resp;
@@ -148,23 +178,21 @@ public:
         Desc = Resp.takeError();
       Ready.release();
     };
-    Scope.emplace_back(std::move(Name));
-    NixpkgsClient.attrpathInfo(Scope, std::move(OnReply));
+    NixpkgsClient.attrpathInfo(Sel, std::move(OnReply));
     Ready.acquire();
 
     if (!Desc)
-      return Desc.takeError();
+      throw WorkerReportedException(Desc.takeError());
 
-    const std::optional<std::string> &Position = Desc->Position;
+    // Prioritize package location if it exists.
+    if (const std::optional<std::string> &Position = Desc->PackageDesc.Position)
+      return Locations{parseLocation(*Position)};
 
-    if (!Position)
-      return error("meta.position is not available for this package");
+    // Use the location in "ValueMeta".
+    if (const auto &Loc = Desc->Meta.Location)
+      return Locations{*Loc};
 
-    try {
-      return parseLocation(*Position);
-    } catch (std::exception &E) {
-      return error(E.what());
-    }
+    throw NoLocationsFoundInNixpkgsException();
   }
 };
 
@@ -198,29 +226,125 @@ public:
   }
 };
 
+/// \brief Get the locations of some attribute path.
+///
+/// Usually this function will return a list of option declarations via RPC
+Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
+                         std::mutex &OptionsLock,
+                         Controller::OptionMapTy &Options) {
+  using PathResult = FindAttrPathResult;
+  std::vector<std::string> Scope;
+  auto R = findAttrPath(N, PM, Scope);
+  Locations Locs;
+  if (R == PathResult::OK) {
+    std::lock_guard _(OptionsLock);
+    // For each option worker, try to get it's decl position.
+    for (const auto &[_, Client] : Options) {
+      if (AttrSetClient *C = Client->client()) {
+        OptionsDefinitionProvider ODP(*C);
+        ODP.resolveLocations(Scope, Locs);
+      }
+    }
+  }
+  return Locs;
+}
+
+/// \brief Get nixpkgs definition from a selector.
+Locations defineNixpkgsSelector(const Selector &Sel,
+                                AttrSetClient &NixpkgsClient) {
+  try {
+    // Ask nixpkgs provider information about this selector.
+    NixpkgsDefinitionProvider NDP(NixpkgsClient);
+    return NDP.resolveSelector(Sel);
+  } catch (NoLocationsFoundInNixpkgsException &E) {
+    elog("definition/idiom: {0}", E.what());
+  } catch (WorkerReportedException &E) {
+    elog("definition/idiom/worker: {0}", E.takeError());
+  }
+  return {};
+}
+
+/// \brief Get definiton of select expressions.
+Locations defineSelect(const ExprSelect &Sel, const VariableLookupAnalysis &VLA,
+                       const ParentMapAnalysis &PM,
+                       AttrSetClient &NixpkgsClient) {
+  // Currently we can only deal with idioms.
+  // Maybe more data-flow analysis will be added though.
+  try {
+    return defineNixpkgsSelector(mkSelector(Sel, VLA, PM), NixpkgsClient);
+  } catch (IdiomSelectorException &E) {
+    elog("defintion/idiom/selector: {0}", E.what());
+  }
+  return {};
+}
+
+Locations defineVarStatic(const ExprVar &Var, const VariableLookupAnalysis &VLA,
+                          const URIForFile &URI) {
+  const Definition &Def = findVarDefinition(Var, VLA);
+  return {convertToLocation(Def, URI)};
+}
+
+template <class T>
+std::vector<T> mergeVec(std::vector<T> A, const std::vector<T> &B) {
+  A.insert(A.end(), B.begin(), B.end());
+  return A;
+}
+
+Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
+                    const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
+                    const URIForFile &URI) {
+  try {
+    Locations StaticLocs = defineVarStatic(Var, VLA, URI);
+
+    // Nixpkgs locations.
+    try {
+      Selector Sel = mkIdiomSelector(Var, VLA, PM);
+      Locations NixpkgsLocs = defineNixpkgsSelector(Sel, NixpkgsClient);
+      return mergeVec(std::move(StaticLocs), NixpkgsLocs);
+    } catch (std::exception &E) {
+      elog("definition/idiom/selector: {0}", E.what());
+      return StaticLocs;
+    }
+  } catch (std::exception &E) {
+    elog("definition/static: {0}", E.what());
+  }
+  return {};
+}
+
+/// \brief Squash a vector into smaller json variant.
+template <class T> llvm::json::Value squash(std::vector<T> List) {
+  std::size_t Size = List.size();
+  switch (Size) {
+  case 0:
+    return nullptr;
+  case 1:
+    return std::move(List.back());
+  default:
+    break;
+  }
+  return std::move(List);
+}
+
+template <class T>
+llvm::Expected<llvm::json::Value> squash(llvm::Expected<std::vector<T>> List) {
+  if (!List)
+    return List.takeError();
+  return squash(std::move(*List));
+}
+
 } // namespace
 
-Expected<const Definition &>
-nixd::findDefinition(const Node &N, const ParentMapAnalysis &PMA,
-                     const VariableLookupAnalysis &VLA) {
+const Definition &nixd::findDefinition(const Node &N,
+                                       const ParentMapAnalysis &PMA,
+                                       const VariableLookupAnalysis &VLA) {
   const ExprVar *Var = findVar(N, PMA, VLA);
   if (!Var) [[unlikely]] {
     if (const Definition *Def = findSelfDefinition(N, PMA, VLA))
       return *Def;
-    return error("cannot find variable on given position");
+    throw CannotFindVarException();
   }
   assert(Var->kind() == Node::NK_ExprVar);
-  LookupResult Result = VLA.query(static_cast<const ExprVar &>(*Var));
-
-  if (Result.Kind == ResultKind::Undefined)
-    return error("this varaible is undefined");
-
-  if (Result.Kind == ResultKind::NoSuchVar)
-    return error("this varaible is not used in var lookup (duplicated attr?)");
-
-  assert(Result.Def);
-
-  return *Result.Def;
+  return findVarDefinition(*Var, VLA);
 }
 
 void Controller::onDefinition(const TextDocumentPositionParams &Params,
@@ -232,54 +356,41 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) [[likely]] {
         const VariableLookupAnalysis &VLA = *TU->variableLookup();
         const ParentMapAnalysis &PM = *TU->parentMap();
-        const Node *N = AST->descend({Pos, Pos});
-        Locations Locs;
-        if (!N) [[unlikely]] {
+        const Node *MaybeN = AST->descend({Pos, Pos});
+        if (!MaybeN) [[unlikely]] {
           Reply(error("cannot find AST node on given position"));
           return;
         }
-        using PathResult = FindAttrPathResult;
-        std::vector<std::string> Scope;
-        auto R = findAttrPath(*N, PM, Scope);
-        if (R == PathResult::OK) {
-          std::lock_guard _(OptionsLock);
-          // For each option worker, try to get it's decl position.
-          for (const auto &[_, Client] : Options) {
-            if (AttrSetClient *C = Client->client()) {
-              OptionsDefinitionProvider ODP(*C);
-              ODP.resolveLocations(Scope, Locs);
-            }
-          }
-        }
-        if (havePackageScope(*N, VLA, PM) && nixpkgsClient()) {
-          // Ask nixpkgs client what's current package documentation.
-          NixpkgsDefinitionProvider NDP(*nixpkgsClient());
-          auto [Scope, Name] = getScopeAndPrefix(*N, PM);
-          if (Expected<Location> Loc =
-                  NDP.resolvePackage(std::move(Scope), std::move(Name)))
-            Locs.emplace_back(*Loc);
-          else
-            elog("cannot get nixpkgs definition for package: {0}",
-                 Loc.takeError());
-        }
-
-        if (Expected<Location> StaticLoc = staticDef(URI, *N, PM, VLA))
-          Locs.emplace_back(*StaticLoc);
-        else
-          elog("cannot get static def location: {0}", StaticLoc.takeError());
-
-        if (Locs.empty()) {
+        const Node &N = *MaybeN;
+        const Node *MaybeUpExpr = PM.upExpr(N);
+        if (!MaybeUpExpr) {
           Reply(nullptr);
           return;
         }
 
-        if (Locs.size() == 1) {
-          Reply(Locs.back());
-          return;
-        }
+        const Node &UpExpr = *MaybeUpExpr;
 
-        Reply(std::move(Locs));
-        return;
+        return Reply(squash([&]() -> llvm::Expected<Locations> {
+          // Special case for inherited names.
+          if (const ExprVar *Var = findInheritVar(N, PM, VLA))
+            return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI);
+
+          switch (UpExpr.kind()) {
+          case Node::NK_ExprVar: {
+            const auto &Var = static_cast<const ExprVar &>(UpExpr);
+            return defineVar(Var, VLA, PM, *nixpkgsClient(), URI);
+          }
+          case Node::NK_ExprSelect: {
+            const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
+            return defineSelect(Sel, VLA, PM, *nixpkgsClient());
+          }
+          case Node::NK_ExprAttrs:
+            return defineAttrPath(N, PM, OptionsLock, Options);
+          default:
+            break;
+          }
+          return error("unknown node type for definition");
+        }()));
       }
     }
   };

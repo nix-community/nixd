@@ -2,6 +2,23 @@ libnixf_deps = [ boost, nlohmann_json ]
 
 libnixf_inc = include_directories('../include')
 
+python3 = find_program('python3')
+
+diagnostic_enum_h = custom_target(
+    input: ['Basic/DiagnosticEnum.h.py', 'Basic/diagnostic.py', 'Basic/support.py'],
+    output: 'DiagnosticEnum.h',
+    command: [python3, '@INPUT0@', '@OUTPUT@'],
+    install: true,
+    install_dir: 'include/nixf/Basic/'
+)
+
+
+diagnostic_cpp = custom_target(
+    input: ['Basic/Diagnostic.cpp.py', 'Basic/diagnostic.py', 'Basic/support.py'],
+    output: 'Diagnostic.cpp',
+    command: [python3, '@INPUT0@', '@OUTPUT@']
+)
+
 libnixf = library(
     'nixf',
     'Basic/Nodes.cpp',
@@ -18,6 +35,8 @@ libnixf = library(
     'Sema/ParentMap.cpp',
     'Sema/SemaActions.cpp',
     'Sema/VariableLookup.cpp',
+    diagnostic_enum_h,
+    diagnostic_cpp,
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
@@ -32,6 +51,7 @@ pkgconfig.generate(
 )
 
 nixf = declare_dependency(
+    sources: [diagnostic_enum_h],
     include_directories: libnixf_inc,
     link_with: libnixf,
     dependencies: libnixf_deps

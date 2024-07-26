@@ -1,4 +1,7 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test \
+# RUN: --nixpkgs-expr="{ hello.meta.description = \"Very Nice\";  }" \
+# RUN: < %s | FileCheck %s
+
 
 <-- initialize(0)
 
@@ -30,7 +33,7 @@
          "uri":"file:///completion.nix",
          "languageId":"nix",
          "version":1,
-         "text":"let xxx = 1; yy = 2 in x"
+         "text":"pkgs.hel"
       }
    }
 }
@@ -47,7 +50,7 @@
         },
         "position": {
             "line": 0,
-            "character": 23
+            "character": 7
         },
         "context": {
             "triggerKind": 1
@@ -57,19 +60,15 @@
 ```
 
 ```
-     CHECK:  "id": 1,
-CHECK-NEXT:  "jsonrpc": "2.0",
-CHECK-NEXT:  "result": {
-CHECK-NEXT:    "isIncomplete": false,
+     CHECK:    "isIncomplete": false,
 CHECK-NEXT:    "items": [
 CHECK-NEXT:      {
-CHECK-NEXT:        "data": "",
-CHECK-NEXT:        "kind": 6,
-CHECK-NEXT:        "label": "xxx",
+CHECK-NEXT:        "data": "{\"Prefix\":\"hel\",\"Scope\":[]}",
+CHECK-NEXT:        "kind": 5,
+CHECK-NEXT:        "label": "hello",
 CHECK-NEXT:        "score": 0
 CHECK-NEXT:      }
 CHECK-NEXT:    ]
-CHECK-NEXT:  }
 ```
 
 

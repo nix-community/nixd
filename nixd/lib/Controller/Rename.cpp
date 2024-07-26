@@ -11,32 +11,45 @@
 
 #include <boost/asio/post.hpp>
 
+#include <exception>
+
 using namespace lspserver;
 using namespace nixd;
 using namespace llvm;
 using namespace nixf;
 
 namespace {
-llvm::Expected<WorkspaceEdit> rename(const nixf::Node &Desc,
-                                     const std::string &NewText,
-                                     const ParentMapAnalysis &PMA,
-                                     const VariableLookupAnalysis &VLA,
-                                     const URIForFile &URI) {
+
+struct RenameException : std::exception {};
+
+struct RenameWithException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename `with` defined variable";
+  }
+};
+
+struct RenameBuiltinException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename builtin variable";
+  }
+};
+
+WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
+                     const ParentMapAnalysis &PMA,
+                     const VariableLookupAnalysis &VLA, const URIForFile &URI) {
   using lspserver::TextEdit;
   // Find "definition"
   auto Def = findDefinition(Desc, PMA, VLA);
-  if (!Def)
-    return Def.takeError();
 
-  if (Def->source() == Definition::DS_With)
-    return error("cannot rename `with` defined variables");
+  if (Def.source() == Definition::DS_With)
+    throw RenameWithException();
 
-  if (Def->isBuiltin())
-    return error("cannot rename builtin variable");
+  if (Def.isBuiltin())
+    throw RenameBuiltinException();
 
   std::vector<TextEdit> Edits;
 
-  for (const auto *Use : Def->uses()) {
+  for (const auto *Use : Def.uses()) {
     Edits.emplace_back(TextEdit{
         .range = toLSPRange(Use->range()),
         .newText = NewText,
@@ -44,7 +57,7 @@ llvm::Expected<WorkspaceEdit> rename(const nixf::Node &Desc,
   }
 
   Edits.emplace_back(TextEdit{
-      .range = toLSPRange(Def->syntax()->range()),
+      .range = toLSPRange(Def.syntax()->range()),
       .newText = NewText,
   });
   WorkspaceEdit WE;
@@ -67,9 +80,13 @@ void Controller::onRename(const RenameParams &Params,
           Reply(error("cannot find corresponding node on given position"));
           return;
         }
-        Reply(rename(*Desc, NewText, *TU->parentMap(), *TU->variableLookup(),
-                     URI));
-        return;
+        const auto &PM = *TU->parentMap();
+        const auto &VLA = *TU->variableLookup();
+        try {
+          return Reply(rename(*Desc, NewText, PM, VLA, URI));
+        } catch (std::exception &E) {
+          return Reply(error(E.what()));
+        }
       }
     }
   };
@@ -86,17 +103,17 @@ void Controller::onPrepareRename(
       if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
         const nixf::Node *Desc = AST->descend({Pos, Pos});
         if (!Desc) {
-          Reply(error("cannot find corresponding node on given position"));
-          return;
+          return Reply(
+              error("cannot find corresponding node on given position"));
         }
-        llvm::Expected<WorkspaceEdit> Exp =
-            rename(*Desc, "", *TU->parentMap(), *TU->variableLookup(), URI);
-        if (Exp) {
-          Reply(toLSPRange(Desc->range()));
-          return;
+        const auto &PM = *TU->parentMap();
+        const auto &VLA = *TU->variableLookup();
+        try {
+          WorkspaceEdit WE = rename(*Desc, "", PM, VLA, URI);
+          return Reply(toLSPRange(Desc->range()));
+        } catch (std::exception &E) {
+          return Reply(error(E.what()));
         }
-        Reply(Exp.takeError());
-        return;
       }
     }
   };

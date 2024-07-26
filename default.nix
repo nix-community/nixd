@@ -11,6 +11,7 @@
   nixpkgs-fmt,
   pkg-config,
   nlohmann_json,
+  python312,
 }:
 
 stdenv.mkDerivation {
@@ -24,6 +25,7 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     meson
     ninja
+    python312
     pkg-config
   ];
 

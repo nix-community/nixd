@@ -11,6 +11,7 @@
 #include "Range.h"
 
 #include <cassert>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -167,11 +168,7 @@ public:
   };
 
   /// Internal kind
-  enum DiagnosticKind {
-#define DIAG(SNAME, CNAME, SEVERITY, MESSAGE) DK_##CNAME,
-#include "DiagnosticKinds.inc"
-#undef DIAG
-  };
+#include "DiagnosticEnum.h"
 
   Diagnostic(DiagnosticKind Kind, LexerCursorRange Range)
       : PartialDiagnostic(Range), Kind(Kind) {}
@@ -190,6 +187,10 @@ public:
   /// A special case for parsing errors, generated from bison
   /// have the sname "bison"
   [[nodiscard]] static const char *sname(DiagnosticKind Kind);
+
+  /// \brief Parse diagnostic "cname" to diagnostic id
+  [[nodiscard]] static std::optional<Diagnostic::DiagnosticKind>
+  parseKind(std::string_view SName);
 
   [[nodiscard]] virtual const char *sname() const { return sname(kind()); }
 

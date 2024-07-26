@@ -7,6 +7,7 @@
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixd/Protocol/AttrSet.h"
 
 #include <boost/asio/post.hpp>
 
@@ -91,7 +92,7 @@ public:
   std::optional<std::string> resolvePackage(std::vector<std::string> Scope,
                                             std::string Name) {
     std::binary_semaphore Ready(0);
-    std::optional<PackageDescription> Desc;
+    std::optional<AttrPathInfoResponse> Desc;
     auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
       if (Resp)
         Desc = *Resp;
@@ -106,7 +107,7 @@ public:
     if (!Desc)
       return std::nullopt;
 
-    return mkMarkdown(*Desc);
+    return mkMarkdown(Desc->PackageDesc);
   }
 };
 

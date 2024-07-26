@@ -20,27 +20,27 @@ using namespace nixf;
 
 namespace {
 
-Error findReferences(const nixf::Node &Desc, const ParentMapAnalysis &PMA,
-                     const VariableLookupAnalysis &VLA, const URIForFile &URI,
-                     std::vector<Location> &Locations) {
+std::vector<Location> findReferences(const nixf::Node &Desc,
+                                     const ParentMapAnalysis &PMA,
+                                     const VariableLookupAnalysis &VLA,
+                                     const URIForFile &URI) {
 
   // Two steps.
   //   1. Find some "definition" for this node.
   //   2. Find all "uses", and construct the vector.
 
   // Find "definition"
-  if (auto Def = findDefinition(Desc, PMA, VLA)) {
-    // OK, iterate all uses.
-    for (const auto *Use : Def->uses()) {
-      assert(Use);
-      Locations.emplace_back(Location{
-          .uri = URI,
-          .range = toLSPRange(Use->range()),
-      });
-    }
-    return Error::success();
+  auto Def = findDefinition(Desc, PMA, VLA);
+  std::vector<Location> Locations;
+  // OK, iterate all uses.
+  for (const auto *Use : Def.uses()) {
+    assert(Use);
+    Locations.emplace_back(Location{
+        .uri = URI,
+        .range = toLSPRange(Use->range()),
+    });
   }
-  return error("Cannot find definition of this node");
+  return Locations;
 }
 
 } // namespace
@@ -54,16 +54,16 @@ void Controller::onReferences(const TextDocumentPositionParams &Params,
       if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
         const nixf::Node *Desc = AST->descend({Pos, Pos});
         if (!Desc) {
-          Reply(error("cannot find corresponding node on given position"));
-          return;
+          return Reply(
+              error("cannot find corresponding node on given position"));
         }
-        std::vector<Location> Locations;
-        if (auto Err = findReferences(*Desc, *TU->parentMap(),
-                                      *TU->variableLookup(), URI, Locations)) {
-          Reply(std::move(Err));
-          return;
+        const auto &PM = *TU->parentMap();
+        const auto &VLA = *TU->variableLookup();
+        try {
+          return Reply(findReferences(*Desc, PM, VLA, URI));
+        } catch (std::exception &E) {
+          return Reply(error("references: {0}", E.what()));
         }
-        Reply(std::move(Locations));
       }
     }
   };

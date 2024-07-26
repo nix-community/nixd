@@ -10,17 +10,17 @@ using namespace lspserver;
 AttrSetClient::AttrSetClient(std::unique_ptr<lspserver::InboundPort> In,
                              std::unique_ptr<lspserver::OutboundPort> Out)
     : LSPServer(std::move(In), std::move(Out)) {
-  EvalExpr = mkOutMethod<EvalExprParams, EvalExprResponse>("attrset/evalExpr");
+  EvalExpr = mkOutMethod<EvalExprParams, EvalExprResponse>(rpcMethod::EvalExpr);
   AttrPathInfo = mkOutMethod<AttrPathInfoParams, AttrPathInfoResponse>(
-      "attrset/attrpathInfo");
+      rpcMethod::AttrPathInfo);
   AttrPathComplete =
       mkOutMethod<AttrPathCompleteParams, AttrPathCompleteResponse>(
-          "attrset/attrpathComplete");
-  OptionInfo =
-      mkOutMethod<AttrPathInfoParams, OptionInfoResponse>("attrset/optionInfo");
+          rpcMethod::AttrPathComplete);
+  OptionInfo = mkOutMethod<AttrPathInfoParams, OptionInfoResponse>(
+      rpcMethod::OptionInfo);
   OptionComplete = mkOutMethod<AttrPathCompleteParams, OptionCompleteResponse>(
-      "attrset/optionComplete");
-  Exit = mkOutNotifiction<std::nullptr_t>("exit");
+      rpcMethod::OptionComplete);
+  Exit = mkOutNotifiction<std::nullptr_t>(rpcMethod::Exit);
 }
 
 const char *AttrSetClient::getExe() {

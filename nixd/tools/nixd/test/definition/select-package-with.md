@@ -1,4 +1,7 @@
-# RUN: nixd --nixpkgs-expr="{ x.meta.position = \"/foo:33\"; }" --lit-test < %s | FileCheck %s
+# RUN: nixd --nixpkgs-expr="{ x.y.meta.position = \"/foo:33\"; }" --lit-test < %s | FileCheck %s
+
+Similar to [package.md](./package.md), but testing that we can do "selection" + "with".
+i.e. testing if `with pkgs; [x.y]` works.
 
 <-- initialize(0)
 
@@ -29,7 +32,7 @@
          "uri":"file:///basic.nix",
          "languageId":"nix",
          "version":1,
-         "text":"with pkgs; x"
+         "text":"with pkgs; [x.y]"
       }
    }
 }
@@ -49,7 +52,7 @@
       },
       "position":{
         "line": 0,
-        "character":11
+        "character":15
       }
    }
 }
@@ -58,8 +61,7 @@
 ```
      CHECK: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0",
-CHECK-NEXT: "result": [
-CHECK-NEXT:   {
+CHECK-NEXT: "result": {
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
 CHECK-NEXT:         "character": 0,
@@ -71,19 +73,6 @@ CHECK-NEXT:         "line": 33
 CHECK-NEXT:       }
 CHECK-NEXT:     },
 CHECK-NEXT:     "uri": "file:///foo"
-CHECK-NEXT:   },
-CHECK-NEXT:   {
-CHECK-NEXT:     "range": {
-CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 4,
-CHECK-NEXT:         "line": 0
-CHECK-NEXT:       },
-CHECK-NEXT:       "start": {
-CHECK-NEXT:         "character": 0,
-CHECK-NEXT:         "line": 0
-CHECK-NEXT:       }
-CHECK-NEXT:     },
-CHECK-NEXT:     "uri": "file:///basic.nix"
 CHECK-NEXT:   }
 ```
 

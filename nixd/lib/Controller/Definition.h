@@ -7,9 +7,15 @@
 
 namespace nixd {
 
+struct CannotFindVarException : std::exception {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot find variable on given node";
+  }
+};
+
 /// \brief Heuristically find definition on some node
-llvm::Expected<const nixf::Definition &>
-findDefinition(const nixf::Node &N, const nixf::ParentMapAnalysis &PMA,
-               const nixf::VariableLookupAnalysis &VLA);
+const nixf::Definition &findDefinition(const nixf::Node &N,
+                                       const nixf::ParentMapAnalysis &PMA,
+                                       const nixf::VariableLookupAnalysis &VLA);
 
 } // namespace nixd

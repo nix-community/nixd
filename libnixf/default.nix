@@ -9,6 +9,7 @@
   gtest,
   boost182,
   nlohmann_json,
+  python312,
 }:
 
 stdenv.mkDerivation {
@@ -33,6 +34,7 @@ stdenv.mkDerivation {
     meson
     ninja
     pkg-config
+    python312
   ];
 
   nativeCheckInputs = [

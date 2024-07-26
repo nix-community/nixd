@@ -1,6 +1,5 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-// https://github.com/nix-community/nixd/issues/255
 
 <-- initialize(0)
 
@@ -31,7 +30,7 @@
          "uri":"file:///basic.nix",
          "languageId":"nix",
          "version":1,
-         "text":"rec { bar = 1; a = 1; a = bar; b = a; }"
+         "text":"with builtins; aa"
       }
    }
 }
@@ -51,7 +50,7 @@
       },
       "position":{
         "line": 0,
-        "character":28
+        "character":16
       },
       "newName": "b"
    }
@@ -59,9 +58,7 @@
 ```
 
 ```
-     CHECK: "error": {
-CHECK-NEXT:   "code": -32001,
-CHECK-NEXT:   "message": "this varaible is not used in var lookup (duplicated attr?)"
+     CHECK:   "message": "cannot rename `with` defined variable"
 CHECK-NEXT: },
 CHECK-NEXT: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0"

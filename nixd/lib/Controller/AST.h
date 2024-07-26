@@ -1,10 +1,31 @@
 /// \file
 /// \brief This file declares some common analysis (tree walk) on the AST.
 
+#include "nixd/Protocol/AttrSet.h"
+
+#include <nixf/Basic/Nodes/Expr.h>
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <exception>
+
 namespace nixd {
+
+namespace idioms {
+
+/// \brief Hardcoded name for "pkgs.xxx", or "with pkgs;"
+///
+/// Assume that the value of this variable have the same structure with `import
+/// nixpkgs {}
+constexpr inline std::string_view Pkgs = "pkgs";
+
+/// \brief Hardcoded name for nixpkgs "lib"
+///
+/// Assume that the value of this variable is "nixpkgs lib".
+/// e.g. lib.genAttrs.
+constexpr inline std::string_view Lib = "lib";
+
+} // namespace idioms
 
 /// \brief Search up until there are some node associated with "EnvNode".
 [[nodiscard]] const nixf::EnvNode *
@@ -28,6 +49,66 @@ upEnv(const nixf::Node &Desc, const nixf::VariableLookupAnalysis &VLA,
 /// Try to find these name as a pre-selected scope, the last value is "prefix".
 std::pair<std::vector<std::string>, std::string>
 getScopeAndPrefix(const nixf::Node &N, const nixf::ParentMapAnalysis &PM);
+
+struct IdiomException : std::exception {};
+
+/// \brief Exceptions scoped in nixd::mkIdiomSelector
+struct IdiomSelectorException : std::exception {};
+
+/// \brief The pattern of this variable cannot be recognized by known idioms.
+struct NotAnIdiomException : IdiomSelectorException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "not an idiom";
+  }
+};
+
+struct VLAException : std::exception {};
+
+/// \brief No such variable.
+struct NoSuchVarException : VLAException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "no such variable";
+  }
+};
+
+struct UndefinedVarException : VLAException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "undefined variable";
+  }
+};
+
+/// \brief Construct a nixd::Selector from \p Var.
+///
+/// Try to heuristically find a selector of a variable, based on some known
+/// idioms.
+Selector mkIdiomSelector(const nixf::ExprVar &Var,
+                         const nixf::VariableLookupAnalysis &VLA,
+                         const nixf::ParentMapAnalysis &PM);
+
+/// \brief The attrpath has a dynamic name, thus it cannot be trivially
+/// transformed to "static" selector.
+struct DynamicNameException : IdiomSelectorException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "dynamic attribute path encountered";
+  }
+};
+
+struct NotVariableSelect : IdiomSelectorException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "the base expression of the select is not a variable";
+  }
+};
+
+/// \brief Construct a nixd::Selector from \p AP.
+Selector mkSelector(const nixf::AttrPath &AP, Selector BaseSelector);
+
+/// \brief Construct a nixd::Selector from \p Select.
+Selector mkSelector(const nixf::ExprSelect &Select, Selector BaseSelector);
+
+/// \brief Construct a nixd::Selector from \p Select.
+Selector mkSelector(const nixf::ExprSelect &Select,
+                    const nixf::VariableLookupAnalysis &VLA,
+                    const nixf::ParentMapAnalysis &PM);
 
 enum class FindAttrPathResult {
   OK,

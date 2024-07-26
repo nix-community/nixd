@@ -1,5 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
+// https://github.com/nix-community/nixd/issues/255
 
 <-- initialize(0)
 
@@ -30,7 +31,7 @@
          "uri":"file:///basic.nix",
          "languageId":"nix",
          "version":1,
-         "text":"with builtins; aa"
+         "text":"rec { bar = 1; a = 1; a = bar; b = a; }"
       }
    }
 }
@@ -50,7 +51,7 @@
       },
       "position":{
         "line": 0,
-        "character":16
+        "character":28
       },
       "newName": "b"
    }
@@ -58,7 +59,9 @@
 ```
 
 ```
-     CHECK:   "message": "cannot rename `with` defined variables"
+     CHECK: "error": {
+CHECK-NEXT:   "code": -32001,
+CHECK-NEXT:   "message": "no such variable"
 CHECK-NEXT: },
 CHECK-NEXT: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0"

@@ -86,11 +86,11 @@ public:
         NixpkgsProvider.attrpathInfo({Name}, std::move(OnReply));
         Ready.acquire();
 
-        if (R.Version) {
+        if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
           // Construct inlay hints.
           InlayHint H{
               .position = toLSPPosition(N->rCur()),
-              .label = ": " + *R.Version,
+              .label = ": " + *Version,
               .kind = InlayHintKind::Designator,
               .range = toLSPRange(N->range()),
           };
