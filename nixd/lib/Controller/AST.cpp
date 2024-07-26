@@ -247,6 +247,19 @@ nixd::Selector nixd::mkSelector(const nixf::ExprSelect &Select,
   return BaseSelector;
 }
 
+nixd::Selector nixd::mkSelector(const nixf::ExprSelect &Sel,
+                                const nixf::VariableLookupAnalysis &VLA,
+                                const nixf::ParentMapAnalysis &PM) {
+  if (Sel.expr().kind() != Node::NK_ExprVar)
+    throw NotVariableSelect();
+
+  const auto &Var = static_cast<ExprVar &>(Sel.expr());
+
+  auto BaseSelector = mkIdiomSelector(Var, VLA, PM);
+
+  return mkSelector(Sel, std::move(BaseSelector));
+}
+
 std::pair<std::vector<std::string>, std::string>
 nixd::getScopeAndPrefix(const Node &N, const ParentMapAnalysis &PM) {
   if (N.kind() != Node::NK_Identifer)

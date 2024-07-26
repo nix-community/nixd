@@ -15,6 +15,7 @@
 
 #include <boost/asio/post.hpp>
 
+#include <exception>
 #include <semaphore>
 #include <set>
 #include <unordered_set>
@@ -318,9 +319,11 @@ void completeVarName(const VariableLookupAnalysis &VLA,
     // Invoke nixpkgs provider to get the completion list.
     // Variable names are always incomplete.
     NCP.completePackages(mkParams(Sel, /*IsComplete=*/false), List);
-  } catch (IdiomSelectorException &E) {
-    log(DBG "skipped, reason: {0}", E.what());
-    return;
+  } catch (ExceedSizeError &) {
+    // Let "onCompletion" catch this exception to set "inComplete" field.
+    throw;
+  } catch (std::exception &E) {
+    return log(DBG "skipped, reason: {0}", E.what());
   }
 
 #undef DBGPREFIX
@@ -351,18 +354,14 @@ void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
   // Ask nixpkgs provider to get idioms completion.
   NixpkgsCompletionProvider NCP(Client);
 
-  const auto Handler = [](std::exception &E) noexcept {
-    log(DBG "skipped, reason: {0}", E.what());
-  };
   try {
     Selector Sel = mkSelector(Select, mkIdiomSelector(Var, VLA, PM));
     NCP.completePackages(mkParams(Sel, IsComplete), List);
-  } catch (IdiomSelectorException &E) {
-    Handler(E);
-    return;
-  } catch (SelectorException &E) {
-    Handler(E);
-    return;
+  } catch (ExceedSizeError &) {
+    // Let "onCompletion" catch this exception to set "inComplete" field.
+    throw;
+  } catch (std::exception &E) {
+    return log(DBG "skipped, reason: {0}", E.what());
   }
 
 #undef DBGPREFIX

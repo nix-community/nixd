@@ -13,36 +13,42 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <exception>
+
 using namespace lspserver;
 using namespace nixd;
 using namespace llvm;
 using namespace nixf;
 
 namespace {
-Error highlight(const nixf::Node &Desc, const ParentMapAnalysis &PMA,
-                const VariableLookupAnalysis &VLA, const URIForFile &URI,
-                std::vector<DocumentHighlight> &Highlights) {
+
+std::vector<DocumentHighlight> highlight(const nixf::Node &Desc,
+                                         const ParentMapAnalysis &PMA,
+                                         const VariableLookupAnalysis &VLA,
+                                         const URIForFile &URI) {
   // Find "definition"
-  if (auto Def = findDefinition(Desc, PMA, VLA)) {
-    // OK, iterate all uses.
-    for (const auto *Use : Def->uses()) {
-      assert(Use);
-      Highlights.emplace_back(DocumentHighlight{
-          .range = toLSPRange(Use->range()),
-          .kind = DocumentHighlightKind::Read,
-      });
-    }
-    if (Def->syntax()) {
-      const Node &Syntax = *Def->syntax();
-      Highlights.emplace_back(DocumentHighlight{
-          .range = toLSPRange(Syntax.range()),
-          .kind = DocumentHighlightKind::Write,
-      });
-    }
-    return Error::success();
+  auto Def = findDefinition(Desc, PMA, VLA);
+
+  std::vector<DocumentHighlight> Highlights;
+  // OK, iterate all uses.
+  for (const auto *Use : Def.uses()) {
+    assert(Use);
+    Highlights.emplace_back(DocumentHighlight{
+        .range = toLSPRange(Use->range()),
+        .kind = DocumentHighlightKind::Read,
+    });
   }
-  return error("Cannot find definition of this node");
+  if (Def.syntax()) {
+    const Node &Syntax = *Def.syntax();
+    Highlights.emplace_back(DocumentHighlight{
+        .range = toLSPRange(Syntax.range()),
+        .kind = DocumentHighlightKind::Write,
+    });
+  }
+
+  return Highlights;
 }
+
 } // namespace
 
 void Controller::onDocumentHighlight(
@@ -58,20 +64,14 @@ void Controller::onDocumentHighlight(
           Reply(error("cannot find corresponding node on given position"));
           return;
         }
-        std::vector<DocumentHighlight> Highlights;
-        if (auto Err = highlight(*Desc, *TU->parentMap(), *TU->variableLookup(),
-                                 URI, Highlights)) {
-          // FIXME: Empty response if there are no def-use chain found.
-          // For document highlights, the specification explicitly specified LSP
-          // should do "fuzzy" things.
-
-          // Empty response on error, don't reply all errors because this method
-          // is very frequently called.
-          Reply(std::vector<DocumentHighlight>{});
-          lspserver::elog("textDocument/documentHighlight failed: {0}", Err);
-          return;
+        try {
+          const auto &PM = *TU->parentMap();
+          const auto &VLA = *TU->variableLookup();
+          return Reply(highlight(*Desc, PM, VLA, URI));
+        } catch (std::exception &E) {
+          elog("textDocument/documentHighlight failed: {0}", E.what());
+          return Reply(std::vector<DocumentHighlight>{});
         }
-        Reply(std::move(Highlights));
       }
     }
   };

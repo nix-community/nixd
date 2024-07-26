@@ -1,5 +1,8 @@
 # RUN: nixd --nixpkgs-expr="{ x.meta.position = \"/foo:33\"; }" --lit-test < %s | FileCheck %s
 
+Similar to [package.md](./package.md), but testing that we can do "selection".
+i.e. testing if `pkgs.x` works.
+
 <-- initialize(0)
 
 ```json
@@ -29,7 +32,7 @@
          "uri":"file:///basic.nix",
          "languageId":"nix",
          "version":1,
-         "text":"with pkgs; x"
+         "text":"pkgs.x"
       }
    }
 }
@@ -49,7 +52,7 @@
       },
       "position":{
         "line": 0,
-        "character":11
+        "character":5
       }
    }
 }
@@ -58,21 +61,7 @@
 ```
      CHECK: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0",
-CHECK-NEXT: "result": [
-CHECK-NEXT:   {
-CHECK-NEXT:     "range": {
-CHECK-NEXT:       "end": {
-CHECK-NEXT:         "character": 4,
-CHECK-NEXT:         "line": 0
-CHECK-NEXT:       },
-CHECK-NEXT:       "start": {
-CHECK-NEXT:         "character": 0,
-CHECK-NEXT:         "line": 0
-CHECK-NEXT:       }
-CHECK-NEXT:     },
-CHECK-NEXT:     "uri": "file:///basic.nix"
-CHECK-NEXT:   },
-CHECK-NEXT:   {
+CHECK-NEXT: "result": {
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
 CHECK-NEXT:         "character": 0,
