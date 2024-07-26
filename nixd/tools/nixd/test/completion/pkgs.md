@@ -1,7 +1,6 @@
 # RUN: nixd --lit-test \
-# RUN: --nixpkgs-expr="{ lib.hello.meta.description = \"Very Nice\";  }" \
+# RUN: --nixpkgs-expr='--nixpkgs-expr={ x = 1; y = 2; };' \
 # RUN: < %s | FileCheck %s
-# XFAIL: *
 
 
 <-- initialize(0)
@@ -61,15 +60,12 @@
 ```
 
 ```
-     CHECK:    "isIncomplete": false,
-CHECK-NEXT:    "items": [
-CHECK-NEXT:      {
-CHECK-NEXT:        "data": "{\"Prefix\":\"hel\",\"Scope\":[\"lib\"]}",
-CHECK-NEXT:        "kind": 5,
-CHECK-NEXT:        "label": "hello",
-CHECK-NEXT:        "score": 0
+     CHECK:      "id": 1,
+CHECK-NEXT:      "jsonrpc": "2.0",
+CHECK-NEXT:      "result": {
+CHECK-NEXT:        "isIncomplete": false,
+CHECK-NEXT:        "items": []
 CHECK-NEXT:      }
-CHECK-NEXT:    ]
 ```
 
 

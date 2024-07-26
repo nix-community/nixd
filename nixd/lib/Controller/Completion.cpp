@@ -287,7 +287,7 @@ void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
 }
 
 AttrPathCompleteParams mkParams(nixd::Selector Sel, bool IsComplete) {
-  if (IsComplete) {
+  if (IsComplete || Sel.empty()) {
     return {
         .Scope = std::move(Sel),
         .Prefix = "",
@@ -314,9 +314,13 @@ void completeVarName(const VariableLookupAnalysis &VLA,
   // Try to complete the name by known idioms.
   try {
     Selector Sel = mkIdiomSelector(N, VLA, PM);
-    NixpkgsCompletionProvider NCP(Client);
+
+    // Clickling "pkgs" does not make sense for variable completion
+    if (Sel.empty())
+      return;
 
     // Invoke nixpkgs provider to get the completion list.
+    NixpkgsCompletionProvider NCP(Client);
     // Variable names are always incomplete.
     NCP.completePackages(mkParams(Sel, /*IsComplete=*/false), List);
   } catch (ExceedSizeError &) {
