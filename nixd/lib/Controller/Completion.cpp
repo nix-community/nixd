@@ -313,7 +313,7 @@ void completeVarName(const VariableLookupAnalysis &VLA,
 
   // Try to complete the name by known idioms.
   try {
-    Selector Sel = mkIdiomSelector(N, VLA, PM);
+    Selector Sel = idioms::mkVarSelector(N, VLA, PM);
 
     // Clickling "pkgs" does not make sense for variable completion
     if (Sel.empty())
@@ -359,7 +359,8 @@ void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
   NixpkgsCompletionProvider NCP(Client);
 
   try {
-    Selector Sel = mkSelector(Select, mkIdiomSelector(Var, VLA, PM));
+    Selector Sel =
+        idioms::mkSelector(Select, idioms::mkVarSelector(Var, VLA, PM));
     NCP.completePackages(mkParams(Sel, IsComplete), List);
   } catch (ExceedSizeError &) {
     // Let "onCompletion" catch this exception to set "inComplete" field.
