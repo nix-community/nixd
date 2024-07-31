@@ -172,6 +172,19 @@ TEST_F(VLATest, LivenessDupSymbol) {
   ASSERT_EQ(Diags[0].tags().size(), 0);
 }
 
+TEST_F(VLATest, LivenessArgWithFormal) {
+  std::shared_ptr<Node> AST = parse("{ foo }@bar: foo", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
+  ASSERT_EQ(Diags[0].range().lCur().column(), 8);
+  ASSERT_EQ(Diags[0].tags().size(), 1);
+  ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
+}
+
 TEST_F(VLATest, ToDefAttrs) {
   std::shared_ptr<Node> AST = parse("rec { x = 1; y = x; z = x; }", Diags);
   VariableLookupAnalysis VLA(Diags);

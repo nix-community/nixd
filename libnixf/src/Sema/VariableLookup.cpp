@@ -129,11 +129,16 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
   // foo: body
   // ^~~<------- add function argument.
   if (Arg.id()) {
-    // Function arg cannot duplicate to it's formal.
-    // If it this unluckily happens, we would like to skip this definition.
-    if (!Arg.formals() || !Arg.formals()->dedup().contains(Arg.id()->name()))
+    if (!Arg.formals()) {
       ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
                                                     Definition::DS_LambdaArg));
+      // Function arg cannot duplicate to it's formal.
+      // If it this unluckily happens, we would like to skip this definition.
+    } else if (!Arg.formals()->dedup().contains(Arg.id()->name())) {
+      ToDef.insert_or_assign(Arg.id(),
+                             DBuilder.add(Arg.id()->name(), Arg.id(),
+                                          Definition::DS_LambdaArgWithFormal));
+    }
   }
 
   // { foo, bar, ... } : body
