@@ -193,7 +193,7 @@ diagnostics: list[Diagnostic] = [
         "sname": "sema-extra-rec",
         "cname": "ExtraRecursive",
         "severity": "Hint",
-        "message": "attrset is not necessary to be `rec`ursive ",
+        "message": "attrset is not necessary to be `rec`ursive",
     },
     {
         "sname": "sema-extra-with",
