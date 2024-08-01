@@ -52,8 +52,24 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
     if (!Def->syntax())
       continue;
     if (Def->uses().empty()) {
-      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_DefinitionNotUsed,
-                                         Def->syntax()->range());
+      Diagnostic::DiagnosticKind kind;
+      switch (Def->source()) {
+      case Definition::DS_Let:
+        kind = Diagnostic::DK_UnusedDefLet;
+        break;
+      case Definition::DS_LambdaFormal:
+        kind = Diagnostic::DK_UnusedDefFormal;
+        break;
+      case Definition::DS_LambdaFormalWithArg:
+        kind = Diagnostic::DK_UnusedDefFormalWithArg;
+        break;
+      case Definition::DS_LambdaArgWithFormal:
+        kind = Diagnostic::DK_UnusedDefArgWithFormal;
+        break;
+      default:
+        break;
+      }
+      Diagnostic &D = Diags.emplace_back(kind, Def->syntax()->range());
       D << Name;
       D.tag(DiagnosticTag::Faded);
     }
@@ -128,6 +144,9 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
 
   // foo: body
   // ^~~<------- add function argument.
+  // { foo, bar, ... } : body
+  //   ^~~~~~~~~<--------------  add function formals.
+
   if (Arg.id()) {
     if (!Arg.formals()) {
       ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
@@ -138,16 +157,17 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
       ToDef.insert_or_assign(Arg.id(),
                              DBuilder.add(Arg.id()->name(), Arg.id(),
                                           Definition::DS_LambdaArgWithFormal));
+      for (const auto &[Name, Formal] : Arg.formals()->dedup())
+        ToDef.insert_or_assign(
+            Formal->id(), DBuilder.add(Name, Formal->id(),
+                                       Definition::DS_LambdaFormalWithArg));
     }
-  }
-
-  // { foo, bar, ... } : body
-  ///  ^~~~~~~~~<--------------  add function formals.
-  if (Arg.formals())
+  } else if (Arg.formals()) {
     for (const auto &[Name, Formal] : Arg.formals()->dedup())
       ToDef.insert_or_assign(
           Formal->id(),
           DBuilder.add(Name, Formal->id(), Definition::DS_LambdaFormal));
+  }
 
   auto NewEnv = std::make_shared<EnvNode>(Env, DBuilder.finish(), &Lambda);
 

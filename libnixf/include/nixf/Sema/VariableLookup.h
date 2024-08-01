@@ -39,8 +39,11 @@ public:
     /// \brief From lambda formal, e.g. { a }: a + 1
     DS_LambdaFormal,
 
-    /// \brief From lambda arg with formal, e.g. { foo, bar }@a: a + 1
+    /// \brief From lambda arg with formal, e.g. `a` in `{ foo }@a: foo + 1`
     DS_LambdaArgWithFormal,
+
+    /// \brief From lambda formal with arg, e.g. `foo` in `{ foo }@a: foo + 1`
+    DS_LambdaFormalWithArg,
 
     /// \brief From recursive attribute set.  e.g. rec { }
     DS_Rec,
