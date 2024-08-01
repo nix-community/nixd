@@ -192,19 +192,19 @@ diagnostics: list[Diagnostic] = [
     {
         "sname": "sema-extra-rec",
         "cname": "ExtraRecursive",
-        "severity": "Hint",
+        "severity": "Warning",
         "message": "attrset is not necessary to be `rec`ursive",
     },
     {
         "sname": "sema-extra-with",
         "cname": "ExtraWith",
-        "severity": "Hint",
+        "severity": "Warning",
         "message": "unused `with` expression",
     },
     {
         "sname": "sema-escaping-with",
         "cname": "EscapingWith",
-        "severity": "Hint",
+        "severity": "Warning",
         "message": "this variable comes from the scope outside of the `with` expression",
     },
 ]
