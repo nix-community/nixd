@@ -141,7 +141,6 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
 
   // foo: body
   // ^~~<------- add function argument.
-
   if (Arg.id()) {
     if (!Arg.formals()) {
       ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
