@@ -284,10 +284,11 @@ TEST_F(VLATest, EscapingWith) {
 }
 
 TEST_F(VLATest, EscapingWithButBuiltin) {
-  std::shared_ptr<Node> AST = parse("with { a = 1; }; [ a true false null ]", Diags);
+  std::shared_ptr<Node> AST =
+      parse("with { a = 1; }; [ a true false null ]", Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
-  
+
   ASSERT_EQ(Diags.size(), 0);
 }
 
