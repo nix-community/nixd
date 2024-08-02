@@ -184,10 +184,28 @@ diagnostics: list[Diagnostic] = [
         "message": "undefined variable `{}`",
     },
     {
-        "sname": "sema-def-not-used",
-        "cname": "DefinitionNotUsed",
+        "sname": "sema-unused-def-let",
+        "cname": "UnusedDefLet",
+        "severity": "Warning",
+        "message": "definition `{}` in let-expression is not used",
+    },
+    {
+        "sname": "sema-unused-def-lambda-noarg-formal",
+        "cname": "UnusedDefLambdaNoArg_Formal",
+        "severity": "Warning",
+        "message": "attribute `{}` of argument is not used",
+    },
+    {
+        "sname": "sema-unused-def-lambda-witharg-formal",
+        "cname": "UnusedDefLambdaWithArg_Formal",
+        "severity": "Warning",
+        "message": "argument `{}` in `@`-pattern is not used",
+    },
+    {
+        "sname": "sema-unused-def-lambda-witharg-arg",
+        "cname": "UnusedDefLambdaWithArg_Arg",
         "severity": "Hint",
-        "message": "definition `{}` is not used",
+        "message": "attribute `{}` of `@`-pattern argument is not used, but may be referenced from the argument",
     },
     {
         "sname": "sema-extra-rec",

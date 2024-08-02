@@ -135,29 +135,27 @@ TEST_F(VLATest, LivenessRec) {
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_ExtraRecursive);
 }
 
-TEST_F(VLATest, LivenessArg) {
+TEST_F(VLATest, LivenessFormal) {
   std::shared_ptr<Node> AST = parse("{ foo }: 1", Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
 
   ASSERT_EQ(Diags.size(), 1);
 
-  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
   ASSERT_EQ(Diags[0].tags().size(), 1);
-  ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
 
-TEST_F(VLATest, LivenessNested) {
+TEST_F(VLATest, LivenessLet) {
   std::shared_ptr<Node> AST = parse("let y = 1; in x: y: x + y", Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
 
   ASSERT_EQ(Diags.size(), 1);
 
-  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLet);
   ASSERT_EQ(Diags[0].range().lCur().column(), 4);
   ASSERT_EQ(Diags[0].tags().size(), 1);
-  ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
 
 TEST_F(VLATest, LivenessDupSymbol) {
@@ -179,8 +177,20 @@ TEST_F(VLATest, LivenessArgWithFormal) {
 
   ASSERT_EQ(Diags.size(), 1);
 
-  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DefinitionNotUsed);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Arg);
   ASSERT_EQ(Diags[0].range().lCur().column(), 8);
+  ASSERT_EQ(Diags[0].tags().size(), 1);
+}
+
+TEST_F(VLATest, LivenessFormalWithArg) {
+  std::shared_ptr<Node> AST = parse("{ foo }@bar: bar", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Formal);
+  ASSERT_EQ(Diags[0].range().lCur().column(), 2);
   ASSERT_EQ(Diags[0].tags().size(), 1);
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
