@@ -157,13 +157,15 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
 
   // { foo, bar, ... } : body
   //   ^~~~~~~~~<--------------  add function formals.
-  // Here it is distinguished between formal *with* an argument and without.
-  // Example:
+
+  // This section differentiates between formal parameters with an argument and
+  // without. Example:
   //
   //  { foo }@arg : use arg
   //
-  // In this case, definition `foo` is not used, however it might be used via
-  // arg.foo. So the serverity of unused formal is demoted in this case.
+  // In this case, the definition of `foo` is not used directly; however, it
+  // might be accessed via arg.foo. Therefore, the severity of an unused formal
+  // parameter is reduced in this scenario.
   if (Arg.formals()) {
     for (const auto &[Name, Formal] : Arg.formals()->dedup()) {
       Definition::DefinitionSource Source =
