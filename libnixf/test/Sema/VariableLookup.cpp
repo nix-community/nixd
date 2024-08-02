@@ -142,7 +142,7 @@ TEST_F(VLATest, LivenessFormal) {
 
   ASSERT_EQ(Diags.size(), 1);
 
-  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefFormal);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
   ASSERT_EQ(Diags[0].tags().size(), 1);
 }
 
@@ -177,7 +177,7 @@ TEST_F(VLATest, LivenessArgWithFormal) {
 
   ASSERT_EQ(Diags.size(), 1);
 
-  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefArgWithFormal);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Arg);
   ASSERT_EQ(Diags[0].range().lCur().column(), 8);
   ASSERT_EQ(Diags[0].tags().size(), 1);
 }
@@ -189,7 +189,7 @@ TEST_F(VLATest, LivenessFormalWithArg) {
 
   ASSERT_EQ(Diags.size(), 1);
 
-  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefFormalWithArg);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Formal);
   ASSERT_EQ(Diags[0].range().lCur().column(), 2);
   ASSERT_EQ(Diags[0].tags().size(), 1);
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);

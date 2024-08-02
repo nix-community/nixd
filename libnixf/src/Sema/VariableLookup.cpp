@@ -56,12 +56,12 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
         switch (Def->source()) {
         case Definition::DS_Let:
           return Diagnostic::DK_UnusedDefLet;
-        case Definition::DS_LambdaFormal:
-          return Diagnostic::DK_UnusedDefFormal;
-        case Definition::DS_LambdaFormalWithArg:
-          return Diagnostic::DK_UnusedDefFormalWithArg;
-        case Definition::DS_LambdaArgWithFormal:
-          return Diagnostic::DK_UnusedDefArgWithFormal;
+        case Definition::DS_LambdaNoArg_Formal:
+          return Diagnostic::DK_UnusedDefLambdaNoArg_Formal;
+        case Definition::DS_LambdaWithArg_Formal:
+          return Diagnostic::DK_UnusedDefLambdaWithArg_Formal;
+        case Definition::DS_LambdaWithArg_Arg:
+          return Diagnostic::DK_UnusedDefLambdaWithArg_Arg;
         default:
           assert(false && "liveness diagnostic encountered an unknown source!");
           __builtin_unreachable();
@@ -151,7 +151,7 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
     } else if (!Arg.formals()->dedup().contains(Arg.id()->name())) {
       ToDef.insert_or_assign(Arg.id(),
                              DBuilder.add(Arg.id()->name(), Arg.id(),
-                                          Definition::DS_LambdaArgWithFormal));
+                                          Definition::DS_LambdaWithArg_Arg));
     }
   }
 
@@ -169,8 +169,8 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
   if (Arg.formals()) {
     for (const auto &[Name, Formal] : Arg.formals()->dedup()) {
       Definition::DefinitionSource Source =
-          Arg.id() ? Definition::DS_LambdaFormalWithArg
-                   : Definition::DS_LambdaFormal;
+          Arg.id() ? Definition::DS_LambdaWithArg_Formal
+                   : Definition::DS_LambdaNoArg_Formal;
       ToDef.insert_or_assign(Formal->id(),
                              DBuilder.add(Name, Formal->id(), Source));
     }
