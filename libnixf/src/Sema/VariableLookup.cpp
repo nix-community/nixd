@@ -63,7 +63,8 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
         case Definition::DS_LambdaArgWithFormal:
           return Diagnostic::DK_UnusedDefArgWithFormal;
         default:
-          return Diagnostic::DK_UnusedDef;
+          assert(false && "liveness diagnostic encountered an unknown source!");
+          __builtin_unreachable();
         }
       }();
       Diagnostic &D = Diags.emplace_back(Kind, Def->syntax()->range());

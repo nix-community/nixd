@@ -184,12 +184,6 @@ diagnostics: list[Diagnostic] = [
         "message": "undefined variable `{}`",
     },
     {
-        "sname": "sema-unused-def-generic",
-        "cname": "UnusedDef",
-        "severity": "Warning",
-        "message": "definition `{}` is not used",
-    },
-    {
         "sname": "sema-unused-def-let",
         "cname": "UnusedDefLet",
         "severity": "Warning",
