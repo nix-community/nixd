@@ -195,7 +195,6 @@ TEST_F(VLATest, LivenessFormalWithArg) {
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
 
-
 TEST_F(VLATest, ToDefAttrs) {
   std::shared_ptr<Node> AST = parse("rec { x = 1; y = x; z = x; }", Diags);
   VariableLookupAnalysis VLA(Diags);
