@@ -5,7 +5,7 @@
   ninja,
   pkg-config,
   lit,
-  nixpkgs-fmt,
+  nixfmt-rfc-style,
   gtest,
   boost182,
   nlohmann_json,
@@ -39,7 +39,7 @@ stdenv.mkDerivation {
 
   nativeCheckInputs = [
     lit
-    nixpkgs-fmt
+    nixfmt-rfc-style
   ];
 
   buildInputs = [
