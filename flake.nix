@@ -38,7 +38,6 @@
         };
         regressionDeps = with pkgs; [
           clang-tools
-          nixpkgs-fmt
           lit
         ];
         shellOverride = old: {
@@ -66,7 +65,7 @@
         devShells.nvim = pkgs.mkShell {
           nativeBuildInputs = [
             nixd
-            pkgs.nixpkgs-fmt
+            pkgs.nixfmt-rfc-style
             pkgs.git
             (import ./nixd/docs/editors/nvim-lsp.nix { inherit pkgs; })
           ];
@@ -105,7 +104,7 @@
         devShells.vscodium = pkgs.mkShell {
           nativeBuildInputs = [
             nixd
-            pkgs.nixpkgs-fmt
+            pkgs.nixfmt-rfc-style
             (import ./nixd/docs/editors/vscodium.nix { inherit pkgs; })
           ];
         };
