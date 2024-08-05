@@ -39,7 +39,6 @@ stdenv.mkDerivation {
 
   nativeCheckInputs = [
     lit
-    nixfmt-rfc-style
   ];
 
   buildInputs = [

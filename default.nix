@@ -8,7 +8,6 @@
   meson,
   ninja,
   nix,
-  nixfmt-rfc-style,
   pkg-config,
   nlohmann_json,
   python312,
@@ -31,7 +30,6 @@ stdenv.mkDerivation {
 
   nativeCheckInputs = [
     lit
-    nixfmt-rfc-style
   ];
 
   buildInputs = [

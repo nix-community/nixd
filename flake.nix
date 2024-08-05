@@ -38,7 +38,6 @@
         };
         regressionDeps = with pkgs; [
           clang-tools
-          nixfmt-rfc-style
           lit
         ];
         shellOverride = old: {
