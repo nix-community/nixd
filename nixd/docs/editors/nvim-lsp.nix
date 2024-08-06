@@ -368,7 +368,7 @@ let
                     expr = "import <nixpkgs> { }",
                 },
                 formatting = {
-                    command = { "nixpkgs-fmt" },
+                    command = { "nixfmt" },
                 },
                 options = {
                     nixos = {

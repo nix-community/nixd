@@ -13,7 +13,7 @@ namespace nixd {
 // NOLINTBEGIN(readability-identifier-naming)
 struct Configuration {
   struct Formatting {
-    std::vector<std::string> command = {"nixpkgs-fmt"};
+    std::vector<std::string> command = {"nixfmt"};
   } formatting;
 
   struct OptionProvider {
