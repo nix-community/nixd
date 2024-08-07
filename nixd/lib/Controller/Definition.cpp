@@ -27,6 +27,7 @@
 #include <semaphore>
 
 using namespace nixd;
+using namespace nixd::idioms;
 using namespace nixf;
 using namespace lspserver;
 using namespace llvm;
@@ -298,7 +299,7 @@ Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
 
     // Nixpkgs locations.
     try {
-      Selector Sel = mkIdiomSelector(Var, VLA, PM);
+      Selector Sel = mkVarSelector(Var, VLA, PM);
       Locations NixpkgsLocs = defineNixpkgsSelector(Sel, NixpkgsClient);
       return mergeVec(std::move(StaticLocs), NixpkgsLocs);
     } catch (std::exception &E) {

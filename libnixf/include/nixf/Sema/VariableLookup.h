@@ -36,8 +36,16 @@ public:
     /// \brief From ambda arg e.g.  a: a + 1
     DS_LambdaArg,
 
-    /// \brief From lambda formal, e.g. { a }: a + 1
-    DS_LambdaFormal,
+    /// \brief From lambda (noarg) formal, e.g. { a }: a + 1
+    DS_LambdaNoArg_Formal,
+
+    /// \brief From lambda (with `@arg`) `arg`,
+    /// e.g. `a` in `{ foo }@a: foo + 1`
+    DS_LambdaWithArg_Arg,
+
+    /// \brief From lambda (with `@arg`) formal,
+    /// e.g. `foo` in `{ foo }@a: foo + 1`
+    DS_LambdaWithArg_Formal,
 
     /// \brief From recursive attribute set.  e.g. rec { }
     DS_Rec,

@@ -1,0 +1,47 @@
+name: Check formatting with treefmt
+
+on:
+  [push, pull_request]
+
+jobs:
+  treefmt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: cachix/install-nix-action@v22
+    - uses: actions/checkout@v4
+    - id: changed-files
+      uses: tj-actions/changed-files@v44
+    - name: Run treefmt
+      run: nix fmt
+    - name: Check diff
+      env:
+        ALL_CHANGED_FILES: ${{ steps.changed-files.outputs.all_changed_files }}
+      run: |
+        unformatted_touched=()
+        unformatted_untouched=()
+        while IFS= read -r unformatted_file; do
+          matched=
+          for changed_file in ${ALL_CHANGED_FILES}; do
+            if [[ "$changed_file" == "$unformatted_file" ]]; then
+              unformatted_touched+=("$unformatted_file")
+              matched=1
+              break
+            fi
+          done
+          if [[ -z "$matched" ]]; then
+            unformatted_untouched+=("$unformatted_file")
+          fi
+        done <<< "$(git diff --name-only)"
+
+        if (( ${#unformatted_untouched[@]} )); then
+          echo "These files are not formatted, but out of scope of this PR:"
+          printf '%s\n' "${unformatted_untouched[@]}"
+        fi
+
+        echo # blank line
+
+        if (( ${#unformatted_touched[@]} )); then
+          echo "These files are created/edited but not formatted:"
+          printf '%s\n' "${unformatted_touched[@]}"
+          exit 1
+        fi

@@ -5,9 +5,14 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
 
     flake-root.url = "github:srid/flake-root";
+
+    treefmt-nix = {
+      url = "github:numtide/treefmt-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { nixpkgs, flake-parts, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
+  outputs = { nixpkgs, flake-parts, treefmt-nix, ... }@inputs: flake-parts.lib.mkFlake { inherit inputs; } {
     imports = [
       inputs.flake-parts.flakeModules.easyOverlay
       inputs.flake-root.flakeModule
@@ -45,6 +50,7 @@
           '';
           hardeningDisable = [ "fortify" ];
         };
+        treefmtEval = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
       {
         packages.default = nixd;
@@ -103,6 +109,7 @@
             (import ./nixd/docs/editors/vscodium.nix { inherit pkgs; })
           ];
         };
+        formatter = treefmtEval.config.build.wrapper;
       };
     systems = nixpkgs.lib.systems.flakeExposed;
   };

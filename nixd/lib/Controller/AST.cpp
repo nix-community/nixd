@@ -144,10 +144,10 @@ IdiomSetT IdiomSet{nixd::idioms::Pkgs, nixd::idioms::Lib};
 auto ItLib = IdiomSet.find(nixd::idioms::Lib);
 auto ItPkgs = IdiomSet.find(nixd::idioms::Pkgs);
 
-nixd::Selector idiomItSelector(IdiomSetT::iterator It) {
+nixd::Selector getKnownIdiomSelector(IdiomSetT::iterator It) {
   // Unknown name, cannot deal with it.
   if (It == IdiomSet.end())
-    throw nixd::NotAnIdiomException();
+    throw nixd::idioms::NotAnIdiomException();
 
   return [&]() -> nixd::Selector {
     if (It == ItLib) {
@@ -162,25 +162,43 @@ nixd::Selector idiomItSelector(IdiomSetT::iterator It) {
   }();
 }
 
-IdiomSetT::iterator varIdiomIt(const nixf::ExprVar &Var) {
-  return IdiomSet.find(Var.id().name());
-};
-
 nixd::Selector varSelector(const nixf::ExprVar &Var) {
-  return idiomItSelector(varIdiomIt(Var));
+  return getKnownIdiomSelector(IdiomSet.find(Var.id().name()));
 };
 
-nixd::Selector withSelector(const nixf::ExprWith &With) {
-  if (!With.with() || With.with()->kind() != Node::NK_ExprVar)
-    throw nixd::NotAnIdiomException();
-  return varSelector(static_cast<const nixf::ExprVar &>(*With.with()));
+nixd::Selector withSelector(const nixf::ExprWith &With,
+                            const nixf::VariableLookupAnalysis &VLA,
+                            const nixf::ParentMapAnalysis &PM) {
+  if (!With.with())
+    throw nixd::idioms::NotAnIdiomException();
+  switch (With.with()->kind()) {
+  case Node::NK_ExprVar:
+    return nixd::idioms::mkVarSelector(
+        static_cast<const nixf::ExprVar &>(*With.with()), VLA, PM);
+  case Node::NK_ExprSelect:
+    return nixd::idioms::mkSelector(
+        static_cast<const nixf::ExprSelect &>(*With.with()), VLA, PM);
+  default:
+    break;
+  }
+  throw nixd::idioms::NotAnIdiomException();
 }
 
 } // namespace
 
-nixd::Selector nixd::mkIdiomSelector(const nixf::ExprVar &Var,
-                                     const nixf::VariableLookupAnalysis &VLA,
-                                     const nixf::ParentMapAnalysis &PM) {
+nixd::Selector nixd::idioms::mkSelector(const nixf::ExprSelect &Select,
+                                        nixd::Selector BaseSelector) {
+  if (Select.path())
+    return nixd::idioms::mkSelector(
+        *static_cast<const nixf::AttrPath *>(Select.path()),
+        std::move(BaseSelector));
+  return BaseSelector;
+}
+
+nixd::Selector
+nixd::idioms::mkVarSelector(const nixf::ExprVar &Var,
+                            const nixf::VariableLookupAnalysis &VLA,
+                            const nixf::ParentMapAnalysis &PM) {
   // Only check if the variable can be recogonized by some idiom.
 
   using ResultKind = VariableLookupAnalysis::LookupResultKind;
@@ -208,7 +226,7 @@ nixd::Selector nixd::mkIdiomSelector(const nixf::ExprVar &Var,
     assert(With && "parent of kwWith should be the with expression");
     assert(With->kind() == nixf::Node::NK_ExprWith);
     Selector WithSelector =
-        withSelector(static_cast<const nixf::ExprWith &>(*With));
+        withSelector(static_cast<const nixf::ExprWith &>(*With), VLA, PM);
 
     // Append variable name after "with" expression selector.
     // e.g.
@@ -228,8 +246,8 @@ nixd::Selector nixd::mkIdiomSelector(const nixf::ExprVar &Var,
   return {};
 }
 
-nixd::Selector nixd::mkSelector(const nixf::AttrPath &AP,
-                                Selector BaseSelector) {
+nixd::Selector nixd::idioms::mkSelector(const nixf::AttrPath &AP,
+                                        Selector BaseSelector) {
   const auto &Names = AP.names();
   for (const auto &Name : Names) {
     if (!Name->isStatic())
@@ -239,23 +257,15 @@ nixd::Selector nixd::mkSelector(const nixf::AttrPath &AP,
   return BaseSelector;
 }
 
-nixd::Selector nixd::mkSelector(const nixf::ExprSelect &Select,
-                                nixd::Selector BaseSelector) {
-  if (Select.path())
-    return nixd::mkSelector(*static_cast<const nixf::AttrPath *>(Select.path()),
-                            std::move(BaseSelector));
-  return BaseSelector;
-}
-
-nixd::Selector nixd::mkSelector(const nixf::ExprSelect &Sel,
-                                const nixf::VariableLookupAnalysis &VLA,
-                                const nixf::ParentMapAnalysis &PM) {
+nixd::Selector nixd::idioms::mkSelector(const nixf::ExprSelect &Sel,
+                                        const nixf::VariableLookupAnalysis &VLA,
+                                        const nixf::ParentMapAnalysis &PM) {
   if (Sel.expr().kind() != Node::NK_ExprVar)
     throw NotVariableSelect();
 
   const auto &Var = static_cast<ExprVar &>(Sel.expr());
 
-  auto BaseSelector = mkIdiomSelector(Var, VLA, PM);
+  auto BaseSelector = mkVarSelector(Var, VLA, PM);
 
   return mkSelector(Sel, std::move(BaseSelector));
 }

@@ -38,8 +38,8 @@
 ```
      CHECK: "diagnostics": [
 CHECK-NEXT:   {
-CHECK-NEXT:     "code": "sema-def-not-used",
-CHECK-NEXT:     "message": "definition `y` is not used",
+CHECK-NEXT:     "code": "sema-unused-def-lambda-noarg-formal",
+CHECK-NEXT:     "message": "attribute `y` of argument is not used",
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
 CHECK-NEXT:         "character": 5,
@@ -51,7 +51,7 @@ CHECK-NEXT:         "line": 0
 CHECK-NEXT:       }
 CHECK-NEXT:     },
 CHECK-NEXT:     "relatedInformation": [],
-CHECK-NEXT:     "severity": 4,
+CHECK-NEXT:     "severity": 2,
 CHECK-NEXT:     "source": "nixf",
 CHECK-NEXT:     "tags": [
 CHECK-NEXT:       1

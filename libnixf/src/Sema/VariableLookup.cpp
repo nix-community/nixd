@@ -52,8 +52,22 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
     if (!Def->syntax())
       continue;
     if (Def->uses().empty()) {
-      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_DefinitionNotUsed,
-                                         Def->syntax()->range());
+      Diagnostic::DiagnosticKind Kind = [&]() {
+        switch (Def->source()) {
+        case Definition::DS_Let:
+          return Diagnostic::DK_UnusedDefLet;
+        case Definition::DS_LambdaNoArg_Formal:
+          return Diagnostic::DK_UnusedDefLambdaNoArg_Formal;
+        case Definition::DS_LambdaWithArg_Formal:
+          return Diagnostic::DK_UnusedDefLambdaWithArg_Formal;
+        case Definition::DS_LambdaWithArg_Arg:
+          return Diagnostic::DK_UnusedDefLambdaWithArg_Arg;
+        default:
+          assert(false && "liveness diagnostic encountered an unknown source!");
+          __builtin_unreachable();
+        }
+      }();
+      Diagnostic &D = Diags.emplace_back(Kind, Def->syntax()->range());
       D << Name;
       D.tag(DiagnosticTag::Faded);
     }
@@ -129,20 +143,38 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
   // foo: body
   // ^~~<------- add function argument.
   if (Arg.id()) {
-    // Function arg cannot duplicate to it's formal.
-    // If it this unluckily happens, we would like to skip this definition.
-    if (!Arg.formals() || !Arg.formals()->dedup().contains(Arg.id()->name()))
+    if (!Arg.formals()) {
       ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
                                                     Definition::DS_LambdaArg));
+      // Function arg cannot duplicate to it's formal.
+      // If it this unluckily happens, we would like to skip this definition.
+    } else if (!Arg.formals()->dedup().contains(Arg.id()->name())) {
+      ToDef.insert_or_assign(Arg.id(),
+                             DBuilder.add(Arg.id()->name(), Arg.id(),
+                                          Definition::DS_LambdaWithArg_Arg));
+    }
   }
 
   // { foo, bar, ... } : body
-  ///  ^~~~~~~~~<--------------  add function formals.
-  if (Arg.formals())
-    for (const auto &[Name, Formal] : Arg.formals()->dedup())
-      ToDef.insert_or_assign(
-          Formal->id(),
-          DBuilder.add(Name, Formal->id(), Definition::DS_LambdaFormal));
+  //   ^~~~~~~~~<--------------  add function formals.
+
+  // This section differentiates between formal parameters with an argument and
+  // without. Example:
+  //
+  //  { foo }@arg : use arg
+  //
+  // In this case, the definition of `foo` is not used directly; however, it
+  // might be accessed via arg.foo. Therefore, the severity of an unused formal
+  // parameter is reduced in this scenario.
+  if (Arg.formals()) {
+    for (const auto &[Name, Formal] : Arg.formals()->dedup()) {
+      Definition::DefinitionSource Source =
+          Arg.id() ? Definition::DS_LambdaWithArg_Formal
+                   : Definition::DS_LambdaNoArg_Formal;
+      ToDef.insert_or_assign(Formal->id(),
+                             DBuilder.add(Name, Formal->id(), Source));
+    }
+  }
 
   auto NewEnv = std::make_shared<EnvNode>(Env, DBuilder.finish(), &Lambda);
 
