@@ -5,7 +5,6 @@
   ninja,
   pkg-config,
   lit,
-  nixpkgs-fmt,
   gtest,
   boost182,
   nlohmann_json,
@@ -37,10 +36,7 @@ stdenv.mkDerivation {
     python312
   ];
 
-  nativeCheckInputs = [
-    lit
-    nixpkgs-fmt
-  ];
+  nativeCheckInputs = [ lit ];
 
   buildInputs = [
     gtest
