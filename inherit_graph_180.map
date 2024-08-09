@@ -1,0 +1,21 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" title=" " alt="" coords="5,89,119,116"/>
+<area shape="rect" id="Node000001" href="$structnixd_1_1CannotFindVarException.html" title=" " alt="" coords="167,6,382,34"/>
+<area shape="poly" id="edge80_Node000000_Node000001" title=" " alt="" coords="98,78,166,44,204,32,206,37,168,49,100,82"/>
+<area shape="rect" id="Node000002" href="$structnixd_1_1idioms_1_1IdiomException.html" title=" " alt="" coords="169,58,380,86"/>
+<area shape="poly" id="edge81_Node000000_Node000002" title=" " alt="" coords="133,89,174,83,175,89,134,95"/>
+<area shape="rect" id="Node000003" href="$structnixd_1_1idioms_1_1IdiomSelectorException.html" title="Exceptions scoped in nixd::mkIdiomSelector." alt="" coords="175,109,374,154"/>
+<area shape="poly" id="edge82_Node000000_Node000003" title=" " alt="" coords="134,110,174,115,174,120,133,115"/>
+<area shape="rect" id="Node000007" href="$structnixd_1_1idioms_1_1VLAException.html" title=" " alt="" coords="175,213,374,240"/>
+<area shape="poly" id="edge86_Node000000_Node000007" title=" " alt="" coords="100,122,168,164,248,210,245,214,165,169,97,127"/>
+<area shape="rect" id="Node000004" href="$structnixd_1_1idioms_1_1DynamicNameException.html" title="The attrpath has a dynamic name, thus it cannot be trivially transformed to &quot;static&quot; selector." alt="" coords="449,5,655,50"/>
+<area shape="poly" id="edge83_Node000003_Node000004" title=" " alt="" coords="368,101,381,95,404,77,429,60,457,48,459,53,431,65,407,82,383,99,370,105"/>
+<area shape="rect" id="Node000005" href="$structnixd_1_1idioms_1_1NotAnIdiomException.html" title="The pattern of this variable cannot be recognized by known idioms." alt="" coords="459,75,645,119"/>
+<area shape="poly" id="edge84_Node000003_Node000005" title=" " alt="" coords="389,115,458,106,458,111,390,120"/>
+<area shape="rect" id="Node000006" href="$structnixd_1_1idioms_1_1NotVariableSelect.html" title=" " alt="" coords="459,144,644,189"/>
+<area shape="poly" id="edge85_Node000003_Node000006" title=" " alt="" coords="390,143,459,152,458,157,389,149"/>
+<area shape="rect" id="Node000008" href="$structnixd_1_1idioms_1_1NoSuchVarException.html" title="No such variable." alt="" coords="430,213,673,240"/>
+<area shape="poly" id="edge87_Node000007_Node000008" title=" " alt="" coords="390,224,429,224,429,229,390,229"/>
+<area shape="rect" id="Node000009" href="$structnixd_1_1idioms_1_1UndefinedVarException.html" title=" " alt="" coords="454,264,650,309"/>
+<area shape="poly" id="edge88_Node000007_Node000009" title=" " alt="" coords="357,241,454,262,452,268,356,247"/>
+</map>

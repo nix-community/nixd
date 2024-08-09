@@ -1,0 +1,11 @@
+<map id="lspserver::CallHierarchyOutgoingCallsParams" name="lspserver::CallHierarchyOutgoingCallsParams">
+<area shape="rect" id="Node000001" title="The parameter of a callHierarchy/outgoingCalls request." alt="" coords="20,317,198,362"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1CallHierarchyItem.html" title=" " alt="" coords="5,225,213,252"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="112,268,112,317,106,317,106,268"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="6,115,161,143"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="93,157,109,224,103,225,88,159"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Range.html" title=" " alt="" coords="185,115,316,143"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="223,155,128,226,124,222,219,150"/>
+<area shape="rect" id="Node000005" href="$structlspserver_1_1Position.html" title=" " alt="" coords="180,5,321,33"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="253,48,253,115,248,115,248,48"/>
+</map>
