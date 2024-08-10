@@ -11,7 +11,6 @@
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/JSON.h>
 
-#include <iostream>
 #include <string>
 
 using namespace nixd;
