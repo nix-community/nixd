@@ -188,7 +188,7 @@ void Controller::
   try {
     Config = parseCLIConfig();
   } catch (LLVMErrorException &Err) {
-    lspserver::elog("{0}, reason: {1}", Err.what(), Err.takeError());
+    lspserver::elog("parse CLI config error: {0}, {1}", Err.what(), Err.takeError());
     std::exit(-1);
   }
   fetchConfig();
