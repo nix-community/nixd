@@ -34,6 +34,7 @@ libnixd_lib = library(
     'Support/AutoCloseFD.cpp',
     'Support/AutoRemoveShm.cpp',
     'Support/ForkPiped.cpp',
+    'Support/JSON.cpp',
     'Support/StreamProc.cpp',
     dependencies: libnixd_deps,
     include_directories: libnixd_include,

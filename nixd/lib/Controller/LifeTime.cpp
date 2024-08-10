@@ -11,6 +11,7 @@
 #include "nixd/Eval/Launch.h"
 
 #include "lspserver/Protocol.h"
+#include "nixd/Support/Exception.h"
 
 #include <llvm/Support/CommandLine.h>
 
@@ -184,7 +185,12 @@ void Controller::
       evalExprWithProgress(*Client, getDefaultNixOSOptionsExpr(),
                            "nixos options");
   }
-  Config = parseCLIConfig();
+  try {
+    Config = parseCLIConfig();
+  } catch (LLVMErrorException &Err) {
+    lspserver::elog("{0}, reason: {1}", Err.what(), Err.takeError());
+    std::exit(-1);
+  }
   fetchConfig();
 }
 
