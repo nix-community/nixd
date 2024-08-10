@@ -1,5 +1,6 @@
 /// \file
 /// \brief Provide jsonified diagnostic, for other languages/structured output.
+#pragma once
 
 #include "Diagnostic.h"
 #include "nixf/Basic/Range.h"

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "Exception.h"
 
 #include <llvm/ADT/StringRef.h>
