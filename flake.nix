@@ -46,6 +46,7 @@
           regressionDeps = with pkgs; [
             clang-tools
             lit
+            nixfmt-rfc-style
           ];
           shellOverride = old: {
             nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;

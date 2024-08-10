@@ -471,7 +471,6 @@ let
     keymap("n", "<A-d>", "<cmd>Lspsaga term_toggle<CR>", { silent = true, desc = "Float terminal" })
     keymap("t", "<A-d>", "<cmd>Lspsaga term_toggle<CR>", { silent = true, desc = "Float terminal" })
   '';
-
 in
 pkgs.runCommand "nvim-lsp" { } ''
   mkdir -p $out/bin
