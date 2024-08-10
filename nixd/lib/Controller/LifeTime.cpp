@@ -5,9 +5,11 @@
 
 #include "nixd-config.h"
 
+#include "nixd/CommandLine/Configuration.h"
 #include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
 #include "nixd/Eval/Launch.h"
+#include "nixd/Support/Exception.h"
 
 #include "lspserver/Protocol.h"
 
@@ -182,6 +184,13 @@ void Controller::
     if (AttrSetClient *Client = Options["nixos"]->client())
       evalExprWithProgress(*Client, getDefaultNixOSOptionsExpr(),
                            "nixos options");
+  }
+  try {
+    Config = parseCLIConfig();
+  } catch (LLVMErrorException &Err) {
+    lspserver::elog("parse CLI config error: {0}, {1}", Err.what(),
+                    Err.takeError());
+    std::exit(-1);
   }
   fetchConfig();
 }
