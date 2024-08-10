@@ -5,6 +5,7 @@
 
 #include "nixd-config.h"
 
+#include "nixd/CommandLine/Configuration.h"
 #include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
 #include "nixd/Eval/Launch.h"
@@ -183,6 +184,7 @@ void Controller::
       evalExprWithProgress(*Client, getDefaultNixOSOptionsExpr(),
                            "nixos options");
   }
+  Config = parseCLIConfig();
   fetchConfig();
 }
 
