@@ -9,9 +9,9 @@
 #include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
 #include "nixd/Eval/Launch.h"
+#include "nixd/Support/Exception.h"
 
 #include "lspserver/Protocol.h"
-#include "nixd/Support/Exception.h"
 
 #include <llvm/Support/CommandLine.h>
 
