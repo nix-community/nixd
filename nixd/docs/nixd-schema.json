@@ -43,7 +43,7 @@
     "formatting": {
       "command": {
         "description": "Which command you would like to do formatting",
-        "default": "nixpkgs-fmt",
+        "default": "nixfmt",
         "type": "string"
       }
     },
