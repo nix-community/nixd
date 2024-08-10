@@ -84,7 +84,7 @@ void Controller::updateConfig(Configuration NewConfig) {
   // After all, notify all AST modules the diagnostic set has been updated.
   std::lock_guard TUsGuard(TUsLock);
   for (const auto &[File, TU] : TUs) {
-    publishDiagnostics(File, std::nullopt, TU->diagnostics());
+    publishDiagnostics(File, std::nullopt, TU->src(), TU->diagnostics());
   }
 }
 

@@ -23,6 +23,7 @@ void Controller::actOnDocumentAdd(PathRef File,
                                   std::optional<int64_t> Version) {
   auto Action = [this, File = std::string(File), Version]() {
     auto Draft = Store.getDraft(File);
+    std::shared_ptr<const std::string> Src = Draft->Contents;
     assert(Draft && "Added document is not in the store?");
 
     std::vector<nixf::Diagnostic> Diagnostics;
@@ -31,24 +32,24 @@ void Controller::actOnDocumentAdd(PathRef File,
 
     if (!AST) {
       std::lock_guard G(TUsLock);
-      publishDiagnostics(File, Version, Diagnostics);
+      publishDiagnostics(File, Version, *Src, Diagnostics);
       TUs.insert_or_assign(File,
                            std::make_shared<NixTU>(std::move(Diagnostics),
                                                    std::move(AST), std::nullopt,
-                                                   /*VLA=*/nullptr));
+                                                   /*VLA=*/nullptr, Src));
       return;
     }
 
     auto VLA = std::make_unique<nixf::VariableLookupAnalysis>(Diagnostics);
     VLA->runOnAST(*AST);
 
-    publishDiagnostics(File, Version, Diagnostics);
+    publishDiagnostics(File, Version, *Src, Diagnostics);
 
     {
       std::lock_guard G(TUsLock);
       TUs.insert_or_assign(
           File, std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
-                                        std::nullopt, std::move(VLA)));
+                                        std::nullopt, std::move(VLA), Src));
       return;
     }
   };
