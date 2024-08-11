@@ -273,35 +273,6 @@ TEST_F(VLATest, FormalDef) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
-TEST_F(VLATest, EscapingWith) {
-  std::shared_ptr<Node> AST = parse("a: with { a = 1; b = 2; }; a + b", Diags);
-  VariableLookupAnalysis VLA(Diags);
-  VLA.runOnAST(*AST);
-
-  ASSERT_EQ(Diags.size(), 1);
-
-  const Diagnostic &D = Diags[0];
-
-  ASSERT_EQ(D.notes().size(), 2);
-
-  ASSERT_EQ(D.notes()[0].kind(), Note::NK_VarBindToThis);
-  ASSERT_EQ(D.notes()[0].range().lCur().offset(), 0);
-  ASSERT_EQ(D.notes()[0].range().rCur().offset(), 1);
-
-  ASSERT_EQ(D.notes()[1].kind(), Note::NK_EscapingWith);
-  ASSERT_EQ(D.notes()[1].range().lCur().offset(), 3);
-  ASSERT_EQ(D.notes()[1].range().rCur().offset(), 7);
-}
-
-TEST_F(VLATest, EscapingWithButBuiltin) {
-  std::shared_ptr<Node> AST =
-      parse("with { a = 1; }; [ a true false null ]", Diags);
-  VariableLookupAnalysis VLA(Diags);
-  VLA.runOnAST(*AST);
-
-  ASSERT_EQ(Diags.size(), 0);
-}
-
 TEST_F(VLATest, InheritRec) {
   // Make sure inheirt (expr), the expression is binded to "NewEnv".
   std::shared_ptr<Node> AST =

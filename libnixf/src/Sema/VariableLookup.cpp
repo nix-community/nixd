@@ -97,22 +97,6 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
   if (Def) {
     Def->usedBy(Var);
     Results.insert({&Var, LookupResult{LookupResultKind::Defined, Def}});
-
-    if (EnclosedWith && !Def->isBuiltin()) {
-      // Escaping from "with" to outer scope.
-      // https://github.com/NixOS/nix/issues/490
-
-      assert(WithEnv && "EnclosedWith -> WithEnv");
-      // Make a diagnostic.
-      Diagnostic &D =
-          Diags.emplace_back(Diagnostic::DK_EscapingWith, Var.range());
-      if (Def->syntax()) {
-        D.note(Note::NK_VarBindToThis, Def->syntax()->range());
-      }
-      const auto &KwWith =
-          static_cast<const nixf::ExprWith *>(WithEnv->syntax())->kwWith();
-      D.note(Note::NK_EscapingWith, KwWith.range());
-    }
     return;
   }
   if (EnclosedWith) {

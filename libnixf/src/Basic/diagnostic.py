@@ -219,10 +219,4 @@ diagnostics: list[Diagnostic] = [
         "severity": "Warning",
         "message": "unused `with` expression",
     },
-    {
-        "sname": "sema-escaping-with",
-        "cname": "EscapingWith",
-        "severity": "Hint",
-        "message": "this variable comes from the scope outside of the `with` expression",
-    },
 ]
