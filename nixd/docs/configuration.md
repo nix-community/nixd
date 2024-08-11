@@ -149,7 +149,7 @@ nvim_lsp.nixd.setup({
   // Control the diagnostic system
   "diagnostic": {
     "suppress": [
-      "sema-escaping-with"
+      "sema-extra-with"
     ]
   }
 }
@@ -167,7 +167,7 @@ prefer to suppress diagnostics altogether. This can be achieved by utilizing the
   "diagnostic": {
     // A list of diagnostic short names
     "suppress": [
-      "sema-escaping-with"
+      "sema-extra-with"
     ]
   }
 }
