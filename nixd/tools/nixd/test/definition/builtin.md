@@ -56,9 +56,9 @@
 ```
 
 ```
-CHECK:      "message": "builtin variable is not defined in nix source location"
-CHECK-NEXT: },
-CHECK-NEXT: "id": 2,
+     CHECK: "id": 2,
+CHECK-NEXT: "jsonrpc": "2.0",
+CHECK-NEXT: "result": null
 ```
 
 

@@ -312,9 +312,8 @@ defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
       return StaticLocs;
     }
   } catch (std::exception &E) {
-    // Pop a window, notify the user we cannot find static definition.
-    // Likely this will be triggerred by clicking "builtins"
-    return error(E.what());
+    elog("definition/static: {0}", E.what());
+    return Locations{};
   }
   return error("unreachable code! Please submit an issue");
 }

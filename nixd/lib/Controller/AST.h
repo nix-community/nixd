@@ -41,7 +41,7 @@ struct VLAException : std::exception {};
 
 struct NoLocationForBuiltinVariable : std::exception {
   [[nodiscard]] const char *what() const noexcept override {
-    return "builtin variable is not defined in nix source location";
+    return "builtins are defined in the interpreter, not in the Nix files";
   }
 };
 
