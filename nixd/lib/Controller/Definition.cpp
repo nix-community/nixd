@@ -115,6 +115,9 @@ const Definition &findVarDefinition(const ExprVar &Var,
 /// \brief Convert nixf::Definition to lspserver::Location
 Location convertToLocation(llvm::StringRef Src, const Definition &Def,
                            URIForFile URI) {
+  if (!Def.syntax())
+    throw NoLocationForBuiltinVariable();
+  assert(Def.syntax());
   return Location{
       .uri = std::move(URI),
       .range = toLSPRange(Src, Def.syntax()->range()),
@@ -292,9 +295,10 @@ std::vector<T> mergeVec(std::vector<T> A, const std::vector<T> &B) {
   return A;
 }
 
-Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
-                    const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
-                    const URIForFile &URI, llvm::StringRef Src) {
+llvm::Expected<Locations>
+defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
+          const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
+          const URIForFile &URI, llvm::StringRef Src) {
   try {
     Locations StaticLocs = defineVarStatic(Var, VLA, URI, Src);
 
@@ -308,9 +312,11 @@ Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
       return StaticLocs;
     }
   } catch (std::exception &E) {
-    elog("definition/static: {0}", E.what());
+    // Pop a window, notify the user we cannot find static definition.
+    // Likely this will be triggerred by clicking "builtins"
+    return error(E.what());
   }
-  return {};
+  return error("unreachable code! Please submit an issue");
 }
 
 /// \brief Squash a vector into smaller json variant.
