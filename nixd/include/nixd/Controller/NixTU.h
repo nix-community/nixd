@@ -22,13 +22,15 @@ class NixTU {
   std::optional<util::OwnedRegion> ASTByteCode;
   std::unique_ptr<nixf::VariableLookupAnalysis> VLA;
   std::unique_ptr<nixf::ParentMapAnalysis> PMA;
+  std::shared_ptr<const std::string> Src;
 
 public:
   NixTU() = default;
   NixTU(std::vector<nixf::Diagnostic> Diagnostics,
         std::shared_ptr<nixf::Node> AST,
         std::optional<util::OwnedRegion> ASTByteCode,
-        std::unique_ptr<nixf::VariableLookupAnalysis> VLA);
+        std::unique_ptr<nixf::VariableLookupAnalysis> VLA,
+        std::shared_ptr<const std::string> Src);
 
   [[nodiscard]] const std::vector<nixf::Diagnostic> &diagnostics() const {
     return Diagnostics;
@@ -43,6 +45,8 @@ public:
   [[nodiscard]] const nixf::VariableLookupAnalysis *variableLookup() const {
     return VLA.get();
   }
+
+  [[nodiscard]] std::string_view src() const { return *Src; }
 };
 
 } // namespace nixd

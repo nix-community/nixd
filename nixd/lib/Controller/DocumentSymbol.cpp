@@ -8,6 +8,7 @@
 #include "nixd/Controller/Controller.h"
 
 #include <boost/asio/post.hpp>
+#include <llvm/ADT/StringRef.h>
 #include <lspserver/Protocol.h>
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Lambda.h>
@@ -27,23 +28,24 @@ std::string getLambdaName(const ExprLambda &Lambda) {
   return Lambda.arg()->id()->name();
 }
 
-lspserver::Range getLambdaSelectionRage(const ExprLambda &Lambda) {
+lspserver::Range getLambdaSelectionRage(llvm::StringRef Src,
+                                        const ExprLambda &Lambda) {
   if (!Lambda.arg()) {
-    return toLSPRange(Lambda.range());
+    return toLSPRange(Src, Lambda.range());
   }
 
   if (!Lambda.arg()->id()) {
     assert(Lambda.arg()->formals());
-    return toLSPRange(Lambda.arg()->formals()->range());
+    return toLSPRange(Src, Lambda.arg()->formals()->range());
   }
-  return toLSPRange(Lambda.arg()->id()->range());
+  return toLSPRange(Src, Lambda.arg()->id()->range());
 }
 
-lspserver::Range getAttrRange(const Attribute &Attr) {
-  auto LCur = toLSPPosition(Attr.key().lCur());
+lspserver::Range getAttrRange(llvm::StringRef Src, const Attribute &Attr) {
+  auto LCur = toLSPPosition(Src, Attr.key().lCur());
   if (Attr.value())
-    return {LCur, toLSPPosition(Attr.value()->rCur())};
-  return {LCur, toLSPPosition(Attr.key().rCur())};
+    return {LCur, toLSPPosition(Src, Attr.value()->rCur())};
+  return {LCur, toLSPPosition(Src, Attr.key().rCur())};
 }
 
 /// Make variable's entry rich.
@@ -78,7 +80,7 @@ void richVar(const ExprVar &Var, DocumentSymbol &Sym,
 
 /// Collect document symbol on AST.
 void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
-             const VariableLookupAnalysis &VLA) {
+             const VariableLookupAnalysis &VLA, llvm::StringRef Src) {
   if (!AST)
     return;
   switch (AST->kind()) {
@@ -90,8 +92,8 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
         .detail = "string",
         .kind = SymbolKind::String,
         .deprecated = false,
-        .range = toLSPRange(Str.range()),
-        .selectionRange = toLSPRange(Str.range()),
+        .range = toLSPRange(Src, Str.range()),
+        .selectionRange = toLSPRange(Src, Str.range()),
         .children = {},
     };
     Symbols.emplace_back(std::move(Sym));
@@ -104,8 +106,8 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
         .detail = "integer",
         .kind = SymbolKind::Number,
         .deprecated = false,
-        .range = toLSPRange(Int.range()),
-        .selectionRange = toLSPRange(Int.range()),
+        .range = toLSPRange(Src, Int.range()),
+        .selectionRange = toLSPRange(Src, Int.range()),
         .children = {},
     };
     Symbols.emplace_back(std::move(Sym));
@@ -118,8 +120,8 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
         .detail = "float",
         .kind = SymbolKind::Number,
         .deprecated = false,
-        .range = toLSPRange(Float.range()),
-        .selectionRange = toLSPRange(Float.range()),
+        .range = toLSPRange(Src, Float.range()),
+        .selectionRange = toLSPRange(Src, Float.range()),
         .children = {},
     };
     Symbols.emplace_back(std::move(Sym));
@@ -132,8 +134,8 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
         .detail = "attribute name",
         .kind = SymbolKind::Property,
         .deprecated = false,
-        .range = toLSPRange(AN.range()),
-        .selectionRange = toLSPRange(AN.range()),
+        .range = toLSPRange(Src, AN.range()),
+        .selectionRange = toLSPRange(Src, AN.range()),
         .children = {},
     };
     Symbols.emplace_back(std::move(Sym));
@@ -146,8 +148,8 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
         .detail = "identifier",
         .kind = SymbolKind::Variable,
         .deprecated = false,
-        .range = toLSPRange(Var.range()),
-        .selectionRange = toLSPRange(Var.range()),
+        .range = toLSPRange(Src, Var.range()),
+        .selectionRange = toLSPRange(Src, Var.range()),
         .children = {},
     };
     richVar(Var, Sym, VLA);
@@ -157,14 +159,14 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
   case Node::NK_ExprLambda: {
     std::vector<DocumentSymbol> Children;
     const auto &Lambda = static_cast<const ExprLambda &>(*AST);
-    collect(Lambda.body(), Children, VLA);
+    collect(Lambda.body(), Children, VLA, Src);
     DocumentSymbol Sym{
         .name = getLambdaName(Lambda),
         .detail = "lambda",
         .kind = SymbolKind::Function,
         .deprecated = false,
-        .range = toLSPRange(Lambda.range()),
-        .selectionRange = getLambdaSelectionRage(Lambda),
+        .range = toLSPRange(Src, Lambda.range()),
+        .selectionRange = getLambdaSelectionRage(Src, Lambda),
         .children = std::move(Children),
     };
     Symbols.emplace_back(std::move(Sym));
@@ -174,15 +176,15 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
     std::vector<DocumentSymbol> Children;
     const auto &List = static_cast<const ExprList &>(*AST);
     for (const Node *Ch : AST->children())
-      collect(Ch, Children, VLA);
+      collect(Ch, Children, VLA, Src);
 
     DocumentSymbol Sym{
         .name = "{anonymous}",
         .detail = "list",
         .kind = SymbolKind::Array,
         .deprecated = false,
-        .range = toLSPRange(List.range()),
-        .selectionRange = toLSPRange(List.range()),
+        .range = toLSPRange(Src, List.range()),
+        .selectionRange = toLSPRange(Src, List.range()),
         .children = std::move(Children),
     };
     Symbols.emplace_back(std::move(Sym));
@@ -194,28 +196,28 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
       if (!Attr.value())
         continue;
       std::vector<DocumentSymbol> Children;
-      collect(Attr.value(), Children, VLA);
+      collect(Attr.value(), Children, VLA, Src);
       DocumentSymbol Sym{
           .name = Name,
           .detail = "attribute",
           .kind = SymbolKind::Field,
           .deprecated = false,
-          .range = getAttrRange(Attr),
-          .selectionRange = toLSPRange(Attr.key().range()),
+          .range = getAttrRange(Src, Attr),
+          .selectionRange = toLSPRange(Src, Attr.key().range()),
           .children = std::move(Children),
       };
       Symbols.emplace_back(std::move(Sym));
     }
     for (const nixf::Attribute &Attr : SA.dynamicAttrs()) {
       std::vector<DocumentSymbol> Children;
-      collect(Attr.value(), Children, VLA);
+      collect(Attr.value(), Children, VLA, Src);
       DocumentSymbol Sym{
           .name = "${dynamic attribute}",
           .detail = "attribute",
           .kind = SymbolKind::Field,
           .deprecated = false,
-          .range = getAttrRange(Attr),
-          .selectionRange = toLSPRange(Attr.key().range()),
+          .range = getAttrRange(Src, Attr),
+          .selectionRange = toLSPRange(Src, Attr.key().range()),
           .children = std::move(Children),
       };
       Symbols.emplace_back(std::move(Sym));
@@ -225,7 +227,7 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
   default:
     // Trivial dispatch. Treat these symbol as same as this level.
     for (const Node *Ch : AST->children())
-      collect(Ch, Symbols, VLA);
+      collect(Ch, Symbols, VLA, Src);
     break;
   }
 }
@@ -239,7 +241,7 @@ void Controller::onDocumentSymbol(const DocumentSymbolParams &Params,
     if (std::shared_ptr<NixTU> TU = getTU(URI.file().str(), Reply)) {
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) {
         std::vector<DocumentSymbol> Symbols;
-        collect(AST.get(), Symbols, *TU->variableLookup());
+        collect(AST.get(), Symbols, *TU->variableLookup(), TU->src());
         Reply(std::move(Symbols));
       }
     }

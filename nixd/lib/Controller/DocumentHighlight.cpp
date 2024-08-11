@@ -25,7 +25,8 @@ namespace {
 std::vector<DocumentHighlight> highlight(const nixf::Node &Desc,
                                          const ParentMapAnalysis &PMA,
                                          const VariableLookupAnalysis &VLA,
-                                         const URIForFile &URI) {
+                                         const URIForFile &URI,
+                                         llvm::StringRef Src) {
   // Find "definition"
   auto Def = findDefinition(Desc, PMA, VLA);
 
@@ -34,14 +35,14 @@ std::vector<DocumentHighlight> highlight(const nixf::Node &Desc,
   for (const auto *Use : Def.uses()) {
     assert(Use);
     Highlights.emplace_back(DocumentHighlight{
-        .range = toLSPRange(Use->range()),
+        .range = toLSPRange(Src, Use->range()),
         .kind = DocumentHighlightKind::Read,
     });
   }
   if (Def.syntax()) {
     const Node &Syntax = *Def.syntax();
     Highlights.emplace_back(DocumentHighlight{
-        .range = toLSPRange(Syntax.range()),
+        .range = toLSPRange(Src, Syntax.range()),
         .kind = DocumentHighlightKind::Write,
     });
   }
@@ -67,7 +68,7 @@ void Controller::onDocumentHighlight(
         try {
           const auto &PM = *TU->parentMap();
           const auto &VLA = *TU->variableLookup();
-          return Reply(highlight(*Desc, PM, VLA, URI));
+          return Reply(highlight(*Desc, PM, VLA, URI, TU->src()));
         } catch (std::exception &E) {
           elog("textDocument/documentHighlight failed: {0}", E.what());
           return Reply(std::vector<DocumentHighlight>{});

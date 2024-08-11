@@ -36,7 +36,8 @@ struct RenameBuiltinException : RenameException {
 
 WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
                      const ParentMapAnalysis &PMA,
-                     const VariableLookupAnalysis &VLA, const URIForFile &URI) {
+                     const VariableLookupAnalysis &VLA, const URIForFile &URI,
+                     llvm::StringRef Src) {
   using lspserver::TextEdit;
   // Find "definition"
   auto Def = findDefinition(Desc, PMA, VLA);
@@ -51,13 +52,13 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
   for (const auto *Use : Def.uses()) {
     Edits.emplace_back(TextEdit{
-        .range = toLSPRange(Use->range()),
+        .range = toLSPRange(Src, Use->range()),
         .newText = NewText,
     });
   }
 
   Edits.emplace_back(TextEdit{
-      .range = toLSPRange(Def.syntax()->range()),
+      .range = toLSPRange(Src, Def.syntax()->range()),
       .newText = NewText,
   });
   WorkspaceEdit WE;
@@ -83,7 +84,7 @@ void Controller::onRename(const RenameParams &Params,
         const auto &PM = *TU->parentMap();
         const auto &VLA = *TU->variableLookup();
         try {
-          return Reply(rename(*Desc, NewText, PM, VLA, URI));
+          return Reply(rename(*Desc, NewText, PM, VLA, URI, TU->src()));
         } catch (std::exception &E) {
           return Reply(error(E.what()));
         }
@@ -109,8 +110,8 @@ void Controller::onPrepareRename(
         const auto &PM = *TU->parentMap();
         const auto &VLA = *TU->variableLookup();
         try {
-          WorkspaceEdit WE = rename(*Desc, "", PM, VLA, URI);
-          return Reply(toLSPRange(Desc->range()));
+          WorkspaceEdit WE = rename(*Desc, "", PM, VLA, URI, TU->src());
+          return Reply(toLSPRange(TU->src(), Desc->range()));
         } catch (std::exception &E) {
           return Reply(error(E.what()));
         }
