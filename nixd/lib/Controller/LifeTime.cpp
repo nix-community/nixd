@@ -36,6 +36,19 @@ opt<std::string> DefaultNixOSOptionsExpr{
          "=  (import <nixpkgs/nixos/modules/module-list.nix>) ++ [ ({...}: { "
          "nixpkgs.hostPlatform = builtins.currentSystem;} ) ] ; })).options")};
 
+opt<std::string> DefaultDevenvOptionsExpr{
+    "devenv-options-expr",
+    desc("Default expression interpreted as devenv option declarations"),
+    cat(NixdCategory),
+    init("let\n"
+         "  currentSystem = builtins.currentSystem;\n"
+         "  flake = builtins.getFlake \"github:cachix/devenv?ref=work/keys/expose-devenv-options\";\n"
+         "in\n"
+         "  if builtins.hasAttr currentSystem flake.outputs.packages\n"
+         "  then flake.outputs.packages.${currentSystem}.devenv-module-options.options\n"
+         "  else {}")
+};
+
 opt<bool> EnableSemanticTokens{"semantic-tokens",
                                desc("Enable/Disable semantic tokens"),
                                init(true), cat(NixdCategory)};
@@ -46,6 +59,18 @@ std::string getDefaultNixpkgsExpr() {
     return "{ }";
   }
   return DefaultNixpkgsExpr;
+}
+
+// Check if devenv executable is present
+bool isDevenvAvailable() {
+    return std::system("which devenv > /dev/null 2>&1") == 0;
+}
+
+std::string getDefaultDevenvOptionsExpr() {
+  if (LitTest && !DefaultDevenvOptionsExpr.getNumOccurrences()) {
+    return "{ }";
+  }
+  return DefaultDevenvOptionsExpr;
 }
 
 std::string getDefaultNixOSOptionsExpr() {
@@ -192,6 +217,20 @@ void Controller::
                     Err.takeError());
     std::exit(-1);
   }
+
+  // Launch devenv worker only if devenv is available
+  if (isDevenvAvailable()) {
+      std::lock_guard _(OptionsLock);
+      startOption("devenv", Options["devenv"]);
+
+      if (AttrSetClient *Client = Options["devenv"]->client()) {
+          evalExprWithProgress(*Client, getDefaultDevenvOptionsExpr(),
+                              "devenv options");
+      }
+  } else {
+      lspserver::log("devenv not found, skipping devenv initialization");
+  }
+
   fetchConfig();
 }
 
