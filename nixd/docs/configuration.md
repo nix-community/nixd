@@ -59,7 +59,7 @@ For vscode users you should write `settings.json`[^settings] like this:
         "nixd": {
             "formatting": {
                 // This is the default if ommited.
-                "command": [ "nixpkgs-fmt" ]
+                "command": [ "nixfmt" ]
             },
             "options": {
                 // By default, this entriy will be read from `import <nixpkgs> { }`
@@ -94,7 +94,7 @@ nvim_lsp.nixd.setup({
             expr = "import <nixpkgs> { }",
          },
          formatting = {
-            command = { "nixpkgs-fmt" },
+            command = { "nixfmt" },
          },
          options = {
             nixos = {
@@ -130,7 +130,7 @@ nvim_lsp.nixd.setup({
   },
   "formatting": {
     // Which command you would like to do formatting
-    "command": [ "nixpkgs-fmt" ]
+    "command": [ "nixfmt" ]
   },
   // Tell the language server your desired option set, for completion
   // This is lazily evaluated.
@@ -149,7 +149,7 @@ nvim_lsp.nixd.setup({
   // Control the diagnostic system
   "diagnostic": {
     "suppress": [
-      "sema-escaping-with"
+      "sema-extra-with"
     ]
   }
 }
@@ -167,7 +167,7 @@ prefer to suppress diagnostics altogether. This can be achieved by utilizing the
   "diagnostic": {
     // A list of diagnostic short names
     "suppress": [
-      "sema-escaping-with"
+      "sema-extra-with"
     ]
   }
 }

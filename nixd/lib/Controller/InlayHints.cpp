@@ -20,6 +20,7 @@
 
 #include <boost/asio/post.hpp>
 
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/CommandLine.h>
 
 #include <semaphore>
@@ -51,13 +52,16 @@ class NixpkgsInlayHintsProvider {
     return Range->contains(R);
   }
 
+  llvm::StringRef Src;
+
 public:
   NixpkgsInlayHintsProvider(AttrSetClient &NixpkgsProvider,
                             const VariableLookupAnalysis &VLA,
                             const ParentMapAnalysis &PMA,
                             std::optional<lspserver::Range> Range,
-                            std::vector<InlayHint> &Hints)
-      : NixpkgsProvider(NixpkgsProvider), VLA(VLA), PMA(PMA), Hints(Hints) {
+                            std::vector<InlayHint> &Hints, llvm::StringRef Src)
+      : NixpkgsProvider(NixpkgsProvider), VLA(VLA), PMA(PMA), Hints(Hints),
+        Src(Src) {
     if (Range)
       this->Range = toNixfRange(*Range);
   }
@@ -89,10 +93,10 @@ public:
         if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
           // Construct inlay hints.
           InlayHint H{
-              .position = toLSPPosition(N->rCur()),
+              .position = toLSPPosition(Src, N->rCur()),
               .label = ": " + *Version,
               .kind = InlayHintKind::Designator,
-              .range = toLSPRange(N->range()),
+              .range = toLSPRange(Src, N->range()),
           };
           Hints.emplace_back(std::move(H));
         }
@@ -120,7 +124,8 @@ void Controller::onInlayHint(const InlayHintsParams &Params,
         // Perform inlay hints computation on the range.
         std::vector<InlayHint> Response;
         NixpkgsInlayHintsProvider NP(*nixpkgsClient(), *TU->variableLookup(),
-                                     *TU->parentMap(), Range, Response);
+                                     *TU->parentMap(), Range, Response,
+                                     TU->src());
         NP.dfs(AST.get());
         Reply(std::move(Response));
       }

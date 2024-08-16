@@ -3,15 +3,19 @@
 /// [Semantic Tokens]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
 
+#include "Convert.h"
+
 #include "nixd/Controller/Controller.h"
 
-#include <boost/asio/post.hpp>
-#include <lspserver/Protocol.h>
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Expr.h>
 #include <nixf/Basic/Nodes/Lambda.h>
 #include <nixf/Basic/Range.h>
 #include <nixf/Sema/VariableLookup.h>
+
+#include <lspserver/Protocol.h>
+
+#include <boost/asio/post.hpp>
 
 using namespace nixd;
 using namespace lspserver;
@@ -59,15 +63,15 @@ class SemanticTokenBuilder {
 
   std::vector<RawSemanticToken> Raw;
 
+  llvm::StringRef Src;
+
 public:
-  SemanticTokenBuilder(const VariableLookupAnalysis &VLA) : VLA(VLA) {}
+  SemanticTokenBuilder(const VariableLookupAnalysis &VLA, llvm::StringRef Src)
+      : VLA(VLA), Src(Src) {}
   void addImpl(nixf::LexerCursor Pos, unsigned Length, unsigned TokenType,
                unsigned TokenModifiers) {
-    Raw.emplace_back(RawSemanticToken{
-        {static_cast<int>(Pos.line()), static_cast<int>(Pos.column())},
-        Length,
-        TokenType,
-        TokenModifiers});
+    auto P = toLSPPosition(Src, Pos);
+    Raw.emplace_back(RawSemanticToken{P, Length, TokenType, TokenModifiers});
   }
 
   void add(const Node &N, unsigned TokenType, unsigned TokenModifiers) {
@@ -235,7 +239,7 @@ void Controller::onSemanticTokens(const SemanticTokensParams &Params,
                  this]() mutable {
     if (std::shared_ptr<NixTU> TU = getTU(URI.file().str(), Reply)) {
       if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) {
-        SemanticTokenBuilder Builder(*TU->variableLookup());
+        SemanticTokenBuilder Builder(*TU->variableLookup(), TU->src());
         Builder.dfs(AST.get());
         Reply(SemanticTokens{.tokens = Builder.finish()});
       }

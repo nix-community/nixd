@@ -24,7 +24,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
       std::vector<CodeAction> Actions;
       Actions.reserve(Diagnostics.size());
       for (const nixf::Diagnostic &D : Diagnostics) {
-        auto DRange = toLSPRange(D.range());
+        auto DRange = toLSPRange(TU->src(), D.range());
         if (!Range.overlap(DRange))
           continue;
 
@@ -34,7 +34,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           Edits.reserve(F.edits().size());
           for (const nixf::TextEdit &TE : F.edits()) {
             Edits.emplace_back(TextEdit{
-                .range = toLSPRange(TE.oldRange()),
+                .range = toLSPRange(TU->src(), TE.oldRange()),
                 .newText = std::string(TE.newText()),
             });
           }

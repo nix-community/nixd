@@ -8,7 +8,6 @@
   meson,
   ninja,
   nix,
-  nixpkgs-fmt,
   pkg-config,
   nlohmann_json,
   python312,
@@ -29,10 +28,7 @@ stdenv.mkDerivation {
     pkg-config
   ];
 
-  nativeCheckInputs = [
-    lit
-    nixpkgs-fmt
-  ];
+  nativeCheckInputs = [ lit ];
 
   buildInputs = [
     nix

@@ -40,7 +40,7 @@ bool Controller::isSuppressed(nixf::Diagnostic::DiagnosticKind Kind) {
 }
 
 void Controller::publishDiagnostics(
-    PathRef File, std::optional<int64_t> Version,
+    PathRef File, std::optional<int64_t> Version, std::string_view Src,
     const std::vector<nixf::Diagnostic> &Diagnostics) {
   std::vector<Diagnostic> LSPDiags;
   LSPDiags.reserve(Diagnostics.size());
@@ -67,7 +67,7 @@ void Controller::publishDiagnostics(
     }
 
     Diagnostic &Diag = LSPDiags.emplace_back(Diagnostic{
-        .range = toLSPRange(D.range()),
+        .range = toLSPRange(Src, D.range()),
         .severity = getLSPSeverity(D.kind()),
         .code = D.sname(),
         .source = "nixf",
@@ -83,7 +83,7 @@ void Controller::publishDiagnostics(
           .location =
               Location{
                   .uri = URIForFile::canonicalize(File, File),
-                  .range = toLSPRange(N.range()),
+                  .range = toLSPRange(Src, N.range()),
               },
           .message = N.format(),
       });
@@ -93,7 +93,7 @@ void Controller::publishDiagnostics(
 
     for (const nixf::Note &N : Notes) {
       LSPDiags.emplace_back(Diagnostic{
-          .range = toLSPRange(N.range()),
+          .range = toLSPRange(Src, N.range()),
           .severity = 4,
           .code = N.sname(),
           .source = "nixf",

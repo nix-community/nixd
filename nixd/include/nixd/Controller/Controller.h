@@ -211,7 +211,7 @@ private:
   /// Determine whether or not this diagnostic is suppressed.
   bool isSuppressed(nixf::Diagnostic::DiagnosticKind Kind);
   void publishDiagnostics(lspserver::PathRef File,
-                          std::optional<int64_t> Version,
+                          std::optional<int64_t> Version, std::string_view Src,
                           const std::vector<nixf::Diagnostic> &Diagnostics);
 
   void onRename(const lspserver::RenameParams &Params,

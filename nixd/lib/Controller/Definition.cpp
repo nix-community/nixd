@@ -113,10 +113,14 @@ const Definition &findVarDefinition(const ExprVar &Var,
 }
 
 /// \brief Convert nixf::Definition to lspserver::Location
-Location convertToLocation(const Definition &Def, URIForFile URI) {
+Location convertToLocation(llvm::StringRef Src, const Definition &Def,
+                           URIForFile URI) {
+  if (!Def.syntax())
+    throw NoLocationForBuiltinVariable();
+  assert(Def.syntax());
   return Location{
       .uri = std::move(URI),
-      .range = toLSPRange(Def.syntax()->range()),
+      .range = toLSPRange(Src, Def.syntax()->range()),
   };
 }
 
@@ -280,9 +284,9 @@ Locations defineSelect(const ExprSelect &Sel, const VariableLookupAnalysis &VLA,
 }
 
 Locations defineVarStatic(const ExprVar &Var, const VariableLookupAnalysis &VLA,
-                          const URIForFile &URI) {
+                          const URIForFile &URI, llvm::StringRef Src) {
   const Definition &Def = findVarDefinition(Var, VLA);
-  return {convertToLocation(Def, URI)};
+  return {convertToLocation(Src, Def, URI)};
 }
 
 template <class T>
@@ -291,11 +295,12 @@ std::vector<T> mergeVec(std::vector<T> A, const std::vector<T> &B) {
   return A;
 }
 
-Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
-                    const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
-                    const URIForFile &URI) {
+llvm::Expected<Locations>
+defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
+          const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
+          const URIForFile &URI, llvm::StringRef Src) {
   try {
-    Locations StaticLocs = defineVarStatic(Var, VLA, URI);
+    Locations StaticLocs = defineVarStatic(Var, VLA, URI, Src);
 
     // Nixpkgs locations.
     try {
@@ -308,8 +313,9 @@ Locations defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
     }
   } catch (std::exception &E) {
     elog("definition/static: {0}", E.what());
+    return Locations{};
   }
-  return {};
+  return error("unreachable code! Please submit an issue");
 }
 
 /// \brief Squash a vector into smaller json variant.
@@ -374,12 +380,12 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
         return Reply(squash([&]() -> llvm::Expected<Locations> {
           // Special case for inherited names.
           if (const ExprVar *Var = findInheritVar(N, PM, VLA))
-            return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI);
+            return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
 
           switch (UpExpr.kind()) {
           case Node::NK_ExprVar: {
             const auto &Var = static_cast<const ExprVar &>(UpExpr);
-            return defineVar(Var, VLA, PM, *nixpkgsClient(), URI);
+            return defineVar(Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
           }
           case Node::NK_ExprSelect: {
             const auto &Sel = static_cast<const ExprSelect &>(UpExpr);

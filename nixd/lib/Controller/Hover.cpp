@@ -71,7 +71,8 @@ class NixpkgsHoverProvider {
     }
 
     if (Package.Description) {
-      OS << "## Description" << "\n\n";
+      OS << "## Description"
+         << "\n\n";
       OS << *Package.Description;
       OS << "\n\n";
 
@@ -141,7 +142,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
                         .kind = MarkupKind::Markdown,
                         .value = std::move(*Doc),
                     },
-                .range = toLSPRange(N->range()),
+                .range = toLSPRange(TU->src(), N->range()),
             });
             return;
           }
@@ -173,7 +174,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
                             .kind = MarkupKind::Markdown,
                             .value = std::move(Docs),
                         },
-                    .range = toLSPRange(N->range()),
+                    .range = toLSPRange(TU->src(), N->range()),
                 });
                 return;
               }
@@ -189,7 +190,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
                     .kind = MarkupKind::Markdown,
                     .value = "`" + Name + "`",
                 },
-            .range = toLSPRange(N->range()),
+            .range = toLSPRange(TU->src(), N->range()),
         });
       }
     }

@@ -1,4 +1,4 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test -config='{ "formatting": { "command": ["%S/nixfmt"] } }' < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -54,7 +54,7 @@
 ```
 
 ```
-CHECK: "newText": "{ stdenv\n, pkgs\n}:\nlet x = 1; in { y = x; }\n",
+CHECK: "newText": "Hello\n",
 ```
 
 ```json

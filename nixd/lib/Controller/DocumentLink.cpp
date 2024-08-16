@@ -47,7 +47,7 @@ std::optional<std::string> resolveExprPath(const std::string &BasePath,
 }
 
 void dfs(const Node *N, const std::string &BasePath,
-         std::vector<DocumentLink> &Links) {
+         std::vector<DocumentLink> &Links, llvm::StringRef Src) {
   if (!N)
     return;
 
@@ -59,7 +59,7 @@ void dfs(const Node *N, const std::string &BasePath,
       // Provide literal path linking.
       if (auto Link = resolveExprPath(BasePath, Path.parts().literal())) {
         Links.emplace_back(
-            DocumentLink{.range = toLSPRange(N->range()),
+            DocumentLink{.range = toLSPRange(Src, N->range()),
                          .target = URIForFile::canonicalize(*Link, *Link)});
       }
     }
@@ -71,7 +71,7 @@ void dfs(const Node *N, const std::string &BasePath,
 
   // Traverse on all children
   for (const Node *Ch : N->children()) {
-    dfs(Ch, BasePath, Links);
+    dfs(Ch, BasePath, Links, Src);
   }
 }
 
@@ -86,7 +86,7 @@ void Controller::onDocumentLink(
       if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
         // Traverse the AST, provide the links
         std::vector<DocumentLink> Links;
-        dfs(AST.get(), File, Links);
+        dfs(AST.get(), File, Links, TU->src());
         Reply(std::move(Links));
       }
     }

@@ -39,6 +39,12 @@ struct NotAnIdiomException : IdiomSelectorException {
 
 struct VLAException : std::exception {};
 
+struct NoLocationForBuiltinVariable : std::exception {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "builtins are defined in the interpreter, not in the Nix files";
+  }
+};
+
 /// \brief No such variable.
 struct NoSuchVarException : VLAException {
   [[nodiscard]] const char *what() const noexcept override {
