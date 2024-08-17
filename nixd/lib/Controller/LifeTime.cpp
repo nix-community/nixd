@@ -42,7 +42,7 @@ opt<std::string> DefaultDevenvOptionsExpr{
     cat(NixdCategory),
     init("let\n"
          "  currentSystem = builtins.currentSystem;\n"
-         "  flake = builtins.getFlake \"github:cachix/devenv?ref=work/keys/expose-devenv-options\";\n"
+         "  flake = builtins.getFlake \"github:cachix/devenv\";\n"
          "in\n"
          "  if builtins.hasAttr currentSystem flake.outputs.packages\n"
          "  then flake.outputs.packages.${currentSystem}.devenv-module-options.options\n"
