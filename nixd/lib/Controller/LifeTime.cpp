@@ -45,9 +45,10 @@ opt<std::string> DefaultDevenvOptionsExpr{
          "  flake = builtins.getFlake \"github:cachix/devenv\";\n"
          "in\n"
          "  if builtins.hasAttr currentSystem flake.outputs.packages\n"
-         "  then flake.outputs.packages.${currentSystem}.devenv-module-options.options\n"
-         "  else {}")
-};
+         "  then "
+         "flake.outputs.packages.${currentSystem}.devenv-module-options."
+         "options\n"
+         "  else {}")};
 
 opt<bool> EnableSemanticTokens{"semantic-tokens",
                                desc("Enable/Disable semantic tokens"),
@@ -63,7 +64,7 @@ std::string getDefaultNixpkgsExpr() {
 
 // Check if devenv executable is present
 bool isDevenvAvailable() {
-    return std::system("which devenv > /dev/null 2>&1") == 0;
+  return std::system("which devenv > /dev/null 2>&1") == 0;
 }
 
 std::string getDefaultDevenvOptionsExpr() {
@@ -220,15 +221,15 @@ void Controller::
 
   // Launch devenv worker only if devenv is available
   if (isDevenvAvailable()) {
-      std::lock_guard _(OptionsLock);
-      startOption("devenv", Options["devenv"]);
+    std::lock_guard _(OptionsLock);
+    startOption("devenv", Options["devenv"]);
 
-      if (AttrSetClient *Client = Options["devenv"]->client()) {
-          evalExprWithProgress(*Client, getDefaultDevenvOptionsExpr(),
-                              "devenv options");
-      }
+    if (AttrSetClient *Client = Options["devenv"]->client()) {
+      evalExprWithProgress(*Client, getDefaultDevenvOptionsExpr(),
+                           "devenv options");
+    }
   } else {
-      lspserver::log("devenv not found, skipping devenv initialization");
+    lspserver::log("devenv not found, skipping devenv initialization");
   }
 
   fetchConfig();
