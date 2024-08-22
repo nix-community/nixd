@@ -235,4 +235,14 @@ In our option system, you need to specify which option set you'd like to use.
 }
 ```
 
+If you aren't a flakes user with standalone home-manager with a vanilla install then the following expression should make home-manager options appear:
 
+```jsonc
+{
+  "options": {
+    "home-manager": {
+      "expr": "(import <home-manager/modules> { configuration = ~/.config/home-manager/home.nix; pkgs = import <nixpkgs> {}; }).options"
+    }
+  }
+}
+```
