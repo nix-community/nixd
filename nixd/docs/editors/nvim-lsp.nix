@@ -11,7 +11,7 @@ let
       '';
 
       packages.myPlugins.start = with pkgs.vimPlugins; [
-        (nvim-treesitter.withPlugins (parsers: [ parsers.nix ]))
+        (nvim-treesitter.withPlugins (parsers: [ parsers.nix parsers.markdown ]))
         friendly-snippets
         luasnip
         nvim-cmp
