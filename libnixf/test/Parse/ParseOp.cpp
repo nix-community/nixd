@@ -91,11 +91,9 @@ TEST(Parser, Op_PipeOperator_Forward) {
   Parser P(Src, Diags);
   auto AST = P.parseExpr();
 
-
   ASSERT_EQ(AST->kind(), Node::NK_ExprBinOp);
   ASSERT_EQ(Diags.size(), 0);
 }
-
 
 TEST(Parser, Op_PipeOperator_Forward_LeftAssosiative) {
   auto Src = R"(a |> b |> c)"sv;
