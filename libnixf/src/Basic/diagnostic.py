@@ -88,6 +88,12 @@ diagnostics: list[Diagnostic] = [
         "message": "extra `@` for lambda arg",
     },
     {
+        "sname": "parse-operator-noassoc",
+        "cname": "OperatorNotAssociative",
+        "severity": "Error",
+        "message": "operator is non-associative",
+    },
+    {
         "sname": "let-dynamic",
         "cname": "LetDynamic",
         "severity": "Error",

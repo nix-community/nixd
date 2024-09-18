@@ -2,6 +2,7 @@
 
 #include "Parser.h"
 
+#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Op.h"
 
 namespace {
@@ -69,6 +70,18 @@ TEST(Parser, OpHasAttr_empty) {
 
   // libnixf accepts emtpy attrpath while parsing.
   ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST(Parser, Op_NonAssociative) {
+  auto Src = R"(1 == 1 == 1)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_OperatorNotAssociative);
 }
 
 } // namespace

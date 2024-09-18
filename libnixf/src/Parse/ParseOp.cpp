@@ -3,6 +3,7 @@
 
 #include "Parser.h"
 
+#include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Op.h"
 
 #include <cassert>
@@ -115,7 +116,9 @@ std::shared_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
         if (LeftRBP > LBP)
           return Prefix;
         if (LeftRBP == LBP) {
-          // TODO: noassoc
+          // Report error, operator OP and expr_op is not associative.
+          Diags.emplace_back(Diagnostic::DK_OperatorNotAssociative,
+                             Tok.range());
         }
         consume();
         assert(LastToken && "consume() should have set LastToken");
