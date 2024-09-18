@@ -18,7 +18,7 @@ enum class JSONStreamStyle {
 };
 
 /// Parsed & classfied messages are dispatched to this handler class
-/// LSP Servers should inherit from this hanlder and dispatch
+/// LSP Servers should inherit from this handler and dispatch
 /// notify/call/reply to implementations.
 class MessageHandler {
 public:
@@ -60,7 +60,7 @@ public:
   /// Dispatch messages to on{Notify,Call,Reply} ( \p Handlers)
   /// Return values should be forwarded from \p Handlers
   /// i.e. returns true to keep processing messages, or false to shut down.
-  bool dispatch(llvm::json::Value Message, MessageHandler &Hanlder);
+  bool dispatch(llvm::json::Value Message, MessageHandler &Handler);
 
   void loop(MessageHandler &Handler);
 };
