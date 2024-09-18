@@ -526,6 +526,8 @@ Token Lexer::lex() {
   case '|':
     if (consumePrefix("||"))
       Tok = tok_op_or;
+    if (consumePrefix("|>"))
+      Tok = tok_op_pipe_into;
     break;
   case '!':
     if (consumePrefix("!=")) {
@@ -538,6 +540,8 @@ Token Lexer::lex() {
   case '<':
     if (consumePrefix("<=")) {
       Tok = tok_op_le;
+    } else if (consumePrefix("<|")) {
+      Tok = tok_op_pipe_from;
     } else {
       consume();
       Tok = tok_op_lt;

@@ -17,6 +17,7 @@ namespace {
 
 /// Binary operators:
 ///
+/// %left |> | %right <|
 /// %right ->
 /// %left ||
 /// %left &&
@@ -31,31 +32,35 @@ namespace {
 /// %nonassoc NEGATE
 std::pair<unsigned, unsigned> getBP(TokenKind Kind) {
   switch (Kind) {
-  case tok_op_impl: // %right ->
+  case tok_op_pipe_from:
+    return {1, 2};
+  case tok_op_pipe_into:
     return {2, 1};
+  case tok_op_impl: // %right ->
+    return {4, 3};
   case tok_op_or: // %left ||
-    return {3, 4};
-  case tok_op_and: // %left &&
     return {5, 6};
+  case tok_op_and: // %left &&
+    return {7, 8};
   case tok_op_eq: // %nonassoc == !=
   case tok_op_neq:
-    return {7, 7};
+    return {9, 9};
   case tok_op_lt: // %nonassoc < > <= >=
   case tok_op_le:
   case tok_op_ge:
   case tok_op_gt:
-    return {8, 8};
+    return {10, 10};
   case tok_op_update: // %right //
-    return {10, 9};
-    // %left NOT - 11
+    return {12, 11};
+    // %left NOT - 13
   case tok_op_add: // %left + -
   case tok_op_negate:
-    return {12, 13};
-  case tok_op_mul: // %left * /
     return {14, 15};
+  case tok_op_mul: // %left * /
+    return {16, 17};
   case tok_op_div:
   case tok_op_concat: // %right ++
-    return {17, 16};
+    return {19, 18};
   // % op_negate
   default:
     __builtin_unreachable();
