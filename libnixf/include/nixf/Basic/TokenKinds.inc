@@ -93,4 +93,8 @@ TOK_BIN_OP(mul)    // *
 TOK_BIN_OP(div)    // /
 TOK_BIN_OP(concat) // ++
 
+// [RFC 0418 Pipe operator](https://github.com/NixOS/rfcs/pull/148)
+TOK_BIN_OP(pipe_into) // |>
+TOK_BIN_OP(pipe_from) // <|
+
 #endif // TOK_BIN_OP
