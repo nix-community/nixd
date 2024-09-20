@@ -1,4 +1,4 @@
-## We ❤️ Contributions!
+## We ❤ Contributions!
 
 Please update this doc (tweaks, tricks, or how to setup for another editor)!
 
@@ -109,6 +109,11 @@ A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is
                      :priority 0
                      :server-id 'nixd)))
 ```
+
+> [!NOTE]
+>
+> The client is built-in to lsp-mode after `8.0.0`; you don't need this if you
+> have the latest lsp-mode installed.
 
 ## Change the configuration.
 
