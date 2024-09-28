@@ -88,6 +88,12 @@ diagnostics: list[Diagnostic] = [
         "message": "extra `@` for lambda arg",
     },
     {
+        "sname": "parse-operator-noassoc",
+        "cname": "OperatorNotAssociative",
+        "severity": "Error",
+        "message": "operator is non-associative",
+    },
+    {
         "sname": "let-dynamic",
         "cname": "LetDynamic",
         "severity": "Error",
@@ -198,14 +204,14 @@ diagnostics: list[Diagnostic] = [
     {
         "sname": "sema-unused-def-lambda-witharg-formal",
         "cname": "UnusedDefLambdaWithArg_Formal",
-        "severity": "Warning",
-        "message": "argument `{}` in `@`-pattern is not used",
+        "severity": "Hint",
+        "message": "attribute `{}` of `@`-pattern argument is not used, but may be referenced from the argument",
     },
     {
         "sname": "sema-unused-def-lambda-witharg-arg",
         "cname": "UnusedDefLambdaWithArg_Arg",
-        "severity": "Hint",
-        "message": "attribute `{}` of `@`-pattern argument is not used, but may be referenced from the argument",
+        "severity": "Warning",
+        "message": "argument `{}` in `@`-pattern is not used",
     },
     {
         "sname": "sema-extra-rec",

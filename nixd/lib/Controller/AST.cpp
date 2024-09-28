@@ -272,7 +272,7 @@ nixd::Selector nixd::idioms::mkSelector(const nixf::ExprSelect &Sel,
 
 std::pair<std::vector<std::string>, std::string>
 nixd::getScopeAndPrefix(const Node &N, const ParentMapAnalysis &PM) {
-  if (N.kind() != Node::NK_Identifer)
+  if (N.kind() != Node::NK_Identifier)
     return {};
 
   // FIXME: impl scoped packages

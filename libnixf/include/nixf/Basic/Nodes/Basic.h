@@ -116,7 +116,7 @@ class Identifier : public Node {
 
 public:
   Identifier(LexerCursorRange Range, std::string Name)
-      : Node(NK_Identifer, Range), Name(std::move(Name)) {}
+      : Node(NK_Identifier, Range), Name(std::move(Name)) {}
   [[nodiscard]] const std::string &name() const { return Name; }
 
   [[nodiscard]] ChildVector children() const override { return {}; }
