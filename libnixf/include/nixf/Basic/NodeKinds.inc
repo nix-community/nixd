@@ -10,7 +10,7 @@ NODE(InterpolableParts)
 /// \see Misc
 NODE(Misc)
 NODE(Dot)
-NODE(Identifer)
+NODE(Identifier)
 NODE(AttrName)
 NODE(AttrPath)
 NODE(Binding)

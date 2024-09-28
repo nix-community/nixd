@@ -19,7 +19,7 @@ TEST_F(ParentMapTest, Basic) {
   PMA.runOnAST(*AST);
 
   const Node *ID = AST->descend({{0, 0}, {0, 1}});
-  ASSERT_EQ(ID->kind(), Node::NK_Identifer);
+  ASSERT_EQ(ID->kind(), Node::NK_Identifier);
 
   const Node *Var = PMA.upExpr(*ID);
 
