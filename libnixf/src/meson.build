@@ -45,7 +45,7 @@ libnixf = library(
 
 pkgconfig.generate(
     name: 'nixf',
-    version: '2.3.2',
+    version: '2.4.0',
     description: 'libnixf',
     libraries: libnixf
 )
