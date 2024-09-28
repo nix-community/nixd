@@ -226,7 +226,7 @@ TEST_F(VLATest, ToDefLambda) {
 
   ASSERT_TRUE(AST);
   const Node *ID = AST->descend({{0, 1}, {0, 1}});
-  ASSERT_EQ(ID->kind(), Node::NK_Identifer);
+  ASSERT_EQ(ID->kind(), Node::NK_Identifier);
 
   const auto *Def = VLA.toDef(*ID);
   ASSERT_TRUE(Def);

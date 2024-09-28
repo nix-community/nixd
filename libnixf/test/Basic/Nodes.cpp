@@ -15,7 +15,7 @@ TEST(Node, Descend) {
   std::vector<Diagnostic> Diag;
   auto Root = parse(Src, Diag);
 
-  ASSERT_EQ(Root->descend({{0, 2}, {0, 2}})->kind(), Node::NK_Identifer);
+  ASSERT_EQ(Root->descend({{0, 2}, {0, 2}})->kind(), Node::NK_Identifier);
   ASSERT_EQ(Root->descend({{0, 2}, {0, 4}})->kind(), Node::NK_Binding);
 }
 
