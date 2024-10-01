@@ -1,0 +1,11 @@
+<map id="lspserver::DiagnosticRelatedInformation" name="lspserver::DiagnosticRelatedInformation">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,300,214,345"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1Location.html" title=" " alt="" coords="37,208,182,235"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="112,251,112,300,107,300,107,251"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="6,115,162,143"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="94,157,108,207,103,208,89,158"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Range.html" title=" " alt="" coords="186,115,316,143"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="219,153,132,209,129,205,216,149"/>
+<area shape="rect" id="Node000005" href="$structlspserver_1_1Position.html" title=" " alt="" coords="180,5,322,33"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="254,48,254,115,248,115,248,48"/>
+</map>
