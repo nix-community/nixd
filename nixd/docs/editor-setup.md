@@ -110,6 +110,21 @@ A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is
                      :server-id 'nixd)))
 ```
 
+### Helix
+
+`nixd` will be supported by default in the next release after 24.07.
+
+#### languages.toml
+
+```toml
+[[language]]
+name = "nix"
+language-servers = ["nixd","nil"]
+
+[language-server.nixd]
+command = "nixd"
+```
+
 ## Change the configuration.
 
 Read the [configuration](configuration.md) docs here.
