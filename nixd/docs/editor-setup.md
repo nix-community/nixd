@@ -80,7 +80,7 @@ According to `:help coc-config.txt`, `coc-settings.json`:
 ### Neovim
 
 Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig).
-We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.txt#nixd)
+We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.txt#nixd)
 
 ### Emacs
 
