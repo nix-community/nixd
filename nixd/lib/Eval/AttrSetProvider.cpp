@@ -4,6 +4,7 @@
 #include "lspserver/Protocol.h"
 
 #include <nix/attr-path.hh>
+#include <nix/common-eval-args.hh>
 #include <nix/nixexpr.hh>
 #include <nix/store-api.hh>
 #include <nixt/Value.h>
@@ -22,7 +23,7 @@ void fillString(nix::EvalState &State, nix::Value &V,
     nix::Value &Select = nixt::selectStringViews(State, V, AttrPath);
     State.forceValue(Select, nix::noPos);
     if (Select.type() == nix::ValueType::nString)
-      Field = Select.string.c_str;
+      Field = Select.string_view();
   } catch (std::exception &E) {
     Field = std::nullopt;
   }
@@ -85,8 +86,8 @@ void fillUnsafeGetAttrPosLocation(nix::EvalState &State, nix::Value &V,
       Column.type() == nix::ValueType::nInt) {
 
     // Nix position starts from "1" however lsp starts from zero.
-    lspserver::Position Pos = {static_cast<int>(Line.integer) - 1,
-                               static_cast<int>(Column.integer) - 1};
+    lspserver::Position Pos = {static_cast<int>(Line.integer()) - 1,
+                               static_cast<int>(Column.integer()) - 1};
     Loc.range = {Pos, Pos};
   }
 }
@@ -131,16 +132,16 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   fillOptionDeclarations(State, V, R);
   // FIXME: add definitions location.
   if (V.type() == nix::ValueType::nAttrs) [[likely]] {
-    assert(V.attrs);
-    if (auto *It = V.attrs->find(State.symbols.create("type"));
-        It != V.attrs->end()) [[likely]] {
+    assert(V.attrs());
+    if (auto *It = V.attrs()->find(State.symbols.create("type"));
+        It != V.attrs()->end()) [[likely]] {
       OptionType Type;
       fillOptionType(State, *It->value, Type);
       R.Type = std::move(Type);
     }
 
-    if (auto *It = V.attrs->find(State.symbols.create("example"));
-        It != V.attrs->end()) {
+    if (auto *It = V.attrs()->find(State.symbols.create("example"));
+        It != V.attrs()->end()) {
       State.forceValue(*It->value, It->pos);
 
       // In nixpkgs some examples are nested in "literalExpression"
@@ -148,7 +149,8 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
         R.Example = nixt::getFieldString(State, *It->value, "text");
       } else {
         std::ostringstream OS;
-        It->value->print(State.symbols, OS);
+        // TODO: replace this with something that can traverse the symbol table
+        // It->value->print(State.symbols, OS);
         R.Example = OS.str();
       }
     }
@@ -160,7 +162,8 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
 AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
                                  std::unique_ptr<OutboundPort> Out)
     : LSPServer(std::move(In), std::move(Out)),
-      State(new nix::EvalState({}, nix::openStore())) {
+      State(new nix::EvalState({}, nix::openStore(), nix::fetchSettings,
+                               nix::evalSettings)) {
   Registry.addMethod(rpcMethod::EvalExpr, this, &AttrSetProvider::onEvalExpr);
   Registry.addMethod(rpcMethod::AttrPathInfo, this,
                      &AttrSetProvider::onAttrPathInfo);
@@ -176,8 +179,7 @@ void AttrSetProvider::onEvalExpr(
     const std::string &Name,
     lspserver::Callback<std::optional<std::string>> Reply) {
   try {
-    nix::Expr *AST = state().parseExprFromString(
-        Name, state().rootPath(nix::CanonPath::fromCwd()));
+    nix::Expr *AST = state().parseExprFromString(Name, state().rootPath("."));
     state().eval(AST, Nixpkgs);
     Reply(std::nullopt);
     return;
@@ -234,9 +236,9 @@ void AttrSetProvider::onAttrPathComplete(
     // evaluating package details.
     // "Trie"s may not beneficial becausae it cannot speedup eval.
     for (const auto *AttrPtr :
-         Scope.attrs->lexicographicOrder(state().symbols)) {
+         Scope.attrs()->lexicographicOrder(state().symbols)) {
       const nix::Attr &Attr = *AttrPtr;
-      const std::string Name = state().symbols[Attr.name];
+      const std::string_view Name = state().symbols[Attr.name];
       if (Name.starts_with(Params.Prefix)) {
         ++Num;
         Names.emplace_back(Name);
@@ -309,9 +311,9 @@ void AttrSetProvider::onOptionComplete(
     // evaluating package details.
     // "Trie"s may not beneficial becausae it cannot speedup eval.
     for (const auto *AttrPtr :
-         Scope.attrs->lexicographicOrder(state().symbols)) {
+         Scope.attrs()->lexicographicOrder(state().symbols)) {
       const nix::Attr &Attr = *AttrPtr;
-      std::string Name = state().symbols[Attr.name];
+      std::string_view Name = state().symbols[Attr.name];
       if (Name.starts_with(Params.Prefix)) {
         // Add a new "OptionField", see it's type.
         assert(Attr.value);

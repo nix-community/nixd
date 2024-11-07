@@ -147,12 +147,12 @@ void nixt::callDirtyFlake(EvalState &State, std::string_view Src,
                           nix::Value &VRes) {
 
   nix::Value *VSrc = State.allocValue();
-  VSrc->mkPath(State.rootPath(nix::CanonPath(Src, nix::CanonPath::fromCwd())));
+  VSrc->mkPath(State.rootPath(nix::CanonPath(Src)));
 
   auto *VFlakeCompat = State.allocValue();
 
-  nix::Expr *EFlakeCompat = State.parseExprFromString(
-      FlakeCompat, State.rootPath(nix::CanonPath::fromCwd()));
+  nix::Expr *EFlakeCompat =
+      State.parseExprFromString(FlakeCompat, State.rootPath("."));
   State.eval(EFlakeCompat, *VFlakeCompat);
 
   State.callFunction(*VFlakeCompat, *VSrc, VRes, noPos);
