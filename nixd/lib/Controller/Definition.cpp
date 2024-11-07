@@ -134,7 +134,7 @@ class WorkerReportedException : std::exception {
   llvm::Error E;
 
 public:
-  WorkerReportedException(llvm::Error E) : E(std::move(E)){};
+  WorkerReportedException(llvm::Error E) : E(std::move(E)) {};
 
   llvm::Error takeError() { return std::move(E); }
   [[nodiscard]] const char *what() const noexcept override {

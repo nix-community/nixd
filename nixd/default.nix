@@ -1,14 +1,15 @@
-{ lib
-, stdenv
-, meson
-, ninja
-, pkg-config
-, nix
-, nixf
-, nixt
-, llvmPackages
-, gtest
-, boost182
+{
+  lib,
+  stdenv,
+  meson,
+  ninja,
+  pkg-config,
+  nix,
+  nixf,
+  nixt,
+  llvmPackages,
+  gtest,
+  boost182,
 }:
 
 let
@@ -20,7 +21,10 @@ stdenv.mkDerivation {
 
   src = ../.;
 
-  outputs = [ "out" "dev" ];
+  outputs = [
+    "out"
+    "dev"
+  ];
 
   mesonBuildType = "release";
 
@@ -44,7 +48,6 @@ stdenv.mkDerivation {
   ];
 
   env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
-
 
   meta = {
     mainProgram = "nixd";
