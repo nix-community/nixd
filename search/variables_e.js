@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['p_0',['P',['../structnixt_1_1detail_1_1R.html#af3318a9e3c548176681a26cd4ee4819d',1,'nixt::detail::R']]],
+  ['packagedesc_1',['PackageDesc',['../structnixd_1_1AttrPathInfoResponse.html#ab52de5e59cb758b9d0d3f384ee45e094',1,'nixd::AttrPathInfoResponse']]],
+  ['paddingleft_2',['paddingLeft',['../structlspserver_1_1InlayHint.html#a7e7e829b8fe37ab0f02b4c3ac6b2dcea',1,'lspserver::InlayHint']]],
+  ['paddingright_3',['paddingRight',['../structlspserver_1_1InlayHint.html#a58fd65c5fae54dfa924623ee26b00e86',1,'lspserver::InlayHint']]],
+  ['parameters_4',['parameters',['../structlspserver_1_1SignatureInformation.html#a615ed9f390c8425328ba3f6814123d06',1,'lspserver::SignatureInformation']]],
+  ['parent_5',['parent',['../structlspserver_1_1SelectionRange.html#ae07fba493e904faee16a6ccbdf9874bd',1,'lspserver::SelectionRange']]],
+  ['parents_6',['parents',['../structlspserver_1_1TypeHierarchyItem_1_1ResolveParams.html#a9c538155e27359aa7b33c3d93b6a1474',1,'lspserver::TypeHierarchyItem::ResolveParams::parents'],['../structlspserver_1_1TypeHierarchyItem.html#a67f08bc3f00abb223ce0ec32728b9171',1,'lspserver::TypeHierarchyItem::parents']]],
+  ['percentage_7',['percentage',['../structlspserver_1_1WorkDoneProgressBegin.html#a7da90f0815a0bdd72734e913333e2c57',1,'lspserver::WorkDoneProgressBegin::percentage'],['../structlspserver_1_1WorkDoneProgressReport.html#ae430ee7ba4445405f89ad0163fdc72ef',1,'lspserver::WorkDoneProgressReport::percentage']]],
+  ['pid_8',['PID',['../structnixd_1_1util_1_1PipedProc.html#a75896665a477da66ec6b09f8af9e1c0e',1,'nixd::util::PipedProc']]],
+  ['pkgs_9',['Pkgs',['../namespacenixd_1_1idioms.html#a598dda8c0d66d7d37023333b5d256125',1,'nixd::idioms']]],
+  ['pname_10',['PName',['../structnixd_1_1PackageDescription.html#a6af9e59dd9f58c73f0ae529761a45706',1,'nixd::PackageDescription']]],
+  ['position_11',['Position',['../structnixd_1_1PackageDescription.html#ad08b5e0c73e8064d08b8d07b714bad7d',1,'nixd::PackageDescription']]],
+  ['position_12',['position',['../structlspserver_1_1DocumentOnTypeFormattingParams.html#a5af0b7c4f1a1dc3244fe24e35a0adfe0',1,'lspserver::DocumentOnTypeFormattingParams::position'],['../structlspserver_1_1TextDocumentPositionParams.html#a38c6b8d6613387f4ca3d6f98432fd0a1',1,'lspserver::TextDocumentPositionParams::position'],['../structlspserver_1_1RenameParams.html#a60833e9cc128c48e3abb297329d5cfa6',1,'lspserver::RenameParams::position'],['../structlspserver_1_1InlayHint.html#ad7d822a822d0be408bfb4897eed84128',1,'lspserver::InlayHint::position']]],
+  ['positions_13',['positions',['../structlspserver_1_1SelectionRangeParams.html#ac7f61f0fad2a2a4bd330c2e01ccbf999',1,'lspserver::SelectionRangeParams']]],
+  ['prefix_14',['Prefix',['../structnixd_1_1AttrPathCompleteParams.html#a66b6ddbca6be3f08f021c9779940381c',1,'nixd::AttrPathCompleteParams']]],
+  ['previousresultid_15',['previousResultId',['../structlspserver_1_1SemanticTokensDeltaParams.html#ab387a9b38a50f33a1a209d5aa4fd008c',1,'lspserver::SemanticTokensDeltaParams']]],
+  ['processid_16',['processId',['../structlspserver_1_1InitializeParams.html#aa6b69abd76a63349f650f2eab5315dc1',1,'lspserver::InitializeParams']]],
+  ['ptable_17',['PTable',['../structnixt_1_1DeserializeContext.html#a9e6e738b82a819985113dcfb8450158c',1,'nixt::DeserializeContext']]]
+];
