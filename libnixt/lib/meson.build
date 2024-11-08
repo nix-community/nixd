@@ -1,4 +1,4 @@
-libnixt_deps = [ nix_expr, nix_main, nix_cmd, boost ]
+libnixt_deps = [ nix_expr, nix_flake, nix_main, nix_cmd, boost ]
 
 libnixd_inc = include_directories('../include')
 
@@ -19,7 +19,7 @@ pkgconfig.generate(name: 'nixt',
                    description: 'nix compatible layer',
                    subdirs: [ 'nixt' ],
                    libraries: libnixt,
-                   requires: [ 'nix-expr', 'nix-main', 'nix-cmd' ]
+                   requires: [ 'nix-expr', 'nix-main', 'nix-cmd', 'nix-flake' ]
 )
 
 

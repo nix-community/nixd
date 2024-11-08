@@ -7,7 +7,7 @@ using namespace nixt;
 namespace {
 
 struct ValueTest : StateTest {
-  nix::SourcePath cwd() { return State->rootPath(nix::CanonPath::fromCwd()); }
+  nix::SourcePath cwd() { return State->rootPath("."); }
 };
 
 TEST_F(ValueTest, IsOption_neg) {
@@ -58,7 +58,7 @@ TEST_F(ValueTest, selectAttrPath) {
   nix::Value &Kern = selectStringViews(*State, Nested, {"c", "d"});
 
   ASSERT_EQ(Kern.type(), nix::ValueType::nInt);
-  ASSERT_EQ(Kern.integer, 1);
+  ASSERT_EQ(Kern.integer(), 1);
 }
 
 } // namespace
