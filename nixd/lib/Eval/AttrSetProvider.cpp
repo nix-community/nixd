@@ -149,8 +149,7 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
         R.Example = nixt::getFieldString(State, *It->value, "text");
       } else {
         std::ostringstream OS;
-        // TODO: replace this with something that can traverse the symbol table
-        // It->value->print(State.symbols, OS);
+        It->value->print(State, OS);
         R.Example = OS.str();
       }
     }
