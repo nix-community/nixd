@@ -14,7 +14,7 @@ std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
     return std::nullopt;
 
   nix::Symbol SFiled = State.symbols.create(Field);
-  if (auto *It = V.attrs->find(SFiled); It != V.attrs->end())
+  if (auto *It = V.attrs()->find(SFiled); It != V.attrs()->end())
     return *It->value;
 
   return std::nullopt;
@@ -86,11 +86,11 @@ nix::Value &nixt::selectAttr(nix::EvalState &State, nix::Value &V,
   State.forceValue(V, nix::noPos);
 
   if (V.type() != nix::ValueType::nAttrs)
-    throw nix::TypeError("value is not an attrset");
+    throw nix::TypeError(State, "value is not an attrset");
 
-  assert(V.attrs && "nix must allocate non-null attrs!");
-  auto *Nested = V.attrs->find(Attr);
-  if (Nested == V.attrs->end())
+  assert(V.attrs() && "nix must allocate non-null attrs!");
+  auto *Nested = V.attrs()->find(Attr);
+  if (Nested == V.attrs()->end())
     throw nix::AttrPathNotFound("attrname " + State.symbols[Attr] +
                                 " not found in attrset");
 
@@ -145,11 +145,12 @@ nix::Value getSubOptions(nix::EvalState &State, nix::Value &Type) {
   nix::Value &GetSubOptions =
       selectAttr(State, Type, State.symbols.create("getSubOptions"));
 
-  nix::Value EmptyList;
-  EmptyList.mkList(0);
+  auto list = State.buildList(0);
+  auto EmptyList = State.allocValue();
+  EmptyList->mkList(list);
   // Invoke "GetSubOptions"
   nix::Value VResult;
-  State.callFunction(GetSubOptions, EmptyList, VResult, nix::noPos);
+  State.callFunction(GetSubOptions, *EmptyList, VResult, nix::noPos);
   return VResult;
 }
 

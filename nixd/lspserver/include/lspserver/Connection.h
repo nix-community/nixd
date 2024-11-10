@@ -49,7 +49,7 @@ public:
 
   InboundPort(int In = STDIN_FILENO,
               JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
-      : Close(false), In(In), StreamStyle(StreamStyle){};
+      : Close(false), In(In), StreamStyle(StreamStyle) {};
 
   /// Read messages specified in LSP standard, and collect standard json string
   /// into \p JSONString.

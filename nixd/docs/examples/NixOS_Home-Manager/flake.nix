@@ -10,7 +10,8 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
-  outputs = inputs@{ self, flake-parts, ... }:
+  outputs =
+    inputs@{ self, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       debug = true;
 
@@ -23,12 +24,15 @@
           hostname = inputs.nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
             modules = [
-              ({ pkgs, ... }: {
-                networking.hostName = "hostname";
-                environment.systemPackages = with pkgs; [
-                  nixd
-                ];
-              })
+              (
+                { pkgs, ... }:
+                {
+                  networking.hostName = "hostname";
+                  environment.systemPackages = with pkgs; [
+                    nixd
+                  ];
+                }
+              )
             ];
           };
         };
@@ -42,9 +46,12 @@
                 home.username = "user";
                 home.homeDirectory = "/home/user";
               }
-              ({ pkgs, ... }: {
-                wayland.windowManager.hyprland.enable = true;
-              })
+              (
+                { pkgs, ... }:
+                {
+                  wayland.windowManager.hyprland.enable = true;
+                }
+              )
             ];
           };
         };

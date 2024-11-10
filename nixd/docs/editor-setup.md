@@ -80,7 +80,7 @@ According to `:help coc-config.txt`, `coc-settings.json`:
 ### Neovim
 
 Neovim native LSP and [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig).
-We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.txt#nixd)
+We are officially supported by nvim-lspconfig, see [upstream docs](https://github.com/neovim/nvim-lspconfig/blob/master/doc/configs.txt#nixd)
 
 ### Emacs
 
@@ -108,6 +108,21 @@ A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is
                      :major-modes '(nix-mode)
                      :priority 0
                      :server-id 'nixd)))
+```
+
+### Helix
+
+`nixd` will be supported by default in the next release after 24.07.
+
+#### languages.toml
+
+```toml
+[[language]]
+name = "nix"
+language-servers = ["nixd","nil"]
+
+[language-server.nixd]
+command = "nixd"
 ```
 
 ## Change the configuration.
