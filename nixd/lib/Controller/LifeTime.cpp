@@ -38,7 +38,7 @@ opt<std::string> DefaultNixOSOptionsExpr{
 
 opt<bool> EnableSemanticTokens{"semantic-tokens",
                                desc("Enable/Disable semantic tokens"),
-                               init(true), cat(NixdCategory)};
+                               init(false), cat(NixdCategory)};
 
 // Here we try to wrap nixpkgs, nixos options in a single emtpy attrset in test.
 std::string getDefaultNixpkgsExpr() {
