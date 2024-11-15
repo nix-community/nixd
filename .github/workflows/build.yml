@@ -1,7 +1,7 @@
 name: Meson
 
 on:
-  [push, pull_request]
+  [push]
 
 jobs:
   nix-build-develop-gcc:
