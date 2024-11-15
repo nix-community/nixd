@@ -1,7 +1,7 @@
 name: Nix build
 
 on:
-  [push, pull_request]
+  [push]
 
 jobs:
   flake-default:
