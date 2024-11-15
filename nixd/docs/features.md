@@ -32,13 +32,16 @@ Screenshots:
 
 ### Semantic Tokens
 
+> [!WARNING]
+> This feature is experimental and not enabled by default.
+
 [nixd language server](https://github.com/nix-community/nixd) tries to make some tokens looks different by sending your editor some integers.
 However, types in nix language is pretty different from standard LSP types.
 So, as a result, attrnames, selection, variables are colored as different integers,
 but the colors may, or may not rendered properly in your editor.
 
 > [!TIP]
-> `--semantic-tokens=false` to disable the feature.
+> `--semantic-tokens=true` to enable the feature.
 
 #### Attribute name coloring
 
