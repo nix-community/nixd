@@ -8,6 +8,8 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  -llvm-else-after-return,
+  -readability-else-after-return,
   -readability-use-anyofallof,
   -misc-const-correctness,
   -misc-unused-parameters,
