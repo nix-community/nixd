@@ -76,41 +76,44 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
 
 void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
                                        const std::shared_ptr<EnvNode> &Env) {
-  const std::string &Name = Var.id().name();
-
-  bool EnclosedWith = false; // If there is a "With" enclosed this var name.
-  EnvNode *WithEnv = nullptr;
-  EnvNode *CurEnv = Env.get();
+  const auto &Name = Var.id().name();
+  const auto *CurEnv = Env.get();
   std::shared_ptr<Definition> Def;
+  std::vector<const EnvNode *> WithEnvs;
   for (; CurEnv; CurEnv = CurEnv->parent()) {
     if (CurEnv->defs().contains(Name)) {
       Def = CurEnv->defs().at(Name);
       break;
     }
-    // Find the most nested `with` expression, and set uses.
-    if (CurEnv->isWith() && !EnclosedWith) {
-      EnclosedWith = true;
-      WithEnv = CurEnv;
+    // Find all nested "with" expression, variables potentially come from those.
+    // For example
+    //    with lib;
+    //        with builtins;
+    //            generators <--- this variable may come from "lib" | "builtins"
+    //
+    // We cannot determine where it precisely come from, thus mark all Envs
+    // alive.
+    if (CurEnv->isWith()) {
+      WithEnvs.emplace_back(CurEnv);
     }
   }
 
   if (Def) {
     Def->usedBy(Var);
     Results.insert({&Var, LookupResult{LookupResultKind::Defined, Def}});
-    return;
-  }
-  if (EnclosedWith) {
-    Def = WithDefs.at(WithEnv->syntax());
-    Def->usedBy(Var);
+  } else if (!WithEnvs.empty()) { // comes from enclosed "with" expressions.
+    for (const auto *WithEnv : WithEnvs) {
+      Def = WithDefs.at(WithEnv->syntax());
+      Def->usedBy(Var);
+    }
     Results.insert({&Var, LookupResult{LookupResultKind::FromWith, Def}});
-    return;
+  } else {
+    // Otherwise, this variable is undefined.
+    Results.insert({&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
+    Diagnostic &Diag =
+        Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
+    Diag << Var.id().name();
   }
-
-  // Otherwise, this variable is undefined.
-  Results.insert({&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
-  Diagnostic &Diag =
-      Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
-  Diag << Var.id().name();
 }
 
 void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,

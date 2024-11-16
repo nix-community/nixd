@@ -324,4 +324,18 @@ in 1
   ASSERT_EQ(Diags.size(), 1);
 }
 
+TEST_F(VLATest, Issue606_NestedWith) {
+  const char *Src = R"(
+with builtins;
+  with builtins;
+    concatLists
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
