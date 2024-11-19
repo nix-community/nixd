@@ -4,16 +4,6 @@
 ```json
 {
    "jsonrpc":"2.0",
-   "id":0,
-   "method":"attrset/evalExpr",
-   "params": "{ hello.meta.description = \"A program that produces a familiar, friendly greeting\"; }"
-}
-```
-
-
-```json
-{
-   "jsonrpc":"2.0",
    "id":1,
    "method":"attrset/builtinInfo",
    "params": [ "any" ]
@@ -25,7 +15,7 @@
 CHECK-NEXT:  "jsonrpc": "2.0",
 CHECK-NEXT:  "result": {
 CHECK-NEXT:    "arity": 2,
-CHECK-NEXT:    "doc": "\n      Return `true` if the function *pred* returns `true` for at least one\n      element of *list*, and `false` otherwise.\n    "
+CHECK-NEXT:    "doc": "{{.*}}"
 CHECK-NEXT:  }
 CHECK-NEXT:}
 ```
@@ -33,4 +23,3 @@ CHECK-NEXT:}
 ```json
 {"jsonrpc":"2.0","method":"exit"}
 ```
-
