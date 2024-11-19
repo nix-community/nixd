@@ -160,6 +160,30 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   }
 }
 
+std::vector<std::string> completeNames(nix::Value &Scope,
+                                       const nix::EvalState &State,
+                                       std::string_view Prefix) {
+  int Num = 0;
+  std::vector<std::string> Names;
+
+  // FIXME: we may want to use "Trie" to speedup the string searching.
+  // However as my (roughtly) profiling the critical in this loop is
+  // evaluating package details.
+  // "Trie"s may not beneficial becausae it cannot speedup eval.
+  for (const auto *AttrPtr : Scope.attrs()->lexicographicOrder(State.symbols)) {
+    const nix::Attr &Attr = *AttrPtr;
+    const std::string_view Name = State.symbols[Attr.name];
+    if (Name.starts_with(Prefix)) {
+      ++Num;
+      Names.emplace_back(Name);
+      // We set this a very limited number as to speedup
+      if (Num > MaxItems)
+        break;
+    }
+  }
+  return Names;
+}
+
 } // namespace
 
 AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
@@ -176,6 +200,10 @@ AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
                      &AttrSetProvider::onOptionInfo);
   Registry.addMethod(rpcMethod::OptionComplete, this,
                      &AttrSetProvider::onOptionComplete);
+  Registry.addMethod(rpcMethod::BuiltinInfo, this,
+                     &AttrSetProvider::onBuiltinInfo);
+  Registry.addMethod(rpcMethod::BuiltinComplete, this,
+                     &AttrSetProvider::onBuiltinComplete);
 }
 
 void AttrSetProvider::onEvalExpr(
@@ -231,33 +259,11 @@ void AttrSetProvider::onAttrPathComplete(
       return;
     }
 
-    std::vector<std::string> Names;
-    int Num = 0;
-
-    // FIXME: we may want to use "Trie" to speedup the string searching.
-    // However as my (roughtly) profiling the critical in this loop is
-    // evaluating package details.
-    // "Trie"s may not beneficial becausae it cannot speedup eval.
-    for (const auto *AttrPtr :
-         Scope.attrs()->lexicographicOrder(state().symbols)) {
-      const nix::Attr &Attr = *AttrPtr;
-      const std::string_view Name = state().symbols[Attr.name];
-      if (Name.starts_with(Params.Prefix)) {
-        ++Num;
-        Names.emplace_back(Name);
-        // We set this a very limited number as to speedup
-        if (Num > MaxItems)
-          break;
-      }
-    }
-    Reply(std::move(Names));
-    return;
+    return Reply(completeNames(Scope, state(), Params.Prefix));
   } catch (const nix::BaseError &Err) {
-    Reply(error(Err.info().msg.str()));
-    return;
+    return Reply(error(Err.info().msg.str()));
   } catch (const std::exception &Err) {
-    Reply(error(Err.what()));
-    return;
+    return Reply(error(Err.what()));
   }
 }
 
@@ -342,4 +348,34 @@ void AttrSetProvider::onOptionComplete(
     Reply(error(Err.what()));
     return;
   }
+}
+void nixd::AttrSetProvider::onBuiltinInfo(
+    const AttrPathInfoParams &AttrPath,
+    lspserver::Callback<BuiltinDescription> Reply) {
+  return Reply([&]() -> llvm::Expected<BuiltinDescription> {
+    auto &Builtins = nixt::getBuiltins(state());
+    if (AttrPath.empty())
+      return error("attrpath is empty!");
+
+    auto &TheBuiltin = nixt::selectStrings(state(), Builtins, AttrPath);
+    const auto &Doc = state().getDoc(TheBuiltin);
+    if (!Doc) {
+      return error("No documentation available");
+    } else {
+      return BuiltinDescription{
+          .Doc = Doc->doc,
+          .Arity = static_cast<int64_t>(Doc->arity),
+      };
+    }
+  }());
+}
+
+void nixd::AttrSetProvider::onBuiltinComplete(
+    const AttrPathCompleteParams &Params,
+    lspserver::Callback<BuiltinCompleteResponse> Reply) {
+  return Reply([&]() -> llvm::Expected<BuiltinCompleteResponse> {
+    auto &Builtins = nixt::getBuiltins(state());
+    auto &Scope = nixt::selectStrings(state(), Builtins, Params.Scope);
+    return completeNames(Scope, state(), Params.Prefix);
+  }());
 }

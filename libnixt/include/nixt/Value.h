@@ -70,4 +70,9 @@ selectStringViews(nix::EvalState &State, nix::Value &V,
   return selectSymbols(State, V, toSymbols(State.symbols, AttrPath));
 }
 
+/// \brief Get nix's `builtins` constant
+inline nix::Value &getBuiltins(const nix::EvalState &State) {
+  return *State.baseEnv.values[0];
+}
+
 } // namespace nixt
