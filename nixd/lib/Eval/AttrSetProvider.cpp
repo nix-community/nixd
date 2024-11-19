@@ -160,6 +160,43 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   }
 }
 
+std::vector<std::string> completeNames(nix::Value &Scope,
+                                       const nix::EvalState &State,
+                                       std::string_view Prefix) {
+  int Num = 0;
+  std::vector<std::string> Names;
+
+  // FIXME: we may want to use "Trie" to speedup the string searching.
+  // However as my (roughtly) profiling the critical in this loop is
+  // evaluating package details.
+  // "Trie"s may not beneficial because it cannot speedup eval.
+  for (const auto *AttrPtr : Scope.attrs()->lexicographicOrder(State.symbols)) {
+    const nix::Attr &Attr = *AttrPtr;
+    const std::string_view Name = State.symbols[Attr.name];
+    if (Name.starts_with(Prefix)) {
+      ++Num;
+      Names.emplace_back(Name);
+      // We set this a very limited number as to speedup
+      if (Num > MaxItems)
+        break;
+    }
+  }
+  return Names;
+}
+
+std::optional<ValueDescription> describeValue(nix::EvalState &State,
+                                              nix::Value &V) {
+  const auto Doc = State.getDoc(V);
+  if (!Doc) {
+    return std::nullopt;
+  } else {
+    return ValueDescription{
+        .Doc = Doc->doc,
+        .Arity = static_cast<int64_t>(Doc->arity),
+    };
+  }
+}
+
 } // namespace
 
 AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
@@ -206,9 +243,11 @@ void AttrSetProvider::onAttrPathInfo(
 
       nix::Value &V = nixt::selectStrings(state(), Nixpkgs, AttrPath);
       state().forceValue(V, nix::noPos);
+
       return RespT{
           .Meta = metadataOf(state(), V),
           .PackageDesc = describePackage(state(), V),
+          .ValueDesc = describeValue(state(), V),
       };
     } catch (const nix::BaseError &Err) {
       return error(Err.info().msg.str());
@@ -231,33 +270,11 @@ void AttrSetProvider::onAttrPathComplete(
       return;
     }
 
-    std::vector<std::string> Names;
-    int Num = 0;
-
-    // FIXME: we may want to use "Trie" to speedup the string searching.
-    // However as my (roughtly) profiling the critical in this loop is
-    // evaluating package details.
-    // "Trie"s may not beneficial becausae it cannot speedup eval.
-    for (const auto *AttrPtr :
-         Scope.attrs()->lexicographicOrder(state().symbols)) {
-      const nix::Attr &Attr = *AttrPtr;
-      const std::string_view Name = state().symbols[Attr.name];
-      if (Name.starts_with(Params.Prefix)) {
-        ++Num;
-        Names.emplace_back(Name);
-        // We set this a very limited number as to speedup
-        if (Num > MaxItems)
-          break;
-      }
-    }
-    Reply(std::move(Names));
-    return;
+    return Reply(completeNames(Scope, state(), Params.Prefix));
   } catch (const nix::BaseError &Err) {
-    Reply(error(Err.info().msg.str()));
-    return;
+    return Reply(error(Err.info().msg.str()));
   } catch (const std::exception &Err) {
-    Reply(error(Err.what()));
-    return;
+    return Reply(error(Err.what()));
   }
 }
 
