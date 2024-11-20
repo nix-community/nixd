@@ -1,7 +1,10 @@
 name: Meson
 
 on:
-  [push]
+  pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
   nix-build-develop-gcc:
