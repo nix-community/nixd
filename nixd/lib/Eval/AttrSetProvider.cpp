@@ -169,7 +169,7 @@ std::vector<std::string> completeNames(nix::Value &Scope,
   // FIXME: we may want to use "Trie" to speedup the string searching.
   // However as my (roughtly) profiling the critical in this loop is
   // evaluating package details.
-  // "Trie"s may not beneficial becausae it cannot speedup eval.
+  // "Trie"s may not beneficial because it cannot speedup eval.
   for (const auto *AttrPtr : Scope.attrs()->lexicographicOrder(State.symbols)) {
     const nix::Attr &Attr = *AttrPtr;
     const std::string_view Name = State.symbols[Attr.name];
