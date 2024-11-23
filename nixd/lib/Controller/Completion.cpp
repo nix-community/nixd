@@ -430,7 +430,6 @@ void Controller::onCompletion(const CompletionParams &Params,
   };
   boost::asio::post(Pool, std::move(Action));
 }
-#undef check
 
 void Controller::onCompletionItemResolve(const CompletionItem &Params,
                                          Callback<CompletionItem> Reply) {
