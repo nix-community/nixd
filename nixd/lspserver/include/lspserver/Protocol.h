@@ -127,12 +127,12 @@ bool fromJSON(const llvm::json::Value &, VersionedTextDocumentIdentifier &,
 
 struct Position {
   /// Line position in a document (zero-based).
-  int line = 0;
+  long int line = 0;
 
   /// Character offset on a line in a document (zero-based).
   /// WARNING: this is in UTF-16 codepoints, not bytes or characters!
   /// Use the functions in SourceCode.h to construct/interpret Positions.
-  int character = 0;
+  long int character = 0;
 
   friend bool operator==(const Position &LHS, const Position &RHS) {
     return std::tie(LHS.line, LHS.character) ==
