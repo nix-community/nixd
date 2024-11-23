@@ -355,43 +355,40 @@ const Definition &nixd::findDefinition(const Node &N,
   return findVarDefinition(*Var, VLA);
 }
 
-#define Check(x) CheckReturn(x, nullptr)
 void Controller::onDefinition(const TextDocumentPositionParams &Params,
                               Callback<llvm::json::Value> Reply) {
+  using CheckTy = Locations;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
     const auto File = URI.file().str();
-    return Reply([&]() -> llvm::Expected<llvm::json::Value> {
-      const auto TU = Check(getTU(File));
-      const auto AST = Check(getAST(*TU));
+    return Reply(squash([&]() -> llvm::Expected<Locations> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
       const auto &VLA = *TU->variableLookup();
       const auto &PM = *TU->parentMap();
-      const auto &N = *Check(AST->descend({Pos, Pos}));
-      const auto &UpExpr = *Check(PM.upExpr(N));
+      const auto &N = *CheckDefault(AST->descend({Pos, Pos}));
+      const auto &UpExpr = *CheckDefault(PM.upExpr(N));
 
-      return squash([&]() -> llvm::Expected<Locations> {
-        // Special case for inherited names.
-        if (const ExprVar *Var = findInheritVar(N, PM, VLA))
-          return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
+      // Special case for inherited names.
+      if (const ExprVar *Var = findInheritVar(N, PM, VLA))
+        return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
 
-        switch (UpExpr.kind()) {
-        case Node::NK_ExprVar: {
-          const auto &Var = static_cast<const ExprVar &>(UpExpr);
-          return defineVar(Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
-        }
-        case Node::NK_ExprSelect: {
-          const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
-          return defineSelect(Sel, VLA, PM, *nixpkgsClient());
-        }
-        case Node::NK_ExprAttrs:
-          return defineAttrPath(N, PM, OptionsLock, Options);
-        default:
-          break;
-        }
-        return error("unknown node type for definition");
-      }());
-    }());
+      switch (UpExpr.kind()) {
+      case Node::NK_ExprVar: {
+        const auto &Var = static_cast<const ExprVar &>(UpExpr);
+        return defineVar(Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
+      }
+      case Node::NK_ExprSelect: {
+        const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
+        return defineSelect(Sel, VLA, PM, *nixpkgsClient());
+      }
+      case Node::NK_ExprAttrs:
+        return defineAttrPath(N, PM, OptionsLock, Options);
+      default:
+        break;
+      }
+      return error("unknown node type for definition");
+    }()));
   };
   boost::asio::post(Pool, std::move(Action));
 }
-#undef Check
