@@ -184,6 +184,19 @@ std::vector<std::string> completeNames(nix::Value &Scope,
   return Names;
 }
 
+std::optional<ValueDescription> describeValue(nix::EvalState &State,
+                                              nix::Value &V) {
+  const auto Doc = State.getDoc(V);
+  if (!Doc) {
+    return std::nullopt;
+  } else {
+    return ValueDescription{
+        .Doc = Doc->doc,
+        .Arity = static_cast<int64_t>(Doc->arity),
+    };
+  }
+}
+
 } // namespace
 
 AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
@@ -200,10 +213,6 @@ AttrSetProvider::AttrSetProvider(std::unique_ptr<InboundPort> In,
                      &AttrSetProvider::onOptionInfo);
   Registry.addMethod(rpcMethod::OptionComplete, this,
                      &AttrSetProvider::onOptionComplete);
-  Registry.addMethod(rpcMethod::BuiltinInfo, this,
-                     &AttrSetProvider::onBuiltinInfo);
-  Registry.addMethod(rpcMethod::BuiltinComplete, this,
-                     &AttrSetProvider::onBuiltinComplete);
 }
 
 void AttrSetProvider::onEvalExpr(
@@ -234,9 +243,11 @@ void AttrSetProvider::onAttrPathInfo(
 
       nix::Value &V = nixt::selectStrings(state(), Nixpkgs, AttrPath);
       state().forceValue(V, nix::noPos);
+
       return RespT{
           .Meta = metadataOf(state(), V),
           .PackageDesc = describePackage(state(), V),
+          .ValueDesc = describeValue(state(), V),
       };
     } catch (const nix::BaseError &Err) {
       return error(Err.info().msg.str());
@@ -348,34 +359,4 @@ void AttrSetProvider::onOptionComplete(
     Reply(error(Err.what()));
     return;
   }
-}
-void nixd::AttrSetProvider::onBuiltinInfo(
-    const AttrPathInfoParams &AttrPath,
-    lspserver::Callback<BuiltinDescription> Reply) {
-  return Reply([&]() -> llvm::Expected<BuiltinDescription> {
-    auto &Builtins = nixt::getBuiltins(state());
-    if (AttrPath.empty())
-      return error("attrpath is empty!");
-
-    auto &TheBuiltin = nixt::selectStrings(state(), Builtins, AttrPath);
-    const auto &Doc = state().getDoc(TheBuiltin);
-    if (!Doc) {
-      return error("No documentation available");
-    } else {
-      return BuiltinDescription{
-          .Doc = Doc->doc,
-          .Arity = static_cast<int64_t>(Doc->arity),
-      };
-    }
-  }());
-}
-
-void nixd::AttrSetProvider::onBuiltinComplete(
-    const AttrPathCompleteParams &Params,
-    lspserver::Callback<BuiltinCompleteResponse> Reply) {
-  return Reply([&]() -> llvm::Expected<BuiltinCompleteResponse> {
-    auto &Builtins = nixt::getBuiltins(state());
-    auto &Scope = nixt::selectStrings(state(), Builtins, Params.Scope);
-    return completeNames(Scope, state(), Params.Prefix);
-  }());
 }

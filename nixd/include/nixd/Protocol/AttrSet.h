@@ -33,12 +33,6 @@ constexpr inline std::string_view AttrPathComplete = "attrset/attrpathComplete";
 constexpr inline std::string_view OptionInfo = "attrset/optionInfo";
 constexpr inline std::string_view OptionComplete = "attrset/optionComplete";
 
-/// \brief ↩︎ Request information
-constexpr inline std::string_view BuiltinInfo = "attrset/builtinInfo";
-
-/// \brief ↩︎ Request completion of builtins.
-constexpr inline std::string_view BuiltinComplete = "attrset/builtinComplete";
-
 constexpr inline std::string_view Exit = "exit";
 
 } // namespace rpcMethod
@@ -86,12 +80,24 @@ llvm::json::Value toJSON(const ValueMeta &Params);
 bool fromJSON(const llvm::json::Value &Params, ValueMeta &R,
               llvm::json::Path P);
 
+/// \brief Using nix's ":doc" method to retrive value's additional information.
+struct ValueDescription {
+  std::string Doc;
+  std::int64_t Arity;
+};
+
+llvm::json::Value toJSON(const ValueDescription &Params);
+bool fromJSON(const llvm::json::Value &Params, ValueDescription &R,
+              llvm::json::Path P);
+
 struct AttrPathInfoResponse {
   /// \brief General value description
   ValueMeta Meta;
 
   /// \brief Package description of the attribute path, if available.
   PackageDescription PackageDesc;
+
+  std::optional<ValueDescription> ValueDesc;
 };
 
 llvm::json::Value toJSON(const AttrPathInfoResponse &Params);
@@ -143,17 +149,5 @@ bool fromJSON(const llvm::json::Value &Params, OptionField &R,
 using OptionInfoResponse = OptionDescription;
 
 using OptionCompleteResponse = std::vector<OptionField>;
-
-struct BuiltinDescription {
-  std::string Doc;
-  std::int64_t Arity;
-};
-
-llvm::json::Value toJSON(const BuiltinDescription &Params);
-bool fromJSON(const llvm::json::Value &Params, BuiltinDescription &R,
-              llvm::json::Path P);
-
-using BuiltinInfoResponse = BuiltinDescription;
-using BuiltinCompleteResponse = std::vector<std::string>;
 
 } // namespace nixd

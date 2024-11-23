@@ -66,14 +66,6 @@ public:
   /// FIXME: suppport list names. i.e.    `foo.*.submodule`
   void onOptionComplete(const AttrPathCompleteParams &Params,
                         lspserver::Callback<OptionCompleteResponse> Reply);
-
-  /// \brief Provide information on builtin values.
-  void onBuiltinInfo(const AttrPathInfoParams &AttrPath,
-                     lspserver::Callback<BuiltinInfoResponse> Reply);
-
-  /// \brief Complete builtin values.
-  void onBuiltinComplete(const AttrPathCompleteParams &Params,
-                         lspserver::Callback<BuiltinCompleteResponse> Reply);
 };
 
 } // namespace nixd
