@@ -70,6 +70,7 @@ selectStringViews(nix::EvalState &State, nix::Value &V,
   return selectSymbols(State, V, toSymbols(State.symbols, AttrPath));
 }
 
+/// TODO: use https://github.com/NixOS/nix/pull/11914 on nix version bump
 /// \brief Get nix's `builtins` constant
 inline nix::Value &getBuiltins(const nix::EvalState &State) {
   return *State.baseEnv.values[0];
