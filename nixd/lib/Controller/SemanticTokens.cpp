@@ -3,6 +3,7 @@
 /// [Semantic Tokens]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_semanticTokens
 
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
@@ -235,15 +236,17 @@ public:
 
 void Controller::onSemanticTokens(const SemanticTokensParams &Params,
                                   Callback<SemanticTokens> Reply) {
+  using CheckTy = SemanticTokens;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  this]() mutable {
-    if (std::shared_ptr<NixTU> TU = getTU(URI.file().str(), Reply)) {
-      if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) {
-        SemanticTokenBuilder Builder(*TU->variableLookup(), TU->src());
-        Builder.dfs(AST.get());
-        Reply(SemanticTokens{.tokens = Builder.finish()});
-      }
-    }
+    const auto File = URI.file();
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+      SemanticTokenBuilder Builder(*TU->variableLookup(), TU->src());
+      Builder.dfs(AST.get());
+      return SemanticTokens{.tokens = Builder.finish()};
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

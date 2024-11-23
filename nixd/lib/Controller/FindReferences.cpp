@@ -3,6 +3,7 @@
 /// [Find References]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references
 
+#include "CheckReturn.h"
 #include "Convert.h"
 #include "Definition.h"
 
@@ -48,25 +49,22 @@ std::vector<Location> findReferences(const nixf::Node &Desc,
 
 void Controller::onReferences(const TextDocumentPositionParams &Params,
                               Callback<std::vector<Location>> Reply) {
+  using CheckTy = std::vector<Location>;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
     std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        const nixf::Node *Desc = AST->descend({Pos, Pos});
-        if (!Desc) {
-          return Reply(
-              error("cannot find corresponding node on given position"));
-        }
-        const auto &PM = *TU->parentMap();
-        const auto &VLA = *TU->variableLookup();
-        try {
-          return Reply(findReferences(*Desc, PM, VLA, URI, TU->src()));
-        } catch (std::exception &E) {
-          return Reply(error("references: {0}", E.what()));
-        }
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+      const auto &Desc = CheckDefault(AST->descend({Pos, Pos}));
+      const auto &PM = *TU->parentMap();
+      const auto &VLA = *TU->variableLookup();
+      try {
+        return findReferences(*Desc, PM, VLA, URI, TU->src());
+      } catch (std::exception &E) {
+        return error("references: {0}", E.what());
       }
-    }
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

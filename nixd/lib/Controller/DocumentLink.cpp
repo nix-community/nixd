@@ -15,6 +15,7 @@
 ///     FIXME: support flake ref
 ///
 
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
@@ -80,16 +81,18 @@ void dfs(const Node *N, const std::string &BasePath,
 void Controller::onDocumentLink(
     const DocumentLinkParams &Params,
     lspserver::Callback<std::vector<DocumentLink>> Reply) {
+  using CheckTy = std::vector<DocumentLink>;
   auto Action = [File = Params.textDocument.uri.file().str(),
                  Reply = std::move(Reply), this]() mutable {
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        // Traverse the AST, provide the links
-        std::vector<DocumentLink> Links;
-        dfs(AST.get(), File, Links, TU->src());
-        Reply(std::move(Links));
-      }
-    }
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+
+      // Traverse the AST, provide the links
+      std::vector<DocumentLink> Links;
+      dfs(AST.get(), File, Links, TU->src());
+      return Links;
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

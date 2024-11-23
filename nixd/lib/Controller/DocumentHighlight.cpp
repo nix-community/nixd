@@ -3,6 +3,7 @@
 /// [Document Highlight]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentHighlight
 
+#include "CheckReturn.h"
 #include "Convert.h"
 #include "Definition.h"
 
@@ -55,26 +56,24 @@ std::vector<DocumentHighlight> highlight(const nixf::Node &Desc,
 void Controller::onDocumentHighlight(
     const TextDocumentPositionParams &Params,
     Callback<std::vector<DocumentHighlight>> Reply) {
+  using CheckTy = std::vector<DocumentHighlight>;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
     std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        const nixf::Node *Desc = AST->descend({Pos, Pos});
-        if (!Desc) {
-          Reply(error("cannot find corresponding node on given position"));
-          return;
-        }
-        try {
-          const auto &PM = *TU->parentMap();
-          const auto &VLA = *TU->variableLookup();
-          return Reply(highlight(*Desc, PM, VLA, URI, TU->src()));
-        } catch (std::exception &E) {
-          elog("textDocument/documentHighlight failed: {0}", E.what());
-          return Reply(std::vector<DocumentHighlight>{});
-        }
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+
+      const auto &Desc = *CheckDefault(AST->descend({Pos, Pos}));
+      try {
+        const auto &PM = *TU->parentMap();
+        const auto &VLA = *TU->variableLookup();
+        return highlight(Desc, PM, VLA, URI, TU->src());
+      } catch (std::exception &E) {
+        elog("textDocument/documentHighlight failed: {0}", E.what());
+        return CheckTy{};
       }
-    }
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }
