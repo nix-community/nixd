@@ -3,6 +3,7 @@
 /// [Code Action]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_codeAction
 
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
@@ -16,12 +17,15 @@ using namespace lspserver;
 
 void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
                               Callback<std::vector<CodeAction>> Reply) {
+  using CheckTy = std::vector<CodeAction>;
   std::string File(Params.textDocument.uri.file());
   Range Range = Params.range;
   auto Action = [Reply = std::move(Reply), File, Range, this]() mutable {
-    if (auto TU = getTU(File, Reply)) {
-      std::vector<nixf::Diagnostic> Diagnostics = TU->diagnostics();
-      std::vector<CodeAction> Actions;
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+
+      const auto &Diagnostics = TU->diagnostics();
+      auto Actions = std::vector<CodeAction>();
       Actions.reserve(Diagnostics.size());
       for (const nixf::Diagnostic &D : Diagnostics) {
         auto DRange = toLSPRange(TU->src(), D.range());
@@ -50,8 +54,8 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           });
         }
       }
-      Reply(std::move(Actions));
-    }
+      return Actions;
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

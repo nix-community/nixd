@@ -3,6 +3,7 @@
 /// [Document Symbol]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_documentSymbol
 
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
@@ -236,15 +237,16 @@ void collect(const Node *AST, std::vector<DocumentSymbol> &Symbols,
 
 void Controller::onDocumentSymbol(const DocumentSymbolParams &Params,
                                   Callback<std::vector<DocumentSymbol>> Reply) {
+  using CheckTy = std::vector<DocumentSymbol>;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  this]() mutable {
-    if (std::shared_ptr<NixTU> TU = getTU(URI.file().str(), Reply)) {
-      if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) {
-        std::vector<DocumentSymbol> Symbols;
-        collect(AST.get(), Symbols, *TU->variableLookup(), TU->src());
-        Reply(std::move(Symbols));
-      }
-    }
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(URI.file().str()));
+      const auto AST = CheckDefault(getAST(*TU));
+      auto Symbols = std::vector<DocumentSymbol>();
+      collect(AST.get(), Symbols, *TU->variableLookup(), TU->src());
+      return Symbols;
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

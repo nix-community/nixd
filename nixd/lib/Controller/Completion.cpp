@@ -4,6 +4,7 @@
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_completion
 
 #include "AST.h"
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "lspserver/Protocol.h"
@@ -376,69 +377,56 @@ void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
 
 void Controller::onCompletion(const CompletionParams &Params,
                               Callback<CompletionList> Reply) {
+  using CheckTy = CompletionList;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
-    std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        const nixf::Node *Desc = AST->descend({Pos, Pos});
-        if (!Desc) {
-          Reply(error("cannot find corresponding node on given position"));
-          return;
-        }
-        if (!Desc->children().empty()) {
-          Reply(CompletionList{});
-          return;
-        }
-        const nixf::Node &N = *Desc;
-        const ParentMapAnalysis &PM = *TU->parentMap();
-        const Node *MaybeUpExpr = PM.upExpr(N);
-        if (!MaybeUpExpr) {
-          // If there is no concrete expression containing the cursor
-          // Reply an empty list.
-          Reply(CompletionList{});
-          return;
-        }
-        // Otherwise, construct the completion list from a set of providers.
-        const Node &UpExpr = *MaybeUpExpr;
-        Reply([&]() -> CompletionList {
-          CompletionList List;
-          const VariableLookupAnalysis &VLA = *TU->variableLookup();
-          try {
-            switch (UpExpr.kind()) {
-            // In these cases, assume the cursor have "variable" scoping.
-            case Node::NK_ExprVar: {
-              completeVarName(VLA, PM,
-                              static_cast<const nixf::ExprVar &>(UpExpr),
-                              *nixpkgsClient(), List.items);
-              break;
-            }
-            // A "select" expression. e.g.
-            // foo.a|
-            // foo.|
-            // foo.a.bar|
-            case Node::NK_ExprSelect: {
-              const auto &Select =
-                  static_cast<const nixf::ExprSelect &>(UpExpr);
-              completeSelect(Select, *nixpkgsClient(), VLA, PM,
-                             N.kind() == Node::NK_Dot, List.items);
-              break;
-            }
-            case Node::NK_ExprAttrs: {
-              completeAttrPath(N, PM, OptionsLock, Options,
-                               ClientCaps.CompletionSnippets, List.items);
-              break;
-            }
-            default:
-              break;
-            }
-          } catch (ExceedSizeError &Err) {
-            List.isIncomplete = true;
+    const auto File = URI.file().str();
+    return Reply([&]() -> llvm::Expected<CompletionList> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+
+      const auto *Desc = AST->descend({Pos, Pos});
+      CheckDefault(Desc && Desc->children().empty());
+
+      const auto &N = *Desc;
+      const auto &PM = *TU->parentMap();
+      const auto &UpExpr = *CheckDefault(PM.upExpr(N));
+
+      return [&]() {
+        CompletionList List;
+        const VariableLookupAnalysis &VLA = *TU->variableLookup();
+        try {
+          switch (UpExpr.kind()) {
+          // In these cases, assume the cursor have "variable" scoping.
+          case Node::NK_ExprVar: {
+            completeVarName(VLA, PM, static_cast<const nixf::ExprVar &>(UpExpr),
+                            *nixpkgsClient(), List.items);
+            return List;
           }
+          // A "select" expression. e.g.
+          // foo.a|
+          // foo.|
+          // foo.a.bar|
+          case Node::NK_ExprSelect: {
+            const auto &Select = static_cast<const nixf::ExprSelect &>(UpExpr);
+            completeSelect(Select, *nixpkgsClient(), VLA, PM,
+                           N.kind() == Node::NK_Dot, List.items);
+            return List;
+          }
+          case Node::NK_ExprAttrs: {
+            completeAttrPath(N, PM, OptionsLock, Options,
+                             ClientCaps.CompletionSnippets, List.items);
+            return List;
+          }
+          default:
+            return List;
+          }
+        } catch (ExceedSizeError &Err) {
+          List.isIncomplete = true;
           return List;
-        }());
-      }
-    }
+        }
+      }();
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

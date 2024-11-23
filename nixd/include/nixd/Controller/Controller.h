@@ -106,32 +106,31 @@ private:
       EndWorkDoneProgress(Params);
   }
 
-  std::mutex TUsLock;
+  mutable std::mutex TUsLock;
   llvm::StringMap<std::shared_ptr<NixTU>> TUs;
 
-  template <class T>
-  std::shared_ptr<NixTU> getTU(std::string File,
-                               lspserver::Callback<T> &Reply) {
+  std::shared_ptr<const NixTU> getTU(std::string_view File) const {
     using lspserver::error;
     std::lock_guard G(TUsLock);
     if (!TUs.count(File)) [[unlikely]] {
-      Reply(T{}); // Reply a default constructed response.
       lspserver::elog("cannot get translation unit: {0}", File);
       return nullptr;
     }
-    return TUs[File];
+    return TUs.lookup(File);
   }
 
-  template <class T>
-  std::shared_ptr<nixf::Node> getAST(const NixTU &TU,
-                                     lspserver::Callback<T> &Reply) {
+  static std::shared_ptr<nixf::Node> getAST(const NixTU &TU) {
     using lspserver::error;
     if (!TU.ast()) {
-      Reply(T{});
       lspserver::elog("AST is null on this unit");
       return nullptr;
     }
     return TU.ast();
+  }
+
+  std::shared_ptr<const nixf::Node> getAST(std::string_view File) const {
+    auto TU = getTU(File);
+    return TU ? getAST(*TU) : nullptr;
   }
 
   boost::asio::thread_pool Pool;
@@ -217,8 +216,9 @@ private:
   void onRename(const lspserver::RenameParams &Params,
                 lspserver::Callback<lspserver::WorkspaceEdit> Reply);
 
-  void onPrepareRename(const lspserver::TextDocumentPositionParams &Params,
-                       lspserver::Callback<lspserver::Range> Reply);
+  void
+  onPrepareRename(const lspserver::TextDocumentPositionParams &Params,
+                  lspserver::Callback<std::optional<lspserver::Range>> Reply);
 
   void onFormat(const lspserver::DocumentFormattingParams &Params,
                 lspserver::Callback<std::vector<lspserver::TextEdit>> Reply);

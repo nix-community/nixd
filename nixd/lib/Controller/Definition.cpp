@@ -5,6 +5,7 @@
 
 #include "Definition.h"
 #include "AST.h"
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
@@ -356,50 +357,38 @@ const Definition &nixd::findDefinition(const Node &N,
 
 void Controller::onDefinition(const TextDocumentPositionParams &Params,
                               Callback<llvm::json::Value> Reply) {
+  using CheckTy = Locations;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
-    std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) [[likely]] {
-        const VariableLookupAnalysis &VLA = *TU->variableLookup();
-        const ParentMapAnalysis &PM = *TU->parentMap();
-        const Node *MaybeN = AST->descend({Pos, Pos});
-        if (!MaybeN) [[unlikely]] {
-          Reply(error("cannot find AST node on given position"));
-          return;
-        }
-        const Node &N = *MaybeN;
-        const Node *MaybeUpExpr = PM.upExpr(N);
-        if (!MaybeUpExpr) {
-          Reply(nullptr);
-          return;
-        }
+    const auto File = URI.file().str();
+    return Reply(squash([&]() -> llvm::Expected<Locations> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+      const auto &VLA = *TU->variableLookup();
+      const auto &PM = *TU->parentMap();
+      const auto &N = *CheckDefault(AST->descend({Pos, Pos}));
+      const auto &UpExpr = *CheckDefault(PM.upExpr(N));
 
-        const Node &UpExpr = *MaybeUpExpr;
+      // Special case for inherited names.
+      if (const ExprVar *Var = findInheritVar(N, PM, VLA))
+        return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
 
-        return Reply(squash([&]() -> llvm::Expected<Locations> {
-          // Special case for inherited names.
-          if (const ExprVar *Var = findInheritVar(N, PM, VLA))
-            return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
-
-          switch (UpExpr.kind()) {
-          case Node::NK_ExprVar: {
-            const auto &Var = static_cast<const ExprVar &>(UpExpr);
-            return defineVar(Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
-          }
-          case Node::NK_ExprSelect: {
-            const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
-            return defineSelect(Sel, VLA, PM, *nixpkgsClient());
-          }
-          case Node::NK_ExprAttrs:
-            return defineAttrPath(N, PM, OptionsLock, Options);
-          default:
-            break;
-          }
-          return error("unknown node type for definition");
-        }()));
+      switch (UpExpr.kind()) {
+      case Node::NK_ExprVar: {
+        const auto &Var = static_cast<const ExprVar &>(UpExpr);
+        return defineVar(Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
       }
-    }
+      case Node::NK_ExprSelect: {
+        const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
+        return defineSelect(Sel, VLA, PM, *nixpkgsClient());
+      }
+      case Node::NK_ExprAttrs:
+        return defineAttrPath(N, PM, OptionsLock, Options);
+      default:
+        break;
+      }
+      return error("unknown node type for definition");
+    }()));
   };
   boost::asio::post(Pool, std::move(Action));
 }

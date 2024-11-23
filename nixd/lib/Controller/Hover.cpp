@@ -4,6 +4,7 @@
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_hover
 
 #include "AST.h"
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/Controller/Controller.h"
@@ -116,84 +117,79 @@ public:
 
 void Controller::onHover(const TextDocumentPositionParams &Params,
                          Callback<std::optional<Hover>> Reply) {
+  using CheckTy = std::optional<Hover>;
   auto Action = [Reply = std::move(Reply),
                  File = std::string(Params.textDocument.uri.file()),
                  RawPos = Params.position, this]() mutable {
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        nixf::Position Pos{RawPos.line, RawPos.character};
-        const nixf::Node *N = AST->descend({Pos, Pos});
-        if (!N) {
-          Reply(std::nullopt);
-          return;
-        }
-        std::string Name = N->name();
-        const VariableLookupAnalysis &VLA = *TU->variableLookup();
-        const ParentMapAnalysis &PM = *TU->parentMap();
-        if (havePackageScope(*N, VLA, PM) && nixpkgsClient()) {
-          // Ask nixpkgs client what's current package documentation.
-          NixpkgsHoverProvider NHP(*nixpkgsClient());
-          auto [Scope, Name] = getScopeAndPrefix(*N, PM);
-          if (std::optional<std::string> Doc =
-                  NHP.resolvePackage(Scope, Name)) {
-            Reply(Hover{
-                .contents =
-                    MarkupContent{
-                        .kind = MarkupKind::Markdown,
-                        .value = std::move(*Doc),
-                    },
-                .range = toLSPRange(TU->src(), N->range()),
-            });
-            return;
-          }
-        }
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+      const auto Pos = nixf::Position{RawPos.line, RawPos.character};
+      const auto &N = *CheckDefault(AST->descend({Pos, Pos}));
 
-        std::vector<std::string> Scope;
-        auto R = findAttrPath(*N, PM, Scope);
-        if (R == FindAttrPathResult::OK) {
-          std::lock_guard _(OptionsLock);
-          for (const auto &[_, Client] : Options) {
-            if (AttrSetClient *C = Client->client()) {
-              OptionsHoverProvider OHP(*C);
-              std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
-              std::string Docs;
-              if (Desc) {
-                if (Desc->Type) {
-                  std::string TypeName = Desc->Type->Name.value_or("");
-                  std::string TypeDesc = Desc->Type->Description.value_or("");
-                  Docs += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
-                } else {
-                  Docs += "? (missing type)";
-                }
-                if (Desc->Description) {
-                  Docs += "\n\n" + Desc->Description.value_or("");
-                }
-                Reply(Hover{
-                    .contents =
-                        MarkupContent{
-                            .kind = MarkupKind::Markdown,
-                            .value = std::move(Docs),
-                        },
-                    .range = toLSPRange(TU->src(), N->range()),
-                });
-                return;
+      const auto Name = std::string(N.name());
+      const auto &VLA = *TU->variableLookup();
+      const auto &PM = *TU->parentMap();
+      if (havePackageScope(N, VLA, PM) && nixpkgsClient()) {
+        // Ask nixpkgs client what's current package documentation.
+        auto NHP = NixpkgsHoverProvider(*nixpkgsClient());
+        const auto [Scope, Name] = getScopeAndPrefix(N, PM);
+        if (std::optional<std::string> Doc = NHP.resolvePackage(Scope, Name)) {
+          return Hover{
+              .contents =
+                  MarkupContent{
+                      .kind = MarkupKind::Markdown,
+                      .value = std::move(*Doc),
+                  },
+              .range = toLSPRange(TU->src(), N.range()),
+          };
+        }
+      }
+
+      auto Scope = std::vector<std::string>();
+      const auto R = findAttrPath(N, PM, Scope);
+      if (R == FindAttrPathResult::OK) {
+        std::lock_guard _(OptionsLock);
+        for (const auto &[_, Client] : Options) {
+          if (AttrSetClient *C = Client->client()) {
+            OptionsHoverProvider OHP(*C);
+            std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
+            std::string Docs;
+            if (Desc) {
+              if (Desc->Type) {
+                std::string TypeName = Desc->Type->Name.value_or("");
+                std::string TypeDesc = Desc->Type->Description.value_or("");
+                Docs += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
+              } else {
+                Docs += "? (missing type)";
               }
+              if (Desc->Description) {
+                Docs += "\n\n" + Desc->Description.value_or("");
+              }
+              return Hover{
+                  .contents =
+                      MarkupContent{
+                          .kind = MarkupKind::Markdown,
+                          .value = std::move(Docs),
+                      },
+                  .range = toLSPRange(TU->src(), N.range()),
+              };
             }
           }
         }
-
-        // Reply it's kind by static analysis
-        // FIXME: support more.
-        Reply(Hover{
-            .contents =
-                MarkupContent{
-                    .kind = MarkupKind::Markdown,
-                    .value = "`" + Name + "`",
-                },
-            .range = toLSPRange(TU->src(), N->range()),
-        });
       }
-    }
+
+      // Reply it's kind by static analysis
+      // FIXME: support more.
+      return Hover{
+          .contents =
+              MarkupContent{
+                  .kind = MarkupKind::Markdown,
+                  .value = "`" + Name + "`",
+              },
+          .range = toLSPRange(TU->src(), N.range()),
+      };
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }
