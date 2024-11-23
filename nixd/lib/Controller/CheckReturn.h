@@ -6,7 +6,7 @@
 #define CheckReturn(x, Ret)                                                    \
   ({                                                                           \
     decltype(x) temp = (x);                                                    \
-    if (!temp) {                                                               \
+    if (!temp) [[unlikely]] {                                                  \
       return Ret;                                                              \
     }                                                                          \
     temp;                                                                      \
