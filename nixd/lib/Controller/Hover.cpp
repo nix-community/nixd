@@ -56,7 +56,7 @@ class NixpkgsHoverProvider {
   ///
   /// FIXME: there are many markdown generation in language server.
   /// Maybe we can add structured generating first?
-  static std::string mkMarkdown(const PackageDescription &Package) {
+  static std::string mkPackageMarkdown(const PackageDescription &Package) {
     std::ostringstream OS;
     // Make each field a new section
 
@@ -87,6 +87,10 @@ class NixpkgsHoverProvider {
     return OS.str();
   }
 
+  static std::string mkValueMarkdown(const ValueDescription &ValueDesc) {
+    return ValueDesc.Doc;
+  }
+
 public:
   NixpkgsHoverProvider(AttrSetClient &NixpkgsClient)
       : NixpkgsClient(NixpkgsClient) {}
@@ -107,7 +111,11 @@ public:
     if (!Desc)
       return std::nullopt;
 
-    return mkMarkdown(Desc->PackageDesc);
+    if (const auto ValueDesc = Desc->ValueDesc) {
+      return ValueDesc->Doc;
+    }
+
+    return mkPackageMarkdown(Desc->PackageDesc);
   }
 };
 
