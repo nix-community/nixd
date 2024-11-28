@@ -1,0 +1,7 @@
+<map id="lspserver::DidOpenTextDocumentParams" name="lspserver::DidOpenTextDocumentParams">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,191,245,235"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1TextDocumentItem.html" title=" " alt="" coords="18,98,232,126"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="128,141,128,190,122,190,122,141"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="47,5,203,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="128,48,128,98,122,98,122,48"/>
+</map>

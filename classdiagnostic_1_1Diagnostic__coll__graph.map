@@ -1,0 +1,7 @@
+<map id="diagnostic.Diagnostic" name="diagnostic.Diagnostic">
+<area shape="rect" id="Node000001" title=" " alt="" coords="15,98,177,126"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,91,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="64,45,91,96,87,99,60,48"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="114,5,176,33"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="133,48,105,99,101,96,129,45"/>
+</map>
