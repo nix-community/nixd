@@ -54,8 +54,8 @@ std::optional<Location> locationOf(nix::PosTable &PTable, nix::Value &V) {
     return std::nullopt;
 
   Position LPos = {
-      .line = static_cast<int>(NixPos.line - 1),
-      .character = static_cast<int>(NixPos.column - 1),
+      .line = static_cast<int64_t>(NixPos.line - 1),
+      .character = static_cast<int64_t>(NixPos.column - 1),
   };
 
   return Location{
@@ -86,8 +86,8 @@ void fillUnsafeGetAttrPosLocation(nix::EvalState &State, nix::Value &V,
       Column.type() == nix::ValueType::nInt) {
 
     // Nix position starts from "1" however lsp starts from zero.
-    lspserver::Position Pos = {static_cast<int>(Line.integer()) - 1,
-                               static_cast<int>(Column.integer()) - 1};
+    lspserver::Position Pos = {static_cast<int64_t>(Line.integer()) - 1,
+                               static_cast<int64_t>(Column.integer()) - 1};
     Loc.range = {Pos, Pos};
   }
 }
