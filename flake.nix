@@ -29,12 +29,12 @@
         let
           inherit (pkgs)
             nixVersions
-            llvmPackages_16
+            llvmPackages_19
             callPackage
             stdenv
             ;
           nix = nixVersions.nix_2_25;
-          llvmPackages = llvmPackages_16;
+          llvmPackages = llvmPackages_19;
           nixf = callPackage ./libnixf { };
           nixt = callPackage ./libnixt { inherit nix; };
           nixd = callPackage ./nixd {
