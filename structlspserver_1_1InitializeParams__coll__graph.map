@@ -1,0 +1,9 @@
+<map id="lspserver::InitializeParams" name="lspserver::InitializeParams">
+<area shape="rect" id="Node000001" title=" " alt="" coords="66,225,259,252"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1ClientCapabilities.html" title=" " alt="" coords="5,124,210,151"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="124,164,158,223,153,226,120,166"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1InitializationOptions.html" title=" " alt="" coords="234,115,405,160"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="277,171,228,203,187,226,185,222,225,198,274,166"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1ConfigurationSettings.html" title=" " alt="" coords="231,5,408,50"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="322,66,322,114,317,114,317,66"/>
+</map>
