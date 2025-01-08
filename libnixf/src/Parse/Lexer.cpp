@@ -409,9 +409,15 @@ Token Lexer::lexIndString() {
     return finishToken();
   }
   if (consumePrefix("''")) {
-    Tok = tok_quote2;
-    if (consumePrefix("$") || consumePrefix("\\") || consumePrefix("'"))
+    if (consumePrefix("$") || consumePrefix("'")) {
       Tok = tok_string_escape;
+    } else if (consumePrefix("\\")) {
+      // ''\ escapes any character
+      consume();
+      Tok = tok_string_escape;
+    } else {
+      Tok = tok_quote2;
+    }
     return finishToken();
   }
 
