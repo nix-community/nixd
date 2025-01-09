@@ -13,6 +13,7 @@
 #include "lspserver/Protocol.h"
 #include "lspserver/Logger.h"
 #include "lspserver/URI.h"
+#include <llvm/ADT/StringExtras.h>
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/StringSwitch.h>
 #include <llvm/Support/ErrorHandling.h>

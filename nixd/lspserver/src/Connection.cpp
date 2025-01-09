@@ -157,6 +157,12 @@ bool readLine(int fd, const std::atomic<bool> &Close,
     if (Close)
       return false;
 
+    // POLLHUB: hang up from the writer side
+    // POLLNVAL: invalid request (fd not open)
+    if (FDs[0].revents & (POLLHUP | POLLNVAL)) {
+      return false;
+    }
+
     if (FDs[0].revents & POLLIN) {
       ssize_t BytesRead = read(fd, &Ch, 1);
       if (BytesRead == -1) {
@@ -221,18 +227,18 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
     auto LineRef = Line.str().trim();
     if (IsInputBlock) {
       // We are in input blocks, read lines and append JSONString.
-      if (LineRef.startswith("#")) // comment
+      if (LineRef.starts_with("#")) // comment
         continue;
 
       // End of the block
-      if (LineRef.startswith("```")) {
+      if (LineRef.starts_with("```")) {
         IsInputBlock = false;
         break;
       }
 
       JSONString += Line;
     } else {
-      if (LineRef.startswith("```json"))
+      if (LineRef.starts_with("```json"))
         IsInputBlock = true;
     }
   }

@@ -12,7 +12,9 @@
 ///  nix[: 2.19.3]
 ///
 ///
+
 #include "AST.h"
+#include "CheckReturn.h"
 #include "Convert.h"
 
 #include "nixd/CommandLine/Options.h"
@@ -112,24 +114,27 @@ public:
 
 void Controller::onInlayHint(const InlayHintsParams &Params,
                              Callback<std::vector<InlayHint>> Reply) {
+
+  using CheckTy = std::vector<InlayHint>;
+
   // If not enabled, exit early.
   if (!EnableInlayHints)
     return Reply(std::vector<InlayHint>{});
 
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Range = Params.range, this]() mutable {
-    std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<Node> AST = getAST(*TU, Reply)) [[likely]] {
-        // Perform inlay hints computation on the range.
-        std::vector<InlayHint> Response;
-        NixpkgsInlayHintsProvider NP(*nixpkgsClient(), *TU->variableLookup(),
-                                     *TU->parentMap(), Range, Response,
-                                     TU->src());
-        NP.dfs(AST.get());
-        Reply(std::move(Response));
-      }
-    }
+    const auto File = URI.file();
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+      // Perform inlay hints computation on the range.
+      std::vector<InlayHint> Response;
+      NixpkgsInlayHintsProvider NP(*nixpkgsClient(), *TU->variableLookup(),
+                                   *TU->parentMap(), Range, Response,
+                                   TU->src());
+      NP.dfs(AST.get());
+      return Response;
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

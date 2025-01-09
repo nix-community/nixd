@@ -58,7 +58,7 @@ TEST_F(ValueTest, selectAttrPath) {
   nix::Value &Kern = selectStringViews(*State, Nested, {"c", "d"});
 
   ASSERT_EQ(Kern.type(), nix::ValueType::nInt);
-  ASSERT_EQ(Kern.integer(), 1);
+  ASSERT_EQ(Kern.integer(), nix::NixInt{1});
 }
 
 } // namespace

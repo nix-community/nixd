@@ -1,5 +1,6 @@
 #include "lspserver/SourceCode.h"
 #include "lspserver/Logger.h"
+#include <llvm/ADT/StringExtras.h>
 #include <llvm/Support/Errc.h>
 
 namespace lspserver {

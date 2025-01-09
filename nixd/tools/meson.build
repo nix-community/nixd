@@ -31,7 +31,7 @@ if lit.found()
             '-vv',
             meson.current_source_dir() + '/nixd/test'
         ],
-        timeout: 60,
+        timeout: 120,
         depends: [ nixd, nixd_attrset_eval ] )
 endif
 

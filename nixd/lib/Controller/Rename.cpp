@@ -3,6 +3,7 @@
 /// [Rename]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
 
+#include "CheckReturn.h"
 #include "Convert.h"
 #include "Definition.h"
 
@@ -70,53 +71,52 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
 void Controller::onRename(const RenameParams &Params,
                           Callback<WorkspaceEdit> Reply) {
+  using CheckTy = WorkspaceEdit;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position),
                  NewText = Params.newName, this]() mutable {
-    std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        const nixf::Node *Desc = AST->descend({Pos, Pos});
-        if (!Desc) {
-          Reply(error("cannot find corresponding node on given position"));
-          return;
-        }
-        const auto &PM = *TU->parentMap();
-        const auto &VLA = *TU->variableLookup();
-        try {
-          return Reply(rename(*Desc, NewText, PM, VLA, URI, TU->src()));
-        } catch (std::exception &E) {
-          return Reply(error(E.what()));
-        }
+    const auto File = URI.file();
+    return Reply([&]() -> llvm::Expected<WorkspaceEdit> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+      const auto &Desc = *CheckReturn(
+          AST->descend({Pos, Pos}),
+          error("cannot find corresponding node on given position"));
+
+      const auto &PM = *TU->parentMap();
+      const auto &VLA = *TU->variableLookup();
+      try {
+        return rename(Desc, NewText, PM, VLA, URI, TU->src());
+      } catch (std::exception &E) {
+        return error(E.what());
       }
-    }
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }
 
 void Controller::onPrepareRename(
     const lspserver::TextDocumentPositionParams &Params,
-    Callback<lspserver::Range> Reply) {
+    Callback<std::optional<lspserver::Range>> Reply) {
+  using CheckTy = std::optional<lspserver::Range>;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  Pos = toNixfPosition(Params.position), this]() mutable {
-    std::string File(URI.file());
-    if (std::shared_ptr<NixTU> TU = getTU(File, Reply)) [[likely]] {
-      if (std::shared_ptr<nixf::Node> AST = getAST(*TU, Reply)) [[likely]] {
-        const nixf::Node *Desc = AST->descend({Pos, Pos});
-        if (!Desc) {
-          return Reply(
-              error("cannot find corresponding node on given position"));
-        }
-        const auto &PM = *TU->parentMap();
-        const auto &VLA = *TU->variableLookup();
-        try {
-          WorkspaceEdit WE = rename(*Desc, "", PM, VLA, URI, TU->src());
-          return Reply(toLSPRange(TU->src(), Desc->range()));
-        } catch (std::exception &E) {
-          return Reply(error(E.what()));
-        }
+    const auto File = URI.file();
+    return Reply([&]() -> llvm::Expected<CheckTy> {
+      const auto TU = CheckDefault(getTU(File));
+      const auto AST = CheckDefault(getAST(*TU));
+
+      const auto &Desc = *CheckDefault(AST->descend({Pos, Pos}));
+
+      const auto &PM = *TU->parentMap();
+      const auto &VLA = *TU->variableLookup();
+      try {
+        WorkspaceEdit WE = rename(Desc, "", PM, VLA, URI, TU->src());
+        return toLSPRange(TU->src(), Desc.range());
+      } catch (std::exception &E) {
+        return error(E.what());
       }
-    }
+    }());
   };
   boost::asio::post(Pool, std::move(Action));
 }

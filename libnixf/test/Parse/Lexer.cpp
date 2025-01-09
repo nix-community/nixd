@@ -197,4 +197,17 @@ TEST_F(LexerTest, lexURI) {
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
 
+TEST_F(LexerTest, IndStringEscape) {
+  Lexer Lexer(R"(''\$${)", Diags);
+  const TokenKind Match[] = {
+      tok_string_escape, // ''\ escapes $
+      tok_dollar_curly,  // ${
+  };
+  auto Tokens = collect(Lexer, &Lexer::lexIndString);
+  for (size_t I = 0; I < Tokens.size(); I++) {
+    ASSERT_EQ(Tokens[I].kind(), Match[I]);
+  }
+  ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
+}
+
 } // namespace
