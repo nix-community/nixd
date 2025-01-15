@@ -71,7 +71,7 @@ std::shared_ptr<Expr> Parser::parseExprApp(int Limit) {
 }
 
 std::shared_ptr<Expr> Parser::parseExpr() {
-  // Look ahead 3 tokens.
+  // Look ahead 4 tokens.
   switch (peek().kind()) {
   case tok_id: {
     switch (peek(1).kind()) {
@@ -93,8 +93,15 @@ std::shared_ptr<Expr> Parser::parseExpr() {
       case tok_comma:    // { a ,
       case tok_id:       // { a b
       case tok_ellipsis: // { a ...
-      case tok_r_curly:
         return parseExprLambda();
+      case tok_r_curly:
+        switch (peek(3).kind()) {
+        case tok_colon: // { a } :
+        case tok_at:    // { a } @
+          return parseExprLambda();
+        default:
+          return parseExprAttrs();
+        }
       default:
         break;
       }
