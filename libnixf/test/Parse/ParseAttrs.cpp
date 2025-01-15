@@ -235,20 +235,20 @@ TEST(Parser, AttrsBinding) {
   ASSERT_EQ(AST->range().rCur().line(), 4);
   ASSERT_EQ(AST->range().rCur().column(), 1);
 
-  auto &attrs = *static_cast<ExprAttrs *>(AST.get());
-  auto &bindings = attrs.binds()->bindings();
+  const auto &Attrs = *static_cast<ExprAttrs *>(AST.get());
+  const auto &Bindings = Attrs.binds()->bindings();
 
-  ASSERT_EQ(bindings.size(), 2);
+  ASSERT_EQ(Bindings.size(), 2);
 
-  ASSERT_EQ(bindings[0]->range().lCur().line(), 2);
-  ASSERT_EQ(bindings[0]->range().lCur().column(), 2);
-  ASSERT_EQ(bindings[0]->range().rCur().line(), 2);
-  ASSERT_EQ(bindings[0]->range().rCur().column(), 8);
+  ASSERT_EQ(Bindings[0]->range().lCur().line(), 2);
+  ASSERT_EQ(Bindings[0]->range().lCur().column(), 2);
+  ASSERT_EQ(Bindings[0]->range().rCur().line(), 2);
+  ASSERT_EQ(Bindings[0]->range().rCur().column(), 8);
 
-  ASSERT_EQ(bindings[1]->range().lCur().line(), 3);
-  ASSERT_EQ(bindings[1]->range().lCur().column(), 2);
-  ASSERT_EQ(bindings[1]->range().rCur().line(), 3);
-  ASSERT_EQ(bindings[1]->range().rCur().column(), 8);
+  ASSERT_EQ(Bindings[1]->range().lCur().line(), 3);
+  ASSERT_EQ(Bindings[1]->range().lCur().column(), 2);
+  ASSERT_EQ(Bindings[1]->range().rCur().line(), 3);
+  ASSERT_EQ(Bindings[1]->range().rCur().column(), 8);
 }
 
 TEST(Parser, AttrsBindingWriting) {
@@ -264,27 +264,27 @@ TEST(Parser, AttrsBindingWriting) {
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
 
-  auto &attrs = *static_cast<ExprAttrs *>(AST.get());
-  ASSERT_EQ(attrs.binds()->bindings().size(), 1);
+  const auto &Attrs = *static_cast<ExprAttrs *>(AST.get());
+  ASSERT_EQ(Attrs.binds()->bindings().size(), 1);
 
-  const auto &binding =
-      static_cast<Binding *>(attrs.binds()->bindings()[0].get());
+  const auto &Bind =
+      *static_cast<Binding *>(Attrs.binds()->bindings()[0].get());
 
-  ASSERT_EQ(binding->kind(), Node::NK_Binding);
+  ASSERT_EQ(Bind.kind(), Node::NK_Binding);
 
-  const auto &path = binding->path();
-  ASSERT_EQ(path.names().size(), 1);
+  const auto &BindPath = Bind.path();
+  ASSERT_EQ(BindPath.names().size(), 1);
 
-  const auto &name = path.names().at(0);
+  const auto &Name = *BindPath.names().at(0);
 
-  ASSERT_EQ(name->kind(), Node::NK_Interpolation);
-  ASSERT_EQ(name->id()->kind(), Node::NK_Identifier);
-  ASSERT_EQ(name->id()->name(), "a");
+  ASSERT_EQ(Name.kind(), Node::NK_Interpolation);
+  ASSERT_EQ(Name.id()->kind(), Node::NK_Identifier);
+  ASSERT_EQ(Name.id()->name(), "a");
 
-  ASSERT_EQ(name->range().lCur().line(), 2);
-  ASSERT_EQ(name->range().lCur().column(), 2);
-  ASSERT_EQ(name->range().rCur().line(), 2);
-  ASSERT_EQ(name->range().rCur().column(), 3);
+  ASSERT_EQ(Name.range().lCur().line(), 2);
+  ASSERT_EQ(Name.range().lCur().column(), 2);
+  ASSERT_EQ(Name.range().rCur().line(), 2);
+  ASSERT_EQ(Name.range().rCur().column(), 3);
 }
 
 TEST(Parser, AttrsBindingWritingDot) {
@@ -300,27 +300,27 @@ TEST(Parser, AttrsBindingWritingDot) {
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
 
-  auto &attrs = *static_cast<ExprAttrs *>(AST.get());
-  ASSERT_EQ(attrs.binds()->bindings().size(), 1);
+  const auto &Attrs = *static_cast<ExprAttrs *>(AST.get());
+  ASSERT_EQ(Attrs.binds()->bindings().size(), 1);
 
-  const auto &binding =
-      static_cast<Binding *>(attrs.binds()->bindings()[0].get());
+  const auto &Bind =
+      *static_cast<Binding *>(Attrs.binds()->bindings()[0].get());
 
-  ASSERT_EQ(binding->kind(), Node::NK_Binding);
+  ASSERT_EQ(Bind.kind(), Node::NK_Binding);
 
-  const auto &path = binding->path();
-  ASSERT_EQ(path.names().size(), 1);
+  const auto &Path = Bind.path();
+  ASSERT_EQ(Path.names().size(), 1);
 
-  const auto &name = path.names().at(0);
+  const auto &Name = *Path.names().at(0);
 
-  ASSERT_EQ(name->kind(), Node::NK_Interpolation);
-  ASSERT_EQ(name->id()->kind(), Node::NK_Identifier);
-  ASSERT_EQ(name->id()->name(), "a");
+  ASSERT_EQ(Name.kind(), Node::NK_Interpolation);
+  ASSERT_EQ(Name.id()->kind(), Node::NK_Identifier);
+  ASSERT_EQ(Name.id()->name(), "a");
 
-  ASSERT_EQ(name->range().lCur().line(), 2);
-  ASSERT_EQ(name->range().lCur().column(), 2);
-  ASSERT_EQ(name->range().rCur().line(), 2);
-  ASSERT_EQ(name->range().rCur().column(), 3);
+  ASSERT_EQ(Name.range().lCur().line(), 2);
+  ASSERT_EQ(Name.range().lCur().column(), 2);
+  ASSERT_EQ(Name.range().rCur().line(), 2);
+  ASSERT_EQ(Name.range().rCur().column(), 3);
 }
 
 TEST(Parser, AttrsNestedInLambda) {
@@ -345,18 +345,18 @@ TEST(Parser, AttrsNestedInLambda) {
 
   ASSERT_EQ(Diags.size(), 0);
 
-  const auto &attrs =
+  const auto &Attrs =
       static_cast<ExprAttrs *>(static_cast<ExprLambda *>(AST.get())->body());
-  ASSERT_EQ(attrs->kind(), Node::NK_ExprAttrs);
+  ASSERT_EQ(Attrs->kind(), Node::NK_ExprAttrs);
 
-  const auto &binding =
-      static_cast<Binding *>(attrs->binds()->bindings()[0].get());
+  const auto &Bind =
+      static_cast<Binding *>(Attrs->binds()->bindings()[0].get());
 
-  ASSERT_EQ(binding->kind(), Node::NK_Binding);
+  ASSERT_EQ(Bind->kind(), Node::NK_Binding);
 
-  const auto &nestedAttrs = static_cast<ExprAttrs *>(binding->value().get());
+  const auto &NestedAttrs = static_cast<ExprAttrs *>(Bind->value().get());
 
-  ASSERT_EQ(nestedAttrs->kind(), Node::NK_ExprAttrs);
+  ASSERT_EQ(NestedAttrs->kind(), Node::NK_ExprAttrs);
 }
 
 TEST(Parser, AttrsNested) {
@@ -379,7 +379,7 @@ TEST(Parser, AttrsNested) {
   ASSERT_EQ(Diags.size(), 0);
 
   // Check the bindings.
-  auto &B = static_cast<ExprAttrs *>(AST.get())->binds()->bindings();
+  const auto &B = static_cast<ExprAttrs *>(AST.get())->binds()->bindings();
   ASSERT_EQ(B.size(), 1);
 
   const auto &Ba = static_cast<Binding *>(B[0].get());
@@ -391,7 +391,7 @@ TEST(Parser, AttrsNested) {
   ASSERT_EQ(Ba->path().names().at(0)->id()->name(), "a");
   ASSERT_EQ(Ba->value()->kind(), Node::NK_ExprAttrs);
 
-  auto &BaRHS =
+  const auto &BaRHS =
       static_cast<ExprAttrs *>(Ba->value().get())->binds()->bindings();
   ASSERT_EQ(BaRHS.size(), 1);
   ASSERT_EQ(BaRHS[0]->kind(), Node::NK_Binding);
