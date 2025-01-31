@@ -248,7 +248,7 @@ In our option system, you need to specify which option set you'd like to use.
       "expr": "(builtins.getFlake \"/home/lyc/flakes\").homeConfigurations.\"lyc@adrastea\".options"
     },
 
-    // For flake-parts opitons.
+    // For flake-parts options.
     // Firstly read the docs here to enable "debugging", exposing declarations for nixd.
     // https://flake.parts/debug
     "flake-parts": {
