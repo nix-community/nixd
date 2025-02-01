@@ -54,6 +54,7 @@ libnixf = library(
     diagnostic_enum_h,
     diagnostic_cpp,
     tokens_h,
+    tokens_kinds_inc,
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,
