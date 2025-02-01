@@ -1,9 +1,9 @@
 #pragma once
 
 #include "Basic.h"
+#include "Tokens.h"
 
 #include "nixf/Basic/Nodes/Attrs.h"
-#include "nixf/Basic/TokenKinds.h"
 
 #include <memory>
 

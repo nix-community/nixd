@@ -320,7 +320,7 @@ void Lexer::maybeKW() {
     Tok = tok_kw_##NAME;                                                       \
     return;                                                                    \
   }
-#include "nixf/Basic/TokenKinds.inc"
+#include "TokenKinds.inc"
 #undef TOK_KEYWORD
 }
 

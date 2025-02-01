@@ -156,4 +156,19 @@ TEST(Parser, Op_PipeOperator_NonAssociative) {
   ASSERT_EQ(Diags[0].kind(), nixf::Diagnostic::DK_OperatorNotAssociative);
 }
 
+TEST(Parser, Op_Issue647) {
+  auto Src = R"(!)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprUnaryOp);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), nixf::Diagnostic::DK_Expected);
+}
+
 } // namespace
