@@ -108,7 +108,7 @@ std::shared_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
   for (;;) {
     switch (Token Tok = peek(); Tok.kind()) {
 #define TOK_BIN_OP(NAME) case tok_op_##NAME:
-#include "nixf/Basic/TokenKinds.inc"
+#include "TokenKinds.inc"
 #undef TOK_BIN_OP
       {
         // For all binary ops:
