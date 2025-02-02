@@ -19,6 +19,22 @@ diagnostic_cpp = custom_target(
     command: [python3, '@INPUT0@', '@OUTPUT@']
 )
 
+tokens_h = custom_target(
+    input: ['Parse/Tokens.h.py', 'Parse/tokens.py'],
+    output: 'Tokens.h',
+    command: [python3, '@INPUT0@', '@OUTPUT@'],
+    install: true,
+    install_dir: 'include/nixf/Parse/'
+)
+
+tokens_kinds_inc = custom_target(
+    input: ['Parse/TokenKinds.inc.py', 'Parse/tokens.py'],
+    output: 'TokenKinds.inc',
+    command: [python3, '@INPUT0@', '@OUTPUT@'],
+    install: true,
+    install_dir: 'include/nixf/Parse/'
+)
+
 libnixf = library(
     'nixf',
     'Basic/Nodes.cpp',
@@ -37,6 +53,8 @@ libnixf = library(
     'Sema/VariableLookup.cpp',
     diagnostic_enum_h,
     diagnostic_cpp,
+    tokens_h,
+    tokens_kinds_inc,
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,

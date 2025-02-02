@@ -3,7 +3,7 @@
 
 #include "Parser.h"
 
-#include "nixf/Basic/TokenKinds.h"
+#include "Tokens.h"
 #include "nixf/Parse/Parser.h"
 
 using namespace nixf;

@@ -225,23 +225,186 @@ TEST(Parser, AttrsBinding) {
 
   std::vector<Diagnostic> Diags;
   auto AST = nixf::parse(Src, Diags);
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 0);
+
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+
+  ASSERT_EQ(AST->range().lCur().line(), 1);
+  ASSERT_EQ(AST->range().lCur().column(), 0);
+  ASSERT_EQ(AST->range().rCur().line(), 4);
+  ASSERT_EQ(AST->range().rCur().column(), 1);
+
+  const auto &Attrs = *static_cast<ExprAttrs *>(AST.get());
+  const auto &Bindings = Attrs.binds()->bindings();
+
+  ASSERT_EQ(Bindings.size(), 2);
+
+  ASSERT_EQ(Bindings[0]->range().lCur().line(), 2);
+  ASSERT_EQ(Bindings[0]->range().lCur().column(), 2);
+  ASSERT_EQ(Bindings[0]->range().rCur().line(), 2);
+  ASSERT_EQ(Bindings[0]->range().rCur().column(), 8);
+
+  ASSERT_EQ(Bindings[1]->range().lCur().line(), 3);
+  ASSERT_EQ(Bindings[1]->range().lCur().column(), 2);
+  ASSERT_EQ(Bindings[1]->range().rCur().line(), 3);
+  ASSERT_EQ(Bindings[1]->range().rCur().column(), 8);
+}
+
+TEST(Parser, AttrsBindingWriting) {
+  auto Src = R"(
+{
+  a
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+
+  const auto &Attrs = *static_cast<ExprAttrs *>(AST.get());
+  ASSERT_EQ(Attrs.binds()->bindings().size(), 1);
+
+  const auto &Bind =
+      *static_cast<Binding *>(Attrs.binds()->bindings()[0].get());
+
+  ASSERT_EQ(Bind.kind(), Node::NK_Binding);
+
+  const auto &BindPath = Bind.path();
+  ASSERT_EQ(BindPath.names().size(), 1);
+
+  const auto &Name = *BindPath.names().at(0);
+
+  ASSERT_EQ(Name.kind(), Node::NK_Interpolation);
+  ASSERT_EQ(Name.id()->kind(), Node::NK_Identifier);
+  ASSERT_EQ(Name.id()->name(), "a");
+
+  ASSERT_EQ(Name.range().lCur().line(), 2);
+  ASSERT_EQ(Name.range().lCur().column(), 2);
+  ASSERT_EQ(Name.range().rCur().line(), 2);
+  ASSERT_EQ(Name.range().rCur().column(), 3);
+}
+
+TEST(Parser, AttrsBindingWritingDot) {
+  auto Src = R"(
+{
+  a.
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+
+  const auto &Attrs = *static_cast<ExprAttrs *>(AST.get());
+  ASSERT_EQ(Attrs.binds()->bindings().size(), 1);
+
+  const auto &Bind =
+      *static_cast<Binding *>(Attrs.binds()->bindings()[0].get());
+
+  ASSERT_EQ(Bind.kind(), Node::NK_Binding);
+
+  const auto &Path = Bind.path();
+  ASSERT_EQ(Path.names().size(), 1);
+
+  const auto &Name = *Path.names().at(0);
+
+  ASSERT_EQ(Name.kind(), Node::NK_Interpolation);
+  ASSERT_EQ(Name.id()->kind(), Node::NK_Identifier);
+  ASSERT_EQ(Name.id()->name(), "a");
+
+  ASSERT_EQ(Name.range().lCur().line(), 2);
+  ASSERT_EQ(Name.range().lCur().column(), 2);
+  ASSERT_EQ(Name.range().rCur().line(), 2);
+  ASSERT_EQ(Name.range().rCur().column(), 3);
+}
+
+TEST(Parser, AttrsNestedInLambda) {
+  auto Src = R"(
+{...}: {
+  a = {
+    b = 1;
+  };
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprLambda);
+
+  ASSERT_EQ(AST->range().lCur().line(), 1);
+  ASSERT_EQ(AST->range().lCur().column(), 0);
+  ASSERT_EQ(AST->range().rCur().line(), 5);
+  ASSERT_EQ(AST->range().rCur().column(), 1);
+
+  ASSERT_EQ(Diags.size(), 0);
+
+  const auto &Attrs =
+      static_cast<ExprAttrs *>(static_cast<ExprLambda *>(AST.get())->body());
+  ASSERT_EQ(Attrs->kind(), Node::NK_ExprAttrs);
+
+  const auto &Bind =
+      static_cast<Binding *>(Attrs->binds()->bindings()[0].get());
+
+  ASSERT_EQ(Bind->kind(), Node::NK_Binding);
+
+  const auto &NestedAttrs = static_cast<ExprAttrs *>(Bind->value().get());
+
+  ASSERT_EQ(NestedAttrs->kind(), Node::NK_ExprAttrs);
+}
+
+TEST(Parser, AttrsNested) {
+  auto Src = R"(
+{
+  a = {
+    b = 1;
+  };
+}
+  )"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
 
   ASSERT_TRUE(AST);
   ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
   ASSERT_TRUE(AST->range().lCur().isAt(1, 0, 1));
-  ASSERT_TRUE(AST->range().rCur().isAt(4, 1, 22));
+  ASSERT_TRUE(AST->range().rCur().isAt(5, 1, 28));
 
   ASSERT_EQ(Diags.size(), 0);
 
   // Check the bindings.
-  auto &B = *static_cast<ExprAttrs *>(AST.get());
-  assert(B.binds() && "expected bindings");
-  ASSERT_EQ(B.binds()->bindings().size(), 2);
-  ASSERT_TRUE(B.binds()->bindings()[0]->range().lCur().isAt(2, 2, 5));
-  ASSERT_TRUE(B.binds()->bindings()[0]->range().rCur().isAt(2, 8, 11));
+  const auto &B = static_cast<ExprAttrs *>(AST.get())->binds()->bindings();
+  ASSERT_EQ(B.size(), 1);
 
-  ASSERT_TRUE(B.binds()->bindings()[1]->range().lCur().isAt(3, 2, 14));
-  ASSERT_TRUE(B.binds()->bindings()[1]->range().rCur().isAt(3, 8, 20));
+  const auto &Ba = static_cast<Binding *>(B[0].get());
+
+  ASSERT_EQ(Ba->kind(), Node::NK_Binding);
+  ASSERT_TRUE(Ba->range().lCur().isAt(2, 2, 5));
+  ASSERT_TRUE(Ba->range().rCur().isAt(4, 4, 26));
+
+  ASSERT_EQ(Ba->path().names().at(0)->id()->name(), "a");
+  ASSERT_EQ(Ba->value()->kind(), Node::NK_ExprAttrs);
+
+  const auto &BaRHS =
+      static_cast<ExprAttrs *>(Ba->value().get())->binds()->bindings();
+  ASSERT_EQ(BaRHS.size(), 1);
+  ASSERT_EQ(BaRHS[0]->kind(), Node::NK_Binding);
+
+  const auto &BaRHSb = static_cast<Binding *>(BaRHS[0].get());
+
+  ASSERT_EQ(BaRHSb->range().lCur().line(), 3);
+  ASSERT_EQ(BaRHSb->range().lCur().column(), 4);
+  ASSERT_EQ(BaRHSb->range().rCur().line(), 3);
+  ASSERT_EQ(BaRHSb->range().rCur().column(), 10);
+
+  ASSERT_EQ(BaRHSb->path().names().at(0)->id()->name(), "b");
+  ASSERT_EQ(BaRHSb->value()->kind(), Node::NK_ExprInt);
 }
 
 TEST(Parser, AttrsBindingEarlyExit) {
