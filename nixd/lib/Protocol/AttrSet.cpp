@@ -120,3 +120,19 @@ bool nixd::fromJSON(const llvm::json::Value &Params, AttrPathCompleteParams &R,
          && O.map("Prefix", R.Prefix) //
       ;
 }
+
+llvm::json::Value nixd::toJSON(const BuiltinDescription &Params) {
+  return Object{
+      {"arity", Params.Arity},
+      {"doc", Params.Doc},
+  };
+}
+bool nixd::fromJSON(const llvm::json::Value &Params, BuiltinDescription &R,
+                    llvm::json::Path P) {
+
+  ObjectMapper O(Params, P);
+  return O                          //
+         && O.map("arity", R.Arity) //
+         && O.map("doc", R.Doc)     //
+      ;
+}

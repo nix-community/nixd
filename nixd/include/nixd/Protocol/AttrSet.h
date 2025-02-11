@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,6 +32,13 @@ constexpr inline std::string_view AttrPathInfo = "attrset/attrpathInfo";
 constexpr inline std::string_view AttrPathComplete = "attrset/attrpathComplete";
 constexpr inline std::string_view OptionInfo = "attrset/optionInfo";
 constexpr inline std::string_view OptionComplete = "attrset/optionComplete";
+
+/// \brief ↩︎ Request information
+constexpr inline std::string_view BuiltinInfo = "attrset/builtinInfo";
+
+/// \brief ↩︎ Request completion of builtins.
+constexpr inline std::string_view BuiltinComplete = "attrset/builtinComplete";
+
 constexpr inline std::string_view Exit = "exit";
 
 } // namespace rpcMethod
@@ -135,5 +143,17 @@ bool fromJSON(const llvm::json::Value &Params, OptionField &R,
 using OptionInfoResponse = OptionDescription;
 
 using OptionCompleteResponse = std::vector<OptionField>;
+
+struct BuiltinDescription {
+  std::string Doc;
+  std::int64_t Arity;
+};
+
+llvm::json::Value toJSON(const BuiltinDescription &Params);
+bool fromJSON(const llvm::json::Value &Params, BuiltinDescription &R,
+              llvm::json::Path P);
+
+using BuiltinInfoResponse = BuiltinDescription;
+using BuiltinCompleteResponse = std::vector<std::string>;
 
 } // namespace nixd
