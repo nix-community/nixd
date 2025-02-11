@@ -1,0 +1,4 @@
+var searchData=
+[
+  ['manual_0',['Developers&apos; Manual',['../md_nixd_2docs_2dev.html',1,'']]]
+];
