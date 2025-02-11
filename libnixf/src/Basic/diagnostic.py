@@ -94,6 +94,12 @@ diagnostics: list[Diagnostic] = [
         "message": "operator is non-associative",
     },
     {
+        "sname": "parse-kw-or-isnot-binary-op",
+        "cname": "KeywordOrIsNotBinaryOp",
+        "severity": "Error",
+        "message": "'or' keyword is not a binary operator",
+    },
+    {
         "sname": "let-dynamic",
         "cname": "LetDynamic",
         "severity": "Error",

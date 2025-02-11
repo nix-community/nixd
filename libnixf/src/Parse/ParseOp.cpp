@@ -150,6 +150,28 @@ std::shared_ptr<Expr> Parser::parseExprOpBP(unsigned LeftRBP) {
           Range, std::move(O), std::move(Prefix), std::move(Path));
       break;
     }
+    case tok_kw_or: {
+      // expr_op 'or' expr_op
+      // This is a wrong syntax, maybe the user meant '||'?
+      auto &D = Diags.emplace_back(Diagnostic::DK_KeywordOrIsNotBinaryOp,
+                                   Tok.range());
+      D.fix("replace 'or' with '||'").edit(TextEdit(Tok.range(), "||"));
+      consume();
+      assert(LastToken && "consume() should have set LastToken");
+      auto O = std::make_shared<Op>(Tok.range(), Tok.kind());
+
+      // Try to recover by replacing 'or' with '||'
+      auto RHS = parseExprOpBP(getBP(tok_op_or).second);
+      if (!RHS) {
+        diagNullExpr(Diags, LastToken->rCur(), "RHS of 'or'");
+        continue;
+      }
+
+      LexerCursorRange Range{Prefix->lCur(), RHS->rCur()};
+      Prefix = std::make_shared<ExprBinOp>(Range, std::move(O),
+                                           std::move(Prefix), std::move(RHS));
+      break;
+    }
     default:
       return Prefix;
     }
