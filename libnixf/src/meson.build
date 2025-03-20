@@ -69,7 +69,7 @@ pkgconfig.generate(
 )
 
 nixf = declare_dependency(
-    sources: [diagnostic_enum_h],
+    sources: [diagnostic_enum_h, tokens_h],
     include_directories: libnixf_inc,
     link_with: libnixf,
     dependencies: libnixf_deps
