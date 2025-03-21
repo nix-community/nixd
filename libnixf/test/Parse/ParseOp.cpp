@@ -156,6 +156,53 @@ TEST(Parser, Op_PipeOperator_NonAssociative) {
   ASSERT_EQ(Diags[0].kind(), nixf::Diagnostic::DK_OperatorNotAssociative);
 }
 
+TEST(Parser, OrKeywordAsBinaryOp) {
+  auto Src = R"(a or b)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  // Check that the diagnostic message is generated
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_KeywordOrIsNotBinaryOp);
+
+  // Check that the suggested fix is to replace 'or' with '||'
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].newText(), "||");
+}
+
+TEST(Parser, OrKeywordAsBinaryOp2) {
+  auto Src = R"(a or)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  // Check that the diagnostic message is generated
+  ASSERT_EQ(Diags.size(), 2);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_KeywordOrIsNotBinaryOp);
+  ASSERT_EQ(Diags[1].kind(), Diagnostic::DK_Expected);
+}
+
+TEST(Parser, OrKeywordAsBinaryOp3) {
+  auto Src = R"(a.b or (a or b))"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+
+  // Check that the diagnostic message is generated
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_KeywordOrIsNotBinaryOp);
+}
+
 TEST(Parser, Op_Issue647) {
   auto Src = R"(!)"sv;
 
