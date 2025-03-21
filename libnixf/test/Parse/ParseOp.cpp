@@ -218,4 +218,16 @@ TEST(Parser, Op_Issue647) {
   ASSERT_EQ(Diags[0].kind(), nixf::Diagnostic::DK_Expected);
 }
 
+TEST(Parser, Op_Issue661) {
+  auto Src = R"(foo !)"sv;
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parse();
+
+  ASSERT_TRUE(AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), nixf::Diagnostic::DK_UnexpectedText);
+}
+
 } // namespace
