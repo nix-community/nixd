@@ -1,0 +1,5 @@
+<map id="nixd::util::PipedProc" name="nixd::util::PipedProc">
+<area shape="rect" id="Node000001" title=" " alt="" coords="15,132,166,160"/>
+<area shape="rect" id="Node000002" href="$classnixd_1_1util_1_1AutoCloseFD.html" title="File Descriptor RAII wrapper." alt="" coords="5,5,176,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="93,48,93,132,88,132,88,48"/>
+</map>

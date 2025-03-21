@@ -1,0 +1,11 @@
+<map id="nixd::idioms::IdiomSelectorException" name="nixd::idioms::IdiomSelectorException">
+<area shape="rect" id="Node000001" title="Exceptions scoped in nixd::mkIdiomSelector." alt="" coords="167,75,366,119"/>
+<area shape="rect" id="Node000003" href="$structnixd_1_1idioms_1_1DynamicNameException.html" title="The attrpath has a dynamic name, thus it cannot be trivially transformed to &quot;static&quot; selector." alt="" coords="414,5,620,50"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="364,67,433,48,434,53,365,72"/>
+<area shape="rect" id="Node000004" href="$structnixd_1_1idioms_1_1NotAnIdiomException.html" title="The pattern of this variable cannot be recognized by known idioms." alt="" coords="424,75,610,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="382,94,423,94,423,100,382,100"/>
+<area shape="rect" id="Node000005" href="$structnixd_1_1idioms_1_1NotVariableSelect.html" title=" " alt="" coords="424,144,610,189"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="365,122,434,141,433,146,364,127"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,83,119,111"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="134,94,166,94,166,100,134,100"/>
+</map>

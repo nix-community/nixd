@@ -1,0 +1,9 @@
+<map id="lspserver::TweakArgs" name="lspserver::TweakArgs">
+<area shape="rect" id="Node000001" title=" " alt="" coords="58,208,217,235"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="5,115,161,143"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="101,154,132,206,128,209,96,157"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1Range.html" title=" " alt="" coords="184,115,315,143"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="224,154,156,209,152,205,220,150"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Position.html" title=" " alt="" coords="179,5,320,33"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="252,48,252,115,247,115,247,48"/>
+</map>
