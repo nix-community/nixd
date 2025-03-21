@@ -82,6 +82,6 @@ tokens: List[Token] = [
     Token("colon", ":"),
     Token("unknown", "unknown"),
     Token("path_end", "path_end"),
-    OpToken("not", "!"), # unary operator
+    OpToken("not", "!"),  # unary operator
     *bin_op_tokens,
 ]
