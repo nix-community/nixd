@@ -1,6 +1,7 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # Temporary, until channel catchs up with Nix 2.28
+    nixpkgs.url = "github:NixOS/nixpkgs";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
