@@ -79,6 +79,10 @@ void fillUnsafeGetAttrPosLocation(nix::EvalState &State, nix::Value &V,
   nix::Value &Column =
       nixt::selectAttr(State, V, State.symbols.create("column"));
 
+  State.forceValue(File, nix::noPos);
+  State.forceValue(Line, nix::noPos);
+  State.forceValue(Column, nix::noPos);
+
   if (File.type() == nix::ValueType::nString)
     Loc.uri = URIForFile::canonicalize(File.c_str(), File.c_str());
 
