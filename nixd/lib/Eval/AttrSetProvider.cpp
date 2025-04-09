@@ -3,10 +3,10 @@
 
 #include "lspserver/Protocol.h"
 
-#include <nix/attr-path.hh>
-#include <nix/common-eval-args.hh>
-#include <nix/nixexpr.hh>
-#include <nix/store-api.hh>
+#include <nix/cmd/common-eval-args.hh>
+#include <nix/expr/attr-path.hh>
+#include <nix/expr/nixexpr.hh>
+#include <nix/store/store-api.hh>
 #include <nixt/Value.h>
 
 using namespace nixd;

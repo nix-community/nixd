@@ -8,7 +8,7 @@
 #include <nixt/HookExpr.h>
 #include <nixt/PtrPool.h>
 
-#include <nix/nixexpr.hh>
+#include <nix/expr/nixexpr.hh>
 
 namespace nixd {
 

@@ -34,7 +34,7 @@
             callPackage
             stdenv
             ;
-          nix = nixVersions.nix_2_25;
+          nix = nixVersions.nix_2_28;
           llvmPackages = llvmPackages_19;
           nixf = callPackage ./libnixf { };
           nixt = callPackage ./libnixt { inherit nix; };

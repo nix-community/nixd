@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <nix/nixexpr.hh>
+#include <nix/expr/nixexpr.hh>
 
 namespace nixt {
 
