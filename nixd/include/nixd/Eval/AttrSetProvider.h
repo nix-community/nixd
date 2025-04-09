@@ -21,7 +21,7 @@
 
 #include "lspserver/LSPServer.h"
 
-#include <nix/eval.hh>
+#include <nix/expr/eval.hh>
 
 #include <memory>
 

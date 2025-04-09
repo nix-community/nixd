@@ -16,7 +16,7 @@
 #pragma clang diagnostic ignored "-Wdocumentation"
 #endif
 
-#include <nix/value.hh>
+#include <nix/expr/value.hh>
 
 #ifdef __clang__
 #pragma clang diagnostic pop

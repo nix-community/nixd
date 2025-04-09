@@ -8,7 +8,7 @@
 
 #include <nixbc/Type.h>
 
-#include <nix/nixexpr.hh>
+#include <nix/expr/nixexpr.hh>
 
 namespace nixt {
 

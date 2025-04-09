@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <nix/nixexpr.hh>
-#include <nix/symbol-table.hh>
+#include <nix/expr/nixexpr.hh>
+#include <nix/expr/symbol-table.hh>
 
 /// \brief Library for playing with `nix::Expr` nodes.
 ///
@@ -89,7 +89,9 @@ template <class Derived> struct RecursiveASTVisitor {
   bool RecursiveASTVisitor<Derived>::traverse##TYPE(const nix::TYPE *T) {      \
     if (!getDerived().shouldTraversePostOrder())                               \
       TRY_TO(visit##TYPE(T));                                                  \
-    { CODE; }                                                                  \
+    {                                                                          \
+      CODE;                                                                    \
+    }                                                                          \
     if (getDerived().shouldTraversePostOrder())                                \
       TRY_TO(visit##TYPE(T));                                                  \
     return true;                                                               \

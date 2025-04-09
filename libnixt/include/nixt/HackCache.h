@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include <nix/eval.hh>
+#include <nix/expr/eval.hh>
 
 namespace nixt {
 

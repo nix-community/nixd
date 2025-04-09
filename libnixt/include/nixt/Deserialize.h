@@ -3,8 +3,8 @@
 #include "HookExpr.h"
 #include "PtrPool.h"
 
+#include <nix/expr/nixexpr.hh>
 #include <nix/input-accessor.hh>
-#include <nix/nixexpr.hh>
 
 #include <string_view>
 
