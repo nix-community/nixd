@@ -89,7 +89,9 @@ template <class Derived> struct RecursiveASTVisitor {
   bool RecursiveASTVisitor<Derived>::traverse##TYPE(const nix::TYPE *T) {      \
     if (!getDerived().shouldTraversePostOrder())                               \
       TRY_TO(visit##TYPE(T));                                                  \
-    { CODE; }                                                                  \
+    {                                                                          \
+      CODE;                                                                    \
+    }                                                                          \
     if (getDerived().shouldTraversePostOrder())                                \
       TRY_TO(visit##TYPE(T));                                                  \
     return true;                                                               \
