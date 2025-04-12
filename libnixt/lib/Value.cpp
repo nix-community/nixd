@@ -1,9 +1,9 @@
 #include "nixt/Value.h"
 
-#include <nix/attr-path.hh>
-#include <nix/nixexpr.hh>
-#include <nix/symbol-table.hh>
-#include <nix/value.hh>
+#include <nix/expr/attr-path.hh>
+#include <nix/expr/nixexpr.hh>
+#include <nix/expr/symbol-table.hh>
+#include <nix/expr/value.hh>
 
 using namespace nixt;
 
