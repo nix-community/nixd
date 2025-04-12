@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['definition_0',['Definition',['../classnixf_1_1Definition.html',1,'nixf']]],
+  ['deserializecontext_1',['DeserializeContext',['../structnixt_1_1DeserializeContext.html',1,'nixt']]],
+  ['diagnostic_2',['Diagnostic',['../classdiagnostic_1_1Diagnostic.html',1,'diagnostic.Diagnostic'],['../structlspserver_1_1Diagnostic.html',1,'lspserver::Diagnostic'],['../structnixd_1_1Configuration_1_1Diagnostic.html',1,'nixd::Configuration::Diagnostic'],['../classnixf_1_1Diagnostic.html',1,'nixf::Diagnostic']]],
+  ['diagnosticrelatedinformation_3',['DiagnosticRelatedInformation',['../structlspserver_1_1DiagnosticRelatedInformation.html',1,'lspserver']]],
+  ['didchangeconfigurationparams_4',['DidChangeConfigurationParams',['../structlspserver_1_1DidChangeConfigurationParams.html',1,'lspserver']]],
+  ['didchangetextdocumentparams_5',['DidChangeTextDocumentParams',['../structlspserver_1_1DidChangeTextDocumentParams.html',1,'lspserver']]],
+  ['didchangewatchedfilesparams_6',['DidChangeWatchedFilesParams',['../structlspserver_1_1DidChangeWatchedFilesParams.html',1,'lspserver']]],
+  ['didclosetextdocumentparams_7',['DidCloseTextDocumentParams',['../structlspserver_1_1DidCloseTextDocumentParams.html',1,'lspserver']]],
+  ['didopentextdocumentparams_8',['DidOpenTextDocumentParams',['../structlspserver_1_1DidOpenTextDocumentParams.html',1,'lspserver']]],
+  ['didsavetextdocumentparams_9',['DidSaveTextDocumentParams',['../structlspserver_1_1DidSaveTextDocumentParams.html',1,'lspserver']]],
+  ['documentformattingparams_10',['DocumentFormattingParams',['../structlspserver_1_1DocumentFormattingParams.html',1,'lspserver']]],
+  ['documenthighlight_11',['DocumentHighlight',['../structlspserver_1_1DocumentHighlight.html',1,'lspserver']]],
+  ['documentlink_12',['DocumentLink',['../structlspserver_1_1DocumentLink.html',1,'lspserver']]],
+  ['documentlinkparams_13',['DocumentLinkParams',['../structlspserver_1_1DocumentLinkParams.html',1,'lspserver']]],
+  ['documentontypeformattingparams_14',['DocumentOnTypeFormattingParams',['../structlspserver_1_1DocumentOnTypeFormattingParams.html',1,'lspserver']]],
+  ['documentrangeformattingparams_15',['DocumentRangeFormattingParams',['../structlspserver_1_1DocumentRangeFormattingParams.html',1,'lspserver']]],
+  ['documentsymbol_16',['DocumentSymbol',['../structlspserver_1_1DocumentSymbol.html',1,'lspserver']]],
+  ['documentsymbolparams_17',['DocumentSymbolParams',['../structlspserver_1_1DocumentSymbolParams.html',1,'lspserver']]],
+  ['dot_18',['Dot',['../classnixf_1_1Dot.html',1,'nixf']]],
+  ['draft_19',['Draft',['../structlspserver_1_1DraftStore_1_1Draft.html',1,'lspserver::DraftStore']]],
+  ['draftstore_20',['DraftStore',['../classlspserver_1_1DraftStore.html',1,'lspserver']]],
+  ['dynamicnameexception_21',['DynamicNameException',['../structnixd_1_1idioms_1_1DynamicNameException.html',1,'nixd::idioms']]]
+];
