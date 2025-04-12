@@ -14,12 +14,6 @@ writeShellScriptBin "codium-test" ''
   set -e
   dir="''${XDG_CACHE_HOME:-~/.cache}/nixd-codium"
   ${coreutils}/bin/mkdir -p "$dir/User"
-  cat >"$dir/User/settings.json" <<EOF
-  {
-  "security.workspace.trust.enabled": false,
-  "nix.enableLanguageServer": true,
-  "nix.serverPath": "nixd",
-  }
-  EOF
+  cp ${./vscode-settings.json} "$dir/User/settings.json"
   ${codium}/bin/codium --user-data-dir "$dir" "$@"
 ''
