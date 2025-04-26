@@ -260,7 +260,6 @@ void AttrSetProvider::onAttrPathInfo(
 
       nix::Value &V = nixt::selectStrings(state(), Nixpkgs, AttrPath);
       state().forceValue(V, nix::noPos);
-
       return RespT{
           .Meta = metadataOf(state(), V),
           .PackageDesc = describePackage(state(), V),
