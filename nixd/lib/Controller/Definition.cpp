@@ -240,7 +240,7 @@ Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
                          Controller::OptionMapTy &Options) {
   using PathResult = FindAttrPathResult;
   std::vector<std::string> Scope;
-  auto R = findAttrPath(N, PM, Scope);
+  auto R = findAttrPathForOptions(N, PM, Scope);
   Locations Locs;
   if (R == PathResult::OK) {
     std::lock_guard _(OptionsLock);
