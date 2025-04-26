@@ -38,8 +38,9 @@ CHECK-NEXT:     "Position": null,
 CHECK-NEXT:     "Version": null
 CHECK-NEXT:   },
 CHECK-NEXT:   "ValueDesc": {
+CHECK-NEXT:     "args": [],
 CHECK-NEXT:     "arity": 0,
-CHECK-NEXT:     "doc": "Function `hello`\\\n  … defined at «string»:1:36\n\nsome markdown docs \n"
+CHECK-NEXT:     "doc": "some markdown docs \n"
 CHECK-NEXT:   }
 CHECK-NEXT: }
 ```

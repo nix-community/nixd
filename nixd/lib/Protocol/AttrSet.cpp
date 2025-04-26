@@ -127,6 +127,7 @@ llvm::json::Value nixd::toJSON(const ValueDescription &Params) {
   return Object{
       {"arity", Params.Arity},
       {"doc", Params.Doc},
+      {"args", Params.Args},
   };
 }
 bool nixd::fromJSON(const llvm::json::Value &Params, ValueDescription &R,
@@ -136,5 +137,5 @@ bool nixd::fromJSON(const llvm::json::Value &Params, ValueDescription &R,
   return O                          //
          && O.map("arity", R.Arity) //
          && O.map("doc", R.Doc)     //
-      ;
+         && O.map("args", R.Args);
 }

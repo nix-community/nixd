@@ -186,15 +186,32 @@ std::vector<std::string> completeNames(nix::Value &Scope,
 
 std::optional<ValueDescription> describeValue(nix::EvalState &State,
                                               nix::Value &V) {
-  const auto Doc = State.getDoc(V);
-  if (!Doc) {
-    return std::nullopt;
-  } else {
+  if (V.isPrimOp()) {
+    const auto *PrimOp = V.primOp();
+    assert(PrimOp);
     return ValueDescription{
-        .Doc = Doc->doc,
-        .Arity = static_cast<int64_t>(Doc->arity),
+        .Doc = PrimOp->doc ? std::string(PrimOp->doc) : "",
+        .Arity = static_cast<int>(PrimOp->arity),
+        .Args = PrimOp->args,
+    };
+  } else if (V.isLambda()) {
+    auto *Lambda = V.payload.lambda.fun;
+    assert(Lambda);
+    return ValueDescription{
+        .Doc =
+            [&]() {
+              const auto DocComment = Lambda->docComment;
+              if (DocComment) {
+                return DocComment.getInnerText(State.positions);
+              }
+              return std::string();
+            }(),
+        .Arity = 0,
+        .Args = {},
     };
   }
+
+  return std::nullopt;
 }
 
 } // namespace

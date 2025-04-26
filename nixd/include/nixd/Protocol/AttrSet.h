@@ -84,6 +84,7 @@ bool fromJSON(const llvm::json::Value &Params, ValueMeta &R,
 struct ValueDescription {
   std::string Doc;
   std::int64_t Arity;
+  std::vector<std::string> Args;
 };
 
 llvm::json::Value toJSON(const ValueDescription &Params);
