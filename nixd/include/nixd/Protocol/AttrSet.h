@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,6 +32,7 @@ constexpr inline std::string_view AttrPathInfo = "attrset/attrpathInfo";
 constexpr inline std::string_view AttrPathComplete = "attrset/attrpathComplete";
 constexpr inline std::string_view OptionInfo = "attrset/optionInfo";
 constexpr inline std::string_view OptionComplete = "attrset/optionComplete";
+
 constexpr inline std::string_view Exit = "exit";
 
 } // namespace rpcMethod
@@ -78,12 +80,25 @@ llvm::json::Value toJSON(const ValueMeta &Params);
 bool fromJSON(const llvm::json::Value &Params, ValueMeta &R,
               llvm::json::Path P);
 
+/// \brief Using nix's ":doc" method to retrive value's additional information.
+struct ValueDescription {
+  std::string Doc;
+  std::int64_t Arity;
+  std::vector<std::string> Args;
+};
+
+llvm::json::Value toJSON(const ValueDescription &Params);
+bool fromJSON(const llvm::json::Value &Params, ValueDescription &R,
+              llvm::json::Path P);
+
 struct AttrPathInfoResponse {
   /// \brief General value description
   ValueMeta Meta;
 
   /// \brief Package description of the attribute path, if available.
   PackageDescription PackageDesc;
+
+  std::optional<ValueDescription> ValueDesc;
 };
 
 llvm::json::Value toJSON(const AttrPathInfoResponse &Params);
