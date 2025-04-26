@@ -206,6 +206,7 @@ std::optional<ValueDescription> describeValue(nix::EvalState &State,
               }
               return std::string();
             }(),
+        // https://github.com/NixOS/nix/blob/ee59af99f8619e17db4289843da62a24302d20b7/src/libexpr/eval.cc#L638
         .Arity = 0,
         .Args = {},
     };
