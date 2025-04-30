@@ -5,6 +5,7 @@
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/CommandLine.h>
 
+#include <nlohmann/json.hpp>
 #include <poll.h>
 #include <sys/poll.h>
 #include <sys/stat.h>
@@ -220,17 +221,23 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
 }
 
 bool InboundPort::readDelimitedMessage(std::string &JSONString) {
-  enum class State { Prose, JSONBlock };
+  enum class State { Prose, JSONBlock, NixBlock };
   State State = State::Prose;
   JSONString.clear();
   llvm::SmallString<128> Line;
+  std::string NixDocURI;
+  std::string NixDoc;
   while (readLine(In, Close, Line)) {
     auto LineRef = Line.str().trim();
     if (State == State::Prose) {
       if (LineRef.starts_with("```json"))
         State = State::JSONBlock;
+      else if (LineRef.consume_front("```nix ")) {
+        State = State::NixBlock;
+        NixDocURI = LineRef.str();
+      }
     } else if (State == State::JSONBlock) {
-      // We are in input blocks, read lines and append JSONString.
+      // We are in a JSON block, read lines and append JSONString.
       if (LineRef.starts_with("#")) // comment
         continue;
 
@@ -240,6 +247,29 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
       }
 
       JSONString += Line;
+    } else if (State == State::NixBlock) {
+      // We are in a Nix block. (This was implemented to make the .md test
+      // files more readable, particularly regarding multiline Nix documents,
+      // so that the newlines don't have to be \n escaped.)
+
+      if (LineRef.starts_with("```")) {
+        nlohmann::json DidOpen = {
+            {"jsonrpc", "2.0"},
+            {"method", "textDocument/didOpen"},
+            {"params",
+             {{"textDocument",
+               {
+                   {"uri", NixDocURI},
+                   {"languageId", "nix"},
+                   {"version", 1},
+                   {"text", llvm::StringRef(NixDoc).rtrim()},
+               }}}},
+        };
+        JSONString += DidOpen.dump();
+        break;
+      }
+      NixDoc += Line;
+      NixDoc += "\n";
     } else {
       assert(false && "unreachable");
     }

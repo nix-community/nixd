@@ -23,19 +23,8 @@ i.e. testing if `with pkgs; [x.y]` works.
 
 <-- textDocument/didOpen
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"with pkgs; [x.y]"
-      }
-   }
-}
+```nix file:///basic.nix
+with pkgs; [x.y]
 ```
 
 <-- textDocument/definition(2)

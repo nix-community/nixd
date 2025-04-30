@@ -21,19 +21,8 @@
 <-- textDocument/didOpen
 
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///completion.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"with pkgs; [ ax.b ]"
-      }
-   }
-}
+```nix file:///completion.nix
+with pkgs; [ ax.b ]
 ```
 
 ```json

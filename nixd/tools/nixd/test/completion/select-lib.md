@@ -24,19 +24,8 @@
 <-- textDocument/didOpen
 
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///completion.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"lib.hel"
-      }
-   }
-}
+```nix file:///completion.nix
+lib.hel
 ```
 
 ```json
