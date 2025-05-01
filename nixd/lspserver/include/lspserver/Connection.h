@@ -40,8 +40,12 @@ public:
 
   JSONStreamStyle StreamStyle = JSONStreamStyle::Standard;
 
+  /// Read one message as specified in the LSP standard.
+  /// A Language Server Protocol message starts with a set of
+  /// HTTP headers, delimited  by \r\n, and terminated by an empty line (\r\n).
   bool readStandardMessage(std::string &JSONString);
 
+  /// Read one message, expecting the input to be one of our Markdown lit-tests.
   bool readDelimitedMessage(std::string &JSONString);
 
   /// \brief Notify the inbound port to close the connection
@@ -51,10 +55,7 @@ public:
               JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
       : Close(false), In(In), StreamStyle(StreamStyle) {};
 
-  /// Read messages specified in LSP standard, and collect standard json string
-  /// into \p JSONString.
-  /// A Language Server Protocol message starts with a set of
-  /// HTTP headers, delimited  by \r\n, and terminated by an empty line (\r\n).
+  /// Read one LSP message into \p JSONString depending on the configured StreamStyle.
   bool readMessage(std::string &JSONString);
 
   /// Dispatch messages to on{Notify,Call,Reply} ( \p Handlers)
