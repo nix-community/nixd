@@ -14,7 +14,7 @@ enum class JSONStreamStyle {
   // LSP standard, for real lsp server
   Standard,
   // For testing.
-  Delimited
+  LitTest
 };
 
 /// Parsed & classfied messages are dispatched to this handler class
@@ -46,7 +46,7 @@ public:
   llvm::Expected<llvm::json::Value> readStandardMessage(std::string &Buffer);
 
   /// Read one message, expecting the input to be one of our Markdown lit-tests.
-  llvm::Expected<llvm::json::Value> readDelimitedMessage(std::string &Buffer);
+  llvm::Expected<llvm::json::Value> readLitTestMessage(std::string &Buffer);
 
   /// \brief Notify the inbound port to close the connection
   void close() { Close = true; }

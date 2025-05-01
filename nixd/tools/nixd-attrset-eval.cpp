@@ -23,9 +23,8 @@ opt<JSONStreamStyle> InputStyle{
     desc("Input JSON stream encoding"),
     values(
         clEnumValN(JSONStreamStyle::Standard, "standard", "usual LSP protocol"),
-        clEnumValN(JSONStreamStyle::Delimited, "delimited",
-                   "messages delimited by `// -----` lines, "
-                   "with // comment support")),
+        clEnumValN(JSONStreamStyle::LitTest, "lit-test",
+                   "Input format for lit-testing")),
     init(JSONStreamStyle::Standard),
     cat(Debug),
     Hidden,
@@ -64,7 +63,7 @@ int main(int Argc, const char *Argv[]) {
                           "NIXD_NIXPKGS_EVAL_FLAGS");
 
   if (LitTest) {
-    InputStyle = JSONStreamStyle::Delimited;
+    InputStyle = JSONStreamStyle::LitTest;
     LogLevel = Logger::Level::Verbose;
     PrettyPrint = true;
   }
