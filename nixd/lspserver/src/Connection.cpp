@@ -5,7 +5,6 @@
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/CommandLine.h>
 
-#include <nlohmann/json.hpp>
 #include <poll.h>
 #include <sys/poll.h>
 #include <sys/stat.h>
@@ -24,6 +23,28 @@ llvm::cl::opt<int> ClientProcessID{
     llvm::cl::desc(
         "Client process ID, if this PID died, the server should exit."),
     llvm::cl::init(getppid())};
+
+std::string jsonToString(llvm::json::Value &Message) {
+  std::string Result;
+  llvm::raw_string_ostream OS(Result);
+  OS << Message;
+  return Result;
+}
+
+class ReadEOF : public llvm::ErrorInfo<ReadEOF> {
+public:
+  static char ID;
+  ReadEOF() = default;
+
+  /// No need to implement this, we don't need to log this error.
+  void log(llvm::raw_ostream &OS) const override { __builtin_unreachable(); }
+
+  std::error_code convertToErrorCode() const override {
+    return std::make_error_code(std::errc::io_error);
+  }
+};
+
+char ReadEOF::ID;
 
 } // namespace
 
@@ -185,12 +206,13 @@ bool readLine(int fd, const std::atomic<bool> &Close,
   }
 }
 
-bool InboundPort::readStandardMessage(std::string &JSONString) {
+llvm::Expected<llvm::json::Value>
+InboundPort::readStandardMessage(std::string &Buffer) {
   unsigned long long ContentLength = 0;
   llvm::SmallString<128> Line;
   while (true) {
     if (!readLine(In, Close, Line))
-      return false;
+      return llvm::make_error<ReadEOF>(); // EOF
 
     llvm::StringRef LineRef = Line;
 
@@ -206,24 +228,25 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
     // It's another header, ignore it.
   }
 
-  JSONString.resize(ContentLength);
+  Buffer.resize(ContentLength);
   for (size_t Pos = 0, Read; Pos < ContentLength; Pos += Read) {
 
-    Read = read(In, JSONString.data() + Pos, ContentLength - Pos);
+    Read = read(In, Buffer.data() + Pos, ContentLength - Pos);
 
     if (Read == 0) {
       elog("Input was aborted. Read only {0} bytes of expected {1}.", Pos,
            ContentLength);
-      return false;
+      return llvm::make_error<ReadEOF>();
     }
   }
-  return true;
+  return llvm::json::parse(Buffer);
 }
 
-bool InboundPort::readDelimitedMessage(std::string &JSONString) {
+llvm::Expected<llvm::json::Value>
+InboundPort::readDelimitedMessage(std::string &Buffer) {
   enum class State { Prose, JSONBlock, NixBlock };
   State State = State::Prose;
-  JSONString.clear();
+  Buffer.clear();
   llvm::SmallString<128> Line;
   std::string NixDocURI;
   std::string NixDoc;
@@ -243,30 +266,33 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
 
       // End of the block
       if (LineRef.starts_with("```")) {
-        break;
+        return llvm::json::parse(Buffer);
       }
 
-      JSONString += Line;
+      Buffer += Line;
     } else if (State == State::NixBlock) {
       // We are in a Nix block. (This was implemented to make the .md test
       // files more readable, particularly regarding multiline Nix documents,
       // so that the newlines don't have to be \n escaped.)
 
       if (LineRef.starts_with("```")) {
-        nlohmann::json DidOpen = {
+        return llvm::json::Object{
             {"jsonrpc", "2.0"},
             {"method", "textDocument/didOpen"},
-            {"params",
-             {{"textDocument",
-               {
-                   {"uri", NixDocURI},
-                   {"languageId", "nix"},
-                   {"version", 1},
-                   {"text", llvm::StringRef(NixDoc).rtrim()},
-               }}}},
-        };
-        JSONString += DidOpen.dump();
-        break;
+            {
+                "params",
+                llvm::json::Object{
+                    {
+                        "textDocument",
+                        llvm::json::Object{
+                            {"uri", NixDocURI},
+                            {"languageId", "nix"},
+                            {"version", 1},
+                            {"text", llvm::StringRef(NixDoc).rtrim().str()},
+                        },
+                    },
+                },
+            }};
       }
       NixDoc += Line;
       NixDoc += "\n";
@@ -274,39 +300,41 @@ bool InboundPort::readDelimitedMessage(std::string &JSONString) {
       assert(false && "unreachable");
     }
   }
-  return true; // Including at EOF
+  return llvm::make_error<ReadEOF>(); // EOF
 }
 
-bool InboundPort::readMessage(std::string &JSONString) {
+llvm::Expected<llvm::json::Value>
+InboundPort::readMessage(std::string &Buffer) {
   switch (StreamStyle) {
 
   case JSONStreamStyle::Standard:
-    return readStandardMessage(JSONString);
+    return readStandardMessage(Buffer);
   case JSONStreamStyle::Delimited:
-    return readDelimitedMessage(JSONString);
-    break;
+    return readDelimitedMessage(Buffer);
   }
   assert(false && "Invalid stream style");
   __builtin_unreachable();
 }
 
 void InboundPort::loop(MessageHandler &Handler) {
-  std::string JSONString;
-  llvm::SmallString<128> Line;
+  std::string Buffer;
 
   for (;;) {
-    if (readMessage(JSONString)) {
-      vlog("<<< {0}", JSONString);
-      if (auto ExpectedParsedJSON = llvm::json::parse(JSONString)) {
-        if (!dispatch(*ExpectedParsedJSON, Handler))
-          return;
-      } else {
-        auto Err = ExpectedParsedJSON.takeError();
-        elog("The received json cannot be parsed, reason: {0}", Err);
+    if (auto Message = readMessage(Buffer)) {
+      vlog("<<< {0}", jsonToString(*Message));
+      if (!dispatch(*Message, Handler))
         return;
-      }
     } else {
-      return;
+      // Handle error while reading message.
+      return [&]() {
+        auto Err = Message.takeError();
+        if (Err.isA<ReadEOF>())
+          return; // Stop reading.
+        else if (Err.isA<llvm::json::ParseError>())
+          elog("The received json cannot be parsed, reason: {0}", Err);
+        else
+          elog("Error reading message: {0}", llvm::toString(std::move(Err)));
+      }();
     }
   }
 }
