@@ -249,7 +249,6 @@ InboundPort::readDelimitedMessage(std::string &Buffer) {
   Buffer.clear();
   llvm::SmallString<128> Line;
   std::string NixDocURI;
-  std::string NixDoc;
   while (readLine(In, Close, Line)) {
     auto LineRef = Line.str().trim();
     if (State == State::Prose) {
@@ -288,14 +287,14 @@ InboundPort::readDelimitedMessage(std::string &Buffer) {
                             {"uri", NixDocURI},
                             {"languageId", "nix"},
                             {"version", 1},
-                            {"text", llvm::StringRef(NixDoc).rtrim().str()},
+                            {"text", llvm::StringRef(Buffer).rtrim().str()},
                         },
                     },
                 },
             }};
       }
-      NixDoc += Line;
-      NixDoc += "\n";
+      Buffer += Line;
+      Buffer += "\n";
     } else {
       assert(false && "unreachable");
     }
