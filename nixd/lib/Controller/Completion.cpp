@@ -275,7 +275,7 @@ void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
                       std::vector<lspserver::CompletionItem> &Items) {
   std::vector<std::string> Scope;
   using PathResult = FindAttrPathResult;
-  auto R = findAttrPath(N, PM, Scope);
+  auto R = findAttrPathForOptions(N, PM, Scope);
   if (R == PathResult::OK) {
     // Construct request.
     std::string Prefix = Scope.back();
