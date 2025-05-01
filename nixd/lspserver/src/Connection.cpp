@@ -220,26 +220,28 @@ bool InboundPort::readStandardMessage(std::string &JSONString) {
 }
 
 bool InboundPort::readDelimitedMessage(std::string &JSONString) {
+  enum class State { Prose, JSONBlock };
+  State State = State::Prose;
   JSONString.clear();
   llvm::SmallString<128> Line;
-  bool IsInputBlock = false;
   while (readLine(In, Close, Line)) {
     auto LineRef = Line.str().trim();
-    if (IsInputBlock) {
+    if (State == State::Prose) {
+      if (LineRef.starts_with("```json"))
+        State = State::JSONBlock;
+    } else if (State == State::JSONBlock) {
       // We are in input blocks, read lines and append JSONString.
       if (LineRef.starts_with("#")) // comment
         continue;
 
       // End of the block
       if (LineRef.starts_with("```")) {
-        IsInputBlock = false;
         break;
       }
 
       JSONString += Line;
     } else {
-      if (LineRef.starts_with("```json"))
-        IsInputBlock = true;
+      assert(false && "unreachable");
     }
   }
   return true; // Including at EOF
