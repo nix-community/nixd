@@ -23,19 +23,8 @@
 <-- textDocument/didOpen
 
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///test.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{ config = { foo }; }"
-      }
-   }
-}
+```nix file:///test.nix
+{ config = { foo }; }
 ```
 
 ```json

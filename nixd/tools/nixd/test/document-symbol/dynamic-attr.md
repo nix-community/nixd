@@ -22,19 +22,8 @@
 
 
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{ ${builtins.foo} = bar; }"
-      }
-   }
-}
+```nix file:///basic.nix
+{ ${builtins.foo} = bar; }
 ```
 
 <-- textDocument/documentSymbol(2)

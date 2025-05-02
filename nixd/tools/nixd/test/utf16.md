@@ -17,19 +17,8 @@
 }
 ```
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{ a = 1; 测试文本 }"
-      }
-   }
-}
+```nix file:///basic.nix
+{ a = 1; 测试文本 }
 ```
 
 ```

@@ -20,8 +20,7 @@
 
 <-- textDocument/didOpen
 
-
-```nix
+```nix file:///basic.nix
 {
     x = 1;
     anonymousLambda = { a }: a;
@@ -33,24 +32,8 @@
     string2 = "${builtins.foo}";
     undefined = x;
     list = [ 1 2 3 ];
-    null = null;
-    wit = with builtins; [ a b c];
 }
-```
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{\n    x = 1;\n    anonymousLambda = { a }: a;\n    namedLambda = a: a;\n    numbers = 1 + 2.0;\n    bool = true;\n    bool2= false;\n    string = \"1\";\n    string2 = \"${builtins.foo}\";\n    undefined = x;\n    list = [ 1 2 3 ];\n}\n"
-      }
-   }
-}
 ```
 
 <-- textDocument/semanticTokens(2)

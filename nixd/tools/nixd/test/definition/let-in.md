@@ -20,19 +20,8 @@
 
 <-- textDocument/didOpen
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"let x = 1; in x"
-      }
-   }
-}
+```nix file:///basic.nix
+let x = 1; in x
 ```
 
 <-- textDocument/definition(2)

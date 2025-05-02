@@ -21,19 +21,8 @@
 <-- textDocument/didOpen
 
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{ inherit (builtins) concatLists listToAttrs filter attrNames; }"
-      }
-   }
-}
+```nix file:///basic.nix
+{ inherit (builtins) concatLists listToAttrs filter attrNames; }
 ```
 
 <-- textDocument/semanticTokens(2)

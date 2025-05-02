@@ -21,19 +21,8 @@
 <-- textDocument/didOpen
 
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///completion.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"let xxx = 1; yy = 2; in x"
-      }
-   }
-}
+```nix file:///completion.nix
+let xxx = 1; yy = 2; in x
 ```
 
 ```json
