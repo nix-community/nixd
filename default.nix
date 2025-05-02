@@ -7,7 +7,7 @@
   llvmPackages,
   meson,
   ninja,
-  nix,
+  nixVersions,
   pkg-config,
   nlohmann_json,
   python312,
@@ -31,7 +31,7 @@ stdenv.mkDerivation {
   nativeCheckInputs = [ lit ];
 
   buildInputs = [
-    nix
+    nixVersions.nix_2_28
     gtest
     boost182
     llvmPackages.llvm
