@@ -243,7 +243,7 @@ InboundPort::readStandardMessage(std::string &Buffer) {
 }
 
 llvm::Expected<llvm::json::Value>
-InboundPort::readDelimitedMessage(std::string &Buffer) {
+InboundPort::readLitTestMessage(std::string &Buffer) {
   enum class State { Prose, JSONBlock, NixBlock };
   State State = State::Prose;
   Buffer.clear();
@@ -308,8 +308,8 @@ InboundPort::readMessage(std::string &Buffer) {
 
   case JSONStreamStyle::Standard:
     return readStandardMessage(Buffer);
-  case JSONStreamStyle::Delimited:
-    return readDelimitedMessage(Buffer);
+  case JSONStreamStyle::LitTest:
+    return readLitTestMessage(Buffer);
   }
   assert(false && "Invalid stream style");
   __builtin_unreachable();
