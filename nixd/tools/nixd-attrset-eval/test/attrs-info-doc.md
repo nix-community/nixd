@@ -48,4 +48,3 @@ CHECK-NEXT: }
 ```json
 {"jsonrpc":"2.0","method":"exit"}
 ```
-
