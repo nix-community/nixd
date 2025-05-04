@@ -79,7 +79,7 @@ llvm::json::Value toJSON(const ValueMeta &Params);
 bool fromJSON(const llvm::json::Value &Params, ValueMeta &R,
               llvm::json::Path P);
 
-/// \brief Using nix's ":doc" method to retrive value's additional information.
+/// \brief Using nix's ":doc" method to retrieve value's additional information.
 struct ValueDescription {
   std::string Doc;
   std::int64_t Arity;
