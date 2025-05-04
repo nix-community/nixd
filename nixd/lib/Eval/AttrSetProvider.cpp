@@ -197,16 +197,17 @@ std::optional<ValueDescription> describeValue(nix::EvalState &State,
   } else if (V.isLambda()) {
     auto *Lambda = V.payload.lambda.fun;
     assert(Lambda);
+    const auto DocComment = Lambda->docComment;
+
+    // We can only get the comment in the function, not the Arity and Args
+    // information. Therefore, if the comment doesn't exist, return
+    // `std::nullopt`, indicating that we didn't get any valuable information.
+    // https://github.com/NixOS/nix/blob/ee59af99f8619e17db4289843da62a24302d20b7/src/libexpr/eval.cc#L638
+    if (!DocComment)
+      return std::nullopt;
+
     return ValueDescription{
-        .Doc =
-            [&]() {
-              const auto DocComment = Lambda->docComment;
-              if (DocComment) {
-                return DocComment.getInnerText(State.positions);
-              }
-              return std::string();
-            }(),
-        // https://github.com/NixOS/nix/blob/ee59af99f8619e17db4289843da62a24302d20b7/src/libexpr/eval.cc#L638
+        .Doc = DocComment.getInnerText(State.positions),
         .Arity = 0,
         .Args = {},
     };
