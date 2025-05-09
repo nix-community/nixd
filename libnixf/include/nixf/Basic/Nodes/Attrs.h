@@ -136,7 +136,7 @@ public:
   [[nodiscard]] std::shared_ptr<Misc> eq() const { return Eq; }
 
   [[nodiscard]] ChildVector children() const override {
-    return {Path.get(), Value.get()};
+    return {Path.get(), Eq.get(), Value.get()};
   }
 };
 
