@@ -58,19 +58,10 @@ For vscode users you should write `settings.json`[^settings] like this:
         // settings for 'nixd' LSP
         "nixd": {
             "formatting": {
-                // This is the default if ommited.
-                "command": [ "nixfmt" ]
+              // ...
             },
             "options": {
-                // By default, this entriy will be read from `import <nixpkgs> { }`
-                // You can write arbitary nix expression here, to produce valid "options" declaration result.
-                // Tip: for flake-based configuration, utilize `builtins.getFlake`
-                "nixos": {
-                    "expr": "(builtins.getFlake \"/absolute/path/to/flake\").nixosConfigurations.<name>.options"
-                },
-                "home-manager": {
-                    "expr": "(builtins.getFlake \"/absolute/path/to/flake\").homeConfigurations.<name>.options"
-                }
+              // ...
             }
         }
   }
@@ -113,7 +104,7 @@ nvim_lsp.nixd.setup({
 <details>
   <summary>Emacs</summary>
 
-  Configuration via [lsp-mode](https://github.com/emacs-lsp/lsp-mode) plugin. As of Oct 24, 2024, lsp-mode master has support for nixd autocompletion and formatting options. 
+  Configuration via [lsp-mode](https://github.com/emacs-lsp/lsp-mode) plugin. As of Oct 24, 2024, lsp-mode master has support for nixd autocompletion and formatting options.
 
   ```elisp
 (use-package nix-mode
@@ -162,15 +153,30 @@ nvim_lsp.nixd.setup({
   // Tell the language server your desired option set, for completion
   // This is lazily evaluated.
   "options": { // Map of eval information
-    // If this is omitted, default search path (<nixpkgs>) will be used.
-    "nixos": { // This name "nixos" could be arbitrary.
-      // The expression to eval, interpret it as option declarations.
-      "expr": "(builtins.getFlake \"/home/lyc/flakes\").nixosConfigurations.adrastea.options"
-    },
+      // By default, this entriy will be read from `import <nixpkgs> { }`
+      // You can write arbitary nix expression here, to produce valid "options" declaration result.
+      //
+      // *NOTE*: Replace "<name>" below with your actual configuration name.
+      // If you're unsure what to use, you can verify with `nix repl` by evaluating
+      // the expression directly.
+      //
+      "nixos": {
+          "expr": "(builtins.getFlake (builtins.toString ./.)).nixosConfigurations.<name>.options"
+      },
 
-    // By default there is no home-manager options completion, thus you can add this entry.
+    // Before configuring Home Manager options, consider your setup:
+    // Which command do you use for home-manager switching?
+    //
+    //  A. home-manager switch --flake .#... (standalone Home Manager)
+    //  B. nixos-rebuild switch --flake .#... (NixOS with integrated Home Manager)
+    //
+    // Configuration examples for both approaches are shown below.
     "home-manager": {
-      "expr": "(builtins.getFlake \"/home/lyc/flakes\").homeConfigurations.\"lyc@adrastea\".options"
+      // A:
+      "expr": "(builtins.getFlake (builtins.toString ./.)).homeConfigurations.<name>.options"
+
+      // B:
+      "expr": "(builtins.getFlake (builtins.toString ./.)).nixosConfigurations.<name>.options.home-manager.users.type.getSubOptions []"
     }
   },
   // Control the diagnostic system
@@ -271,5 +277,43 @@ If you aren't a flakes user with standalone home-manager with a vanilla install 
       "expr": "(import <home-manager/modules> { configuration = ~/.config/home-manager/home.nix; pkgs = import <nixpkgs> {}; }).options"
     }
   }
+}
+```
+
+## Q & A
+
+### Home-manager options completion does not work. What is `homeConfigurations`?
+
+See [configuration overview](#configuration-overview).
+If your home-manager is installed as part of a NixOS module,
+the options list can be retrieved like this:
+
+```nix
+(builtins.getFlake (builtins.toString ./.)).nixosConfigurations.<name>.options.home-manager.users.type.getSubOptions []
+```
+
+### Still not working?
+
+Try testing your expression in `nix repl`. This will help you diagnose evaluation issues.
+For example:
+
+```
+nix-repl> (builtins.getFlake (builtins.toString ./.)).nixosConfigurations.<name>.options
+error: syntax error, unexpected SPATH, expecting ID or OR_KW or DOLLAR_CURLY or '"'
+  at «string»:1:65:
+       1| (builtins.getFlake (builtins.toString ./.)).nixosConfigurations.<name>.options
+        |                                                                 ^
+```
+
+Replace `<name>` with your actual configuration name:
+
+```
+nix-repl> (builtins.getFlake (builtins.toString ./.)).nixosConfigurations.adrastea.options
+{
+  _module = { ... };
+  appstream = { ... };
+  assertions = { ... };
+  boot = { ... };
+  # ... more options ..., this is expected.
 }
 ```
