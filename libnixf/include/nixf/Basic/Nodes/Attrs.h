@@ -115,6 +115,7 @@ public:
 class Binding : public Node {
   const std::shared_ptr<AttrPath> Path;
   const std::shared_ptr<Expr> Value;
+  // Represents the '=' token in the syntax tree, preserving its position and presence.
   const std::shared_ptr<Misc> Eq;
 
 public:
