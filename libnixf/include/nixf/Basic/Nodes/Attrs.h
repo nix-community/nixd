@@ -115,12 +115,13 @@ public:
 class Binding : public Node {
   const std::shared_ptr<AttrPath> Path;
   const std::shared_ptr<Expr> Value;
+  const std::shared_ptr<Misc> Eq;
 
 public:
   Binding(LexerCursorRange Range, std::shared_ptr<AttrPath> Path,
-          std::shared_ptr<Expr> Value)
-      : Node(NK_Binding, Range), Path(std::move(Path)),
-        Value(std::move(Value)) {
+          std::shared_ptr<Expr> Value, std::shared_ptr<Misc> Eq)
+      : Node(NK_Binding, Range), Path(std::move(Path)), Value(std::move(Value)),
+        Eq(std::move(Eq)) {
     assert(this->Path && "Path must not be null");
     // Value can be null, if missing in the syntax.
   }
@@ -131,6 +132,8 @@ public:
   }
 
   [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
+
+  [[nodiscard]] std::shared_ptr<Misc> eq() const { return Eq; }
 
   [[nodiscard]] ChildVector children() const override {
     return {Path.get(), Value.get()};

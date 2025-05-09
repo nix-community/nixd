@@ -76,11 +76,13 @@ std::shared_ptr<Binding> Parser::parseBinding() {
   assert(LastToken && "LastToken should be set after valid attrpath");
   auto SyncEq = withSync(tok_eq);
   auto SyncSemi = withSync(tok_semi_colon);
-  if (ExpectResult ER = expect(tok_eq); !ER.ok())
+  ExpectResult ExpTokEq = expect(tok_eq);
+  if (!ExpTokEq.ok())
     return std::make_shared<Binding>(
         LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
-        nullptr);
+        nullptr, nullptr);
   consume();
+  auto TokEq = std::make_shared<Misc>(ExpTokEq.tok().range());
   auto Expr = parseExpr();
   if (!Expr)
     diagNullExpr(Diags, LastToken->rCur(), "binding");
@@ -97,7 +99,7 @@ std::shared_ptr<Binding> Parser::parseBinding() {
   }
   return std::make_shared<Binding>(
       LexerCursorRange{Path->lCur(), LastToken->rCur()}, std::move(Path),
-      std::move(Expr));
+      std::move(Expr), std::move(TokEq));
 }
 
 std::shared_ptr<Inherit> Parser::parseInherit() {

@@ -307,6 +307,7 @@ TEST(Parser, AttrsBindingWritingDot) {
       *static_cast<Binding *>(Attrs.binds()->bindings()[0].get());
 
   ASSERT_EQ(Bind.kind(), Node::NK_Binding);
+  ASSERT_FALSE(Bind.eq());
 
   const auto &Path = Bind.path();
   ASSERT_EQ(Path.names().size(), 1);
@@ -390,6 +391,9 @@ TEST(Parser, AttrsNested) {
 
   ASSERT_EQ(Ba->path().names().at(0)->id()->name(), "a");
   ASSERT_EQ(Ba->value()->kind(), Node::NK_ExprAttrs);
+  ASSERT_EQ(Ba->eq()->kind(), Node::NK_Misc);
+  ASSERT_TRUE(Ba->eq()->range().lCur().isAt(2, 4, 7));
+  ASSERT_TRUE(Ba->eq()->range().rCur().isAt(2, 5, 8));
 
   const auto &BaRHS =
       static_cast<ExprAttrs *>(Ba->value().get())->binds()->bindings();
