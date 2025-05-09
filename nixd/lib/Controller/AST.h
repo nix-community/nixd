@@ -129,4 +129,12 @@ FindAttrPathResult findAttrPath(const nixf::Node &N,
                                 const nixf::ParentMapAnalysis &PM,
                                 std::vector<std::string> &Path);
 
+/// \brief Heuristically find attrpath suitable for "attrpath" completion.
+/// Strips "config." from the start to support config sections in NixOS modules.
+///
+/// \param[out] Path the attrpath.
+FindAttrPathResult findAttrPathForOptions(const nixf::Node &N,
+                                          const nixf::ParentMapAnalysis &PM,
+                                          std::vector<std::string> &Path);
+
 } // namespace nixd

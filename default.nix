@@ -38,8 +38,6 @@ stdenv.mkDerivation {
     nlohmann_json
   ];
 
-  env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
-
   doCheck = !stdenv.isDarwin;
 
   checkPhase = ''

@@ -315,3 +315,19 @@ nixd::FindAttrPathResult nixd::findAttrPath(const nixf::Node &N,
 
   return R::NotAttrPath;
 }
+
+nixd::FindAttrPathResult
+nixd::findAttrPathForOptions(const nixf::Node &N,
+                             const nixf::ParentMapAnalysis &PM,
+                             std::vector<std::string> &Path) {
+
+  const auto R = findAttrPath(N, PM, Path);
+  if (R == FindAttrPathResult::OK) {
+    // FIXME: Only do this in NixOS module files and in flakes only in module
+    // functions passed to nixpkgs.lib.nixosSystem.
+    if (!Path.empty() && Path[0] == "config") {
+      Path.erase(Path.begin());
+    }
+  }
+  return R;
+}

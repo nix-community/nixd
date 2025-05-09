@@ -11,6 +11,7 @@ Checks: >
   -llvm-else-after-return,
   -readability-else-after-return,
   -readability-use-anyofallof,
+  -readability-avoid-return-with-void-value,
   -misc-const-correctness,
   -misc-unused-parameters,
   -misc-non-private-member-variables-in-classes,

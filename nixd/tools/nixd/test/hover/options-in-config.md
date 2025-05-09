@@ -1,4 +1,6 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test \
+# RUN: --nixos-options-expr="{ foo = { _type = \"option\"; description = \"test option\"; type.description = \"test type\"; }; }" \
+# RUN: < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -20,25 +22,23 @@
 
 <-- textDocument/didOpen
 
-```nix file:///basic.nix
-with pkgs; x
+
+```nix file:///test.nix
+{ config = { foo }; }
 ```
-
-<-- textDocument/definition(2)
-
 
 ```json
 {
-   "jsonrpc":"2.0",
-   "id":2,
-   "method":"textDocument/definition",
+   "jsonrpc": "2.0",
+   "id": 2,
+   "method": "textDocument/hover",
    "params":{
       "textDocument":{
-         "uri":"file:///basic.nix"
+         "uri": "file:///test.nix"
       },
       "position":{
-        "line": 0,
-        "character":11
+         "line": 0,
+         "character": 15
       }
    }
 }
@@ -48,17 +48,21 @@ with pkgs; x
      CHECK:  "id": 2,
 CHECK-NEXT:  "jsonrpc": "2.0",
 CHECK-NEXT:  "result": {
+CHECK-NEXT:    "contents": {
+CHECK-NEXT:      "kind": "markdown",
+CHECK-NEXT:      "value": " (test type)\n\ntest option"
+CHECK-NEXT:    },
 CHECK-NEXT:    "range": {
 CHECK-NEXT:      "end": {
-CHECK-NEXT:        "character": 4,
+CHECK-NEXT:        "character": 16,
 CHECK-NEXT:        "line": 0
 CHECK-NEXT:      },
 CHECK-NEXT:      "start": {
-CHECK-NEXT:        "character": 0,
+CHECK-NEXT:        "character": 13,
 CHECK-NEXT:        "line": 0
 CHECK-NEXT:      }
-CHECK-NEXT:    },
-CHECK-NEXT:    "uri": "file:///basic.nix"
+CHECK-NEXT:    }
+CHECK-NEXT:  }
 ```
 
 

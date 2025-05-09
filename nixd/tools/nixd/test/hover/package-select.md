@@ -1,4 +1,6 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test \
+# RUN: --nixpkgs-expr="{ hello.meta.description = \"Very Nice\";  }" \
+# RUN: < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -20,48 +22,44 @@
 
 <-- textDocument/didOpen
 
-```nix file:///basic.nix
-with pkgs; x
+
+```nix file:///test.nix
+pkgs.foo
 ```
 
-<-- textDocument/definition(2)
+<-- textDocument/hover(2)
 
 
 ```json
 {
    "jsonrpc":"2.0",
    "id":2,
-   "method":"textDocument/definition",
+   "method":"textDocument/hover",
    "params":{
       "textDocument":{
-         "uri":"file:///basic.nix"
+         "uri":"file:///test.nix"
       },
       "position":{
-        "line": 0,
-        "character":11
+         "line":0,
+         "character":6
       }
    }
 }
 ```
 
 ```
-     CHECK:  "id": 2,
-CHECK-NEXT:  "jsonrpc": "2.0",
-CHECK-NEXT:  "result": {
+     CHECK:    "contents": {
+CHECK-NEXT:      "kind": "markdown",
+CHECK-NEXT:      "value": "`Identifier`"
+CHECK-NEXT:    },
 CHECK-NEXT:    "range": {
 CHECK-NEXT:      "end": {
-CHECK-NEXT:        "character": 4,
+CHECK-NEXT:        "character": 8,
 CHECK-NEXT:        "line": 0
 CHECK-NEXT:      },
 CHECK-NEXT:      "start": {
-CHECK-NEXT:        "character": 0,
+CHECK-NEXT:        "character": 5,
 CHECK-NEXT:        "line": 0
 CHECK-NEXT:      }
-CHECK-NEXT:    },
-CHECK-NEXT:    "uri": "file:///basic.nix"
-```
-
-
-```json
-{"jsonrpc":"2.0","method":"exit"}
+CHECK-NEXT:    }
 ```

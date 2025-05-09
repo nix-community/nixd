@@ -1,8 +1,8 @@
 #include <gtest/gtest.h>
 
-#include <nix/common-eval-args.hh>
-#include <nix/eval.hh>
-#include <nix/store-api.hh>
+#include <nix/cmd/common-eval-args.hh>
+#include <nix/expr/eval.hh>
+#include <nix/store/store-api.hh>
 
 namespace nixt {
 

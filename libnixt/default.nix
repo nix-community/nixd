@@ -38,8 +38,6 @@ stdenv.mkDerivation {
     boost182
   ];
 
-  env.CXXFLAGS = "-include ${nix.dev}/include/nix/config.h";
-
   meta = {
     mainProgram = "nixt";
     description = "Nix language frontend, parser & semantic analysis";

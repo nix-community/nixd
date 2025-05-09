@@ -1,4 +1,6 @@
-# RUN: nixd --nixpkgs-expr='{ ax.bx = 1; ax.by = 2; }' --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test \
+# RUN: --nixos-options-expr="{ foo.bar = { _type = \"option\"; }; }" \
+# RUN: < %s | FileCheck %s
 
 <-- initialize(0)
 
@@ -22,7 +24,7 @@
 
 
 ```nix file:///completion.nix
-with pkgs; [ ax.b ]
+{ config = { foo }; }
 ```
 
 ```json
@@ -36,7 +38,7 @@ with pkgs; [ ax.b ]
         },
         "position": {
             "line": 0,
-            "character": 16
+            "character": 15
         },
         "context": {
             "triggerKind": 1
@@ -47,23 +49,19 @@ with pkgs; [ ax.b ]
 
 ```
      CHECK: "id": 1,
-CHECK-NEXT: "jsonrpc": "2.0",
-CHECK-NEXT: "result": {
-CHECK-NEXT:   "isIncomplete": false,
-CHECK-NEXT:   "items": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "data": "{\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
-CHECK-NEXT:       "kind": 5,
-CHECK-NEXT:       "label": "bx",
-CHECK-NEXT:       "score": 0
-CHECK-NEXT:     },
-CHECK-NEXT:     {
-CHECK-NEXT:       "data": "{\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
-CHECK-NEXT:       "kind": 5,
-CHECK-NEXT:       "label": "by",
-CHECK-NEXT:       "score": 0
-CHECK-NEXT:     }
-CHECK-NEXT:   ]
+CHECK-NEXT:  "jsonrpc": "2.0",
+CHECK-NEXT:  "result": {
+CHECK-NEXT:    "isIncomplete": false,
+CHECK-NEXT:    "items": [
+CHECK-NEXT:      {
+CHECK-NEXT:        "data": "",
+CHECK-NEXT:        "detail": "nixos",
+CHECK-NEXT:        "kind": 7,
+CHECK-NEXT:        "label": "foo",
+CHECK-NEXT:        "score": 0
+CHECK-NEXT:      }
+CHECK-NEXT:    ]
+CHECK-NEXT:  }
 ```
 
 

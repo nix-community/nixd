@@ -23,19 +23,8 @@ i.e. testing if `pkgs.x` works.
 
 <-- textDocument/didOpen
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"pkgs.x"
-      }
-   }
-}
+```nix file:///basic.nix
+pkgs.x
 ```
 
 <-- textDocument/definition(2)

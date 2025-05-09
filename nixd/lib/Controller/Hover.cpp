@@ -147,7 +147,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
       }
 
       auto Scope = std::vector<std::string>();
-      const auto R = findAttrPath(N, PM, Scope);
+      const auto R = findAttrPathForOptions(N, PM, Scope);
       if (R == FindAttrPathResult::OK) {
         std::lock_guard _(OptionsLock);
         for (const auto &[_, Client] : Options) {

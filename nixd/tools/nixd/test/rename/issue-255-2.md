@@ -22,19 +22,8 @@
 
 <-- textDocument/didOpen
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///basic.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{a ? 1}: { x = a; }"
-      }
-   }
-}
+```nix file:///basic.nix
+{a ? 1}: { x = a; }
 ```
 
 <-- textDocument/rename(2)

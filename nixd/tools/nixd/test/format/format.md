@@ -17,19 +17,10 @@
 }
 ```
 
-```json
-{
-   "jsonrpc":"2.0",
-   "method":"textDocument/didOpen",
-   "params":{
-      "textDocument":{
-         "uri":"file:///format.nix",
-         "languageId":"nix",
-         "version":1,
-         "text":"{ stdenv,\npkgs}: \n let x=1; in { y = x; }"
-      }
-   }
-}
+```nix file:///format.nix
+{ stdenv,
+pkgs}: 
+ let x=1; in { y = x; }
 ```
 
 <-- textDocument/formatting
