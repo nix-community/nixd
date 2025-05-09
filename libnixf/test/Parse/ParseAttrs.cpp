@@ -307,7 +307,7 @@ TEST(Parser, AttrsBindingWritingDot) {
       *static_cast<Binding *>(Attrs.binds()->bindings()[0].get());
 
   ASSERT_EQ(Bind.kind(), Node::NK_Binding);
-  ASSERT_FALSE(Bind.eq());
+  ASSERT_EQ(Bind.eq(), nullptr);
 
   const auto &Path = Bind.path();
   ASSERT_EQ(Path.names().size(), 1);
