@@ -1,0 +1,11 @@
+<map id="lspserver::TypeHierarchyItem" name="lspserver::TypeHierarchyItem">
+<area shape="rect" id="Node000001" title=" " alt="" coords="144,242,356,269"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="5,124,161,151"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="116,158,233,239,230,243,112,162"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1Range.html" title=" " alt="" coords="184,124,315,151"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="252,167,252,241,247,241,247,167"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Position.html" title=" " alt="" coords="179,5,320,33"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="252,49,252,123,247,123,247,49"/>
+<area shape="rect" id="Node000005" href="$structlspserver_1_1TypeHierarchyItem_1_1ResolveParams.html" title="Used to resolve a client provided item back." alt="" coords="338,115,521,160"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="407,173,384,198,356,220,331,233,304,244,302,239,329,229,354,215,380,194,403,170"/>
+</map>
