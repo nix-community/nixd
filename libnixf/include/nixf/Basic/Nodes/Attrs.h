@@ -133,7 +133,7 @@ public:
 
   [[nodiscard]] const std::shared_ptr<Expr> &value() const { return Value; }
 
-  [[nodiscard]] std::shared_ptr<Misc> eq() const { return Eq; }
+  [[nodiscard]] const std::shared_ptr<Misc> &eq() const { return Eq; }
 
   [[nodiscard]] ChildVector children() const override {
     return {Path.get(), Eq.get(), Value.get()};
