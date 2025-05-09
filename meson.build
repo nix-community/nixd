@@ -1,7 +1,7 @@
 project( 'nixd'
        , ['c', 'cpp']
        , default_options : ['cpp_std=gnu++20']
-       , version: '2.6.3'
+       , version: '2.6.4'
        )
 
 config_h = configuration_data()
@@ -82,6 +82,3 @@ subdir('libnixt/test')
 subdir('nixd/lspserver')
 subdir('nixd/lib')
 subdir('nixd/tools')
-
-
-

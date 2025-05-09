@@ -15,7 +15,7 @@
 
 stdenv.mkDerivation {
   pname = "nixd";
-  version = "2.6.3";
+  version = "2.6.4";
 
   src = ./.;
 
