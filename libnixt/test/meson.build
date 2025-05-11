@@ -3,7 +3,6 @@ test(
     executable(
         'test-libnixt',
         'InitEval.cpp',
-        'Kinds.cpp',
         'Value.cpp',
         dependencies: [ gtest_main, nixt ]
     ),

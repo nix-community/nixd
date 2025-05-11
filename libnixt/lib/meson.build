@@ -3,11 +3,6 @@ libnixt_deps = [ nix_expr, nix_flake, nix_main, nix_cmd, boost ]
 libnixd_inc = include_directories('../include')
 
 libnixt = library('nixt',
-                  'Displacement.cpp',
-                  'Flake.cpp',
-                  'HookExpr.cpp',
-                  'Kinds.cpp',
-                  'ParentMap.cpp',
                   'Value.cpp',
                   include_directories: libnixd_inc,
                   dependencies: libnixt_deps,
