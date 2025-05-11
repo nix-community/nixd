@@ -11,17 +11,7 @@
 #include <llvm/Support/JSON.h>
 #include <lspserver/Protocol.h>
 
-// https://github.com/NixOS/nix/issues/11136
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdocumentation"
-#endif
-
-#include <nix/expr/value.hh>
-
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
+#include "nixt/Value.h"
 
 namespace nixd {
 

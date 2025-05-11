@@ -1,11 +1,42 @@
 #include "nixt/Value.h"
 
+#if NIX_IMPL == 1
 #include <nix/expr/attr-path.hh>
 #include <nix/expr/nixexpr.hh>
 #include <nix/expr/symbol-table.hh>
 #include <nix/expr/value.hh>
+#else
+#include <attr-path.hh>
+#include <nixexpr.hh>
+#include <symbol-table.hh>
+#include <value.hh>
+#endif
 
 using namespace nixt;
+
+std::string_view nixt::getStr(const nix::Value &V) {
+#if NIX_IMPL == 1
+  return V.string_view();
+#else
+  return V.str();
+#endif
+}
+
+int64_t nixt::getInt(const nix::Value &V) {
+#if NIX_IMPL == 1
+  return static_cast<int64_t>(V.integer());
+#else
+  return static_cast<int64_t>(V.integer);
+#endif
+}
+
+nix::Bindings *nixt::getAttrs(const nix::Value &V) {
+#if NIX_IMPL == 1
+  return V.attrs();
+#else
+  return V.attrs;
+#endif
+}
 
 std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
                                          std::string_view Field) {
@@ -14,7 +45,7 @@ std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
     return std::nullopt;
 
   nix::Symbol SFiled = State.symbols.create(Field);
-  if (auto *It = V.attrs()->find(SFiled); It != V.attrs()->end())
+  if (auto *It = getAttrs(V)->find(SFiled); It != getAttrs(V)->end())
     return *It->value;
 
   return std::nullopt;
@@ -88,9 +119,9 @@ nix::Value &nixt::selectAttr(nix::EvalState &State, nix::Value &V,
   if (V.type() != nix::ValueType::nAttrs)
     throw nix::TypeError(State, "value is not an attrset");
 
-  assert(V.attrs() && "nix must allocate non-null attrs!");
-  auto *Nested = V.attrs()->find(Attr);
-  if (Nested == V.attrs()->end())
+  assert(getAttrs(V) && "nix must allocate non-null attrs!");
+  auto *Nested = getAttrs(V)->find(Attr);
+  if (Nested == getAttrs(V)->end())
     throw nix::AttrPathNotFound("attrname " + State.symbols[Attr] +
                                 " not found in attrset");
 

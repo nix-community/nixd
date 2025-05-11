@@ -3,11 +3,9 @@
 
 #include "lspserver/Protocol.h"
 
-#include <nix/cmd/common-eval-args.hh>
-#include <nix/expr/attr-path.hh>
-#include <nix/expr/nixexpr.hh>
-#include <nix/store/store-api.hh>
 #include <nixt/Value.h>
+
+#include <sstream>
 
 using namespace nixd;
 using namespace lspserver;
@@ -84,14 +82,14 @@ void fillUnsafeGetAttrPosLocation(nix::EvalState &State, nix::Value &V,
   State.forceValue(Column, nix::noPos);
 
   if (File.type() == nix::ValueType::nString)
-    Loc.uri = URIForFile::canonicalize(File.c_str(), File.c_str());
+    Loc.uri = URIForFile::canonicalize(nixt::getStr(File), nixt::getStr(File));
 
   if (Line.type() == nix::ValueType::nInt &&
       Column.type() == nix::ValueType::nInt) {
 
     // Nix position starts from "1" however lsp starts from zero.
-    lspserver::Position Pos = {static_cast<int64_t>(Line.integer()) - 1,
-                               static_cast<int64_t>(Column.integer()) - 1};
+    lspserver::Position Pos = {nixt::getInt(Line) - 1,
+                               nixt::getInt(Column) - 1};
     Loc.range = {Pos, Pos};
   }
 }
@@ -119,7 +117,7 @@ void fillOptionDeclarations(nix::EvalState &State, nix::Value &V,
     State.forceValue(DeclarationPositions, nix::noPos);
     // A list of positions, in unsafeGetAttrPos format.
     fillOptionDeclarationPositions(State, DeclarationPositions, R);
-  } catch (nix::AttrPathNotFound &E) {
+  } catch (nix::Error &E) {
     // FIXME: fallback to "declarations"
     return;
   }
@@ -136,16 +134,16 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   fillOptionDeclarations(State, V, R);
   // FIXME: add definitions location.
   if (V.type() == nix::ValueType::nAttrs) [[likely]] {
-    assert(V.attrs());
-    if (auto *It = V.attrs()->find(State.symbols.create("type"));
-        It != V.attrs()->end()) [[likely]] {
+    assert(nixt::getAttrs(V));
+    if (auto *It = nixt::getAttrs(V)->find(State.symbols.create("type"));
+        It != nixt::getAttrs(V)->end()) [[likely]] {
       OptionType Type;
       fillOptionType(State, *It->value, Type);
       R.Type = std::move(Type);
     }
 
-    if (auto *It = V.attrs()->find(State.symbols.create("example"));
-        It != V.attrs()->end()) {
+    if (auto *It = nixt::getAttrs(V)->find(State.symbols.create("example"));
+        It != nixt::getAttrs(V)->end()) {
       State.forceValue(*It->value, It->pos);
 
       // In nixpkgs some examples are nested in "literalExpression"
@@ -170,7 +168,8 @@ std::vector<std::string> completeNames(nix::Value &Scope,
   // However as my (roughtly) profiling the critical in this loop is
   // evaluating package details.
   // "Trie"s may not beneficial because it cannot speedup eval.
-  for (const auto *AttrPtr : Scope.attrs()->lexicographicOrder(State.symbols)) {
+  for (const auto *AttrPtr :
+       nixt::getAttrs(Scope)->lexicographicOrder(State.symbols)) {
     const nix::Attr &Attr = *AttrPtr;
     const std::string_view Name = State.symbols[Attr.name];
     if (Name.starts_with(Prefix)) {
@@ -195,7 +194,7 @@ std::optional<ValueDescription> describeValue(nix::EvalState &State,
         .Args = PrimOp->args,
     };
   } else if (V.isLambda()) {
-    auto *Lambda = V.payload.lambda.fun;
+    auto *Lambda = V.lambda.fun;
     assert(Lambda);
     const auto DocComment = Lambda->docComment;
 
@@ -238,8 +237,7 @@ void AttrSetProvider::onEvalExpr(
     const std::string &Name,
     lspserver::Callback<std::optional<std::string>> Reply) {
   try {
-    nix::Expr *AST = state().parseExprFromString(Name, state().rootPath("."));
-    state().eval(AST, Nixpkgs);
+    nixt::evalExprFromCwd(state(), Name, Nixpkgs);
     Reply(std::nullopt);
     return;
   } catch (const nix::BaseError &Err) {
@@ -349,7 +347,7 @@ void AttrSetProvider::onOptionComplete(
     // evaluating package details.
     // "Trie"s may not beneficial becausae it cannot speedup eval.
     for (const auto *AttrPtr :
-         Scope.attrs()->lexicographicOrder(state().symbols)) {
+         nixt::getAttrs(Scope)->lexicographicOrder(state().symbols)) {
       const nix::Attr &Attr = *AttrPtr;
       std::string_view Name = state().symbols[Attr.name];
       if (Name.starts_with(Params.Prefix)) {

@@ -10,11 +10,5 @@ gtest_main = dependency('gtest_main')
 
 pkgconfig = import('pkgconfig')
 
-
-nix_main = dependency('nix-main')
-nix_expr = dependency('nix-expr')
-nix_cmd = dependency('nix-cmd')
-nix_flake = dependency('nix-flake')
-
 subdir('lib')
 subdir('test')

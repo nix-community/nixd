@@ -1,0 +1,1 @@
+option('nix_impl', type : 'combo', choices : ['lix', 'nix'], value : 'nix')

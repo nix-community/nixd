@@ -1,6 +1,12 @@
-#include <nix/expr/eval.hh>
+#pragma once
+
+#include "Eval.h"
 
 namespace nixt {
+
+std::string_view getStr(const nix::Value &V);
+int64_t getInt(const nix::Value &V);
+nix::Bindings *getAttrs(const nix::Value &V);
 
 std::optional<nix::Value> getField(nix::EvalState &State, nix::Value &V,
                                    std::string_view Field);

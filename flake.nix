@@ -33,7 +33,12 @@
             llvmPackages_19
             callPackage
             stdenv
+            lix
             ;
+          supportedNixImplementations = [
+            nixVersions.nix_2_28
+            lix
+          ];
           nix = nixVersions.nix_2_28;
           llvmPackages = llvmPackages_19;
           nixf = callPackage ./libnixf { };
@@ -44,11 +49,14 @@
           };
           nixdMono = callPackage ./. { inherit nix llvmPackages; };
           nixdLLVM = nixdMono.override { stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv; };
-          regressionDeps = with pkgs; [
-            clang-tools
-            lit
-            nixfmt-rfc-style
-          ];
+          regressionDeps =
+            with pkgs;
+            [
+              clang-tools
+              lit
+              nixfmt-rfc-style
+            ]
+            ++ supportedNixImplementations;
           shellOverride = old: {
             nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
             shellHook = ''

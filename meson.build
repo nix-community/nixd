@@ -26,7 +26,6 @@ cpp = meson.get_compiler('cpp')
 add_project_arguments([
   '-I' + meson.project_build_root(),
   cpp.get_supported_arguments(
-     '-Werror=documentation',
      '-Werror=delete-non-abstract-non-virtual-dtor',
      '-Werror=pragma-once-outside-header',
      '-Wno-unused-parameter',
@@ -53,6 +52,18 @@ if get_option('buildtype').startswith('release')
 endif
 
 
+if get_option('nix_impl') == 'nix'
+  args = [
+    '-DNIX_IMPL=1',
+    '-Werror=documentation',
+  ]
+  add_project_arguments([cpp.get_supported_arguments(args)], language: 'cpp')
+else
+  add_project_arguments([cpp.get_supported_arguments('-DNIX_IMPL=2')], language: 'cpp')
+endif
+
+
+
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
 
@@ -69,19 +80,9 @@ subdir('libnixf/src')
 subdir('libnixf/tools')
 subdir('libnixf/test')
 
-
-nix_main = dependency('nix-main')
-nix_expr = dependency('nix-expr')
-nix_cmd = dependency('nix-cmd')
-nix_flake = dependency('nix-flake')
-
-
 subdir('libnixt/lib')
 subdir('libnixt/test')
 
 subdir('nixd/lspserver')
 subdir('nixd/lib')
 subdir('nixd/tools')
-
-
-
