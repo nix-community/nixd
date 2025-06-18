@@ -384,13 +384,14 @@ void Controller::onCompletion(const CompletionParams &Params,
     return Reply([&]() -> llvm::Expected<CompletionList> {
       const auto TU = CheckDefault(getTU(File));
       const auto AST = CheckDefault(getAST(*TU));
-
       const auto *Desc = AST->descend({Pos, Pos});
-      CheckDefault(Desc && Desc->children().empty());
+      CheckDefault(Desc);
 
       const auto &N = *Desc;
       const auto &PM = *TU->parentMap();
       const auto &UpExpr = *CheckDefault(PM.upExpr(N));
+      CheckDefault(Desc->children().empty() ||
+                   UpExpr.kind() == Node::NK_ExprAttrs);
 
       return [&]() {
         CompletionList List;
