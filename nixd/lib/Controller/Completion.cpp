@@ -31,7 +31,7 @@ namespace {
 /// Set max completion size to this value, we don't want to send large lists
 /// because of slow IO.
 /// Items exceed this size should be marked "incomplete" and recomputed.
-constexpr int MaxCompletionSize = 30;
+constexpr int MaxCompletionSize = 1000;
 
 CompletionItemKind OptionKind = CompletionItemKind::Constructor;
 CompletionItemKind OptionAttrKind = CompletionItemKind::Class;
