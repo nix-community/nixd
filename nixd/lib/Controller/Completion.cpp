@@ -278,7 +278,7 @@ void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
   auto R = findAttrPathForOptions(N, PM, Scope);
   if (R == PathResult::OK) {
     // Construct request.
-    std::string Prefix = Scope.back();
+    std::string Prefix = "";
     Scope.pop_back();
     {
       std::lock_guard _(OptionsLock);
