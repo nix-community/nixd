@@ -71,40 +71,55 @@ public:
   void dfs(const Node *N) {
     if (!N)
       return;
+
+    // Ask nixpkgs eval to provide it's information.
+    // This is relatively slow. Maybe better query a set of packages in the
+    // future?
+    std::binary_semaphore Ready(0);
+    AttrPathInfoParams selector;
+
     if (N->kind() == Node::NK_ExprVar) {
       if (havePackageScope(*N, VLA, PMA)) {
         if (!rangeOK(N->positionRange()))
           return;
-        // Ask nixpkgs eval to provide it's information.
-        // This is relatively slow. Maybe better query a set of packages in the
-        // future?
-        std::binary_semaphore Ready(0);
-        const std::string &Name = static_cast<const ExprVar &>(*N).id().name();
-        AttrPathInfoResponse R;
-        auto OnReply = [&Ready, &R](llvm::Expected<AttrPathInfoResponse> Resp) {
-          if (!Resp) {
-            Ready.release();
-            return;
-          }
-          R = *Resp;
-          Ready.release();
-        };
-        NixpkgsProvider.attrpathInfo({Name}, std::move(OnReply));
-        Ready.acquire();
 
-        if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
-          // Construct inlay hints.
-          InlayHint H{
-              .position = toLSPPosition(Src, N->rCur()),
-              .label = ": " + *Version,
-              .kind = InlayHintKind::Designator,
-              .range = toLSPRange(Src, N->range()),
-          };
-          Hints.emplace_back(std::move(H));
-        }
+        const auto &Var = static_cast<const ExprVar &>(*N);
+        selector.emplace_back(Var.id().name());
+      }
+    } else if (N->kind() == Node::NK_ExprSelect) {
+      if (havePackageScope(*N, VLA, PMA)) {
+        if (!rangeOK(N->positionRange()))
+          return;
+
+        const auto &Sel = static_cast<const ExprSelect &>(*N);
+        selector = nixd::idioms::mkSelector(Sel, VLA, PMA);
       }
     }
-    // FIXME: process other node kinds. e.g. ExprSelect.
+
+    if (!selector.empty()) {
+      AttrPathInfoResponse R;
+      auto OnReply = [&Ready, &R](llvm::Expected<AttrPathInfoResponse> Resp) {
+        if (!Resp) {
+          Ready.release();
+          return;
+        }
+        R = *Resp;
+        Ready.release();
+      };
+      NixpkgsProvider.attrpathInfo(selector, std::move(OnReply));
+      Ready.acquire();
+
+      if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
+        // Construct inlay hints.
+        InlayHint H{
+            .position = toLSPPosition(Src, N->rCur()),
+            .label = ": " + *Version,
+            .kind = InlayHintKind::Designator,
+            .range = toLSPRange(Src, N->range()),
+        };
+        Hints.emplace_back(std::move(H));
+      }
+    }
     for (const Node *Ch : N->children())
       dfs(Ch);
   }
