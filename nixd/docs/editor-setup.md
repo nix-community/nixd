@@ -43,7 +43,7 @@ nix-env -iA nixpkgs.nixd
 <summary><b>nix profile</b></summary>
 
 ```console
-nix profile install github:nixos/nixpkgs#nixd
+nix profile add github:nixos/nixpkgs#nixd
 ```
 
 </details>
