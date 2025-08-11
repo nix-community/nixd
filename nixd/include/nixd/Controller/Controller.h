@@ -133,7 +133,10 @@ private:
     return TU ? getAST(*TU) : nullptr;
   }
 
-  boost::asio::thread_pool Pool;
+  // Default constructor is broken in Boost 1.87:
+  // https://github.com/boostorg/asio/commit/30b5974ed34bfa321d268b3135ffaffcb261461a
+  boost::asio::thread_pool Pool{
+      static_cast<size_t>(boost::asio::detail::default_thread_pool_size())};
 
   /// Action right after a document is added (including updates).
   void actOnDocumentAdd(lspserver::PathRef File,

@@ -9,7 +9,7 @@
   nixt,
   llvmPackages,
   gtest,
-  boost182,
+  boost,
 }:
 
 let
@@ -44,7 +44,7 @@ stdenv.mkDerivation {
     nixt
     llvmPackages.llvm
     gtest
-    boost182
+    boost
   ];
 
   meta = {

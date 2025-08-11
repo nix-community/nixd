@@ -6,7 +6,7 @@
   pkg-config,
   nix,
   gtest,
-  boost182,
+  boost,
 }:
 
 stdenv.mkDerivation {
@@ -35,7 +35,7 @@ stdenv.mkDerivation {
   buildInputs = [
     nix
     gtest
-    boost182
+    boost
   ];
 
   meta = {

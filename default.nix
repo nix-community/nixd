@@ -1,7 +1,7 @@
 {
   lib,
   stdenv,
-  boost182,
+  boost,
   gtest,
   lit,
   llvmPackages,
@@ -33,7 +33,7 @@ stdenv.mkDerivation {
   buildInputs = [
     nix
     gtest
-    boost182
+    boost
     llvmPackages.llvm
     nlohmann_json
   ];

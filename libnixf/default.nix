@@ -6,7 +6,7 @@
   pkg-config,
   lit,
   gtest,
-  boost182,
+  boost,
   nlohmann_json,
   python312,
 }:
@@ -40,7 +40,7 @@ stdenv.mkDerivation {
 
   buildInputs = [
     gtest
-    boost182
+    boost
     nlohmann_json
   ];
 
