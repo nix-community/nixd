@@ -4,9 +4,9 @@
   meson,
   ninja,
   pkg-config,
-  nix,
   gtest,
   boost,
+  nixComponents,
 }:
 
 stdenv.mkDerivation {
@@ -33,7 +33,10 @@ stdenv.mkDerivation {
   ];
 
   buildInputs = [
-    nix
+    nixComponents.nix-main
+    nixComponents.nix-expr
+    nixComponents.nix-cmd
+    nixComponents.nix-flake
     gtest
     boost
   ];

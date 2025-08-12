@@ -33,15 +33,15 @@
             callPackage
             stdenv
             ;
-          nix = nixVersions.nix_2_30;
+          nixComponents = nixVersions.nixComponents_2_30;
           llvmPackages = llvmPackages_19;
           nixf = callPackage ./libnixf { };
-          nixt = callPackage ./libnixt { inherit nix; };
+          nixt = callPackage ./libnixt { inherit nixComponents; };
           nixd = callPackage ./nixd {
-            inherit nix nixf nixt;
+            inherit nixComponents nixf nixt;
             inherit llvmPackages;
           };
-          nixdMono = callPackage ./. { inherit nix llvmPackages; };
+          nixdMono = callPackage ./. { inherit nixComponents llvmPackages; };
           nixdLLVM = nixdMono.override { stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv; };
           regressionDeps = with pkgs; [
             clang-tools
@@ -52,7 +52,7 @@
             nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
             shellHook = ''
               export PATH="${pkgs.clang-tools}/bin:$PATH"
-              export NIX_SRC=${nix.src}
+              export NIX_SRC=${nixComponents.src}
               export NIX_PATH=nixpkgs=${nixpkgs}
             '';
             hardeningDisable = [ "fortify" ];

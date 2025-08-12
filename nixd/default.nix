@@ -4,7 +4,7 @@
   meson,
   ninja,
   pkg-config,
-  nix,
+  nixComponents,
   nixf,
   nixt,
   llvmPackages,
@@ -39,7 +39,9 @@ stdenv.mkDerivation {
   ];
 
   buildInputs = [
-    nix
+    nixComponents.nix-expr
+    nixComponents.nix-main
+    nixComponents.nix-cmd
     nixf
     nixt
     llvmPackages.llvm
