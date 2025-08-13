@@ -4,12 +4,12 @@
   meson,
   ninja,
   pkg-config,
-  nix,
+  nixComponents,
   nixf,
   nixt,
   llvmPackages,
   gtest,
-  boost182,
+  boost,
 }:
 
 let
@@ -39,12 +39,14 @@ stdenv.mkDerivation {
   ];
 
   buildInputs = [
-    nix
+    nixComponents.nix-expr
+    nixComponents.nix-main
+    nixComponents.nix-cmd
     nixf
     nixt
     llvmPackages.llvm
     gtest
-    boost182
+    boost
   ];
 
   meta = {

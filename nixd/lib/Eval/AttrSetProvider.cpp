@@ -6,7 +6,7 @@
 #include <nix/cmd/common-eval-args.hh>
 #include <nix/expr/attr-path.hh>
 #include <nix/expr/nixexpr.hh>
-#include <nix/store/store-api.hh>
+#include <nix/store/store-open.hh>
 #include <nixt/Value.h>
 
 using namespace nixd;
@@ -101,7 +101,7 @@ void fillOptionDeclarationPositions(nix::EvalState &State, nix::Value &V,
   State.forceValue(V, nix::noPos);
   if (V.type() != nix::ValueType::nList)
     return;
-  for (nix::Value *Item : V.listItems()) {
+  for (nix::Value *Item : V.listView()) {
     // Each item should have "column", "line", "file" fields.
     lspserver::Location Loc;
     fillUnsafeGetAttrPosLocation(State, *Item, Loc);
@@ -195,7 +195,7 @@ std::optional<ValueDescription> describeValue(nix::EvalState &State,
         .Args = PrimOp->args,
     };
   } else if (V.isLambda()) {
-    auto *Lambda = V.payload.lambda.fun;
+    auto *Lambda = V.lambda().fun;
     assert(Lambda);
     const auto DocComment = Lambda->docComment;
 
