@@ -338,4 +338,16 @@ with builtins;
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Issue711_CurPos) {
+  const char *Src = R"(
+__curPos
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
