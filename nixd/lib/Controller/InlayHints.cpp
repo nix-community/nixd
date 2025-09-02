@@ -72,10 +72,7 @@ public:
     if (!N)
       return;
 
-    // Ask nixpkgs eval to provide it's information.
-    // This is relatively slow. Maybe better query a set of packages in the
-    // future?
-    AttrPathInfoParams selector;
+    AttrPathInfoParams Selector;
 
     if (N->kind() == Node::NK_ExprVar) {
       if (havePackageScope(*N, VLA, PMA)) {
@@ -85,12 +82,12 @@ public:
 
         const auto &Var = static_cast<const ExprVar &>(*N);
 
-        const std::string &name = Var.id().name();
-        if (name != nixd::idioms::Lib) {
+        const std::string &Name = Var.id().name();
+        if (Name != nixd::idioms::Lib) {
           const auto &lookup = VLA.query(Var);
           if (lookup.Kind !=
               VariableLookupAnalysis::LookupResultKind::Defined) {
-            selector.emplace_back(name);
+            Selector.emplace_back(Name);
           }
         }
       }
@@ -102,15 +99,18 @@ public:
 
         const auto &Sel = static_cast<const ExprSelect &>(*N);
 
-        selector.emplace_back(Sel.expr().src(Src));
+        Selector.emplace_back(Sel.expr().src(Src));
 
         for (const auto &name : Sel.path()->names()) {
-          selector.emplace_back(name->src(Src));
+          Selector.emplace_back(name->src(Src));
         }
       }
     }
 
-    if (!selector.empty()) {
+    // Ask nixpkgs eval to provide it's information.
+    // This is relatively slow. Maybe better query a set of packages in the
+    // future?
+    if (!Selector.empty()) {
       std::binary_semaphore Ready(0);
       AttrPathInfoResponse R;
       auto OnReply = [&Ready, &R](llvm::Expected<AttrPathInfoResponse> Resp) {
@@ -121,7 +121,7 @@ public:
         R = *Resp;
         Ready.release();
       };
-      NixpkgsProvider.attrpathInfo(selector, std::move(OnReply));
+      NixpkgsProvider.attrpathInfo(Selector, std::move(OnReply));
       Ready.acquire();
 
       if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
