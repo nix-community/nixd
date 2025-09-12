@@ -84,8 +84,8 @@ public:
 
         const std::string &Name = Var.id().name();
         if (Name != nixd::idioms::Lib) {
-          const auto &lookup = VLA.query(Var);
-          if (lookup.Kind !=
+          const auto &Lookup = VLA.query(Var);
+          if (Lookup.Kind !=
               VariableLookupAnalysis::LookupResultKind::Defined) {
             Selector.emplace_back(Name);
           }
@@ -101,8 +101,8 @@ public:
 
         Selector.emplace_back(Sel.expr().src(Src));
 
-        for (const auto &name : Sel.path()->names()) {
-          Selector.emplace_back(name->src(Src));
+        for (const auto &Name : Sel.path()->names()) {
+          Selector.emplace_back(Name->src(Src));
         }
       }
     }
