@@ -69,43 +69,36 @@ public:
   }
 
   void dfs(const Node *N) {
+    using VariableLookupAnalysis::LookupResultKind::Defined;
+    using Params = AttrPathInfoParams;
     if (!N)
       return;
 
-    AttrPathInfoParams Selector;
-
-    if (N->kind() == Node::NK_ExprVar) {
-      if (havePackageScope(*N, VLA, PMA)) {
-
-        if (!rangeOK(N->positionRange()))
-          return;
-
+    // Build the attribute path info selector.
+    const auto Selector = [&]() -> Params {
+      if (!havePackageScope(*N, VLA, PMA) || !rangeOK(N->positionRange()))
+        return {};
+      switch (N->kind()) {
+      default:
+        return {};
+      case Node::NK_ExprVar: {
         const auto &Var = static_cast<const ExprVar &>(*N);
-
         const std::string &Name = Var.id().name();
-        if (Name != nixd::idioms::Lib) {
-          const auto &Lookup = VLA.query(Var);
-          if (Lookup.Kind !=
-              VariableLookupAnalysis::LookupResultKind::Defined) {
-            Selector.emplace_back(Name);
-          }
-        }
+        if (Name == nixd::idioms::Lib) // Skip "lib"
+          return {};
+        const auto &Lookup = VLA.query(Var);
+        return (Lookup.Kind != Defined) ? Params{Name} : Params{};
       }
-    } else if (N->kind() == Node::NK_ExprSelect) {
-      if (havePackageScope(*N, VLA, PMA)) {
-
-        if (!rangeOK(N->positionRange()))
-          return;
-
+      case Node::NK_ExprSelect: {
         const auto &Sel = static_cast<const ExprSelect &>(*N);
-
-        Selector.emplace_back(Sel.expr().src(Src));
-
-        for (const auto &Name : Sel.path()->names()) {
-          Selector.emplace_back(Name->src(Src));
-        }
+        Params P;
+        P.emplace_back(Sel.expr().src(Src));
+        for (const auto &Name : Sel.path()->names())
+          P.emplace_back(Name->src(Src));
+        return P;
       }
-    }
+      }
+    }();
 
     // Ask nixpkgs eval to provide it's information.
     // This is relatively slow. Maybe better query a set of packages in the
