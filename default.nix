@@ -1,13 +1,13 @@
 {
   lib,
   stdenv,
-  boost182,
+  boost,
   gtest,
   lit,
   llvmPackages,
   meson,
   ninja,
-  nix,
+  nixComponents,
   pkg-config,
   nlohmann_json,
   python312,
@@ -31,9 +31,12 @@ stdenv.mkDerivation {
   nativeCheckInputs = [ lit ];
 
   buildInputs = [
-    nix
+    nixComponents.nix-main
+    nixComponents.nix-expr
+    nixComponents.nix-cmd
+    nixComponents.nix-flake
     gtest
-    boost182
+    boost
     llvmPackages.llvm
     nlohmann_json
   ];

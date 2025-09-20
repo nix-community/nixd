@@ -43,7 +43,7 @@ nix-env -iA nixpkgs.nixd
 <summary><b>nix profile</b></summary>
 
 ```console
-nix profile install github:nixos/nixpkgs#nixd
+nix profile add github:nixos/nixpkgs#nixd
 ```
 
 </details>
@@ -125,6 +125,21 @@ language-servers = ["nixd","nil"]
 command = "nixd"
 ```
 
+### KDE Kate
+Kate with [LSP Client Plugin:](https://docs.kde.org/stable5/en/kate/kate/kate-application-plugin-lspclient.html)
+#### /$HOME/$USER/.config/kate/lspclient/settings.json
+
+```jsonc
+{
+  "servers": {
+    "nix": {
+      "command": ["nixd"],
+      "url": "https://github.com/nix-community/nixd",
+      "highlightingModeRegex": "^Nix$"
+    }
+  }
+}
+```
 ## Change the configuration.
 
 Read the [configuration](configuration.md) docs here.

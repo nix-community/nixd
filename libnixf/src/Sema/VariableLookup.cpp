@@ -462,6 +462,8 @@ void VariableLookupAnalysis::runOnAST(const Node &Root) {
       "__isBool",
       "__replaceStrings",
       "baseNameOf",
+      // This is an undocumented keyword actually.
+      "__curPos",
   };
 
   for (const auto &Builtin : Builtins)

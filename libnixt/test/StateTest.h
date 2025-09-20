@@ -2,7 +2,7 @@
 
 #include <nix/cmd/common-eval-args.hh>
 #include <nix/expr/eval.hh>
-#include <nix/store/store-api.hh>
+#include <nix/store/store-open.hh>
 
 namespace nixt {
 
