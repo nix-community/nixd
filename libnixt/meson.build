@@ -1,7 +1,7 @@
 project( 'nixt'
        , ['c', 'cpp']
        , default_options : ['cpp_std=gnu++20']
-       , version: '2.6.4'
+       , version: '2.7.0'
        )
 
 boost = dependency('boost')
