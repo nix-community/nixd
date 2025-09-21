@@ -19,7 +19,6 @@
 #include <exception>
 #include <semaphore>
 #include <set>
-#include <unordered_set>
 #include <utility>
 
 using namespace nixd;
