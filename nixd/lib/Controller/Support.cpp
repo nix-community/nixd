@@ -17,6 +17,8 @@ void Controller::removeDocument(lspserver::PathRef File) {
     std::lock_guard _(TUsLock);
     TUs.erase(File);
   }
+  std::vector<nixf::Diagnostic> Diagnostics;
+  publishDiagnostics(File, std::nullopt, "", Diagnostics);
 }
 
 void Controller::actOnDocumentAdd(PathRef File,
