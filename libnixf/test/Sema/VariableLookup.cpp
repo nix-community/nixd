@@ -350,4 +350,68 @@ __curPos
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, NestedWith_KnownMaintainer) {
+  const char *Src = R"(
+{ lib }: {
+  meta = with lib; {
+    maintainers = with lib.maintainers; [ booxter ];
+  };
+}
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+}
+
+TEST_F(VLATest, NestedWith_UnknownMaintainer) {
+  const char *Src = R"(
+{ lib }: {
+  meta = with lib; {
+    maintainers = with lib.maintainers; [ booxter-missing ];
+  };
+}
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, NestedWith_Pkgs_KnownMaintainer) {
+  const char *Src = R"(
+{ lib, pkgs }: {
+  meta = with lib; {
+    maintainers = with pkgs.lib.maintainers; [ booxter ];
+  };
+}
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+}
+
+TEST_F(VLATest, NestedWith_Pkgs_UnknownMaintainer) {
+  const char *Src = R"(
+{ lib, pkgs }: {
+  meta = with lib; {
+    maintainers = with pkgs.lib.maintainers; [ booxter-missing ];
+  };
+}
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace

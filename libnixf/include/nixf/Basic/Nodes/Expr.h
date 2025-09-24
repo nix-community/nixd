@@ -175,6 +175,30 @@ public:
   [[nodiscard]] ChildVector children() const override {
     return {KwWith.get(), TokSemi.get(), With.get(), E.get()};
   }
+
+  [[nodiscard]] std::vector<std::string> selector() const {
+    std::vector<std::string> Parts;
+    for (const auto &Child : With->children()) {
+      if (!Child)
+        continue;
+      switch (Child->kind()) {
+      case Node::NK_ExprVar: {
+        const auto &Var = static_cast<const ExprVar &>(*Child);
+        Parts.emplace_back(Var.id().name());
+        break;
+      }
+      case Node::NK_AttrPath: {
+        const auto &Path = static_cast<const AttrPath &>(*Child);
+        for (const auto &Name : Path.names())
+          Parts.emplace_back(Name->id()->name());
+        break;
+      }
+      default:
+        break;
+      }
+    }
+    return Parts;
+  }
 };
 
 } // namespace nixf

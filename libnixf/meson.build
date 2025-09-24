@@ -9,6 +9,8 @@ boost = dependency('boost')
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
 
+nixd_common = dependency('nixd-common', fallback : ['common', 'nixd_common'])
+
 pkgconfig = import('pkgconfig')
 
 

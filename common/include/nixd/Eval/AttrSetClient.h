@@ -67,6 +67,10 @@ public:
 
   void exit() { Exit(nullptr); }
 
+  void setLoggingEnabled(bool Enabled) {
+    LSPServer::setLoggingEnabled(Enabled);
+  }
+
   /// Get executable path for launching the server.
   /// \returns null terminated string.
   static const char *getExe();

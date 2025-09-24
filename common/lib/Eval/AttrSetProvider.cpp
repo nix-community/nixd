@@ -162,9 +162,9 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
 
 std::vector<std::string> completeNames(nix::Value &Scope,
                                        const nix::EvalState &State,
-                                       std::string_view Prefix) {
-  int Num = 0;
+                                       std::string_view Prefix, int Limit) {
   std::vector<std::string> Names;
+  const bool Unlimited = Limit <= 0;
 
   // FIXME: we may want to use "Trie" to speedup the string searching.
   // However as my (roughtly) profiling the critical in this loop is
@@ -174,10 +174,9 @@ std::vector<std::string> completeNames(nix::Value &Scope,
     const nix::Attr &Attr = *AttrPtr;
     const std::string_view Name = State.symbols[Attr.name];
     if (Name.starts_with(Prefix)) {
-      ++Num;
       Names.emplace_back(Name);
       // We set this a very limited number as to speedup
-      if (Num > MaxItems)
+      if (!Unlimited && Names.size() >= static_cast<std::size_t>(Limit))
         break;
     }
   }
@@ -288,7 +287,8 @@ void AttrSetProvider::onAttrPathComplete(
       return;
     }
 
-    return Reply(completeNames(Scope, state(), Params.Prefix));
+    const int Limit = Params.MaxItems.value_or(MaxItems);
+    return Reply(completeNames(Scope, state(), Params.Prefix, Limit));
   } catch (const nix::BaseError &Err) {
     return Reply(error(Err.info().msg.str()));
   } catch (const std::exception &Err) {

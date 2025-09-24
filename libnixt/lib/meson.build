@@ -24,3 +24,5 @@ nixt = declare_dependency(include_directories: libnixd_inc,
 )
 
 install_subdir('../include/nixt', install_dir: 'include')
+
+meson.override_dependency('nixt', nixt)

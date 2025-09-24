@@ -108,6 +108,7 @@ struct AttrPathCompleteParams {
   Selector Scope;
   /// \brief Search for packages prefixed with this "prefix"
   std::string Prefix;
+  std::optional<int> MaxItems;
 };
 
 llvm::json::Value toJSON(const AttrPathCompleteParams &Params);

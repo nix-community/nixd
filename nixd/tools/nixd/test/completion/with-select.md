@@ -52,13 +52,13 @@ CHECK-NEXT: "result": {
 CHECK-NEXT:   "isIncomplete": false,
 CHECK-NEXT:   "items": [
 CHECK-NEXT:     {
-CHECK-NEXT:       "data": "{\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
+CHECK-NEXT:       "data": "{\"MaxItems\":null,\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
 CHECK-NEXT:       "kind": 5,
 CHECK-NEXT:       "label": "bx",
 CHECK-NEXT:       "score": 0
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "data": "{\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
+CHECK-NEXT:       "data": "{\"MaxItems\":null,\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
 CHECK-NEXT:       "kind": 5,
 CHECK-NEXT:       "label": "by",
 CHECK-NEXT:       "score": 0

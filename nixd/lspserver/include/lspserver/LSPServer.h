@@ -9,6 +9,7 @@
 #include <llvm/Support/JSON.h>
 
 #include <memory>
+#include <utility>
 
 namespace lspserver {
 
@@ -18,6 +19,13 @@ class LSPServer : public MessageHandler {
 private:
   std::unique_ptr<InboundPort> In;
   std::unique_ptr<OutboundPort> Out;
+
+  bool LogsEnabled = true;
+
+  template <typename... Ts> void maybeLog(const char *Fmt, Ts &&...Vals) const {
+    if (LogsEnabled)
+      log(Fmt, std::forward<Ts>(Vals)...);
+  }
 
   bool onNotify(llvm::StringRef Method, llvm::json::Value) override;
   bool onCall(llvm::StringRef Method, llvm::json::Value Params,
@@ -47,7 +55,7 @@ private:
   void callMethod(llvm::StringRef Method, llvm::json::Value Params,
                   Callback<llvm::json::Value> CB, OutboundPort *O) {
     llvm::json::Value ID(bindReply(std::move(CB)));
-    log("--> call {0}({1})", Method, ID.getAsInteger());
+    maybeLog("--> call {0}({1})", Method, ID.getAsInteger());
     O->call(Method, Params, ID);
   }
 
@@ -58,8 +66,8 @@ protected:
   mkOutNotifiction(llvm::StringRef Method, OutboundPort *O = nullptr) {
     if (!O)
       O = Out.get();
-    return [=](const T &Params) {
-      log("--> notify {0}", Method);
+    return [=, this](const T &Params) {
+      maybeLog("--> notify {0}", Method);
       O->notify(Method, Params);
     };
   }
@@ -86,6 +94,14 @@ protected:
 public:
   LSPServer(std::unique_ptr<InboundPort> In, std::unique_ptr<OutboundPort> Out)
       : In(std::move(In)), Out(std::move(Out)) {};
+
+  void setLoggingEnabled(bool Enabled) {
+    LogsEnabled = Enabled;
+    if (In)
+      In->setLoggingEnabled(Enabled);
+    if (Out)
+      Out->setLoggingEnabled(Enabled);
+  }
 
   /// \brief Close the inbound port.
   void closeInbound() { In->close(); }

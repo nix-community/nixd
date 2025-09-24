@@ -18,7 +18,14 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
+
+namespace nixd {
+class AttrSetClient;
+class AttrSetClientProc;
+} // namespace nixd
 
 namespace nixf {
 
@@ -162,8 +169,16 @@ private:
 
   std::map<const ExprVar *, LookupResult> Results;
 
+  std::unique_ptr<nixd::AttrSetClientProc> NixpkgsEval;
+  nixd::AttrSetClient *NixpkgsClient = nullptr;
+  std::unordered_map<std::string, std::unordered_set<std::string>>
+      NixpkgsKnownAttrs;
+  const std::unordered_set<std::string> *
+  ensureNixpkgsKnownAttrsCached(const std::vector<std::string> &Scope);
+
 public:
   VariableLookupAnalysis(std::vector<Diagnostic> &Diags);
+  ~VariableLookupAnalysis();
 
   /// \brief Perform variable lookup analysis (def-use) on AST.
   /// \note This method should be invoked after any other method called.
@@ -196,6 +211,10 @@ public:
   }
 
   const EnvNode *env(const Node *N) const;
+
+  [[nodiscard]] nixd::AttrSetClient *nixpkgsClient() const {
+    return NixpkgsClient;
+  }
 };
 
 } // namespace nixf

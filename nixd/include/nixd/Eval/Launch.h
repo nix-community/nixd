@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AttrSetClient.h"
+#include "nixd/Eval/AttrSetClient.h"
 
 namespace nixd {
 

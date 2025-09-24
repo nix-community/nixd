@@ -27,15 +27,24 @@ add_project_arguments([
   ),
 ], language: 'cpp')
 
+if get_option('buildtype').startswith('release')
+  add_project_arguments([
+    cpp.get_supported_arguments(
+      '-Wno-maybe-uninitialized',
+    ),
+  ], language: 'cpp')
+endif
+
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
-nixf = dependency('nixf')
-nixt = dependency('nixt')
 llvm = dependency('llvm')
+
+nixf = dependency('nixf', fallback : ['libnixf', 'nixf'])
+nixt = dependency('nixt', fallback : ['libnixt', 'nixt'])
+nixd_common = dependency('nixd-common', fallback : ['common', 'nixd_common'])
 
 pkgconfig = import('pkgconfig')
 
 
-subdir('lspserver')
 subdir('lib')
 subdir('tools')

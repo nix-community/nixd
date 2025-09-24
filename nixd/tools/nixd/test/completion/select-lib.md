@@ -52,7 +52,7 @@ lib.hel
      CHECK:    "isIncomplete": false,
 CHECK-NEXT:    "items": [
 CHECK-NEXT:      {
-CHECK-NEXT:        "data": "{\"Prefix\":\"hel\",\"Scope\":[\"lib\"]}",
+CHECK-NEXT:        "data": "{\"MaxItems\":null,\"Prefix\":\"hel\",\"Scope\":[\"lib\"]}",
 CHECK-NEXT:        "kind": 5,
 CHECK-NEXT:        "label": "hello",
 CHECK-NEXT:        "score": 0
