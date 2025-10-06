@@ -240,6 +240,8 @@ nixd::idioms::mkVarSelector(const nixf::ExprVar &Var,
   }
   case ResultKind::NoSuchVar:
     throw NoSuchVarException();
+  case ResultKind::PrimOp:
+    throw NotAnIdiomException();
   }
   assert(false && "switch fallthrough!");
   __builtin_unreachable();

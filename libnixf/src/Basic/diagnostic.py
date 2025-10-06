@@ -231,4 +231,13 @@ diagnostics: list[Diagnostic] = [
         "severity": "Warning",
         "message": "unused `with` expression",
     },
+    # Primary Operation (PrimOp) related diagnostics
+    # We call this "builtin" in messages to match Nix's terminology
+    # "PrimOp" is specific to Nix/nixf implementation
+    {
+        "sname": "sema-primop-needs-prefix",
+        "cname": "PrimOpNeedsPrefix",
+        "severity": "Error",
+        "message": "this is not a prelude builtin, the `builtins.` prefix is required",
+    },
 ]

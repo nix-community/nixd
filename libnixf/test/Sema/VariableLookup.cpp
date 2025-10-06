@@ -350,4 +350,19 @@ __curPos
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Builtins_Needs_Prefix) {
+  const char *Src = R"(add)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpNeedsPrefix);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].newText(), "builtins.");
+}
+
 } // namespace

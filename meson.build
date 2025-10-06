@@ -65,15 +65,17 @@ lit = find_program('lit', required: false)
 pkgconfig = import('pkgconfig')
 
 
+nix_main = dependency('nix-main')
+nix_expr = dependency('nix-expr')
+nix_cmd = dependency('nix-cmd')
+nix_flake = dependency('nix-flake')
+
+
 subdir('libnixf/src')
 subdir('libnixf/tools')
 subdir('libnixf/test')
 
 
-nix_main = dependency('nix-main')
-nix_expr = dependency('nix-expr')
-nix_cmd = dependency('nix-cmd')
-nix_flake = dependency('nix-flake')
 
 
 subdir('libnixt/lib')

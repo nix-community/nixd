@@ -24,7 +24,6 @@ test('unit/libnixf/Sema',
     executable('unit-libnixf-sema',
         'Sema/SemaActions.cpp',
         'Sema/VariableLookup.cpp',
-        'Sema/ParentMap.cpp',
         dependencies: [ nixf, gtest_main ],
         include_directories: [ '../src/Sema' ] # Private headers
     )

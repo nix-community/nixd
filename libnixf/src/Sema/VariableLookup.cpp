@@ -2,6 +2,7 @@
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Attrs.h"
 #include "nixf/Basic/Nodes/Lambda.h"
+#include "nixf/Sema/PrimOpInfo.h"
 
 using namespace nixf;
 
@@ -108,11 +109,28 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     }
     Results.insert({&Var, LookupResult{LookupResultKind::FromWith, Def}});
   } else {
-    // Otherwise, this variable is undefined.
-    Results.insert({&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
-    Diagnostic &Diag =
-        Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
-    Diag << Var.id().name();
+    // Check if this is a primop.
+    switch (lookupGlobalPrimOpInfo(Name)) {
+    case PrimopLookupResult::Found:
+      Results.insert({&Var, LookupResult{LookupResultKind::PrimOp, nullptr}});
+      break;
+    case PrimopLookupResult::PrefixedFound: {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_PrimOpNeedsPrefix, Var.range());
+      D.fix("use `builtins.` prefix")
+          .edit(TextEdit::mkInsertion(Var.range().lCur(), "builtins."));
+      Results.insert({&Var, LookupResult{LookupResultKind::PrimOp, nullptr}});
+      break;
+    }
+    case PrimopLookupResult::NotFound:
+      // Otherwise, this variable is undefined.
+      Results.insert(
+          {&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
+      Diagnostic &Diag =
+          Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
+      Diag << Var.id().name();
+      break;
+    }
   }
 }
 
@@ -344,129 +362,20 @@ void VariableLookupAnalysis::dfs(const Node &Root,
 void VariableLookupAnalysis::runOnAST(const Node &Root) {
   // Create a basic env
   DefBuilder DB;
-  std::vector<std::string> Builtins{
-      "__add",
-      "__fetchurl",
-      "__isFloat",
-      "__seq",
-      "break",
-      "__addDrvOutputDependencies",
-      "__filter",
-      "__isFunction",
-      "__sort",
+  std::vector<std::string> BaseEnv{
       "builtins",
-      "__addErrorContext",
-      "__filterSource",
-      "__isInt",
-      "__split",
-      "derivation",
-      "__all",
-      "__findFile",
-      "__isList",
-      "__splitVersion",
-      "derivationStrict",
-      "__any",
-      "__flakeRefToString",
-      "__isPath",
-      "__storeDir",
-      "dirOf",
-      "__appendContext",
-      "__floor",
-      "__isString",
-      "__storePath",
-      "false",
-      "__attrNames",
-      "__foldl'",
-      "__langVersion",
-      "__stringLength",
-      "fetchGit",
-      "__attrValues",
-      "__fromJSON",
-      "__length",
-      "__sub",
-      "fetchMercurial",
-      "__bitAnd",
-      "__functionArgs",
-      "__lessThan",
-      "__substring",
-      "fetchTarball",
-      "__bitOr",
-      "__genList",
-      "__listToAttrs",
-      "__tail",
-      "fetchTree",
-      "__bitXor",
-      "__genericClosure",
-      "__mapAttrs",
-      "__toFile",
-      "fromTOML",
-      "__catAttrs",
-      "__getAttr",
-      "__match",
-      "__toJSON",
-      "import",
-      "__ceil",
-      "__getContext",
-      "__mul",
-      "__toPath",
-      "isNull",
-      "__compareVersions",
-      "__getEnv",
-      "__nixPath",
-      "__toXML",
-      "map",
-      "__concatLists",
-      "__getFlake",
-      "__nixVersion",
-      "__trace",
-      "null",
-      "__concatMap",
-      "__groupBy",
-      "__parseDrvName",
-      "__traceVerbose",
-      "placeholder",
-      "__concatStringsSep",
-      "__hasAttr",
-      "__parseFlakeRef",
-      "__tryEval",
-      "removeAttrs",
-      "__convertHash",
-      "__hasContext",
-      "__partition",
-      "__typeOf",
-      "scopedImport",
-      "__currentSystem",
-      "__hashFile",
-      "__path",
-      "__unsafeDiscardOutputDependency",
-      "throw",
-      "__currentTime",
-      "__hashString",
-      "__pathExists",
-      "__unsafeDiscardStringContext",
-      "toString",
-      "__deepSeq",
-      "__head",
-      "__readDir",
-      "__unsafeGetAttrPos",
-      "true",
-      "__div",
-      "__intersectAttrs",
-      "__readFile",
-      "__zipAttrsWith",
-      "__elem",
-      "__isAttrs",
-      "__readFileType",
-      "abort",
-      "__elemAt",
-      "__isBool",
-      "__replaceStrings",
-      "baseNameOf",
       // This is an undocumented keyword actually.
       "__curPos",
   };
 
-  for (const auto &Builtin : Builtins)
+  for (const auto &[Name, Info] : PrimOpsInfo) {
+    if (!Info.Internal && !Name.starts_with("__")) {
+      // Only add non-internal primops without "__" prefix.
+      BaseEnv.push_back(Name);
+    }
+  }
+
+  for (const auto &Builtin : BaseEnv)
     DB.addBuiltin(Builtin);
 
   auto Env = std::make_shared<EnvNode>(nullptr, DB.finish(), nullptr);
