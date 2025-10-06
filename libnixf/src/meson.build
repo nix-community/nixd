@@ -35,6 +35,21 @@ tokens_kinds_inc = custom_target(
     install_dir: 'include/nixf/Parse/'
 )
 
+
+prim_ops_info_gen = executable(
+    'PrimOpsInfo',
+    'Basic/PrimOpsInfoGen.cpp',
+    dependencies: [ nix_expr ],
+    install: false,
+)
+
+
+builtins_cpp = custom_target(
+    input: [ prim_ops_info_gen ],
+    output: 'PrimOpsInfo.cpp',
+    command: [ prim_ops_info_gen,  '@OUTPUT@' ],
+)
+
 libnixf = library(
     'nixf',
     'Basic/Nodes.cpp',
@@ -49,12 +64,14 @@ libnixf = library(
     'Parse/ParseStrings.cpp',
     'Parse/ParseSupport.cpp',
     'Sema/ParentMap.cpp',
+    'Sema/PrimOpLookup.cpp',
     'Sema/SemaActions.cpp',
     'Sema/VariableLookup.cpp',
     diagnostic_enum_h,
     diagnostic_cpp,
     tokens_h,
     tokens_kinds_inc,
+    builtins_cpp,
     include_directories: libnixf_inc,
     dependencies: libnixf_deps,
     install: true,

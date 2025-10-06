@@ -9,6 +9,7 @@
   boost,
   nlohmann_json,
   python312,
+  nix-expr,
 }:
 
 stdenv.mkDerivation {
@@ -42,6 +43,7 @@ stdenv.mkDerivation {
     gtest
     boost
     nlohmann_json
+    nix-expr
   ];
 
   meta = {

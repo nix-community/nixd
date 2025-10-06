@@ -115,6 +115,7 @@ public:
     Undefined,
     FromWith,
     Defined,
+    PrimOp,
     NoSuchVar,
   };
 

@@ -231,4 +231,10 @@ diagnostics: list[Diagnostic] = [
         "severity": "Warning",
         "message": "unused `with` expression",
     },
+    {
+        "sname": "sema-primop-needs-prefix",
+        "cname": "PrimOpNeedsPrefix",
+        "severity": "Error",
+        "message": "this is not a prelude builtin, the `builtins.` prefix is required",
+    },
 ]
