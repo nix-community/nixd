@@ -365,4 +365,37 @@ TEST_F(VLATest, Builtins_Needs_Prefix) {
   ASSERT_EQ(Diags[0].fixes()[0].edits()[0].newText(), "builtins.");
 }
 
+TEST_F(VLATest, Builtins_Removable_Prefix) {
+  const char *Src = R"(builtins.import)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpRemovablePrefix);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 2);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].oldRange().lCur().offset(), 0);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].oldRange().rCur().offset(), 8);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].newText(), "");
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[1].oldRange().lCur().offset(), 8);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[1].oldRange().rCur().offset(), 9);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[1].newText(), "");
+}
+
+TEST_F(VLATest, Builtins_Unknown) {
+  const char *Src = R"(builtins.importaaaa)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpUnknown);
+  ASSERT_EQ(Diags[0].fixes().size(), 0);
+}
+
 } // namespace
