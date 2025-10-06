@@ -1,5 +1,6 @@
 #include "nixd/Eval/Launch.h"
 #include "nixd/CommandLine/Options.h"
+#include "nixd/Eval/Spawn.h"
 
 #include <llvm/Support/CommandLine.h>
 
@@ -23,10 +24,7 @@ opt<std::string> NixpkgsWorkerStderr{
 
 void nixd::startAttrSetEval(const std::string &Name,
                             std::unique_ptr<AttrSetClientProc> &Worker) {
-  Worker = std::make_unique<AttrSetClientProc>([&Name]() {
-    freopen(Name.c_str(), "w", stderr);
-    return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
-  });
+  spawnAttrSetEval(Name, Worker);
 }
 
 void nixd::startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {

@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <system_error>
+#include <utility>
 
 namespace {
 
@@ -49,6 +50,20 @@ char ReadEOF::ID;
 } // namespace
 
 namespace lspserver {
+
+template <typename... Ts>
+void OutboundPort::maybeLog(const char *Fmt, Ts &&...Vals) {
+  if (!LoggingEnabled)
+    return;
+  vlog(Fmt, std::forward<Ts>(Vals)...);
+}
+
+template <typename... Ts>
+void InboundPort::maybeLog(const char *Fmt, Ts &&...Vals) {
+  if (!LoggingEnabled)
+    return;
+  vlog(Fmt, std::forward<Ts>(Vals)...);
+}
 
 static llvm::json::Object encodeError(llvm::Error Error) {
   std::string Message;
@@ -112,7 +127,7 @@ void OutboundPort::reply(llvm::json::Value ID,
 
 void OutboundPort::sendMessage(llvm::json::Value Message) {
   // Make sure our outputs are not interleaving between messages (json)
-  vlog(">>> {0}", Message);
+  maybeLog(">>> {0}", Message);
   std::lock_guard<std::mutex> Guard(Mutex);
   OutputBuffer.clear();
   llvm::raw_svector_ostream SVecOS(OutputBuffer);
@@ -320,7 +335,7 @@ void InboundPort::loop(MessageHandler &Handler) {
 
   for (;;) {
     if (auto Message = readMessage(Buffer)) {
-      vlog("<<< {0}", jsonToString(*Message));
+      maybeLog("<<< {0}", jsonToString(*Message));
       if (!dispatch(*Message, Handler))
         return;
     } else {

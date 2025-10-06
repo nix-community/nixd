@@ -58,13 +58,13 @@ CHECK-NEXT:        "label": "abort",
 CHECK-NEXT:        "score": 0
 CHECK-NEXT:      },
 CHECK-NEXT:      {
-CHECK-NEXT:        "data": "{\"Prefix\":\"a\",\"Scope\":[]}",
+CHECK-NEXT:        "data": "{\"MaxItems\":null,\"Prefix\":\"a\",\"Scope\":[]}",
 CHECK-NEXT:        "kind": 5,
 CHECK-NEXT:        "label": "ax",
 CHECK-NEXT:        "score": 0
 CHECK-NEXT:      },
 CHECK-NEXT:      {
-CHECK-NEXT:        "data": "{\"Prefix\":\"a\",\"Scope\":[]}",
+CHECK-NEXT:        "data": "{\"MaxItems\":null,\"Prefix\":\"a\",\"Scope\":[]}",
 CHECK-NEXT:        "kind": 5,
 CHECK-NEXT:        "label": "ay",
 CHECK-NEXT:        "score": 0

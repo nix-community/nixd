@@ -35,10 +35,13 @@ class InboundPort {
 private:
   std::atomic<bool> Close;
 
+  template <typename... Ts> void maybeLog(const char *Fmt, Ts &&...Vals);
+
 public:
   int In;
 
   JSONStreamStyle StreamStyle = JSONStreamStyle::Standard;
+  bool LoggingEnabled = true;
 
   /// Read one message as specified in the LSP standard.
   /// A Language Server Protocol message starts with a set of
@@ -50,6 +53,8 @@ public:
 
   /// \brief Notify the inbound port to close the connection
   void close() { Close = true; }
+
+  void setLoggingEnabled(bool Enabled) { LoggingEnabled = Enabled; }
 
   InboundPort(int In = STDIN_FILENO,
               JSONStreamStyle StreamStyle = JSONStreamStyle::Standard)
@@ -76,6 +81,9 @@ private:
   std::mutex Mutex;
 
   bool Pretty = false;
+  bool LoggingEnabled = true;
+
+  template <typename... Ts> void maybeLog(const char *Fmt, Ts &&...Vals);
 
 public:
   explicit OutboundPort(bool Pretty = false)
@@ -88,6 +96,8 @@ public:
   void reply(llvm::json::Value ID, llvm::Expected<llvm::json::Value> Result);
 
   void sendMessage(llvm::json::Value Message);
+
+  void setLoggingEnabled(bool Enabled) { LoggingEnabled = Enabled; }
 };
 
 } // namespace lspserver

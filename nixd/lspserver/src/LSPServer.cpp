@@ -15,33 +15,33 @@ namespace lspserver {
 void LSPServer::run() { In->loop(*this); }
 
 bool LSPServer::onNotify(llvm::StringRef Method, llvm::json::Value Params) {
-  log("<-- {0}", Method);
+  maybeLog("<-- {0}", Method);
   if (Method == "exit")
     return false;
   auto Handler = Registry.NotificationHandlers.find(Method);
   if (Handler != Registry.NotificationHandlers.end()) {
     Handler->second(std::move(Params));
   } else {
-    log("unhandled notification {0}", Method);
+    maybeLog("unhandled notification {0}", Method);
   }
   return true;
 }
 
 bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
                        llvm::json::Value ID) {
-  log("<-- {0}({1})", Method, ID);
+  maybeLog("<-- {0}({1})", Method, ID);
   auto Handler = Registry.MethodHandlers.find(Method);
   if (Handler != Registry.MethodHandlers.end())
     Handler->second(std::move(Params),
                     [=, Method = std::string(Method),
                      this](llvm::Expected<llvm::json::Value> Response) mutable {
                       if (Response) {
-                        log("--> reply:{0}({1})", Method, ID);
+                        maybeLog("--> reply:{0}({1})", Method, ID);
                         Out->reply(std::move(ID), std::move(Response));
                       } else {
                         llvm::Error Err = Response.takeError();
-                        log("--> reply:{0}({1}) {2:ms}, error: {3}", Method, ID,
-                            Err);
+                        maybeLog("--> reply:{0}({1}) {2:ms}, error: {3}",
+                                 Method, ID, Err);
                         Out->reply(std::move(ID), std::move(Err));
                       }
                     });
@@ -52,7 +52,7 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
 
 bool LSPServer::onReply(llvm::json::Value ID,
                         llvm::Expected<llvm::json::Value> Result) {
-  log("<-- reply({0})", ID);
+  maybeLog("<-- reply({0})", ID);
   std::optional<Callback<llvm::json::Value>> CB;
 
   if (auto OptI = ID.getAsInteger()) {
