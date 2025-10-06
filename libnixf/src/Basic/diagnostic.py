@@ -252,4 +252,16 @@ diagnostics: list[Diagnostic] = [
         "severity": "Error",
         "message": "this is not a prelude builtin, the `builtins.` prefix is required",
     },
+    {
+        "sname": "sema-primop-overridden",
+        "cname": "PrimOpOverridden",
+        "severity": "Warning",
+        "message": "overriding a builtin name `{}` is discouraged, rename it to avoid confusion",
+    },
+    {
+        "sname": "sema-constant-overridden",
+        "cname": "ConstantOverridden",
+        "severity": "Warning",
+        "message": "overriding a builtin name `{}` is discouraged, rename it to avoid confusion",
+    },
 ]

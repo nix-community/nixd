@@ -4,28 +4,72 @@
 #include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Sema/PrimOpInfo.h"
 
+#include <set>
+
 using namespace nixf;
 
 namespace {
+
+std::set<std::string> Constants{
+    "builtins",
+    // This is an undocumented keyword actually.
+    "__curPos",
+
+    "true",
+    "false",
+    "null",
+    "__currentTime",
+    "__currentSystem",
+    "__nixVersion",
+    "__storeDir",
+    "__langVersion",
+    "__importNative",
+    "__traceVerbose",
+    "__nixPath",
+    "derivation",
+};
 
 /// Builder a map of definitions. If there are something overlapped, maybe issue
 /// a diagnostic.
 class DefBuilder {
   EnvNode::DefMap Def;
+  std::vector<Diagnostic> &Diags;
+
+  std::shared_ptr<Definition> addSimple(std::string Name, const Node *Entry,
+                                        Definition::DefinitionSource Source) {
+    assert(!Def.contains(Name));
+    auto NewDef = std::make_shared<Definition>(Entry, Source);
+    Def.insert({std::move(Name), NewDef});
+    return NewDef;
+  }
 
 public:
+  DefBuilder(std::vector<Diagnostic> &Diags) : Diags(Diags) {}
+
   void addBuiltin(std::string Name) {
     // Don't need to record def map for builtins.
-    auto _ = add(std::move(Name), nullptr, Definition::DS_Builtin);
+    auto _ = addSimple(std::move(Name), nullptr, Definition::DS_Builtin);
   }
 
   [[nodiscard("Record ToDef Map!")]] std::shared_ptr<Definition>
   add(std::string Name, const Node *Entry,
       Definition::DefinitionSource Source) {
-    assert(!Def.contains(Name));
-    auto NewDef = std::make_shared<Definition>(Entry, Source);
-    Def.insert({std::move(Name), NewDef});
-    return NewDef;
+    auto PrimOpLookup = lookupGlobalPrimOpInfo(Name);
+    if (PrimOpLookup != PrimopLookupResult::NotFound) {
+      // Overriding a builtin primop is discouraged.
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_PrimOpOverridden, Entry->range());
+      D << Name;
+    }
+
+    // Lookup constants
+    if (Constants.contains(Name)) {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_ConstantOverridden, Entry->range());
+      D << Name;
+    }
+
+    return addSimple(std::move(Name), Entry, Source);
   }
 
   EnvNode::DefMap finish() { return std::move(Def); }
@@ -141,7 +185,7 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
     return;
 
   // Create a new EnvNode, as lambdas may have formal & arg.
-  DefBuilder DBuilder;
+  DefBuilder DBuilder(Diags);
   assert(Lambda.arg());
   const LambdaArg &Arg = *Lambda.arg();
 
@@ -212,7 +256,7 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
     const Node *Syntax, Definition::DefinitionSource Source) {
   if (SA.isRecursive()) {
     // rec { }, or let ... in ...
-    DefBuilder DB;
+    DefBuilder DB(Diags);
     // For each static names, create a name binding.
     for (const auto &[Name, Attr] : SA.staticAttrs())
       ToDef.insert_or_assign(&Attr.key(), DB.add(Name, &Attr.key(), Source));
@@ -413,21 +457,16 @@ void VariableLookupAnalysis::dfs(const Node &Root,
 
 void VariableLookupAnalysis::runOnAST(const Node &Root) {
   // Create a basic env
-  DefBuilder DB;
-  std::vector<std::string> BaseEnv{
-      "builtins",
-      // This is an undocumented keyword actually.
-      "__curPos",
-  };
+  DefBuilder DB(Diags);
 
   for (const auto &[Name, Info] : PrimOpsInfo) {
     if (!Info.Internal && !Name.starts_with("__")) {
       // Only add non-internal primops without "__" prefix.
-      BaseEnv.push_back(Name);
+      DB.addBuiltin(Name);
     }
   }
 
-  for (const auto &Builtin : BaseEnv)
+  for (const auto &Builtin : Constants)
     DB.addBuiltin(Builtin);
 
   auto Env = std::make_shared<EnvNode>(nullptr, DB.finish(), nullptr);
