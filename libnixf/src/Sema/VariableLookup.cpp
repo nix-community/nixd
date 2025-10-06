@@ -325,6 +325,52 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
   }
 }
 
+void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
+  if (!Sel.path())
+    return;
+
+  if (Sel.expr().kind() != Node::NK_ExprVar)
+    return;
+
+  const auto &Builtins = static_cast<const ExprVar &>(Sel.expr());
+  if (Builtins.id().name() != "builtins")
+    return;
+
+  const auto &AP = *Sel.path();
+
+  if (AP.names().size() != 1)
+    return;
+
+  AttrName &First = *AP.names()[0];
+  if (!First.isStatic())
+    return;
+
+  const auto &Name = First.staticName();
+
+  switch (lookupGlobalPrimOpInfo(Name)) {
+  case PrimopLookupResult::Found: {
+    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpRemovablePrefix,
+                                       Builtins.range());
+    Fix &F =
+        D.fix("remove `builtins.` prefix")
+            .edit(TextEdit::mkRemoval(Builtins.range())); // remove `builtins`
+
+    if (Sel.dot()) {
+      // remove the dot also.
+      F.edit(TextEdit::mkRemoval(Sel.dot()->range()));
+    }
+    return;
+  }
+  case PrimopLookupResult::PrefixedFound:
+    return;
+  case PrimopLookupResult::NotFound:
+    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpUnknown,
+                                       AP.names()[0]->range());
+    D << AP.names()[0]->name();
+    return;
+  }
+}
+
 void VariableLookupAnalysis::dfs(const Node &Root,
                                  const std::shared_ptr<EnvNode> &Env) {
   Envs.insert({&Root, Env});
@@ -352,6 +398,12 @@ void VariableLookupAnalysis::dfs(const Node &Root,
   case Node::NK_ExprWith: {
     const auto &With = static_cast<const ExprWith &>(Root);
     dfs(With, Env);
+    break;
+  }
+  case Node::NK_ExprSelect: {
+    trivialDispatch(Root, Env);
+    const auto &Sel = static_cast<const ExprSelect &>(Root);
+    checkBuiltins(Sel);
     break;
   }
   default:
