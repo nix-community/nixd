@@ -156,14 +156,15 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     // Check if this is a primop.
     switch (lookupGlobalPrimOpInfo(Name)) {
     case PrimopLookupResult::Found:
-      Results.insert({&Var, LookupResult{LookupResultKind::PrimOp, nullptr}});
+      assert(false && "primop name should be defined");
       break;
     case PrimopLookupResult::PrefixedFound: {
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_PrimOpNeedsPrefix, Var.range());
       D.fix("use `builtins.` prefix")
           .edit(TextEdit::mkInsertion(Var.range().lCur(), "builtins."));
-      Results.insert({&Var, LookupResult{LookupResultKind::PrimOp, nullptr}});
+      Results.insert(
+          {&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
       break;
     }
     case PrimopLookupResult::NotFound:
@@ -460,7 +461,7 @@ void VariableLookupAnalysis::runOnAST(const Node &Root) {
   DefBuilder DB(Diags);
 
   for (const auto &[Name, Info] : PrimOpsInfo) {
-    if (!Info.Internal && !Name.starts_with("__")) {
+    if (!Info.Internal) {
       // Only add non-internal primops without "__" prefix.
       DB.addBuiltin(Name);
     }
