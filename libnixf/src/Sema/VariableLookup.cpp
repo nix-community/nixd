@@ -358,6 +358,12 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
   }
 }
 
+bool isBuiltinConstant(const std::string &Name) {
+  if (Name.starts_with("_"))
+    return false;
+  return Constants.contains(Name) || Constants.contains("__" + Name);
+}
+
 void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   if (!Sel.path())
     return;
@@ -397,7 +403,7 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   case PrimopLookupResult::PrefixedFound:
     return;
   case PrimopLookupResult::NotFound:
-    if (!Constants.contains(Name)) {
+    if (!isBuiltinConstant(Name)) {
       Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpUnknown,
                                          AP.names()[0]->range());
       D << Name;
