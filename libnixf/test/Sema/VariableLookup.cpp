@@ -455,4 +455,13 @@ TEST_F(VLATest, Constant_Overridden) {
   ASSERT_EQ(Diags[0].fixes().size(), 0);
 }
 
+TEST_F(VLATest, Constant_InBuiltins) {
+  const char *Src = R"(builtins.false)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace

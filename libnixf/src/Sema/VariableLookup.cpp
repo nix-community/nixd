@@ -11,22 +11,10 @@ using namespace nixf;
 namespace {
 
 std::set<std::string> Constants{
-    "builtins",
-    // This is an undocumented keyword actually.
-    "__curPos",
-
-    "true",
-    "false",
-    "null",
-    "__currentTime",
-    "__currentSystem",
-    "__nixVersion",
-    "__storeDir",
-    "__langVersion",
-    "__importNative",
-    "__traceVerbose",
-    "__nixPath",
-    "derivation",
+    "true",           "false",           "null",
+    "__currentTime",  "__currentSystem", "__nixVersion",
+    "__storeDir",     "__langVersion",   "__importNative",
+    "__traceVerbose", "__nixPath",       "derivation",
 };
 
 /// Builder a map of definitions. If there are something overlapped, maybe issue
@@ -409,10 +397,12 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   case PrimopLookupResult::PrefixedFound:
     return;
   case PrimopLookupResult::NotFound:
-    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpUnknown,
-                                       AP.names()[0]->range());
-    D << Name;
-    return;
+    if (!Constants.contains(Name)) {
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpUnknown,
+                                         AP.names()[0]->range());
+      D << Name;
+      return;
+    }
   }
 }
 
@@ -469,6 +459,10 @@ void VariableLookupAnalysis::runOnAST(const Node &Root) {
 
   for (const auto &Builtin : Constants)
     DB.addBuiltin(Builtin);
+
+  DB.addBuiltin("builtins");
+  // This is an undocumented keyword actually.
+  DB.addBuiltin(std::string("__curPos"));
 
   auto Env = std::make_shared<EnvNode>(nullptr, DB.finish(), nullptr);
 
