@@ -1,0 +1,5 @@
+<map id="lspserver::Logger" name="lspserver::Logger">
+<area shape="rect" id="Node000001" title="Interface to allow custom logging in clangd." alt="" coords="29,5,162,33"/>
+<area shape="rect" id="Node000002" href="$classlspserver_1_1StreamLogger.html" title=" " alt="" coords="5,81,186,109"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="98,49,98,81,93,81,93,49"/>
+</map>
