@@ -13,7 +13,7 @@ jobs:
     - uses: cachix/install-nix-action@v31
     - uses: actions/checkout@v5
     - id: changed-files
-      uses: tj-actions/changed-files@v46
+      uses: tj-actions/changed-files@v47
     - name: Run treefmt
       run: nix fmt
     - name: Check diff
