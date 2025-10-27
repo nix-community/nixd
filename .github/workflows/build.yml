@@ -27,7 +27,7 @@ jobs:
     - run: nix develop --command meson setup build/ -Dwerror=true --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
     - run: nix develop --command meson compile -C build
     - run: nix develop --command meson test -C build
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       if: failure()
       with:
         name: nix-build-develop-gcc-testlog-${{ matrix.sanitizer }}-${{ matrix.ndebug }}-${{ matrix.buildtype }}
@@ -52,7 +52,7 @@ jobs:
     - run: nix develop .#llvm --command env CXX=clang++ meson setup build/ -Dwerror=true --buildtype=${{ matrix.buildtype }} -Db_sanitize=${{ matrix.sanitizer }} -Db_ndebug=${{ matrix.ndebug }}
     - run: nix develop .#llvm --command meson compile -C build
     - run: nix develop .#llvm --command meson test -C build
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       if: failure()
       with:
         name: nix-build-develop-clang-testlog-${{ matrix.sanitizer }}-${{ matrix.ndebug }}-${{ matrix.buildtype }}
