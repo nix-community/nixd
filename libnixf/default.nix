@@ -47,7 +47,7 @@ stdenv.mkDerivation {
   ];
 
   meta = {
-    mainProgram = "nixf";
+    mainProgram = "nixf-tidy";
     description = "Nix language frontend, parser & semantic analysis";
     homepage = "https://github.com/nix-community/nixd";
     license = lib.licenses.lgpl3Plus;
