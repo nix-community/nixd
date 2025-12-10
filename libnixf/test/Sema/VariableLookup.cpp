@@ -482,4 +482,23 @@ TEST_F(VLATest, Constant_UnderscoreStrippedInBuiltins) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Issue731) {
+  // https://github.com/nix-community/nixd/issues/731
+  const char *Src = R"(
+let
+  e =
+    let
+    in
+    2.718;
+in
+e
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
