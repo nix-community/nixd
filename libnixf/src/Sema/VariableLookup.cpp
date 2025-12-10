@@ -303,9 +303,10 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
   // Obtain the env object suitable for "in" expression.
   auto GetLetEnv = [&Env, &Let, this]() -> std::shared_ptr<EnvNode> {
     // This is an empty let ... in ... expr, definitely anti-pattern in
-    // nix language. We want to passthrough the env then.
+    // nix language. Create a trivial env and return.
     if (!Let.attrs()) {
-      return Env;
+      auto NewEnv = std::make_shared<EnvNode>(Env, EnvNode::DefMap{}, &Let);
+      return NewEnv;
     }
 
     // If there are some attributes actually, create a new env.
