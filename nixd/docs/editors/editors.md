@@ -7,15 +7,15 @@ We provide a test environment with the _vscode-nix-ide_ plugin, and the reposito
 Start up the test environment:
 
 ```console
-$ nix develop github:nix-community/nixd#vscodium
+nix develop github:nix-community/nixd#vscodium
 
-$ codium-test
+codium-test
 ```
 
 ### Neovim
 
 ```console
-$ nix develop github:nix-community/nixd#nvim
+nix develop github:nix-community/nixd#nvim
 
-$ nvim-lsp flake.nix
+nvim-lsp flake.nix
 ```
