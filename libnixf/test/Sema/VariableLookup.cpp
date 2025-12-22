@@ -501,4 +501,32 @@ e
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, PrimOp_Inherit_NoWarning) {
+  const char *Src = R"(
+  let
+    inherit (builtins) functionArgs;
+  in functionArgs
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, PrimOp_Inherit_Warning) {
+  const char *Src = R"(
+  let
+    othername = builtins;
+    inherit (othername) functionArgs;
+  in functionArgs
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpOverridden);
+}
+
 } // namespace
