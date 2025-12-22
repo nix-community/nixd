@@ -1,6 +1,7 @@
 #include "nixf/Sema/VariableLookup.h"
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Attrs.h"
+#include "nixf/Basic/Nodes/Expr.h"
 #include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Sema/PrimOpInfo.h"
 
@@ -40,10 +41,10 @@ public:
   }
 
   [[nodiscard("Record ToDef Map!")]] std::shared_ptr<Definition>
-  add(std::string Name, const Node *Entry,
-      Definition::DefinitionSource Source) {
+  add(std::string Name, const Node *Entry, Definition::DefinitionSource Source,
+      bool IsInheritFromBuiltin) {
     auto PrimOpLookup = lookupGlobalPrimOpInfo(Name);
-    if (PrimOpLookup != PrimopLookupResult::NotFound) {
+    if (PrimOpLookup != PrimopLookupResult::NotFound && !IsInheritFromBuiltin) {
       // Overriding a builtin primop is discouraged.
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_PrimOpOverridden, Entry->range());
@@ -62,6 +63,29 @@ public:
 
   EnvNode::DefMap finish() { return std::move(Def); }
 };
+
+/// Special check for inherited from builtins attribute.
+/// e.g. inherit (builtins) foo bar;
+/// Returns true if the attribute is inherited from builtins.
+///
+/// Suppress warnings for overriding primops in this case.
+bool checkInheritedFromBuiltin(const Attribute &Attr) {
+  if (Attr.kind() != Attribute::AttributeKind::InheritFrom)
+    return false;
+
+  assert(Attr.value()->kind() == Node::NK_ExprSelect &&
+         "desugared inherited from should be a select expr");
+  if (const auto *Select = static_cast<const ExprSelect *>(Attr.value())) {
+    assert(Select->expr().kind() == Node::NK_ExprVar &&
+           "desugared inherited from should select from a variable");
+    if (const auto *Var = static_cast<const ExprVar *>(&Select->expr())) {
+      if (Var->id().name() == "builtins") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 } // namespace
 
@@ -182,14 +206,17 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
   // ^~~<------- add function argument.
   if (Arg.id()) {
     if (!Arg.formals()) {
-      ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
-                                                    Definition::DS_LambdaArg));
+      ToDef.insert_or_assign(Arg.id(),
+                             DBuilder.add(Arg.id()->name(), Arg.id(),
+                                          Definition::DS_LambdaArg,
+                                          /*IsInheritFromBuiltin=*/false));
       // Function arg cannot duplicate to it's formal.
       // If it this unluckily happens, we would like to skip this definition.
     } else if (!Arg.formals()->dedup().contains(Arg.id()->name())) {
       ToDef.insert_or_assign(Arg.id(),
                              DBuilder.add(Arg.id()->name(), Arg.id(),
-                                          Definition::DS_LambdaWithArg_Arg));
+                                          Definition::DS_LambdaWithArg_Arg,
+                                          /*IsInheritFromBuiltin=*/false));
     }
   }
 
@@ -210,7 +237,8 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
           Arg.id() ? Definition::DS_LambdaWithArg_Formal
                    : Definition::DS_LambdaNoArg_Formal;
       ToDef.insert_or_assign(Formal->id(),
-                             DBuilder.add(Name, Formal->id(), Source));
+                             DBuilder.add(Name, Formal->id(), Source,
+                                          /*IsInheritFromBuiltin=*/false));
     }
   }
 
@@ -247,8 +275,11 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
     // rec { }, or let ... in ...
     DefBuilder DB(Diags);
     // For each static names, create a name binding.
-    for (const auto &[Name, Attr] : SA.staticAttrs())
-      ToDef.insert_or_assign(&Attr.key(), DB.add(Name, &Attr.key(), Source));
+    for (const auto &[Name, Attr] : SA.staticAttrs()) {
+      ToDef.insert_or_assign(
+          &Attr.key(),
+          DB.add(Name, &Attr.key(), Source, checkInheritedFromBuiltin(Attr)));
+    }
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
