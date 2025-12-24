@@ -6,14 +6,16 @@ namespace nixf {
 
 class ExprSelect : public Expr {
   const std::shared_ptr<Expr> E;
+  const std::shared_ptr<Dot> Do;
   const std::shared_ptr<AttrPath> Path;
   const std::shared_ptr<Expr> Default;
 
 public:
   ExprSelect(LexerCursorRange Range, std::shared_ptr<Expr> E,
-             std::shared_ptr<AttrPath> Path, std::shared_ptr<Expr> Default)
-      : Expr(NK_ExprSelect, Range), E(std::move(E)), Path(std::move(Path)),
-        Default(std::move(Default)) {
+             std::shared_ptr<Dot> Do, std::shared_ptr<AttrPath> Path,
+             std::shared_ptr<Expr> Default)
+      : Expr(NK_ExprSelect, Range), E(std::move(E)), Do(std::move(Do)),
+        Path(std::move(Path)), Default(std::move(Default)) {
     assert(this->E && "E must not be null");
   }
 
@@ -21,6 +23,8 @@ public:
     assert(E && "E must not be null");
     return *E;
   }
+
+  [[nodiscard]] Dot *dot() const { return Do.get(); }
 
   [[nodiscard]] Expr *defaultExpr() const { return Default.get(); }
 

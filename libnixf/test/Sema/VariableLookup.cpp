@@ -350,4 +350,183 @@ __curPos
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Builtins_Needs_Prefix) {
+  const char *Src = R"(add)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpNeedsPrefix);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].newText(), "builtins.");
+}
+
+TEST_F(VLATest, Builtins_Removable_Prefix) {
+  const char *Src = R"(builtins.import)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpRemovablePrefix);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 2);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].oldRange().lCur().offset(), 0);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].oldRange().rCur().offset(), 8);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[0].newText(), "");
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[1].oldRange().lCur().offset(), 8);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[1].oldRange().rCur().offset(), 9);
+  ASSERT_EQ(Diags[0].fixes()[0].edits()[1].newText(), "");
+}
+
+TEST_F(VLATest, Builtins_Unknown) {
+  const char *Src = R"(builtins.importaaaa)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpUnknown);
+  ASSERT_EQ(Diags[0].fixes().size(), 0);
+}
+
+TEST_F(VLATest, PrimOp_Overridden) {
+  const char *Src = R"(
+  let
+    __add = true;
+  in __add
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpOverridden);
+  ASSERT_EQ(Diags[0].fixes().size(), 0);
+}
+
+TEST_F(VLATest, Constant_true) {
+  const char *Src = R"(true)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, Constant_false) {
+  const char *Src = R"(false)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, Constant_null) {
+  const char *Src = R"(null)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, Constant_Overridden) {
+  const char *Src = R"(
+  let
+    false = true;
+  in false
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_ConstantOverridden);
+  ASSERT_EQ(Diags[0].fixes().size(), 0);
+}
+
+TEST_F(VLATest, Constant_InBuiltins) {
+  const char *Src = R"(builtins.false)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, Constant_UnderscoreNotInBuiltins) {
+  const char *Src = R"(builtins.__false)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+}
+
+TEST_F(VLATest, Constant_UnderscoreStrippedInBuiltins) {
+  const char *Src = R"(builtins.nixPath)";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, Issue731) {
+  // https://github.com/nix-community/nixd/issues/731
+  const char *Src = R"(
+let
+  e =
+    let
+    in
+    2.718;
+in
+e
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, PrimOp_Inherit_NoWarning) {
+  const char *Src = R"(
+  let
+    inherit (builtins) functionArgs;
+  in functionArgs
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, PrimOp_Inherit_Warning) {
+  const char *Src = R"(
+  let
+    othername = builtins;
+    inherit (othername) functionArgs;
+  in functionArgs
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpOverridden);
+}
+
 } // namespace

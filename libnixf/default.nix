@@ -9,6 +9,7 @@
   boost,
   nlohmann_json,
   python312,
+  nix-expr,
 }:
 
 stdenv.mkDerivation {
@@ -42,10 +43,11 @@ stdenv.mkDerivation {
     gtest
     boost
     nlohmann_json
+    nix-expr
   ];
 
   meta = {
-    mainProgram = "nixf";
+    mainProgram = "nixf-tidy";
     description = "Nix language frontend, parser & semantic analysis";
     homepage = "https://github.com/nix-community/nixd";
     license = lib.licenses.lgpl3Plus;

@@ -6,8 +6,6 @@
 #include "nixd/Controller/Configuration.h"
 #include "nixd/Support/JSON.h"
 
-#include "lspserver/Logger.h"
-
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/JSON.h>
 

@@ -100,7 +100,7 @@ const ExprVar *findVar(const Node &N, const ParentMapAnalysis &PMA,
 
 const Definition &findVarDefinition(const ExprVar &Var,
                                     const VariableLookupAnalysis &VLA) {
-  LookupResult Result = VLA.query(static_cast<const ExprVar &>(Var));
+  LookupResult Result = VLA.query(Var);
 
   if (Result.Kind == ResultKind::Undefined)
     throw UndefinedVarException();

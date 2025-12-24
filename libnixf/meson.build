@@ -4,6 +4,7 @@ project( 'nixf'
        , version: '2.7.0'
        )
 
+nix_expr = dependency('nix-expr')
 nlohmann_json = dependency('nlohmann_json')
 boost = dependency('boost')
 gtest = dependency('gtest')

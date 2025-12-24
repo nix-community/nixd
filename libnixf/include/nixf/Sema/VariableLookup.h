@@ -140,6 +140,8 @@ private:
 
   void lookupVar(const ExprVar &Var, const std::shared_ptr<EnvNode> &Env);
 
+  void checkBuiltins(const ExprSelect &Sel);
+
   std::shared_ptr<EnvNode> dfsAttrs(const SemaAttrs &SA,
                                     const std::shared_ptr<EnvNode> &Env,
                                     const Node *Syntax,

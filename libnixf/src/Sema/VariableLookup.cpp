@@ -1,34 +1,91 @@
 #include "nixf/Sema/VariableLookup.h"
 #include "nixf/Basic/Diagnostic.h"
 #include "nixf/Basic/Nodes/Attrs.h"
+#include "nixf/Basic/Nodes/Expr.h"
 #include "nixf/Basic/Nodes/Lambda.h"
+#include "nixf/Sema/PrimOpInfo.h"
+
+#include <set>
 
 using namespace nixf;
 
 namespace {
 
+std::set<std::string> Constants{
+    "true",           "false",           "null",
+    "__currentTime",  "__currentSystem", "__nixVersion",
+    "__storeDir",     "__langVersion",   "__importNative",
+    "__traceVerbose", "__nixPath",       "derivation",
+};
+
 /// Builder a map of definitions. If there are something overlapped, maybe issue
 /// a diagnostic.
 class DefBuilder {
   EnvNode::DefMap Def;
+  std::vector<Diagnostic> &Diags;
 
-public:
-  void addBuiltin(std::string Name) {
-    // Don't need to record def map for builtins.
-    auto _ = add(std::move(Name), nullptr, Definition::DS_Builtin);
-  }
-
-  [[nodiscard("Record ToDef Map!")]] std::shared_ptr<Definition>
-  add(std::string Name, const Node *Entry,
-      Definition::DefinitionSource Source) {
+  std::shared_ptr<Definition> addSimple(std::string Name, const Node *Entry,
+                                        Definition::DefinitionSource Source) {
     assert(!Def.contains(Name));
     auto NewDef = std::make_shared<Definition>(Entry, Source);
     Def.insert({std::move(Name), NewDef});
     return NewDef;
   }
 
+public:
+  DefBuilder(std::vector<Diagnostic> &Diags) : Diags(Diags) {}
+
+  void addBuiltin(std::string Name) {
+    // Don't need to record def map for builtins.
+    auto _ = addSimple(std::move(Name), nullptr, Definition::DS_Builtin);
+  }
+
+  [[nodiscard("Record ToDef Map!")]] std::shared_ptr<Definition>
+  add(std::string Name, const Node *Entry, Definition::DefinitionSource Source,
+      bool IsInheritFromBuiltin) {
+    auto PrimOpLookup = lookupGlobalPrimOpInfo(Name);
+    if (PrimOpLookup != PrimopLookupResult::NotFound && !IsInheritFromBuiltin) {
+      // Overriding a builtin primop is discouraged.
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_PrimOpOverridden, Entry->range());
+      D << Name;
+    }
+
+    // Lookup constants
+    if (Constants.contains(Name)) {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_ConstantOverridden, Entry->range());
+      D << Name;
+    }
+
+    return addSimple(std::move(Name), Entry, Source);
+  }
+
   EnvNode::DefMap finish() { return std::move(Def); }
 };
+
+/// Special check for inherited from builtins attribute.
+/// e.g. inherit (builtins) foo bar;
+/// Returns true if the attribute is inherited from builtins.
+///
+/// Suppress warnings for overriding primops in this case.
+bool checkInheritedFromBuiltin(const Attribute &Attr) {
+  if (Attr.kind() != Attribute::AttributeKind::InheritFrom)
+    return false;
+
+  assert(Attr.value()->kind() == Node::NK_ExprSelect &&
+         "desugared inherited from should be a select expr");
+  if (const auto *Select = static_cast<const ExprSelect *>(Attr.value())) {
+    assert(Select->expr().kind() == Node::NK_ExprVar &&
+           "desugared inherited from should select from a variable");
+    if (const auto *Var = static_cast<const ExprVar *>(&Select->expr())) {
+      if (Var->id().name() == "builtins") {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 } // namespace
 
@@ -108,11 +165,29 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     }
     Results.insert({&Var, LookupResult{LookupResultKind::FromWith, Def}});
   } else {
-    // Otherwise, this variable is undefined.
-    Results.insert({&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
-    Diagnostic &Diag =
-        Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
-    Diag << Var.id().name();
+    // Check if this is a primop.
+    switch (lookupGlobalPrimOpInfo(Name)) {
+    case PrimopLookupResult::Found:
+      assert(false && "primop name should be defined");
+      break;
+    case PrimopLookupResult::PrefixedFound: {
+      Diagnostic &D =
+          Diags.emplace_back(Diagnostic::DK_PrimOpNeedsPrefix, Var.range());
+      D.fix("use `builtins.` prefix")
+          .edit(TextEdit::mkInsertion(Var.range().lCur(), "builtins."));
+      Results.insert(
+          {&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
+      break;
+    }
+    case PrimopLookupResult::NotFound:
+      // Otherwise, this variable is undefined.
+      Results.insert(
+          {&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
+      Diagnostic &Diag =
+          Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
+      Diag << Var.id().name();
+      break;
+    }
   }
 }
 
@@ -123,7 +198,7 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
     return;
 
   // Create a new EnvNode, as lambdas may have formal & arg.
-  DefBuilder DBuilder;
+  DefBuilder DBuilder(Diags);
   assert(Lambda.arg());
   const LambdaArg &Arg = *Lambda.arg();
 
@@ -131,14 +206,17 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
   // ^~~<------- add function argument.
   if (Arg.id()) {
     if (!Arg.formals()) {
-      ToDef.insert_or_assign(Arg.id(), DBuilder.add(Arg.id()->name(), Arg.id(),
-                                                    Definition::DS_LambdaArg));
+      ToDef.insert_or_assign(Arg.id(),
+                             DBuilder.add(Arg.id()->name(), Arg.id(),
+                                          Definition::DS_LambdaArg,
+                                          /*IsInheritFromBuiltin=*/false));
       // Function arg cannot duplicate to it's formal.
       // If it this unluckily happens, we would like to skip this definition.
     } else if (!Arg.formals()->dedup().contains(Arg.id()->name())) {
       ToDef.insert_or_assign(Arg.id(),
                              DBuilder.add(Arg.id()->name(), Arg.id(),
-                                          Definition::DS_LambdaWithArg_Arg));
+                                          Definition::DS_LambdaWithArg_Arg,
+                                          /*IsInheritFromBuiltin=*/false));
     }
   }
 
@@ -159,7 +237,8 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
           Arg.id() ? Definition::DS_LambdaWithArg_Formal
                    : Definition::DS_LambdaNoArg_Formal;
       ToDef.insert_or_assign(Formal->id(),
-                             DBuilder.add(Name, Formal->id(), Source));
+                             DBuilder.add(Name, Formal->id(), Source,
+                                          /*IsInheritFromBuiltin=*/false));
     }
   }
 
@@ -194,10 +273,13 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
     const Node *Syntax, Definition::DefinitionSource Source) {
   if (SA.isRecursive()) {
     // rec { }, or let ... in ...
-    DefBuilder DB;
+    DefBuilder DB(Diags);
     // For each static names, create a name binding.
-    for (const auto &[Name, Attr] : SA.staticAttrs())
-      ToDef.insert_or_assign(&Attr.key(), DB.add(Name, &Attr.key(), Source));
+    for (const auto &[Name, Attr] : SA.staticAttrs()) {
+      ToDef.insert_or_assign(
+          &Attr.key(),
+          DB.add(Name, &Attr.key(), Source, checkInheritedFromBuiltin(Attr)));
+    }
 
     auto NewEnv = std::make_shared<EnvNode>(Env, DB.finish(), Syntax);
 
@@ -252,9 +334,10 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
   // Obtain the env object suitable for "in" expression.
   auto GetLetEnv = [&Env, &Let, this]() -> std::shared_ptr<EnvNode> {
     // This is an empty let ... in ... expr, definitely anti-pattern in
-    // nix language. We want to passthrough the env then.
+    // nix language. Create a trivial env and return.
     if (!Let.attrs()) {
-      return Env;
+      auto NewEnv = std::make_shared<EnvNode>(Env, EnvNode::DefMap{}, &Let);
+      return NewEnv;
     }
 
     // If there are some attributes actually, create a new env.
@@ -307,6 +390,60 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
   }
 }
 
+bool isBuiltinConstant(const std::string &Name) {
+  if (Name.starts_with("_"))
+    return false;
+  return Constants.contains(Name) || Constants.contains("__" + Name);
+}
+
+void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
+  if (!Sel.path())
+    return;
+
+  if (Sel.expr().kind() != Node::NK_ExprVar)
+    return;
+
+  const auto &Builtins = static_cast<const ExprVar &>(Sel.expr());
+  if (Builtins.id().name() != "builtins")
+    return;
+
+  const auto &AP = *Sel.path();
+
+  if (AP.names().size() != 1)
+    return;
+
+  AttrName &First = *AP.names()[0];
+  if (!First.isStatic())
+    return;
+
+  const auto &Name = First.staticName();
+
+  switch (lookupGlobalPrimOpInfo(Name)) {
+  case PrimopLookupResult::Found: {
+    Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpRemovablePrefix,
+                                       Builtins.range());
+    Fix &F =
+        D.fix("remove `builtins.` prefix")
+            .edit(TextEdit::mkRemoval(Builtins.range())); // remove `builtins`
+
+    if (Sel.dot()) {
+      // remove the dot also.
+      F.edit(TextEdit::mkRemoval(Sel.dot()->range()));
+    }
+    return;
+  }
+  case PrimopLookupResult::PrefixedFound:
+    return;
+  case PrimopLookupResult::NotFound:
+    if (!isBuiltinConstant(Name)) {
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpUnknown,
+                                         AP.names()[0]->range());
+      D << Name;
+      return;
+    }
+  }
+}
+
 void VariableLookupAnalysis::dfs(const Node &Root,
                                  const std::shared_ptr<EnvNode> &Env) {
   Envs.insert({&Root, Env});
@@ -336,6 +473,12 @@ void VariableLookupAnalysis::dfs(const Node &Root,
     dfs(With, Env);
     break;
   }
+  case Node::NK_ExprSelect: {
+    trivialDispatch(Root, Env);
+    const auto &Sel = static_cast<const ExprSelect &>(Root);
+    checkBuiltins(Sel);
+    break;
+  }
   default:
     trivialDispatch(Root, Env);
   }
@@ -343,131 +486,21 @@ void VariableLookupAnalysis::dfs(const Node &Root,
 
 void VariableLookupAnalysis::runOnAST(const Node &Root) {
   // Create a basic env
-  DefBuilder DB;
-  std::vector<std::string> Builtins{
-      "__add",
-      "__fetchurl",
-      "__isFloat",
-      "__seq",
-      "break",
-      "__addDrvOutputDependencies",
-      "__filter",
-      "__isFunction",
-      "__sort",
-      "builtins",
-      "__addErrorContext",
-      "__filterSource",
-      "__isInt",
-      "__split",
-      "derivation",
-      "__all",
-      "__findFile",
-      "__isList",
-      "__splitVersion",
-      "derivationStrict",
-      "__any",
-      "__flakeRefToString",
-      "__isPath",
-      "__storeDir",
-      "dirOf",
-      "__appendContext",
-      "__floor",
-      "__isString",
-      "__storePath",
-      "false",
-      "__attrNames",
-      "__foldl'",
-      "__langVersion",
-      "__stringLength",
-      "fetchGit",
-      "__attrValues",
-      "__fromJSON",
-      "__length",
-      "__sub",
-      "fetchMercurial",
-      "__bitAnd",
-      "__functionArgs",
-      "__lessThan",
-      "__substring",
-      "fetchTarball",
-      "__bitOr",
-      "__genList",
-      "__listToAttrs",
-      "__tail",
-      "fetchTree",
-      "__bitXor",
-      "__genericClosure",
-      "__mapAttrs",
-      "__toFile",
-      "fromTOML",
-      "__catAttrs",
-      "__getAttr",
-      "__match",
-      "__toJSON",
-      "import",
-      "__ceil",
-      "__getContext",
-      "__mul",
-      "__toPath",
-      "isNull",
-      "__compareVersions",
-      "__getEnv",
-      "__nixPath",
-      "__toXML",
-      "map",
-      "__concatLists",
-      "__getFlake",
-      "__nixVersion",
-      "__trace",
-      "null",
-      "__concatMap",
-      "__groupBy",
-      "__parseDrvName",
-      "__traceVerbose",
-      "placeholder",
-      "__concatStringsSep",
-      "__hasAttr",
-      "__parseFlakeRef",
-      "__tryEval",
-      "removeAttrs",
-      "__convertHash",
-      "__hasContext",
-      "__partition",
-      "__typeOf",
-      "scopedImport",
-      "__currentSystem",
-      "__hashFile",
-      "__path",
-      "__unsafeDiscardOutputDependency",
-      "throw",
-      "__currentTime",
-      "__hashString",
-      "__pathExists",
-      "__unsafeDiscardStringContext",
-      "toString",
-      "__deepSeq",
-      "__head",
-      "__readDir",
-      "__unsafeGetAttrPos",
-      "true",
-      "__div",
-      "__intersectAttrs",
-      "__readFile",
-      "__zipAttrsWith",
-      "__elem",
-      "__isAttrs",
-      "__readFileType",
-      "abort",
-      "__elemAt",
-      "__isBool",
-      "__replaceStrings",
-      "baseNameOf",
-      // This is an undocumented keyword actually.
-      "__curPos",
-  };
+  DefBuilder DB(Diags);
 
-  for (const auto &Builtin : Builtins)
+  for (const auto &[Name, Info] : PrimOpsInfo) {
+    if (!Info.Internal) {
+      // Only add non-internal primops without "__" prefix.
+      DB.addBuiltin(Name);
+    }
+  }
+
+  for (const auto &Builtin : Constants)
     DB.addBuiltin(Builtin);
+
+  DB.addBuiltin("builtins");
+  // This is an undocumented keyword actually.
+  DB.addBuiltin(std::string("__curPos"));
 
   auto Env = std::make_shared<EnvNode>(nullptr, DB.finish(), nullptr);
 

@@ -231,4 +231,37 @@ diagnostics: list[Diagnostic] = [
         "severity": "Warning",
         "message": "unused `with` expression",
     },
+    # Primary Operation (PrimOp) related diagnostics
+    # We call this "builtin" in messages to match Nix's terminology
+    # "PrimOp" is specific to Nix/nixf implementation
+    {
+        "sname": "sema-primop-unknown",
+        "cname": "PrimOpUnknown",
+        "severity": "Error",
+        "message": "unknown builtin `{}`",
+    },
+    {
+        "sname": "sema-primop-removed-prefix",
+        "cname": "PrimOpRemovablePrefix",
+        "severity": "Warning",
+        "message": "this is a prelude builtin, the `builtins.` prefix can be removed",
+    },
+    {
+        "sname": "sema-primop-needs-prefix",
+        "cname": "PrimOpNeedsPrefix",
+        "severity": "Error",
+        "message": "this is not a prelude builtin, the `builtins.` prefix is required",
+    },
+    {
+        "sname": "sema-primop-overridden",
+        "cname": "PrimOpOverridden",
+        "severity": "Warning",
+        "message": "overriding a builtin name `{}` is discouraged, rename it to avoid confusion",
+    },
+    {
+        "sname": "sema-constant-overridden",
+        "cname": "ConstantOverridden",
+        "severity": "Warning",
+        "message": "overriding a builtin name `{}` is discouraged, rename it to avoid confusion",
+    },
 ]
