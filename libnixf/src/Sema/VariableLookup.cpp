@@ -73,14 +73,15 @@ bool checkInheritedFromBuiltin(const Attribute &Attr) {
   if (Attr.kind() != Attribute::AttributeKind::InheritFrom)
     return false;
 
+  assert(Attr.value() &&
+         "select expr desugared from inherit should not be null");
   assert(Attr.value()->kind() == Node::NK_ExprSelect &&
          "desugared inherited from should be a select expr");
-  if (const auto *Select = static_cast<const ExprSelect *>(Attr.value())) {
-    if (Select->expr().kind() == Node::NK_ExprVar) {
-      const auto &Var = static_cast<const ExprVar &>(Select->expr());
-      if (Var.id().name() == "builtins") {
-        return true;
-      }
+  const auto &Select = static_cast<const ExprSelect &>(*Attr.value());
+  if (Select.expr().kind() == Node::NK_ExprVar) {
+    const auto &Var = static_cast<const ExprVar &>(Select.expr());
+    if (Var.id().name() == "builtins") {
+      return true;
     }
   }
   return false;
