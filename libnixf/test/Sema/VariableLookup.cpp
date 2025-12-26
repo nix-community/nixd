@@ -529,4 +529,18 @@ TEST_F(VLATest, PrimOp_Inherit_Warning) {
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpOverridden);
 }
 
+TEST_F(VLATest, PrimOp_Inherit_NonVar) {
+  const char *Src = R"(
+  let
+    othername.a = builtins;
+    inherit (othername.a) foo;
+  in foo
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 } // namespace
