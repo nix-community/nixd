@@ -80,9 +80,7 @@ bool checkInheritedFromBuiltin(const Attribute &Attr) {
   const auto &Select = static_cast<const ExprSelect &>(*Attr.value());
   if (Select.expr().kind() == Node::NK_ExprVar) {
     const auto &Var = static_cast<const ExprVar &>(Select.expr());
-    if (Var.id().name() == "builtins") {
-      return true;
-    }
+    return Var.id().name() == "builtins";
   }
   return false;
 }
