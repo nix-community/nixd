@@ -76,9 +76,8 @@ bool checkInheritedFromBuiltin(const Attribute &Attr) {
   assert(Attr.value()->kind() == Node::NK_ExprSelect &&
          "desugared inherited from should be a select expr");
   if (const auto *Select = static_cast<const ExprSelect *>(Attr.value())) {
-    assert(Select->expr().kind() == Node::NK_ExprVar &&
-           "desugared inherited from should select from a variable");
-    if (const auto *Var = static_cast<const ExprVar *>(&Select->expr())) {
+    if (Select->expr().kind() == Node::NK_ExprVar) {
+      const auto *Var = static_cast<const ExprVar *>(&Select->expr());
       if (Var->id().name() == "builtins") {
         return true;
       }
