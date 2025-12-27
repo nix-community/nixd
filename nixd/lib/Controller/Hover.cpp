@@ -98,11 +98,12 @@ class NixpkgsHoverProvider {
       const auto &VD = *Info.ValueDesc;
       if (!OS.str().empty())
         OS << "\n";
-      OS << "## Value" << "\n\n";
       if (!VD.Doc.empty()) {
         OS << VD.Doc << "\n\n";
       }
-      OS << "**Arity:** " << VD.Arity << "\n";
+      if (VD.Arity != 0) {
+        OS << "**Arity:** " << VD.Arity << "\n";
+      }
       if (!VD.Args.empty()) {
         OS << "**Args:** ";
         for (size_t Idx = 0; Idx < VD.Args.size(); ++Idx) {
