@@ -44,7 +44,7 @@ public:
   add(std::string Name, const Node *Entry, Definition::DefinitionSource Source,
       bool IsInheritFromBuiltin) {
     auto PrimOpLookup = lookupGlobalPrimOpInfo(Name);
-    if (PrimOpLookup != PrimopLookupResult::NotFound && !IsInheritFromBuiltin) {
+    if (PrimOpLookup == PrimopLookupResult::Found && !IsInheritFromBuiltin) {
       // Overriding a builtin primop is discouraged.
       Diagnostic &D =
           Diags.emplace_back(Diagnostic::DK_PrimOpOverridden, Entry->range());
