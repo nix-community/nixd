@@ -35,16 +35,22 @@ std::optional<std::string> resolveExprPath(const std::string &BasePath,
                                            const std::string &ExprPath) {
 
   namespace fs = std::filesystem;
-  // FIXME: we do not use complete "symbolic resolve" here.
-  fs::path Path = fs::absolute((BasePath)).remove_filename().append(ExprPath);
 
-  if (!fs::exists(Path))
+  try {
+    // FIXME: we do not use complete "symbolic resolve" here.
+    fs::path Path = fs::absolute((BasePath)).remove_filename().append(ExprPath);
+
+    if (!fs::exists(Path))
+      return std::nullopt;
+
+    if (fs::is_directory(Path))
+      return Path.append("default.nix");
+
+    return Path;
+  } catch (const fs::filesystem_error &) {
+    // Return nothing if file access fails.
     return std::nullopt;
-
-  if (fs::is_directory(Path))
-    return Path.append("default.nix");
-
-  return Path;
+  }
 }
 
 void dfs(const Node *N, const std::string &BasePath,
