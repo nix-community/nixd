@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "lspserver/Logger.h"
+
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -27,43 +29,66 @@ inline std::optional<std::string> resolveExprPath(const std::string &BasePath,
                                                   const std::string &ExprPath) {
   namespace fs = std::filesystem;
 
+  lspserver::vlog("path-resolve: BasePath={0}, ExprPath={1}", BasePath,
+                  ExprPath);
+
   // Input validation: reject empty or excessively long paths
-  if (ExprPath.empty() || ExprPath.length() > 4096)
+  if (ExprPath.empty() || ExprPath.length() > 4096) {
+    lspserver::vlog("path-resolve: input validation failed (empty={0}, "
+                    "length={1})",
+                    ExprPath.empty(), ExprPath.length());
     return std::nullopt;
+  }
 
   try {
     // Get the base directory from the file path
     std::error_code EC;
     fs::path BaseDir = fs::path(BasePath).parent_path();
-    if (BaseDir.empty())
+    if (BaseDir.empty()) {
+      lspserver::vlog("path-resolve: base directory is empty");
       return std::nullopt;
+    }
 
     // Canonicalize base directory to resolve symlinks
     fs::path BaseDirCanonical = fs::canonical(BaseDir, EC);
-    if (EC)
+    if (EC) {
+      lspserver::vlog("path-resolve: canonical failed for {0}: {1}",
+                      BaseDir.string(), EC.message());
       return std::nullopt;
+    }
 
     // Resolve the user-provided path relative to base directory
     // Use weakly_canonical to handle non-existent intermediate components
     fs::path ResolvedPath =
         fs::weakly_canonical(BaseDirCanonical / ExprPath, EC);
-    if (EC)
+    if (EC) {
+      lspserver::vlog("path-resolve: weakly_canonical failed for {0}: {1}",
+                      (BaseDirCanonical / ExprPath).string(), EC.message());
       return std::nullopt;
+    }
 
     // Check if target exists
     auto Status = fs::status(ResolvedPath, EC);
-    if (EC || !fs::exists(Status))
+    if (EC || !fs::exists(Status)) {
+      lspserver::vlog("path-resolve: target does not exist: {0}",
+                      ResolvedPath.string());
       return std::nullopt;
+    }
 
     // If it's a directory, append default.nix (Nix import convention)
     if (fs::is_directory(Status)) {
       ResolvedPath = ResolvedPath / "default.nix";
-      if (!fs::exists(ResolvedPath, EC) || EC)
+      if (!fs::exists(ResolvedPath, EC) || EC) {
+        lspserver::vlog("path-resolve: default.nix not found in directory: {0}",
+                        ResolvedPath.string());
         return std::nullopt;
+      }
     }
 
+    lspserver::vlog("path-resolve: resolved to {0}", ResolvedPath.string());
     return ResolvedPath.string();
-  } catch (const fs::filesystem_error &) {
+  } catch (const fs::filesystem_error &E) {
+    lspserver::vlog("path-resolve: filesystem error: {0}", E.what());
     return std::nullopt;
   }
 }
