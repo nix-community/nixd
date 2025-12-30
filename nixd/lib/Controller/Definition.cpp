@@ -251,39 +251,44 @@ std::optional<Location> definePath(const ExprPath &Path,
   if (ExprPathStr.empty() || ExprPathStr.length() > 4096)
     return std::nullopt;
 
-  // Get the base directory
-  std::error_code EC;
-  fs::path BaseDir = fs::path(BasePath).parent_path();
-  if (BaseDir.empty())
-    return std::nullopt;
-
-  fs::path BaseDirCanonical = fs::canonical(BaseDir, EC);
-  if (EC)
-    return std::nullopt;
-
-  // Resolve the user-provided path relative to base directory
-  fs::path ResolvedPath =
-      fs::weakly_canonical(BaseDirCanonical / ExprPathStr, EC);
-  if (EC)
-    return std::nullopt;
-
-  // Check if target exists
-  auto Status = fs::status(ResolvedPath, EC);
-  if (EC || !fs::exists(Status))
-    return std::nullopt;
-
-  // If it's a directory, append default.nix
-  if (fs::is_directory(Status)) {
-    ResolvedPath = ResolvedPath / "default.nix";
-    if (!fs::exists(ResolvedPath, EC) || EC)
+  try {
+    // Get the base directory
+    std::error_code EC;
+    fs::path BaseDir = fs::path(BasePath).parent_path();
+    if (BaseDir.empty())
       return std::nullopt;
-  }
 
-  std::string ResolvedStr = ResolvedPath.string();
-  return Location{
-      .uri = URIForFile::canonicalize(ResolvedStr, ResolvedStr),
-      .range = {{0, 0}, {0, 0}},
-  };
+    fs::path BaseDirCanonical = fs::canonical(BaseDir, EC);
+    if (EC)
+      return std::nullopt;
+
+    // Resolve the user-provided path relative to base directory
+    fs::path ResolvedPath =
+        fs::weakly_canonical(BaseDirCanonical / ExprPathStr, EC);
+    if (EC)
+      return std::nullopt;
+
+    // Check if target exists
+    auto Status = fs::status(ResolvedPath, EC);
+    if (EC || !fs::exists(Status))
+      return std::nullopt;
+
+    // If it's a directory, append default.nix
+    if (fs::is_directory(Status)) {
+      ResolvedPath = ResolvedPath / "default.nix";
+      if (!fs::exists(ResolvedPath, EC) || EC)
+        return std::nullopt;
+    }
+
+    std::string ResolvedStr = ResolvedPath.string();
+    return Location{
+        .uri = URIForFile::canonicalize(ResolvedStr, ResolvedStr),
+        .range = {{0, 0}, {0, 0}},
+    };
+  } catch (const fs::filesystem_error &E) {
+    lspserver::elog("failed to resolve path '{0}': {1}", ExprPathStr, E.what());
+    return std::nullopt;
+  }
 }
 
 /// \brief Get the locations of some attribute path.
