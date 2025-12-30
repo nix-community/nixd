@@ -17,35 +17,17 @@
 
 #include "CheckReturn.h"
 #include "Convert.h"
+#include "PathResolve.h"
 
 #include "nixd/Controller/Controller.h"
 
 #include <boost/asio/post.hpp>
-
-#include <filesystem>
 
 using namespace nixd;
 using namespace lspserver;
 using namespace nixf;
 
 namespace {
-
-/// \brief Resolve expr path to "real" path.
-std::optional<std::string> resolveExprPath(const std::string &BasePath,
-                                           const std::string &ExprPath) {
-
-  namespace fs = std::filesystem;
-  // FIXME: we do not use complete "symbolic resolve" here.
-  fs::path Path = fs::absolute((BasePath)).remove_filename().append(ExprPath);
-
-  if (!fs::exists(Path))
-    return std::nullopt;
-
-  if (fs::is_directory(Path))
-    return Path.append("default.nix");
-
-  return Path;
-}
 
 void dfs(const Node *N, const std::string &BasePath,
          std::vector<DocumentLink> &Links, llvm::StringRef Src) {
