@@ -7,6 +7,7 @@
 #include "AST.h"
 #include "CheckReturn.h"
 #include "Convert.h"
+#include "PathResolve.h"
 
 #include "nixd/Controller/Controller.h"
 #include "nixd/Protocol/AttrSet.h"
@@ -21,6 +22,7 @@
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Basic.h>
 #include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Basic/Nodes/Simple.h>
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
@@ -232,6 +234,25 @@ public:
   }
 };
 
+/// \brief Resolve expr path to "real" path, returning a location.
+///
+/// This enables "go to definition" for path literals like ./foo.nix.
+std::optional<Location> definePath(const ExprPath &Path,
+                                   const std::string &BasePath) {
+  // Only handle literal paths (no interpolation)
+  if (!Path.parts().isLiteral())
+    return std::nullopt;
+
+  // Use shared path resolution logic
+  if (auto Resolved = resolveExprPath(BasePath, Path.parts().literal())) {
+    return Location{
+        .uri = URIForFile::canonicalize(*Resolved, *Resolved),
+        .range = {{0, 0}, {0, 0}},
+    };
+  }
+  return std::nullopt;
+}
+
 /// \brief Get the locations of some attribute path.
 ///
 /// Usually this function will return a list of option declarations via RPC
@@ -384,6 +405,12 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
       }
       case Node::NK_ExprAttrs:
         return defineAttrPath(N, PM, OptionsLock, Options);
+      case Node::NK_ExprPath: {
+        const auto &Path = static_cast<const ExprPath &>(UpExpr);
+        if (auto Loc = definePath(Path, File))
+          return Locations{*Loc};
+        return Locations{};
+      }
       default:
         break;
       }
