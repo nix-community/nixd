@@ -21,10 +21,12 @@
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Basic.h>
 #include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Basic/Nodes/Simple.h>
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
 #include <exception>
+#include <filesystem>
 #include <semaphore>
 
 using namespace nixd;
@@ -232,6 +234,58 @@ public:
   }
 };
 
+/// \brief Resolve expr path to "real" path, returning a location.
+///
+/// This enables "go to definition" for path literals like ./foo.nix.
+std::optional<Location> definePath(const ExprPath &Path,
+                                   const std::string &BasePath) {
+  namespace fs = std::filesystem;
+
+  // Only handle literal paths (no interpolation)
+  if (!Path.parts().isLiteral())
+    return std::nullopt;
+
+  const std::string &ExprPathStr = Path.parts().literal();
+
+  // Input validation: reject empty or excessively long paths
+  if (ExprPathStr.empty() || ExprPathStr.length() > 4096)
+    return std::nullopt;
+
+  // Get the base directory
+  std::error_code EC;
+  fs::path BaseDir = fs::path(BasePath).parent_path();
+  if (BaseDir.empty())
+    return std::nullopt;
+
+  fs::path BaseDirCanonical = fs::canonical(BaseDir, EC);
+  if (EC)
+    return std::nullopt;
+
+  // Resolve the user-provided path relative to base directory
+  fs::path ResolvedPath =
+      fs::weakly_canonical(BaseDirCanonical / ExprPathStr, EC);
+  if (EC)
+    return std::nullopt;
+
+  // Check if target exists
+  auto Status = fs::status(ResolvedPath, EC);
+  if (EC || !fs::exists(Status))
+    return std::nullopt;
+
+  // If it's a directory, append default.nix
+  if (fs::is_directory(Status)) {
+    ResolvedPath = ResolvedPath / "default.nix";
+    if (!fs::exists(ResolvedPath, EC) || EC)
+      return std::nullopt;
+  }
+
+  std::string ResolvedStr = ResolvedPath.string();
+  return Location{
+      .uri = URIForFile::canonicalize(ResolvedStr, ResolvedStr),
+      .range = {{0, 0}, {0, 0}},
+  };
+}
+
 /// \brief Get the locations of some attribute path.
 ///
 /// Usually this function will return a list of option declarations via RPC
@@ -384,6 +438,12 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
       }
       case Node::NK_ExprAttrs:
         return defineAttrPath(N, PM, OptionsLock, Options);
+      case Node::NK_ExprPath: {
+        const auto &Path = static_cast<const ExprPath &>(UpExpr);
+        if (auto Loc = definePath(Path, File))
+          return Locations{*Loc};
+        return Locations{};
+      }
       default:
         break;
       }
