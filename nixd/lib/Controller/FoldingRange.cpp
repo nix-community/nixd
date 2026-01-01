@@ -26,7 +26,9 @@ namespace {
 constexpr size_t MaxRecursionDepth = 256;
 
 /// Check if the range spans multiple lines (2+ lines required for folding).
-bool isMultiLine(const lspserver::Range &R) { return R.start.line < R.end.line; }
+bool isMultiLine(const lspserver::Range &R) {
+  return R.start.line < R.end.line;
+}
 
 /// Create a FoldingRange from an LSP Range with "region" kind.
 FoldingRange toFoldingRange(const lspserver::Range &R) {
@@ -130,9 +132,8 @@ void collectFoldingRanges(const Node *AST, std::vector<FoldingRange> &Ranges,
 ///
 /// \param Params Request parameters containing the document URI
 /// \param Reply Callback to return the list of folding ranges
-void Controller::onFoldingRange(
-    const FoldingRangeParams &Params,
-    Callback<std::vector<FoldingRange>> Reply) {
+void Controller::onFoldingRange(const FoldingRangeParams &Params,
+                                Callback<std::vector<FoldingRange>> Reply) {
   using CheckTy = std::vector<FoldingRange>;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
                  this]() mutable {
