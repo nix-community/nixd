@@ -16,6 +16,7 @@ libnixd_lib = library(
     'Controller/DocumentHighlight.cpp',
     'Controller/DocumentLink.cpp',
     'Controller/DocumentSymbol.cpp',
+    'Controller/FoldingRange.cpp',
     'Controller/FindReferences.cpp',
     'Controller/Format.cpp',
     'Controller/Hover.cpp',

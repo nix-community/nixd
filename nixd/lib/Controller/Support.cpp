@@ -90,6 +90,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                      &Controller::onDefinition);
   Registry.addMethod("textDocument/documentSymbol", this,
                      &Controller::onDocumentSymbol);
+  Registry.addMethod("textDocument/foldingRange", this,
+                     &Controller::onFoldingRange);
   Registry.addMethod("textDocument/semanticTokens/full", this,
                      &Controller::onSemanticTokens);
   Registry.addMethod("textDocument/inlayHint", this, &Controller::onInlayHint);

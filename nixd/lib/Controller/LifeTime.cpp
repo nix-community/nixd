@@ -105,6 +105,7 @@ void Controller::
        {"definitionProvider", true},
        {"documentLinkProvider", Object{}},
        {"documentSymbolProvider", true},
+       {"foldingRangeProvider", true},
        {"inlayHintProvider", true},
        {"completionProvider",
         Object{
