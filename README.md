@@ -30,3 +30,23 @@ We have tested some working & reproducible [editor environments](/nixd/docs/edit
 - [Features](nixd/docs/features.md) (features explanation)
 - [Developers' Manual](nixd/docs/dev.md) (internal design, contributing)
 - Public Talk by @inclyc at [NixOS CN Meetup #2](https://discourse.nixos.org/t/nix-cn-meetup-2-2025-12-27-28-shanghai/73323), [slides](https://inclyc.github.io/talk-nixf-nixd/), (zh_CN)
+
+
+## Sponsor this project
+
+### Chinese Users
+
+<details>
+
+中国用户可以通过以下方式支持 nixd 的开发！
+赞助的付费项目主要是技术支持，新功能开发/体验！
+
+开源项目编写不易，还请各位老板多多资瓷 :)
+
+- **爱发电**: [@inclyc](https://afdian.com/a/inclyc) 进行定期赞助
+- **微信/支付宝**: 扫描二维码进行一次性赞助
+
+![WeChat](nixd/docs/funding/63fa7571-9a21-4a5c-9785-1b634ed102e3.jpeg)
+![Alipay](nixd/docs/funding/784e933e-31d1-4392-83b6-24f3a62a27c1.jpeg)
+
+</details>
