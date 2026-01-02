@@ -34,6 +34,19 @@ We have tested some working & reproducible [editor environments](/nixd/docs/edit
 
 ## Sponsor this project
 
+❤️This project is sponsored by:
+
+<p align="center">
+  <a href="https://github.com/MidAutumnMoon"><img src="https://unavatar.io/github/MidAutumnMoon" width="50" height="50" alt="User avatar: MidAutumnMoon" loading="lazy" /></a>&nbsp;&nbsp;
+  <a href="https://github.com/Moraxyc"><img src="https://unavatar.io/github/Moraxyc" width="50" height="50" alt="User avatar: Moraxyc" loading="lazy" /></a>&nbsp;&nbsp;
+  <a href="https://github.com/Guanran928"><img src="https://unavatar.io/github/Guanran928" width="50" height="50" alt="User avatar: Guanran928" loading="lazy" /></a>&nbsp;&nbsp;
+  <a href="https://github.com/StarryReverie"><img src="https://unavatar.io/github/StarryReverie" width="50" height="50" alt="User avatar: StarryReverie" loading="lazy" /></a>&nbsp;&nbsp;
+  <a href="https://github.com/prince213"><img src="https://unavatar.io/github/prince213" width="50" height="50" alt="User avatar: prince213" loading="lazy" /></a>&nbsp;&nbsp;
+  <a href="https://github.com/linyinfeng"><img src="https://unavatar.io/github/linyinfeng" width="50" height="50" alt="User avatar: linyinfeng" loading="lazy" /></a>&nbsp;&nbsp;
+  <a href="https://github.com/cubewhy"><img src="https://unavatar.io/github/cubewhy" width="50" height="50" alt="User avatar: cubewhy" loading="lazy" /></a>&nbsp;&nbsp;
+</p>
+
+
 ### Chinese Users
 
 <details>
