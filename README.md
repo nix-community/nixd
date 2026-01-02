@@ -46,7 +46,8 @@ We have tested some working & reproducible [editor environments](/nixd/docs/edit
 - **爱发电**: [@inclyc](https://afdian.com/a/inclyc) 进行定期赞助
 - **微信/支付宝**: 扫描二维码进行一次性赞助
 
-![WeChat](nixd/docs/funding/63fa7571-9a21-4a5c-9785-1b634ed102e3.jpeg)
-![Alipay](nixd/docs/funding/784e933e-31d1-4392-83b6-24f3a62a27c1.jpeg)
+|                                  支付宝                                  |                                 微信                                |
+| :--------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| ![WeChat](nixd/docs/funding/63fa7571-9a21-4a5c-9785-1b634ed102e3.jpeg) | ![Alipay](nixd/docs/funding/784e933e-31d1-4392-83b6-24f3a62a27c1.jpeg) |
 
 </details>
