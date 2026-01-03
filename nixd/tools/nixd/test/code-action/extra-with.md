@@ -105,10 +105,10 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
+CHECK-NEXT:       "isPreferred": true,
 CHECK-NEXT:       "kind": "quickfix",
 CHECK-NEXT:       "title": "remove `with` expression"
 CHECK-NEXT:     }
-CHECK-NEXT:   ]
 ```
 
 ```json

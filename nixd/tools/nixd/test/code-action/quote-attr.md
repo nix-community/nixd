@@ -79,7 +79,7 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor",
+CHECK-NEXT:       "kind": "refactor.rewrite",
 CHECK-NEXT:       "title": "Quote attribute name"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]

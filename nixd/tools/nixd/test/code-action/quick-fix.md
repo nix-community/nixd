@@ -82,7 +82,6 @@ CHECK-NEXT:       },
 CHECK-NEXT:       "kind": "quickfix",
 CHECK-NEXT:       "title": "insert */"
 CHECK-NEXT:     }
-CHECK-NEXT:   ]
 ```
 
 ```json

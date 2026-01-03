@@ -19,6 +19,7 @@
 #include <lspserver/SourceCode.h>
 #include <llvm/Support/JSON.h>
 
+#include <iomanip>
 #include <set>
 #include <sstream>
 
@@ -57,6 +58,47 @@ bool isValidNixIdentifier(const std::string &S) {
   return Keywords.find(S) == Keywords.end();
 }
 
+/// \brief Percent-encode a string for use in URL path segments.
+/// Encodes all characters except unreserved characters (RFC 3986):
+/// ALPHA / DIGIT / "-" / "." / "_" / "~"
+std::string percentEncode(const std::string &S) {
+  std::ostringstream Encoded;
+  Encoded << std::hex << std::uppercase;
+
+  for (unsigned char C : S) {
+    // Unreserved characters (RFC 3986 section 2.3)
+    if ((C >= 'A' && C <= 'Z') || (C >= 'a' && C <= 'z') ||
+        (C >= '0' && C <= '9') || C == '-' || C == '.' || C == '_' ||
+        C == '~') {
+      Encoded << C;
+    } else {
+      // Percent-encode everything else
+      Encoded << '%' << std::setw(2) << std::setfill('0')
+              << static_cast<int>(C);
+    }
+  }
+
+  return Encoded.str();
+}
+
+/// \brief Create a WorkspaceEdit with a single file's text edits.
+/// This helper reduces boilerplate when creating code actions.
+WorkspaceEdit createWorkspaceEdit(const std::string &FileURI,
+                                  std::vector<lspserver::TextEdit> Edits) {
+  using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+  return WorkspaceEdit{.changes = Changes{{FileURI, std::move(Edits)}}};
+}
+
+/// \brief Create a single TextEdit for a range replacement.
+lspserver::TextEdit createTextEdit(llvm::StringRef Src,
+                                   const nixf::LexerCursorRange &Range,
+                                   std::string NewText) {
+  return lspserver::TextEdit{
+      .range = toLSPRange(Src, Range),
+      .newText = std::move(NewText),
+  };
+}
+
 /// \brief Add refactoring code actions for attribute names (quote/unquote).
 void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
                         const URIForFile &URI, llvm::StringRef Src,
@@ -85,39 +127,21 @@ void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   if (AN.kind() == nixf::AttrName::ANK_ID) {
     // Offer to quote: foo -> "foo"
     const std::string &Name = AN.id()->name();
-    std::string NewText = "\"" + Name + "\"";
-
-    std::vector<lspserver::TextEdit> Edits;
-    Edits.emplace_back(lspserver::TextEdit{
-        .range = toLSPRange(Src, AN.range()),
-        .newText = NewText,
-    });
-
-    using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
-    WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
-
     Actions.emplace_back(CodeAction{
         .title = "Quote attribute name",
-        .kind = std::string(CodeAction::REFACTOR_KIND),
-        .edit = std::move(WE),
+        .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+        .edit = createWorkspaceEdit(
+            FileURI, {createTextEdit(Src, AN.range(), "\"" + Name + "\"")}),
     });
   } else if (AN.kind() == nixf::AttrName::ANK_String && AN.isStatic()) {
     // Offer to unquote if valid identifier: "foo" -> foo
     const std::string &Name = AN.staticName();
     if (isValidNixIdentifier(Name)) {
-      std::vector<lspserver::TextEdit> Edits;
-      Edits.emplace_back(lspserver::TextEdit{
-          .range = toLSPRange(Src, AN.range()),
-          .newText = Name,
-      });
-
-      using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
-      WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
-
       Actions.emplace_back(CodeAction{
           .title = "Unquote attribute name",
-          .kind = std::string(CodeAction::REFACTOR_KIND),
-          .edit = std::move(WE),
+          .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+          .edit = createWorkspaceEdit(FileURI,
+                                      {createTextEdit(Src, AN.range(), Name)}),
       });
     }
   }
@@ -238,7 +262,7 @@ void addFlattenAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
   Actions.emplace_back(CodeAction{
       .title = "Flatten attribute set",
-      .kind = std::string(CodeAction::REFACTOR_KIND),
+      .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
       .edit = std::move(WE),
   });
 }
@@ -299,7 +323,7 @@ void addPackAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
   Actions.emplace_back(CodeAction{
       .title = "Pack attribute set",
-      .kind = std::string(CodeAction::REFACTOR_KIND),
+      .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
       .edit = std::move(WE),
   });
 }
@@ -436,7 +460,7 @@ void addJsonToNixAction(llvm::StringRef Src, lspserver::Range SelectionRange,
 
   Actions.emplace_back(CodeAction{
       .title = "Convert JSON to Nix",
-      .kind = std::string(CodeAction::REFACTOR_KIND),
+      .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
       .edit = std::move(WE),
   });
 }
@@ -462,12 +486,12 @@ void addNoogleAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     if (Sel.size() < 2 || Sel[0] != idioms::Lib)
       return;
 
-    // Build the noogle.dev URL
+    // Build the noogle.dev URL with percent-encoding
     // Format: https://noogle.dev/f/lib/<path>
     std::ostringstream Url;
     Url << "https://noogle.dev/f/lib";
     for (size_t I = 1; I < Sel.size(); ++I) {
-      Url << "/" << Sel[I];
+      Url << "/" << percentEncode(Sel[I]);
     }
 
     // Build the function name for display
@@ -486,7 +510,7 @@ void addNoogleAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
     Actions.emplace_back(CodeAction{
         .title = "Open " + FuncName.str() + " in noogle.dev",
-        .kind = std::string(CodeAction::REFACTOR_KIND),
+        .kind = std::string(CodeAction::INFO_KIND),
         .command = std::move(Cmd),
     });
   } catch (const idioms::IdiomSelectorException &) {
@@ -546,8 +570,297 @@ void addExtractToFileAction(const nixf::Node &N, const URIForFile &URI,
 
   Actions.emplace_back(CodeAction{
       .title = "Extract expression to file",
-      .kind = std::string(CodeAction::REFACTOR_KIND),
+      .kind = std::string(CodeAction::REFACTOR_EXTRACT_KIND),
       .command = std::move(Cmd),
+  });
+}
+
+/// \brief Escape a string for double-quoted Nix string literal.
+std::string escapeForDoubleQuoted(llvm::StringRef S) {
+  std::string Result;
+  Result.reserve(S.size());
+  for (char C : S) {
+    switch (C) {
+    case '\\':
+      Result += "\\\\";
+      break;
+    case '"':
+      Result += "\\\"";
+      break;
+    case '\n':
+      Result += "\\n";
+      break;
+    case '\r':
+      Result += "\\r";
+      break;
+    case '\t':
+      Result += "\\t";
+      break;
+    case '$':
+      Result += "\\$";
+      break;
+    default:
+      Result += C;
+    }
+  }
+  return Result;
+}
+
+/// \brief Escape a string for indented (multi-line) Nix string literal.
+std::string escapeForIndented(llvm::StringRef S) {
+  std::string Result;
+  Result.reserve(S.size());
+  for (size_t I = 0; I < S.size(); ++I) {
+    char C = S[I];
+    // In indented strings, '' followed by ' needs escaping as '''
+    // and ${ needs escaping as ''${
+    if (C == '$' && I + 1 < S.size() && S[I + 1] == '{') {
+      Result += "''${";
+      ++I; // Skip the {
+    } else if (C == '\'' && I + 1 < S.size() && S[I + 1] == '\'') {
+      Result += "'''";
+      ++I; // Skip the second '
+    } else {
+      Result += C;
+    }
+  }
+  return Result;
+}
+
+/// \brief Check if a string starts with '' (indented string literal).
+bool isIndentedString(llvm::StringRef Src, const nixf::ExprString &Str) {
+  size_t Start = Str.range().lCur().offset();
+  if (Start + 1 >= Src.size())
+    return false;
+  return Src[Start] == '\'' && Src[Start + 1] == '\'';
+}
+
+/// \brief Add "Rewrite string" action to convert between string styles.
+/// Example: "foo\nbar" -> ''foo
+///   bar''
+/// Example: ''foo
+///   bar'' -> "foo\nbar"
+void addRewriteStringAction(const nixf::Node &N,
+                            const nixf::ParentMapAnalysis &PM,
+                            const URIForFile &URI, llvm::StringRef Src,
+                            std::vector<CodeAction> &Actions) {
+  // Find if we're inside an ExprString
+  const nixf::Node *StringNode = PM.upTo(N, nixf::Node::NK_ExprString);
+  if (!StringNode)
+    return;
+
+  const auto &Str = static_cast<const nixf::ExprString &>(*StringNode);
+
+  // Only work with literal strings (no interpolation)
+  if (!Str.isLiteral())
+    return;
+
+  const std::string &Content = Str.literal();
+  std::string FileURI = URI.uri();
+  std::string NewText;
+  std::string ActionTitle;
+
+  if (isIndentedString(Src, Str)) {
+    // Convert indented string to double-quoted
+    NewText = "\"" + escapeForDoubleQuoted(Content) + "\"";
+    ActionTitle = "Convert to double-quoted string";
+  } else {
+    // Convert double-quoted string to indented
+    NewText = "''" + escapeForIndented(Content) + "''";
+    ActionTitle = "Convert to indented string";
+  }
+
+  std::vector<lspserver::TextEdit> Edits;
+  Edits.emplace_back(lspserver::TextEdit{
+      .range = toLSPRange(Src, Str.range()),
+      .newText = NewText,
+  });
+
+  using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+  WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
+
+  Actions.emplace_back(CodeAction{
+      .title = ActionTitle,
+      .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+      .edit = std::move(WE),
+  });
+}
+
+/// \brief Add "Convert to inherit" action for simple self-assignments.
+/// Example: { x = x; } -> { inherit x; }
+/// Example: { a = b.a; } -> { inherit (b) a; }
+void addConvertToInheritAction(const nixf::Node &N,
+                               const nixf::ParentMapAnalysis &PM,
+                               const URIForFile &URI, llvm::StringRef Src,
+                               std::vector<CodeAction> &Actions) {
+  // Find if we're inside a Binding
+  const nixf::Node *BindingNode = PM.upTo(N, nixf::Node::NK_Binding);
+  if (!BindingNode)
+    return;
+
+  const auto &Bind = static_cast<const nixf::Binding &>(*BindingNode);
+
+  // Path must be a single static name
+  const auto &Names = Bind.path().names();
+  if (Names.size() != 1 || !Names[0]->isStatic())
+    return;
+
+  const std::string &AttrName = Names[0]->staticName();
+
+  // Check if value exists
+  if (!Bind.value())
+    return;
+
+  const nixf::Expr *Value = Bind.value().get();
+
+  std::string FileURI = URI.uri();
+
+  // Case 1: Simple self-assignment { x = x; } -> { inherit x; }
+  if (Value->kind() == nixf::Node::NK_ExprVar) {
+    const auto &Var = static_cast<const nixf::ExprVar &>(*Value);
+    if (Var.id().name() == AttrName) {
+      std::string NewText = "inherit " + AttrName + ";";
+
+      std::vector<lspserver::TextEdit> Edits;
+      Edits.emplace_back(lspserver::TextEdit{
+          .range = toLSPRange(Src, Bind.range()),
+          .newText = NewText,
+      });
+
+      using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+      WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
+
+      Actions.emplace_back(CodeAction{
+          .title = "Convert to inherit",
+          .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+          .edit = std::move(WE),
+      });
+    }
+    return;
+  }
+
+  // Case 2: Select expression { a = b.a; } -> { inherit (b) a; }
+  if (Value->kind() == nixf::Node::NK_ExprSelect) {
+    const auto &Select = static_cast<const nixf::ExprSelect &>(*Value);
+
+    // Must have a path with at least one element
+    if (!Select.path() || Select.path()->names().empty())
+      return;
+
+    // Last element of path must match the attribute name
+    const auto &PathNames = Select.path()->names();
+    const auto &LastName = PathNames.back();
+    if (!LastName->isStatic() || LastName->staticName() != AttrName)
+      return;
+
+    // Must not have a default expression
+    if (Select.defaultExpr())
+      return;
+
+    // Build the inherit expression
+    // Get the base expression (everything before the last selector)
+    std::ostringstream NewText;
+    NewText << "inherit (";
+
+    // Get source of the base expression
+    if (PathNames.size() == 1) {
+      // Simple case: { a = b.a; } where Select.expr() is 'b'
+      NewText << getSourceText(Src, Select.expr());
+    } else {
+      // Complex case: { a = b.c.a; } - need to build b.c
+      NewText << getSourceText(Src, Select.expr());
+      for (size_t I = 0; I + 1 < PathNames.size(); ++I) {
+        NewText << "." << getSourceText(Src, *PathNames[I]);
+      }
+    }
+    NewText << ") " << AttrName << ";";
+
+    std::vector<lspserver::TextEdit> Edits;
+    Edits.emplace_back(lspserver::TextEdit{
+        .range = toLSPRange(Src, Bind.range()),
+        .newText = NewText.str(),
+    });
+
+    using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+    WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
+
+    Actions.emplace_back(CodeAction{
+        .title = "Convert to inherit",
+        .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+        .edit = std::move(WE),
+    });
+  }
+}
+
+/// \brief Add "Convert inherit to binding" action.
+/// Example: { inherit x; } -> { x = x; }
+/// Example: { inherit (b) a; } -> { a = b.a; }
+void addInheritToBindingAction(const nixf::Node &N,
+                               const nixf::ParentMapAnalysis &PM,
+                               const URIForFile &URI, llvm::StringRef Src,
+                               std::vector<CodeAction> &Actions) {
+  // Find if we're inside an Inherit
+  const nixf::Node *InheritNode = PM.upTo(N, nixf::Node::NK_Inherit);
+  if (!InheritNode)
+    return;
+
+  const auto &Inherit = static_cast<const nixf::Inherit &>(*InheritNode);
+
+  // Must have at least one name
+  const auto &Names = Inherit.names();
+  if (Names.empty())
+    return;
+
+  // Find which name the cursor is on
+  const nixf::AttrName *TargetName = nullptr;
+  for (const auto &Name : Names) {
+    if (Name->range().lCur().offset() <= N.range().lCur().offset() &&
+        N.range().rCur().offset() <= Name->range().rCur().offset()) {
+      TargetName = Name.get();
+      break;
+    }
+  }
+
+  // If not on a specific name, use the first one
+  if (!TargetName && !Names.empty())
+    TargetName = Names[0].get();
+
+  if (!TargetName || !TargetName->isStatic())
+    return;
+
+  const std::string &AttrName = TargetName->staticName();
+  std::string FileURI = URI.uri();
+
+  std::ostringstream NewText;
+  NewText << AttrName << " = ";
+
+  if (Inherit.expr()) {
+    // inherit (expr) name; -> name = expr.name;
+    NewText << getSourceText(Src, *Inherit.expr()) << "." << AttrName;
+  } else {
+    // inherit name; -> name = name;
+    NewText << AttrName;
+  }
+  NewText << ";";
+
+  // If this is the only name in inherit, replace the whole inherit
+  // Otherwise, we'd need more complex handling (not implemented for simplicity)
+  if (Names.size() != 1)
+    return;
+
+  std::vector<lspserver::TextEdit> Edits;
+  Edits.emplace_back(lspserver::TextEdit{
+      .range = toLSPRange(Src, Inherit.range()),
+      .newText = NewText.str(),
+  });
+
+  using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+  WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
+
+  Actions.emplace_back(CodeAction{
+      .title = "Convert to explicit binding",
+      .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+      .edit = std::move(WE),
   });
 }
 
@@ -633,7 +946,73 @@ void addWithToLetAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
   Actions.emplace_back(CodeAction{
       .title = "Convert with to let/inherit",
-      .kind = std::string(CodeAction::REFACTOR_KIND),
+      .kind = std::string(CodeAction::REFACTOR_REWRITE_KIND),
+      .edit = std::move(WE),
+  });
+}
+
+/// \brief Check if two ranges overlap (for conflict detection).
+bool rangesOverlap(const lspserver::Range &A, const lspserver::Range &B) {
+  // A ends before B starts, or B ends before A starts
+  if (A.end.line < B.start.line ||
+      (A.end.line == B.start.line && A.end.character <= B.start.character))
+    return false;
+  if (B.end.line < A.start.line ||
+      (B.end.line == A.start.line && B.end.character <= A.start.character))
+    return false;
+  return true;
+}
+
+/// \brief Add source.fixAll action that applies all quickfixes.
+void addFixAllAction(const std::vector<nixf::Diagnostic> &Diagnostics,
+                     llvm::StringRef Src, const std::string &FileURI,
+                     std::vector<CodeAction> &Actions) {
+  std::vector<lspserver::TextEdit> AllEdits;
+  std::vector<lspserver::Range> UsedRanges;
+
+  // Collect all fixes from all diagnostics
+  for (const nixf::Diagnostic &D : Diagnostics) {
+    for (const nixf::Fix &F : D.fixes()) {
+      bool HasConflict = false;
+
+      // Check for conflicts with already collected edits
+      for (const nixf::TextEdit &TE : F.edits()) {
+        lspserver::Range EditRange = toLSPRange(Src, TE.oldRange());
+        for (const auto &UsedRange : UsedRanges) {
+          if (rangesOverlap(EditRange, UsedRange)) {
+            HasConflict = true;
+            break;
+          }
+        }
+        if (HasConflict)
+          break;
+      }
+
+      if (HasConflict)
+        continue;
+
+      // Add all edits from this fix
+      for (const nixf::TextEdit &TE : F.edits()) {
+        lspserver::Range EditRange = toLSPRange(Src, TE.oldRange());
+        UsedRanges.push_back(EditRange);
+        AllEdits.emplace_back(lspserver::TextEdit{
+            .range = EditRange,
+            .newText = std::string(TE.newText()),
+        });
+      }
+    }
+  }
+
+  // Only add fixAll action if there are edits to apply
+  if (AllEdits.empty())
+    return;
+
+  using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+  WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(AllEdits)}}};
+
+  Actions.emplace_back(CodeAction{
+      .title = "Fix all auto-fixable problems",
+      .kind = std::string(CodeAction::SOURCE_FIXALL_KIND),
       .edit = std::move(WE),
   });
 }
@@ -660,6 +1039,25 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
         if (!Range.overlap(DRange))
           continue;
 
+        // Determine if this diagnostic's fixes should be marked as preferred
+        bool IsPreferred = false;
+        switch (D.kind()) {
+        case nixf::Diagnostic::DK_UndefinedVariable:
+        case nixf::Diagnostic::DK_UnusedDefLet:
+        case nixf::Diagnostic::DK_UnusedDefLambdaNoArg_Formal:
+        case nixf::Diagnostic::DK_UnusedDefLambdaWithArg_Formal:
+        case nixf::Diagnostic::DK_UnusedDefLambdaWithArg_Arg:
+        case nixf::Diagnostic::DK_ExtraRecursive:
+        case nixf::Diagnostic::DK_ExtraWith:
+        case nixf::Diagnostic::DK_PrimOpNeedsPrefix:
+        case nixf::Diagnostic::DK_EmptyInherit:
+        case nixf::Diagnostic::DK_RedundantParen:
+          IsPreferred = true;
+          break;
+        default:
+          break;
+        }
+
         // Add fixes.
         for (const nixf::Fix &F : D.fixes()) {
           std::vector<lspserver::TextEdit> Edits;
@@ -678,6 +1076,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           Actions.emplace_back(CodeAction{
               .title = F.message(),
               .kind = std::string(CodeAction::QUICKFIX_KIND),
+              .isPreferred = IsPreferred,
               .edit = std::move(WE),
           });
         }
@@ -690,6 +1089,11 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addAttrNameActions(*N, *TU->parentMap(), URI, TU->src(), Actions);
           addFlattenAction(*N, *TU->parentMap(), URI, TU->src(), Actions);
           addPackAction(*N, *TU->parentMap(), URI, TU->src(), Actions);
+          addConvertToInheritAction(*N, *TU->parentMap(), URI, TU->src(),
+                                    Actions);
+          addInheritToBindingAction(*N, *TU->parentMap(), URI, TU->src(),
+                                    Actions);
+          addRewriteStringAction(*N, *TU->parentMap(), URI, TU->src(), Actions);
           if (TU->variableLookup()) {
             addNoogleAction(*N, *TU->parentMap(), *TU->variableLookup(),
                             Actions);
@@ -702,6 +1106,10 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
 
       // Add JSON to Nix conversion action (selection-based)
       addJsonToNixAction(TU->src(), Range, URI, Actions);
+
+      // Add source.fixAll action
+      std::string FileURI = URIForFile::canonicalize(File, File).uri();
+      addFixAllAction(Diagnostics, TU->src(), FileURI, Actions);
 
       return Actions;
     }());

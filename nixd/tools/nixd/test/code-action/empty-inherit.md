@@ -92,10 +92,10 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
+CHECK-NEXT:       "isPreferred": true,
 CHECK-NEXT:       "kind": "quickfix",
 CHECK-NEXT:       "title": "remove `inherit` keyword"
 CHECK-NEXT:     }
-CHECK-NEXT:   ]
 ```
 
 ```json

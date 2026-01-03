@@ -79,7 +79,7 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor",
+CHECK-NEXT:       "kind": "refactor.rewrite",
 CHECK-NEXT:       "title": "Unquote attribute name"
 CHECK-NEXT:     },
 CHECK:        "title": "Convert JSON to Nix"

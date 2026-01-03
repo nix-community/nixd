@@ -79,6 +79,7 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
+CHECK-NEXT:       "isPreferred": true,
 CHECK-NEXT:       "kind": "quickfix",
 CHECK-NEXT:       "title": "add `y` to formals"
 CHECK-NEXT:     },
