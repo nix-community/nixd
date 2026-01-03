@@ -16,8 +16,8 @@
 #include <nixf/Sema/VariableLookup.h>
 
 #include <boost/asio/post.hpp>
-#include <lspserver/SourceCode.h>
 #include <llvm/Support/JSON.h>
+#include <lspserver/SourceCode.h>
 
 #include <iomanip>
 #include <set>
@@ -53,8 +53,8 @@ bool isValidNixIdentifier(const std::string &S) {
 
   // Check against Nix keywords
   static const std::set<std::string> Keywords = {
-      "if", "then", "else", "let", "in", "with", "rec", "inherit", "assert",
-      "or"};
+      "if",   "then", "else",    "let",    "in",
+      "with", "rec",  "inherit", "assert", "or"};
   return Keywords.find(S) == Keywords.end();
 }
 
@@ -111,7 +111,8 @@ void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   // Only offer quote/unquote for attribute sets, not for let bindings.
   // ExprLet internally contains an ExprAttrs for bindings, so we need to
   // check if the parent ExprAttrs is directly inside an ExprLet.
-  const nixf::Node *ExprAttrsNode = PM.upTo(*AttrNameNode, nixf::Node::NK_ExprAttrs);
+  const nixf::Node *ExprAttrsNode =
+      PM.upTo(*AttrNameNode, nixf::Node::NK_ExprAttrs);
   if (!ExprAttrsNode)
     return;
 
@@ -884,7 +885,8 @@ void collectWithVariables(const nixf::Node &N,
   if (N.kind() == nixf::Node::NK_ExprVar) {
     const auto &Var = static_cast<const nixf::ExprVar &>(N);
     auto Result = VLA.query(Var);
-    if (Result.Kind == nixf::VariableLookupAnalysis::LookupResultKind::FromWith) {
+    if (Result.Kind ==
+        nixf::VariableLookupAnalysis::LookupResultKind::FromWith) {
       Names.insert(Var.id().name());
     }
   }
@@ -1068,7 +1070,8 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
                 .newText = std::string(TE.newText()),
             });
           }
-          using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+          using Changes =
+              std::map<std::string, std::vector<lspserver::TextEdit>>;
           std::string FileURI = URIForFile::canonicalize(File, File).uri();
           WorkspaceEdit WE{.changes = Changes{
                                {std::move(FileURI), std::move(Edits)},
