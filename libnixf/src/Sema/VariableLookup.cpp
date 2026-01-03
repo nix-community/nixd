@@ -4,6 +4,7 @@
 #include "nixf/Basic/Nodes/Expr.h"
 #include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Sema/PrimOpInfo.h"
+#include "nixf/Sema/SemaActions.h"
 
 #include <set>
 
@@ -177,14 +178,62 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
           {&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
       break;
     }
-    case PrimopLookupResult::NotFound:
+    case PrimopLookupResult::NotFound: {
       // Otherwise, this variable is undefined.
       Results.insert(
           {&Var, LookupResult{LookupResultKind::Undefined, nullptr}});
       Diagnostic &Diag =
           Diags.emplace_back(Diagnostic::DK_UndefinedVariable, Var.range());
       Diag << Var.id().name();
+
+      // Try to find the nearest enclosing lambda with formals to offer a fix
+      for (const auto *E = Env.get(); E; E = E->parent()) {
+        if (!E->syntax())
+          continue;
+        if (E->syntax()->kind() != Node::NK_ExprLambda)
+          continue;
+
+        const auto &Lambda = static_cast<const ExprLambda &>(*E->syntax());
+        if (!Lambda.arg())
+          continue;
+
+        const auto *Formals = Lambda.arg()->formals();
+        if (!Formals)
+          continue;
+
+        // Found a lambda with formals - add a fix to insert this variable
+        const auto &FV = Formals->members();
+        if (FV.empty()) {
+          // Empty formals like { }: - insert after opening brace
+          Diag.fix("add `" + Name + "` to formals")
+              .edit(TextEdit::mkInsertion(Formals->range().lCur(), Name));
+        } else {
+          // Has existing formals - insert after the last one with comma
+          const auto &LastFormal = FV.back();
+          // If last formal is ellipsis, insert before it
+          if (LastFormal->isEllipsis()) {
+            if (FV.size() > 1) {
+              // Insert before ellipsis: { a, ... } -> { a, x, ... }
+              const auto &BeforeEllipsis = FV[FV.size() - 2];
+              Diag.fix("add `" + Name + "` to formals")
+                  .edit(TextEdit::mkInsertion(BeforeEllipsis->rCur(),
+                                              ", " + Name));
+            } else {
+              // Only ellipsis: { ... } -> { x, ... }
+              Diag.fix("add `" + Name + "` to formals")
+                  .edit(TextEdit::mkInsertion(LastFormal->range().lCur(),
+                                              Name + ", "));
+            }
+          } else {
+            // Normal case: insert after last formal
+            Diag.fix("add `" + Name + "` to formals")
+                .edit(TextEdit::mkInsertion(LastFormal->rCur(), ", " + Name));
+          }
+        }
+        break; // Only offer fix for nearest enclosing lambda
+      }
       break;
+    }
     }
   }
 }
@@ -252,7 +301,38 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
 
   dfs(*Lambda.body(), NewEnv);
 
+  // Store the number of diagnostics before emitEnvLivenessWarning
+  const std::size_t DiagsBefore = Diags.size();
+
   emitEnvLivenessWarning(NewEnv);
+
+  // Add fixes for unused lambda formals that were just diagnosed
+  if (Arg.formals()) {
+    const Formals::FormalVector &FV = Arg.formals()->members();
+
+    // Iterate through diagnostics that were just added
+    for (std::size_t i = DiagsBefore; i < Diags.size(); ++i) {
+      auto &D = Diags[i];
+
+      // Only process unused formal diagnostics
+      if (D.kind() != Diagnostic::DK_UnusedDefLambdaNoArg_Formal &&
+          D.kind() != Diagnostic::DK_UnusedDefLambdaWithArg_Formal) {
+        continue;
+      }
+
+      // Find the matching formal
+      for (auto It = FV.begin(); It != FV.end(); ++It) {
+        const auto &Formal = *It;
+        if (D.range().lCur() == Formal->id()->range().lCur() &&
+            D.range().rCur() == Formal->id()->range().rCur()) {
+          // Add a fix to remove this formal
+          Fix &F = D.fix("remove unused formal");
+          Sema::removeFormal(F, It, FV);
+          break;
+        }
+      }
+    }
+  }
 }
 
 void VariableLookupAnalysis::dfsDynamicAttrs(
@@ -348,7 +428,52 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
 
   if (Let.expr())
     dfs(*Let.expr(), LetEnv);
+
+  // Store the number of diagnostics before emitEnvLivenessWarning
+  const std::size_t DiagsBefore = Diags.size();
+
   emitEnvLivenessWarning(LetEnv);
+
+  // Add fixes for unused let bindings that were just diagnosed
+  if (Let.binds()) {
+    const auto &Bindings = Let.binds()->bindings();
+
+    // Iterate through diagnostics that were just added
+    for (std::size_t i = DiagsBefore; i < Diags.size(); ++i) {
+      auto &D = Diags[i];
+
+      // Only process unused let definition diagnostics
+      if (D.kind() != Diagnostic::DK_UnusedDefLet) {
+        continue;
+      }
+
+      // Find the matching binding by checking if the diagnostic range
+      // is contained within the binding's range
+      for (const auto &BindNode : Bindings) {
+        if (BindNode->kind() != Node::NK_Binding)
+          continue;
+
+        const auto &Bind = static_cast<const Binding &>(*BindNode);
+        // The diagnostic is on the attrname, which is inside the binding
+        // Check if the diagnostic range matches the first attrname in the path
+        const auto &PathNames = Bind.path().names();
+        if (PathNames.empty())
+          continue;
+
+        const auto &FirstName = PathNames[0];
+        if (!FirstName)
+          continue;
+
+        if (D.range().lCur() == FirstName->range().lCur() &&
+            D.range().rCur() == FirstName->range().rCur()) {
+          // Add a fix to remove this binding
+          D.fix("remove unused binding")
+              .edit(TextEdit::mkRemoval(Bind.range()));
+          break;
+        }
+      }
+    }
+  }
 }
 
 void VariableLookupAnalysis::trivialDispatch(
