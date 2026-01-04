@@ -766,7 +766,8 @@ llvm::json::Value toJSON(const Command &C) {
 
 const llvm::StringLiteral CodeAction::QUICKFIX_KIND = "quickfix";
 const llvm::StringLiteral CodeAction::REFACTOR_KIND = "refactor";
-const llvm::StringLiteral CodeAction::REFACTOR_REWRITE_KIND = "refactor.rewrite";
+const llvm::StringLiteral CodeAction::REFACTOR_REWRITE_KIND =
+    "refactor.rewrite";
 const llvm::StringLiteral CodeAction::INFO_KIND = "info";
 
 llvm::json::Value toJSON(const CodeAction &CA) {
