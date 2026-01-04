@@ -112,8 +112,7 @@ void addFlattenAttrsAction(const nixf::Node &N,
   if (!Bind.value() || Bind.value()->kind() != nixf::Node::NK_ExprAttrs)
     return;
 
-  const auto &NestedAttrs =
-      static_cast<const nixf::ExprAttrs &>(*Bind.value());
+  const auto &NestedAttrs = static_cast<const nixf::ExprAttrs &>(*Bind.value());
 
   // Check if flattenable
   const nixf::Binds *NestedBinds = getFlattenableBinds(NestedAttrs);
