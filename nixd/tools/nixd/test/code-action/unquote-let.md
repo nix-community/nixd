@@ -20,8 +20,8 @@
 
 <-- textDocument/didOpen
 
-```nix file:///basic.nix
-/*
+```nix file:///unquote-let.nix
+let "bar" = 1; in bar
 ```
 
 <-- textDocument/codeAction(2)
@@ -34,16 +34,16 @@
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///basic.nix"
+         "uri":"file:///unquote-let.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":0
+            "character":4
          },
          "end":{
             "line":0,
-            "character":2
+            "character":9
          }
       },
       "context":{
@@ -61,16 +61,16 @@ CHECK-NEXT:   "result": [
 CHECK-NEXT:     {
 CHECK-NEXT:       "edit": {
 CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///basic.nix": [
+CHECK-NEXT:           "file:///unquote-let.nix": [
 CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "*/",
+CHECK-NEXT:               "newText": "bar",
 CHECK-NEXT:               "range": {
 CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 2,
+CHECK-NEXT:                   "character": 9,
 CHECK-NEXT:                   "line": 0
 CHECK-NEXT:                 },
 CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
+CHECK-NEXT:                   "character": 4,
 CHECK-NEXT:                   "line": 0
 CHECK-NEXT:                 }
 CHECK-NEXT:               }
@@ -78,8 +78,8 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "quickfix",
-CHECK-NEXT:       "title": "insert */"
+CHECK-NEXT:       "kind": "refactor.rewrite",
+CHECK-NEXT:       "title": "Unquote attribute name"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```

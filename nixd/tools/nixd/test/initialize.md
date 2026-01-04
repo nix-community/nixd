@@ -28,7 +28,8 @@ CHECK-NEXT:   "result": {
 CHECK-NEXT:     "capabilities": {
 CHECK-NEXT:       "codeActionProvider": {
 CHECK-NEXT:         "codeActionKinds": [
-CHECK-NEXT:           "quickfix"
+CHECK-NEXT:           "quickfix",
+CHECK-NEXT:           "refactor.rewrite"
 CHECK-NEXT:         ],
 CHECK-NEXT:         "resolveProvider": false
 CHECK-NEXT:       },

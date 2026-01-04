@@ -1053,6 +1053,7 @@ struct CodeAction {
   std::optional<std::string> kind;
   const static llvm::StringLiteral QUICKFIX_KIND;
   const static llvm::StringLiteral REFACTOR_KIND;
+  const static llvm::StringLiteral REFACTOR_REWRITE_KIND;
   const static llvm::StringLiteral INFO_KIND;
 
   /// The diagnostics that this code action resolves.
