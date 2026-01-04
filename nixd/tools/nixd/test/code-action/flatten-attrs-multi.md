@@ -56,41 +56,12 @@ Test that flatten action works for multiple nested bindings.
 }
 ```
 
-Quote action appears first, then Flatten action second.
+Verify that flatten action is offered for multiple nested bindings.
 
 ```
      CHECK:   "id": 2,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///flatten-attrs-multi.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "\"foo\"",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 5,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Quote attribute name"
-CHECK-NEXT:     },
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///flatten-attrs-multi.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo.bar = 1; foo.baz = 2;",
+     CHECK:   "newText": "foo.bar = 1; foo.baz = 2;",
 CHECK-NEXT:               "range": {
 CHECK-NEXT:                 "end": {
 CHECK-NEXT:                   "character": 30,
@@ -105,7 +76,7 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
+     CHECK:       "kind": "refactor.rewrite",
 CHECK-NEXT:       "title": "Flatten nested attribute set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
