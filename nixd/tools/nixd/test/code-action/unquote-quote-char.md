@@ -1,5 +1,7 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
+Test that identifiers with single quotes can be unquoted (e.g., "foo'bar" -> foo'bar)
+
 <-- initialize(0)
 
 ```json
@@ -20,8 +22,8 @@
 
 <-- textDocument/didOpen
 
-```nix file:///basic.nix
-/*
+```nix file:///unquote-quote-char.nix
+{ "foo'bar" = 1; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -34,16 +36,16 @@
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///basic.nix"
+         "uri":"file:///unquote-quote-char.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":0
+            "character":2
          },
          "end":{
             "line":0,
-            "character":2
+            "character":11
          }
       },
       "context":{
@@ -61,12 +63,12 @@ CHECK-NEXT:   "result": [
 CHECK-NEXT:     {
 CHECK-NEXT:       "edit": {
 CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///basic.nix": [
+CHECK-NEXT:           "file:///unquote-quote-char.nix": [
 CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "*/",
+CHECK-NEXT:               "newText": "foo'bar",
 CHECK-NEXT:               "range": {
 CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 2,
+CHECK-NEXT:                   "character": 11,
 CHECK-NEXT:                   "line": 0
 CHECK-NEXT:                 },
 CHECK-NEXT:                 "start": {
@@ -78,8 +80,8 @@ CHECK-NEXT:             }
 CHECK-NEXT:           ]
 CHECK-NEXT:         }
 CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "quickfix",
-CHECK-NEXT:       "title": "insert */"
+CHECK-NEXT:       "kind": "refactor.rewrite",
+CHECK-NEXT:       "title": "Unquote attribute name"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```
