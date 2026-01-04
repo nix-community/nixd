@@ -56,18 +56,12 @@ Test that flatten action is NOT offered for empty nested attribute sets.
 }
 ```
 
-Empty attrsets should not offer flatten (only quote action available)
+Empty attrsets should not offer flatten action.
 
 ```
      CHECK:   "id": 2,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///flatten-attrs-empty.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "\"foo\"",
+ CHECK-NOT:   "Flatten nested attribute set"
 ```
 
 ```json
