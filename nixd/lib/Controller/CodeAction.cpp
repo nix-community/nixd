@@ -9,7 +9,6 @@
 #include "nixd/Controller/Controller.h"
 
 #include <nixf/Basic/Nodes/Attrs.h>
-#include <nixf/Basic/Nodes/Expr.h>
 #include <nixf/Sema/ParentMap.h>
 
 #include <boost/asio/post.hpp>
@@ -76,19 +75,6 @@ void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   // Find if we're inside an AttrName
   const nixf::Node *AttrNameNode = PM.upTo(N, nixf::Node::NK_AttrName);
   if (!AttrNameNode)
-    return;
-
-  // Only offer quote/unquote for attribute sets, not for let bindings.
-  // ExprLet internally contains an ExprAttrs for bindings, so we need to
-  // check if the parent ExprAttrs is directly inside an ExprLet.
-  const nixf::Node *ExprAttrsNode =
-      PM.upTo(*AttrNameNode, nixf::Node::NK_ExprAttrs);
-  if (!ExprAttrsNode)
-    return;
-
-  // Check if this ExprAttrs is the binds part of an ExprLet
-  const nixf::Node *AttrsParent = PM.query(*ExprAttrsNode);
-  if (AttrsParent && AttrsParent->kind() == nixf::Node::NK_ExprLet)
     return;
 
   const auto &AN = static_cast<const nixf::AttrName &>(*AttrNameNode);
