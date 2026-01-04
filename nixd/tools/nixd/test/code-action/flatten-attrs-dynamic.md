@@ -56,18 +56,12 @@ Test that flatten action is NOT offered when nested attrset contains dynamic att
 }
 ```
 
-Dynamic attrsets should not offer flatten (only quote action available)
+Dynamic attrsets should not offer flatten action.
 
 ```
      CHECK:   "id": 2,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///flatten-attrs-dynamic.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "\"foo\"",
+ CHECK-NOT:   "Flatten nested attribute set"
 ```
 
 ```json
