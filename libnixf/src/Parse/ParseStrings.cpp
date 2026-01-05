@@ -71,11 +71,34 @@ std::shared_ptr<InterpolatedParts> Parser::parseStringParts() {
       consume();
       continue;
     }
-    case tok_string_escape:
-      // If this is a part of string, just push it.
+    case tok_string_escape: {
+      // Process escape sequence and add the unescaped character to Parts.
+      // The token view contains the full escape sequence (e.g., "\\n", "\\\"")
+      std::string_view EscapeSeq = Tok.view();
+      std::string Unescaped;
+      if (EscapeSeq.size() >= 2) {
+        char Escaped = EscapeSeq[1];
+        switch (Escaped) {
+        case 'n':
+          Unescaped = "\n";
+          break;
+        case 'r':
+          Unescaped = "\r";
+          break;
+        case 't':
+          Unescaped = "\t";
+          break;
+        default:
+          // For \\, \", \$, and any other escape, just use the character itself
+          Unescaped = Escaped;
+          break;
+        }
+      }
+      if (!Unescaped.empty())
+        Parts.emplace_back(std::move(Unescaped));
       consume();
-      // TODO: escape and emplace_back
       continue;
+    }
     default:
       assert(LastToken && "LastToken should be set in `parseString`");
       return std::make_shared<InterpolatedParts>(

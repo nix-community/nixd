@@ -13,6 +13,7 @@
 
 #include <boost/asio/post.hpp>
 
+#include <optional>
 #include <set>
 
 namespace nixd {
@@ -66,6 +67,25 @@ bool isValidNixIdentifier(const std::string &S) {
       "if",  "then",    "else", "assert", "with",  "let", "in",
       "rec", "inherit", "or",   "true",   "false", "null"};
   return Keywords.find(S) == Keywords.end();
+}
+
+/// \brief Quote and escape a Nix attribute key if necessary.
+/// Returns the key as-is if it's a valid identifier, otherwise quotes and
+/// escapes special characters (", \, $).
+std::string quoteNixAttrKey(const std::string &Key) {
+  if (isValidNixIdentifier(Key))
+    return Key;
+
+  std::string Result;
+  Result.reserve(Key.size() + 4);
+  Result += '"';
+  for (char C : Key) {
+    if (C == '"' || C == '\\' || C == '$')
+      Result += '\\';
+    Result += C;
+  }
+  Result += '"';
+  return Result;
 }
 
 /// \brief Check if an ExprAttrs can be flattened (no rec, inherit, dynamic).
@@ -162,6 +182,226 @@ void addFlattenAttrsAction(const nixf::Node &N,
       FileURI, toLSPRange(Src, Bind.range()), std::move(NewText)));
 }
 
+/// \brief Get the number of sibling bindings sharing the same first path
+/// segment. Uses SemaAttrs to count nested attributes for the first segment.
+/// Returns 0 if the segment is not found or has conflicts (non-path binding).
+size_t getSiblingCount(const nixf::Binding &Bind,
+                       const nixf::ExprAttrs &ParentAttrs) {
+  const auto &Names = Bind.path().names();
+  if (Names.empty() || !Names[0]->isStatic())
+    return 0;
+
+  const std::string &FirstSeg = Names[0]->staticName();
+  const nixf::SemaAttrs &SA = ParentAttrs.sema();
+
+  auto It = SA.staticAttrs().find(FirstSeg);
+  if (It == SA.staticAttrs().end())
+    return 0;
+
+  const nixf::Attribute &Attr = It->second;
+
+  // Check if value is a nested ExprAttrs (path was desugared)
+  if (!Attr.value() || Attr.value()->kind() != nixf::Node::NK_ExprAttrs)
+    return 0; // Non-ExprAttrs value = conflict with non-path binding
+
+  const auto &NestedAttrs = static_cast<const nixf::ExprAttrs &>(*Attr.value());
+  const nixf::SemaAttrs &NestedSA = NestedAttrs.sema();
+
+  // Return 0 if there are dynamic attrs (can't safely pack)
+  if (!NestedSA.dynamicAttrs().empty())
+    return 0;
+
+  return NestedSA.staticAttrs().size();
+}
+
+/// \brief Maximum recursion depth for nested text generation.
+/// Prevents stack overflow on maliciously crafted deeply nested inputs.
+constexpr size_t MAX_NESTED_DEPTH = 100;
+
+/// \brief Recursively generate nested attribute set text from SemaAttrs.
+/// This produces the packed/nested form of attributes.
+/// \param Depth Current recursion depth (for safety limit)
+void generateNestedText(const nixf::SemaAttrs &SA, llvm::StringRef Src,
+                        std::string &Out, size_t Depth = 0) {
+  // Safety check: prevent stack overflow from deeply nested structures
+  if (Depth > MAX_NESTED_DEPTH) {
+    Out += "{ /* max depth exceeded */ }";
+    return;
+  }
+
+  Out += "{ ";
+  bool First = true;
+  for (const auto &[Key, Attr] : SA.staticAttrs()) {
+    if (!First)
+      Out += " ";
+    First = false;
+
+    // Output the key, quoting if necessary
+    Out += quoteNixAttrKey(Key);
+    Out += " = ";
+
+    // Check if value is a nested ExprAttrs that needs recursive generation
+    if (Attr.value() && Attr.value()->kind() == nixf::Node::NK_ExprAttrs) {
+      const auto &NestedAttrs =
+          static_cast<const nixf::ExprAttrs &>(*Attr.value());
+      const nixf::SemaAttrs &NestedSA = NestedAttrs.sema();
+
+      // If all nested attrs come from dotted paths (no inherit, no dynamic),
+      // we can generate recursively
+      if (NestedSA.dynamicAttrs().empty() && !Attr.fromInherit()) {
+        generateNestedText(NestedSA, Src, Out, Depth + 1);
+      } else {
+        // Use original source text
+        Out += Attr.value()->src(Src);
+      }
+    } else if (Attr.value()) {
+      Out += Attr.value()->src(Src);
+    }
+    Out += ";";
+  }
+  Out += " }";
+}
+
+/// \brief Find all sibling bindings that share the same first path segment.
+/// Returns the range covering all such bindings, or nullopt if not applicable.
+std::optional<nixf::LexerCursorRange>
+findSiblingBindingsRange(const nixf::Binding &Bind, const nixf::Binds &Binds,
+                         const std::string &FirstSeg) {
+  nixf::LexerCursor Start = Bind.range().lCur();
+  nixf::LexerCursor End = Bind.range().rCur();
+
+  for (const auto &Sibling : Binds.bindings()) {
+    if (Sibling->kind() != nixf::Node::NK_Binding)
+      continue;
+
+    const auto &SibBind = static_cast<const nixf::Binding &>(*Sibling);
+    const auto &SibNames = SibBind.path().names();
+
+    if (SibNames.empty() || !SibNames[0]->isStatic())
+      continue;
+
+    if (SibNames[0]->staticName() == FirstSeg) {
+      // Expand range to include this sibling
+      if (SibBind.range().lCur().offset() < Start.offset())
+        Start = SibBind.range().lCur();
+      if (SibBind.range().rCur().offset() > End.offset())
+        End = SibBind.range().rCur();
+    }
+  }
+
+  return nixf::LexerCursorRange{Start, End};
+}
+
+/// \brief Add pack action for dotted attribute paths.
+/// Transforms: { foo.bar = 1; } -> { foo = { bar = 1; }; }
+/// Also offers bulk pack when siblings share a prefix:
+/// { foo.bar = 1; foo.baz = 2; } -> { foo = { bar = 1; baz = 2; }; }
+void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
+                        const std::string &FileURI, llvm::StringRef Src,
+                        std::vector<CodeAction> &Actions) {
+  // Find if we're inside a Binding
+  const nixf::Node *BindingNode = PM.upTo(N, nixf::Node::NK_Binding);
+  if (!BindingNode)
+    return;
+
+  const auto &Bind = static_cast<const nixf::Binding &>(*BindingNode);
+  const auto &Names = Bind.path().names();
+
+  // Must have at least 2 path segments (e.g., foo.bar)
+  if (Names.size() < 2)
+    return;
+
+  // All path segments must be static
+  for (const auto &Name : Names) {
+    if (!Name->isStatic())
+      return;
+  }
+
+  // Check parent ExprAttrs is not recursive
+  const nixf::Node *BindsNode = PM.query(Bind);
+  if (!BindsNode || BindsNode->kind() != nixf::Node::NK_Binds)
+    return;
+
+  const nixf::Node *AttrsNode = PM.query(*BindsNode);
+  if (!AttrsNode || AttrsNode->kind() != nixf::Node::NK_ExprAttrs)
+    return;
+
+  const auto &ParentAttrs = static_cast<const nixf::ExprAttrs &>(*AttrsNode);
+  if (ParentAttrs.isRecursive())
+    return;
+
+  const std::string &FirstSeg = Names[0]->staticName();
+  size_t SiblingCount = getSiblingCount(Bind, ParentAttrs);
+
+  if (SiblingCount == 0)
+    return; // Can't pack (dynamic attrs or other conflicts)
+
+  if (SiblingCount == 1) {
+    // Single binding - offer simple pack action
+    std::string NewText;
+    const std::string_view FirstName = Names[0]->src(Src);
+
+    size_t ValueSize = Bind.value() ? Bind.value()->src(Src).size() : 0;
+    NewText.reserve(FirstName.size() + Bind.path().src(Src).size() + ValueSize +
+                    15);
+    NewText += FirstName;
+    NewText += " = { ";
+
+    const nixf::LexerCursor RestStart = Names[1]->range().lCur();
+    const nixf::LexerCursor RestEnd = Bind.path().range().rCur();
+
+    // Safety check: ensure valid range to prevent integer underflow
+    if (RestEnd.offset() < RestStart.offset())
+      return;
+
+    std::string_view RestPath =
+        Src.substr(RestStart.offset(), RestEnd.offset() - RestStart.offset());
+
+    NewText += RestPath;
+    NewText += " = ";
+
+    if (Bind.value()) {
+      NewText += Bind.value()->src(Src);
+    }
+    NewText += "; };";
+
+    Actions.emplace_back(createSingleEditAction(
+        "Pack dotted path to nested set", CodeAction::REFACTOR_REWRITE_KIND,
+        FileURI, toLSPRange(Src, Bind.range()), std::move(NewText)));
+  } else {
+    // Multiple siblings share the prefix - offer bulk pack action
+    const nixf::SemaAttrs &SA = ParentAttrs.sema();
+    auto It = SA.staticAttrs().find(FirstSeg);
+    if (It == SA.staticAttrs().end())
+      return;
+
+    const nixf::Attribute &Attr = It->second;
+    if (!Attr.value() || Attr.value()->kind() != nixf::Node::NK_ExprAttrs)
+      return;
+
+    const auto &NestedAttrs =
+        static_cast<const nixf::ExprAttrs &>(*Attr.value());
+
+    // Generate the packed text using SemaAttrs
+    std::string NewText;
+    NewText += quoteNixAttrKey(FirstSeg);
+    NewText += " = ";
+    generateNestedText(NestedAttrs.sema(), Src, NewText);
+    NewText += ";";
+
+    // Find the range covering all sibling bindings
+    const auto &ParentBinds = static_cast<const nixf::Binds &>(*BindsNode);
+    auto Range = findSiblingBindingsRange(Bind, ParentBinds, FirstSeg);
+    if (!Range)
+      return;
+
+    Actions.emplace_back(createSingleEditAction(
+        "Pack all '" + FirstSeg + "' bindings to nested set",
+        CodeAction::REFACTOR_REWRITE_KIND, FileURI, toLSPRange(Src, *Range),
+        std::move(NewText)));
+  }
+}
+
 /// \brief Add refactoring code actions for attribute names (quote/unquote).
 void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
                         const std::string &FileURI, llvm::StringRef Src,
@@ -240,6 +480,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addAttrNameActions(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
           addFlattenAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                 Actions);
+          addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
         }
       }
 
