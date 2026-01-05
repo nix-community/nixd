@@ -87,6 +87,35 @@ TEST(Parser, StringSimple) {
   ASSERT_TRUE(Expr->range().rCur().isAt(0, 5, 5));
 }
 
+TEST(Parser, StringEscapeSequences) {
+  // Test escape sequences: \n, \r, \t, \\, \", \$
+  auto Src = R"("a\nb\rc\td\\e\"f\$g")"sv;
+  std::vector<Diagnostic> Diags;
+  auto Expr = nixf::parse(Src, Diags);
+  ASSERT_TRUE(Expr);
+  ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
+  ASSERT_EQ(Diags.size(), 0);
+
+  const auto &Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_TRUE(Parts.isLiteral());
+  // Expected: a + \n + b + \r + c + \t + d + \ + e + " + f + $ + g
+  ASSERT_EQ(Parts.literal(), "a\nb\rc\td\\e\"f$g");
+}
+
+TEST(Parser, StringEscapeQuote) {
+  // Test that escaped quotes are properly parsed
+  auto Src = R"("has\"quote")"sv;
+  std::vector<Diagnostic> Diags;
+  auto Expr = nixf::parse(Src, Diags);
+  ASSERT_TRUE(Expr);
+  ASSERT_EQ(Expr->kind(), Node::NK_ExprString);
+  ASSERT_EQ(Diags.size(), 0);
+
+  const auto &Parts = static_cast<ExprString *>(Expr.get())->parts();
+  ASSERT_TRUE(Parts.isLiteral());
+  ASSERT_EQ(Parts.literal(), "has\"quote");
+}
+
 TEST(Parser, StringMissingDQuote) {
   auto Src = R"("aaa)"sv;
   std::vector<Diagnostic> Diags;
