@@ -163,8 +163,8 @@ void addFlattenAttrsAction(const nixf::Node &N,
       FileURI, toLSPRange(Src, Bind.range()), std::move(NewText)));
 }
 
-/// \brief Get the number of sibling bindings sharing the same first path segment.
-/// Uses SemaAttrs to count nested attributes for the first segment.
+/// \brief Get the number of sibling bindings sharing the same first path
+/// segment. Uses SemaAttrs to count nested attributes for the first segment.
 /// Returns 0 if the segment is not found or has conflicts (non-path binding).
 size_t getSiblingCount(const nixf::Binding &Bind,
                        const nixf::ExprAttrs &ParentAttrs) {
