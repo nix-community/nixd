@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action works correctly with empty attribute set values.
+Test that Pack action is NOT offered when sibling bindings contain dynamic attributes.
 
 <-- initialize(0)
 
@@ -22,8 +22,8 @@ Test that Pack action works correctly with empty attribute set values.
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-empty.nix
-{ foo.bar = { }; }
+```nix file:///pack-attrs-sibling-dynamic.nix
+let x = "baz"; in { foo.bar = 1; foo.${x} = 2; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,16 +36,16 @@ Test that Pack action works correctly with empty attribute set values.
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-empty.nix"
+         "uri":"file:///pack-attrs-sibling-dynamic.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":2
+            "character":20
          },
          "end":{
             "line":0,
-            "character":9
+            "character":27
          }
       },
       "context":{
@@ -56,14 +56,13 @@ Test that Pack action works correctly with empty attribute set values.
 }
 ```
 
-Pack action should be offered even when the value is an empty attribute set.
-Both Pack and Flatten actions are available since the value is also a flattenable attrset.
+No Pack action should be offered when sibling has dynamic attribute (foo.${x}).
 
 ```
      CHECK:   "id": 2,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK:        "title": "Pack dotted path to nested set"
+CHECK-NEXT:   "result": []
+CHECK-NOT:    "Pack"
 ```
 
 ```json
