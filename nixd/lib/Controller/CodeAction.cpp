@@ -162,6 +162,120 @@ void addFlattenAttrsAction(const nixf::Node &N,
       FileURI, toLSPRange(Src, Bind.range()), std::move(NewText)));
 }
 
+/// \brief Check if sibling bindings share the same first path segment.
+/// Used to block Pack action when conflicts would occur.
+bool hasConflictingSiblings(const nixf::Binding &Bind,
+                            const nixf::ParentMapAnalysis &PM) {
+  // Get the first segment of this binding's path
+  const auto &Names = Bind.path().names();
+  if (Names.empty() || !Names[0]->isStatic())
+    return true; // Can't determine, block action
+
+  const std::string &FirstSeg = Names[0]->staticName();
+
+  // Find parent Binds node
+  const nixf::Node *Parent = PM.query(Bind);
+  if (!Parent || Parent->kind() != nixf::Node::NK_Binds)
+    return true; // Can't find parent, block action
+
+  const auto &ParentBinds = static_cast<const nixf::Binds &>(*Parent);
+
+  // Check all sibling bindings for conflicts
+  for (const auto &Sibling : ParentBinds.bindings()) {
+    if (Sibling.get() == &Bind)
+      continue; // Skip self
+
+    if (Sibling->kind() != nixf::Node::NK_Binding)
+      continue; // Skip Inherit nodes
+
+    const auto &SibBind = static_cast<const nixf::Binding &>(*Sibling);
+    const auto &SibNames = SibBind.path().names();
+
+    if (SibNames.empty())
+      continue;
+
+    // Check if first segment matches
+    if (SibNames[0]->isStatic() && SibNames[0]->staticName() == FirstSeg)
+      return true; // Conflict found
+  }
+
+  return false;
+}
+
+/// \brief Add pack action for dotted attribute paths.
+/// Transforms: { foo.bar = 1; } -> { foo = { bar = 1; }; }
+void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
+                        const std::string &FileURI, llvm::StringRef Src,
+                        std::vector<CodeAction> &Actions) {
+  // Find if we're inside a Binding
+  const nixf::Node *BindingNode = PM.upTo(N, nixf::Node::NK_Binding);
+  if (!BindingNode)
+    return;
+
+  const auto &Bind = static_cast<const nixf::Binding &>(*BindingNode);
+  const auto &Names = Bind.path().names();
+
+  // Must have at least 2 path segments (e.g., foo.bar)
+  if (Names.size() < 2)
+    return;
+
+  // All path segments must be static
+  for (const auto &Name : Names) {
+    if (!Name->isStatic())
+      return;
+  }
+
+  // Check parent ExprAttrs is not recursive
+  const nixf::Node *BindsNode = PM.query(Bind);
+  if (!BindsNode || BindsNode->kind() != nixf::Node::NK_Binds)
+    return;
+
+  const nixf::Node *AttrsNode = PM.query(*BindsNode);
+  if (!AttrsNode || AttrsNode->kind() != nixf::Node::NK_ExprAttrs)
+    return;
+
+  const auto &ParentAttrs = static_cast<const nixf::ExprAttrs &>(*AttrsNode);
+  if (ParentAttrs.isRecursive())
+    return;
+
+  // Check for sibling conflicts
+  if (hasConflictingSiblings(Bind, PM))
+    return;
+
+  // Build the packed text: first = { rest = value; }
+  std::string NewText;
+
+  // First segment
+  const std::string_view FirstName = Names[0]->src(Src);
+
+  // Pre-allocate to reduce reallocations
+  size_t ValueSize = Bind.value() ? Bind.value()->src(Src).size() : 0;
+  NewText.reserve(FirstName.size() + Bind.path().src(Src).size() + ValueSize +
+                  15); // 15 for " = { ", " = ", "; };"
+  NewText += FirstName;
+  NewText += " = { ";
+
+  // Remaining path segments (from second name to end)
+  // Get source from second name start to path end
+  const nixf::LexerCursor RestStart = Names[1]->range().lCur();
+  const nixf::LexerCursor RestEnd = Bind.path().range().rCur();
+  std::string_view RestPath =
+      Src.substr(RestStart.offset(), RestEnd.offset() - RestStart.offset());
+
+  NewText += RestPath;
+  NewText += " = ";
+
+  // Value
+  if (Bind.value()) {
+    NewText += Bind.value()->src(Src);
+  }
+  NewText += "; };";
+
+  Actions.emplace_back(createSingleEditAction(
+      "Pack dotted path to nested set", CodeAction::REFACTOR_REWRITE_KIND,
+      FileURI, toLSPRange(Src, Bind.range()), std::move(NewText)));
+}
+
 /// \brief Add refactoring code actions for attribute names (quote/unquote).
 void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
                         const std::string &FileURI, llvm::StringRef Src,
@@ -240,6 +354,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addAttrNameActions(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
           addFlattenAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                 Actions);
+          addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
         }
       }
 
