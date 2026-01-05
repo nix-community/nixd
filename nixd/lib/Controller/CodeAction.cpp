@@ -69,6 +69,25 @@ bool isValidNixIdentifier(const std::string &S) {
   return Keywords.find(S) == Keywords.end();
 }
 
+/// \brief Quote and escape a Nix attribute key if necessary.
+/// Returns the key as-is if it's a valid identifier, otherwise quotes and
+/// escapes special characters (", \, $).
+std::string quoteNixAttrKey(const std::string &Key) {
+  if (isValidNixIdentifier(Key))
+    return Key;
+
+  std::string Result;
+  Result.reserve(Key.size() + 4);
+  Result += '"';
+  for (char C : Key) {
+    if (C == '"' || C == '\\' || C == '$')
+      Result += '\\';
+    Result += C;
+  }
+  Result += '"';
+  return Result;
+}
+
 /// \brief Check if an ExprAttrs can be flattened (no rec, inherit, dynamic).
 /// Returns the Binds node if flattenable, nullptr otherwise.
 const nixf::Binds *getFlattenableBinds(const nixf::ExprAttrs &Attrs) {
@@ -218,18 +237,7 @@ void generateNestedText(const nixf::SemaAttrs &SA, llvm::StringRef Src,
     First = false;
 
     // Output the key, quoting if necessary
-    if (isValidNixIdentifier(Key)) {
-      Out += Key;
-    } else {
-      Out += "\"";
-      // Escape special characters in string keys
-      for (char C : Key) {
-        if (C == '"' || C == '\\' || C == '$')
-          Out += '\\';
-        Out += C;
-      }
-      Out += "\"";
-    }
+    Out += quoteNixAttrKey(Key);
     Out += " = ";
 
     // Check if value is a nested ExprAttrs that needs recursive generation
@@ -376,7 +384,7 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
     // Generate the packed text using SemaAttrs
     std::string NewText;
-    NewText += FirstSeg;
+    NewText += quoteNixAttrKey(FirstSeg);
     NewText += " = ";
     generateNestedText(NestedAttrs.sema(), Src, NewText);
     NewText += ";";
