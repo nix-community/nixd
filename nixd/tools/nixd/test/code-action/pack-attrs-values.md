@@ -136,12 +136,16 @@ CHECK:        "title": "Pack dotted path to nested set"
 }
 ```
 
-Pack action should preserve nested attribute set values exactly.
+For nested attribute set values, both Flatten and Pack actions are offered.
+Flatten transforms `nested.value = { a = 1; b.c = 2; }` to `nested.value.a = 1; nested.value.b.c = 2;`
+Pack transforms it to `nested = { value = { a = 1; b.c = 2; }; }`
 
 ```
      CHECK:   "id": 4,
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": [
+CHECK:        "newText": "nested.value.a = 1; nested.value.b.c = 2;"
+CHECK:        "title": "Flatten nested attribute set"
 CHECK:        "newText": "nested = { value = { a = 1; b.c = 2; }; };"
 CHECK:        "title": "Pack dotted path to nested set"
 ```
