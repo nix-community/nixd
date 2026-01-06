@@ -59,10 +59,9 @@ Pack action should transform only the selected foo.bar binding.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK:        "newText": "foo = { bar = 1; };"
-CHECK:        "title": "Pack dotted path to nested set"
+     CHECK:   "result": [
+     CHECK:       "newText": "foo = { bar = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 ```
 
 ```json

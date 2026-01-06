@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action is NOT offered for single-segment paths.
+Test that Pack action is NOT offered when an inherit statement conflicts with dotted path prefix.
 
 <-- initialize(0)
 
@@ -22,8 +22,8 @@ Test that Pack action is NOT offered for single-segment paths.
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-single.nix
-{ foo = 1; }
+```nix file:///pack-attrs-inherit-conflict.nix
+{ inherit foo; foo.bar = 1; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,16 +36,16 @@ Test that Pack action is NOT offered for single-segment paths.
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-single.nix"
+         "uri":"file:///pack-attrs-inherit-conflict.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":2
+            "character":15
          },
          "end":{
             "line":0,
-            "character":5
+            "character":22
          }
       },
       "context":{
@@ -56,10 +56,11 @@ Test that Pack action is NOT offered for single-segment paths.
 }
 ```
 
-No Pack action should be offered for single-segment paths (nothing to pack).
+No Pack action should be offered when inherit statement (inherit foo) conflicts with dotted path (foo.bar).
 
 ```
      CHECK:   "id": 2,
+     CHECK:   "result": []
 CHECK-NOT:    "Pack"
 ```
 

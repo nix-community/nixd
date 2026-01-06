@@ -1,7 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that bulk Pack action correctly handles keys requiring quotes.
-The key "1foo" starts with a digit, requiring quotes in the output.
+Test that "Pack all (shallow)" action preserves nested dotted paths instead of recursively expanding them.
 
 <-- initialize(0)
 
@@ -23,8 +22,8 @@ The key "1foo" starts with a digit, requiring quotes in the output.
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-bulk-quoted.nix
-{ "1foo".a = 1; "1foo".b = 2; }
+```nix file:///pack-attrs-shallow-bulk.nix
+{ foo.bar.x = 1; foo.baz = 2; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -37,7 +36,7 @@ The key "1foo" starts with a digit, requiring quotes in the output.
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-bulk-quoted.nix"
+         "uri":"file:///pack-attrs-shallow-bulk.nix"
       },
       "range":{
          "start":{
@@ -46,7 +45,7 @@ The key "1foo" starts with a digit, requiring quotes in the output.
          },
          "end":{
             "line":0,
-            "character":9
+            "character":12
          }
       },
       "context":{
@@ -57,7 +56,7 @@ The key "1foo" starts with a digit, requiring quotes in the output.
 }
 ```
 
-Three Pack actions should be offered with quoted key "1foo" since it starts with a digit.
+Shallow Pack All should preserve "bar.x" as dotted path (not expand to "bar = { x = 1; }").
 
 ```
      CHECK:   "id": 2,
@@ -65,29 +64,29 @@ Three Pack actions should be offered with quoted key "1foo" since it starts with
 CHECK-NEXT:     {
 ```
 
-Action 1: Pack One - only the first quoted key binding
+Action 1: Pack One - packs only foo.bar.x
 
 ```
-     CHECK:       "newText": "\"1foo\" = { a = 1; };"
+     CHECK:       "newText": "foo = { bar.x = 1; };"
      CHECK:       "title": "Pack dotted path to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
 ```
 
-Action 2: Shallow Pack All - all quoted key bindings
+Action 2: Shallow Pack All - preserves bar.x as dotted path
 
 ```
-     CHECK:       "newText": "\"1foo\" = { a = 1; b = 2; };"
-     CHECK:       "title": "Pack all '1foo' bindings to nested set"
+     CHECK:       "newText": "foo = { bar.x = 1; baz = 2; };"
+     CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
 ```
 
-Action 3: Recursive Pack All - fully nested with quoted key
+Action 3: Recursive Pack All - fully nests bar = { x = 1; }
 
 ```
-     CHECK:       "newText": "\"1foo\" = { a = 1; b = 2; };"
-     CHECK:       "title": "Recursively pack all '1foo' bindings to nested set"
+     CHECK:       "newText": "foo = { bar = { x = 1; }; baz = 2; };"
+     CHECK:       "title": "Recursively pack all 'foo' bindings to nested set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```

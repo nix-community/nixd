@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action is NOT offered for single-segment paths.
+Test that Pack action correctly preserves complex let expression values.
 
 <-- initialize(0)
 
@@ -22,8 +22,8 @@ Test that Pack action is NOT offered for single-segment paths.
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-single.nix
-{ foo = 1; }
+```nix file:///pack-attrs-values-complex.nix
+{ complex.value = let x = 1; in x + 1; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,7 +36,7 @@ Test that Pack action is NOT offered for single-segment paths.
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-single.nix"
+         "uri":"file:///pack-attrs-values-complex.nix"
       },
       "range":{
          "start":{
@@ -45,7 +45,7 @@ Test that Pack action is NOT offered for single-segment paths.
          },
          "end":{
             "line":0,
-            "character":5
+            "character":15
          }
       },
       "context":{
@@ -56,11 +56,14 @@ Test that Pack action is NOT offered for single-segment paths.
 }
 ```
 
-No Pack action should be offered for single-segment paths (nothing to pack).
+Pack action should preserve complex let expressions.
+No Flatten action since the value is not an ExprAttrs.
 
 ```
      CHECK:   "id": 2,
-CHECK-NOT:    "Pack"
+     CHECK:   "result": [
+     CHECK:       "newText": "complex = { value = let x = 1; in x + 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 ```
 
 ```json

@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action works correctly with inherit sibling binding (no path conflict).
+Test that both Flatten and Pack actions are offered for nested attribute set values.
 
 <-- initialize(0)
 
@@ -22,11 +22,12 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-sibling-inherit.nix
-{ foo.bar = 1; inherit baz; }
+```nix file:///pack-attrs-values-nested.nix
+{ nested.value = { a = 1; b.c = 2; }; }
 ```
 
 <-- textDocument/codeAction(2)
+
 
 ```json
 {
@@ -35,7 +36,7 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-sibling-inherit.nix"
+         "uri":"file:///pack-attrs-values-nested.nix"
       },
       "range":{
          "start":{
@@ -44,7 +45,7 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
          },
          "end":{
             "line":0,
-            "character":9
+            "character":14
          }
       },
       "context":{
@@ -55,12 +56,18 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
 }
 ```
 
-Pack action should be offered when sibling is inherit (no path conflict).
+For nested attribute set values, both Flatten and Pack actions are offered.
+Flatten transforms `nested.value = { a = 1; b.c = 2; }` to `nested.value.a = 1; nested.value.b.c = 2;`
+Pack transforms it to `nested = { value = { a = 1; b.c = 2; }; }`
 
 ```
      CHECK:   "id": 2,
      CHECK:   "result": [
-     CHECK:       "newText": "foo = { bar = 1; };"
+     CHECK:       "newText": "nested.value.a = 1; nested.value.b.c = 2;"
+     CHECK:       "title": "Flatten nested attribute set"
+CHECK-NEXT:     },
+CHECK-NEXT:     {
+     CHECK:       "newText": "nested = { value = { a = 1; b.c = 2; }; };"
      CHECK:       "title": "Pack dotted path to nested set"
 ```
 

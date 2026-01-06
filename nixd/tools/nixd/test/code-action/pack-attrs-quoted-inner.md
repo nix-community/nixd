@@ -1,6 +1,10 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action is NOT offered for single-segment paths.
+Test that Pack action correctly handles quoted inner (non-first) path segments.
+Unlike pack-attrs-quoted.md which tests quoted FIRST segments ("foo-bar".baz),
+this tests quoted INNER segments (foo."bar-baz").
+This pattern is used in NixOS for attributes with special characters like dots
+(e.g., `boot.kernel.sysctl."net.ipv4.tcp_keepalive_time"`).
 
 <-- initialize(0)
 
@@ -22,8 +26,8 @@ Test that Pack action is NOT offered for single-segment paths.
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-single.nix
-{ foo = 1; }
+```nix file:///pack-attrs-quoted-inner.nix
+{ foo."bar-baz" = 1; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,7 +40,7 @@ Test that Pack action is NOT offered for single-segment paths.
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-single.nix"
+         "uri":"file:///pack-attrs-quoted-inner.nix"
       },
       "range":{
          "start":{
@@ -45,7 +49,7 @@ Test that Pack action is NOT offered for single-segment paths.
          },
          "end":{
             "line":0,
-            "character":5
+            "character":14
          }
       },
       "context":{
@@ -56,11 +60,13 @@ Test that Pack action is NOT offered for single-segment paths.
 }
 ```
 
-No Pack action should be offered for single-segment paths (nothing to pack).
+Pack action should preserve the quoted inner segment "bar-baz".
 
 ```
      CHECK:   "id": 2,
-CHECK-NOT:    "Pack"
+     CHECK:   "result": [
+     CHECK:       "newText": "foo = { \"bar-baz\" = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 ```
 
 ```json

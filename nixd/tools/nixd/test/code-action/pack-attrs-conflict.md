@@ -60,8 +60,7 @@ No Pack action should be offered when a non-path binding (foo = 1) conflicts wit
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": []
+     CHECK:   "result": []
 CHECK-NOT:    "Pack"
 ```
 

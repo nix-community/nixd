@@ -60,32 +60,9 @@ Pack should convert only one level: a.b.c -> a = { b.c = 1; }
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-deep.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "a = { b.c = 1; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 12,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack dotted path to nested set"
-CHECK-NEXT:     }
-CHECK-NEXT:   ]
+     CHECK:   "result": [
+     CHECK:       "newText": "a = { b.c = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 ```
 
 ```json

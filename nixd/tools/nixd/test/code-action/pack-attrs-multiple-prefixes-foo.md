@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action works correctly with inherit sibling binding (no path conflict).
+Test that Pack action works correctly for 'foo' prefix when multiple independent prefixes exist.
 
 <-- initialize(0)
 
@@ -22,11 +22,12 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-sibling-inherit.nix
-{ foo.bar = 1; inherit baz; }
+```nix file:///pack-attrs-multiple-prefixes-foo.nix
+{ foo.a = 1; foo.b = 2; bar.c = 3; bar.d = 4; }
 ```
 
-<-- textDocument/codeAction(2)
+<-- textDocument/codeAction(2) - Test 'foo' prefix
+
 
 ```json
 {
@@ -35,7 +36,7 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-sibling-inherit.nix"
+         "uri":"file:///pack-attrs-multiple-prefixes-foo.nix"
       },
       "range":{
          "start":{
@@ -44,7 +45,7 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
          },
          "end":{
             "line":0,
-            "character":9
+            "character":7
          }
       },
       "context":{
@@ -55,13 +56,32 @@ Test that Pack action works correctly with inherit sibling binding (no path conf
 }
 ```
 
-Pack action should be offered when sibling is inherit (no path conflict).
+Should offer actions only for 'foo' prefix, not 'bar'.
 
 ```
      CHECK:   "id": 2,
      CHECK:   "result": [
-     CHECK:       "newText": "foo = { bar = 1; };"
+```
+
+Pack One for foo.a
+
+```
+     CHECK:       "newText": "foo = { a = 1; };"
      CHECK:       "title": "Pack dotted path to nested set"
+```
+
+Bulk pack for foo (not bar)
+
+```
+     CHECK:       "newText": "foo = { a = 1; b = 2; };"
+     CHECK:       "title": "Pack all 'foo' bindings to nested set"
+```
+
+Recursive pack for foo
+
+```
+     CHECK:       "newText": "foo = { a = 1; b = 2; };"
+     CHECK:       "title": "Recursively pack all 'foo' bindings to nested set"
 ```
 
 ```json

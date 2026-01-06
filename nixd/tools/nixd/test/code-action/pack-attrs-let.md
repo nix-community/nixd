@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that Pack action is NOT offered for single-segment paths.
+Test that Pack action works correctly within let-in expressions.
 
 <-- initialize(0)
 
@@ -22,8 +22,8 @@ Test that Pack action is NOT offered for single-segment paths.
 
 <-- textDocument/didOpen
 
-```nix file:///pack-attrs-single.nix
-{ foo = 1; }
+```nix file:///pack-attrs-let.nix
+let x = { foo.bar = 1; }; in x
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,16 +36,16 @@ Test that Pack action is NOT offered for single-segment paths.
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///pack-attrs-single.nix"
+         "uri":"file:///pack-attrs-let.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":2
+            "character":10
          },
          "end":{
             "line":0,
-            "character":5
+            "character":17
          }
       },
       "context":{
@@ -56,11 +56,13 @@ Test that Pack action is NOT offered for single-segment paths.
 }
 ```
 
-No Pack action should be offered for single-segment paths (nothing to pack).
+Pack should work inside let binding values.
 
 ```
      CHECK:   "id": 2,
-CHECK-NOT:    "Pack"
+     CHECK:   "result": [
+     CHECK:       "newText": "foo = { bar = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 ```
 
 ```json
