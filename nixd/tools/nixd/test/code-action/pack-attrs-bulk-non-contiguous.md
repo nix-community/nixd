@@ -66,73 +66,38 @@ Three Pack actions should be offered:
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": [
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-bulk-non-contiguous.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { a = 1; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 12,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack dotted path to nested set"
+```
+
+Action 1: Pack One - only foo.a
+
+```
+     CHECK:       "newText": "foo = { a = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-bulk-non-contiguous.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { a = 1; b = 3; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
+```
+
+Action 2: Shallow Pack All - groups non-contiguous foo.a and foo.b bindings
+
+```
+     CHECK:       "newText": "foo = { a = 1; b = 3; };"
+     CHECK:               "end": {
 CHECK-NEXT:                   "character": 32,
 CHECK-NEXT:                   "line": 0
 CHECK-NEXT:                 },
 CHECK-NEXT:                 "start": {
 CHECK-NEXT:                   "character": 2,
 CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack all 'foo' bindings to nested set"
+     CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-bulk-non-contiguous.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { a = 1; b = 3; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 32,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Recursively pack all 'foo' bindings to nested set"
+```
+
+Action 3: Recursive Pack All - same as shallow for single-level paths
+
+```
+     CHECK:       "newText": "foo = { a = 1; b = 3; };"
+     CHECK:       "title": "Recursively pack all 'foo' bindings to nested set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```

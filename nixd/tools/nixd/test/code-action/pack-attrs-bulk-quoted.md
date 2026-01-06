@@ -64,73 +64,31 @@ Three Pack actions should be offered with quoted key "1foo" since it starts with
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": [
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-bulk-quoted.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "\"1foo\" = { a = 1; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 15,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack dotted path to nested set"
+```
+
+Action 1: Pack One - only the first quoted key binding
+
+```
+     CHECK:       "newText": "\"1foo\" = { a = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-bulk-quoted.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "\"1foo\" = { a = 1; b = 2; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 29,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack all '1foo' bindings to nested set"
+```
+
+Action 2: Shallow Pack All - all quoted key bindings
+
+```
+     CHECK:       "newText": "\"1foo\" = { a = 1; b = 2; };"
+     CHECK:       "title": "Pack all '1foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-bulk-quoted.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "\"1foo\" = { a = 1; b = 2; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 29,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Recursively pack all '1foo' bindings to nested set"
+```
+
+Action 3: Recursive Pack All - fully nested with quoted key
+
+```
+     CHECK:       "newText": "\"1foo\" = { a = 1; b = 2; };"
+     CHECK:       "title": "Recursively pack all '1foo' bindings to nested set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```

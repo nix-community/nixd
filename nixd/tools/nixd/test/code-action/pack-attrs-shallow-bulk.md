@@ -63,73 +63,31 @@ Shallow Pack All should preserve "bar.x" as dotted path (not expand to "bar = { 
 CHECK-NEXT:   "jsonrpc": "2.0",
 CHECK-NEXT:   "result": [
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-shallow-bulk.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { bar.x = 1; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 16,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack dotted path to nested set"
+```
+
+Action 1: Pack One - packs only foo.bar.x
+
+```
+     CHECK:       "newText": "foo = { bar.x = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-shallow-bulk.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { bar.x = 1; baz = 2; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 29,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack all 'foo' bindings to nested set"
+```
+
+Action 2: Shallow Pack All - preserves bar.x as dotted path
+
+```
+     CHECK:       "newText": "foo = { bar.x = 1; baz = 2; };"
+     CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-shallow-bulk.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { bar = { x = 1; }; baz = 2; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 29,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Recursively pack all 'foo' bindings to nested set"
+```
+
+Action 3: Recursive Pack All - fully nests bar = { x = 1; }
+
+```
+     CHECK:       "newText": "foo = { bar = { x = 1; }; baz = 2; };"
+     CHECK:       "title": "Recursively pack all 'foo' bindings to nested set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```
