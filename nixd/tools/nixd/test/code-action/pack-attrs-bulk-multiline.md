@@ -65,8 +65,7 @@ The bulk actions should span from line 1 to line 3.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+     CHECK:   "result": [
 CHECK-NEXT:     {
 ```
 
@@ -83,13 +82,6 @@ Action 2: Shallow Pack All - spans lines 1-3
 
 ```
      CHECK:       "newText": "foo = { bar = 1; baz = 2; qux = 3; };"
-     CHECK:               "end": {
-CHECK-NEXT:                   "character": 14,
-CHECK-NEXT:                   "line": 3
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 1
      CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {

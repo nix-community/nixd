@@ -62,10 +62,9 @@ Bulk Pack action should correctly escape the double quote in the key.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK:        "newText": "\"has\\\"quote\" = { a = 1; b = 2; };"
-CHECK:        "title": "Pack all 'has\"quote' bindings to nested set"
+     CHECK:   "result": [
+     CHECK:       "newText": "\"has\\\"quote\" = { a = 1; b = 2; };"
+     CHECK:       "title": "Pack all 'has\"quote' bindings to nested set"
 ```
 
 ```json

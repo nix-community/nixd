@@ -63,8 +63,7 @@ All three actions should be present in order.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+     CHECK:   "result": [
 CHECK-NEXT:     {
 ```
 

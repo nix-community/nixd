@@ -61,9 +61,7 @@ Quote action may still be offered for the static "foo" segment.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NOT:    "Pack dotted path to nested set"
+CHECK-NOT:    "Pack"
 ```
 
 ```json

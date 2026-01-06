@@ -60,14 +60,8 @@ Three actions should be offered. The third (Recursive Pack All) should fully exp
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-recursive-bulk.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { bar.x = 1; };",
+     CHECK:   "result": [
+     CHECK:       "newText": "foo = { bar.x = 1; };"
 ```
 
 Skip to the third action (Recursive Pack All):

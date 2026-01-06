@@ -60,8 +60,7 @@ Should offer actions only for 'foo' prefix, not 'bar'.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+     CHECK:   "result": [
 ```
 
 Pack One for foo.a

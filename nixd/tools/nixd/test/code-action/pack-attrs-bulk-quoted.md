@@ -61,8 +61,7 @@ Three Pack actions should be offered with quoted key "1foo" since it starts with
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+     CHECK:   "result": [
 CHECK-NEXT:     {
 ```
 

@@ -60,8 +60,7 @@ No Pack action should be offered when inherit statement (inherit foo) conflicts 
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": []
+     CHECK:   "result": []
 CHECK-NOT:    "Pack"
 ```
 

@@ -61,8 +61,7 @@ Even if subsequent segments are static, the dynamic first segment prevents packi
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": []
+     CHECK:   "result": []
 CHECK-NOT:    "Pack"
 ```
 

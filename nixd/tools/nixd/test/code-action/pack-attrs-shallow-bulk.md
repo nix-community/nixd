@@ -60,8 +60,7 @@ Shallow Pack All should preserve "bar.x" as dotted path (not expand to "bar = { 
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+     CHECK:   "result": [
 CHECK-NEXT:     {
 ```
 

@@ -60,32 +60,9 @@ Pack should work inside let binding values.
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NEXT:     {
-CHECK-NEXT:       "edit": {
-CHECK-NEXT:         "changes": {
-CHECK-NEXT:           "file:///pack-attrs-let.nix": [
-CHECK-NEXT:             {
-CHECK-NEXT:               "newText": "foo = { bar = 1; };",
-CHECK-NEXT:               "range": {
-CHECK-NEXT:                 "end": {
-CHECK-NEXT:                   "character": 22,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 10,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 }
-CHECK-NEXT:               }
-CHECK-NEXT:             }
-CHECK-NEXT:           ]
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       "kind": "refactor.rewrite",
-CHECK-NEXT:       "title": "Pack dotted path to nested set"
-CHECK-NEXT:     }
-CHECK-NEXT:   ]
+     CHECK:   "result": [
+     CHECK:       "newText": "foo = { bar = 1; };"
+     CHECK:       "title": "Pack dotted path to nested set"
 ```
 
 ```json

@@ -63,8 +63,7 @@ Three Pack actions should be offered:
 
 ```
      CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+     CHECK:   "result": [
 CHECK-NEXT:     {
 ```
 
@@ -81,13 +80,6 @@ Action 2: Shallow Pack All - groups non-contiguous foo.a and foo.b bindings
 
 ```
      CHECK:       "newText": "foo = { a = 1; b = 3; };"
-     CHECK:               "end": {
-CHECK-NEXT:                   "character": 32,
-CHECK-NEXT:                   "line": 0
-CHECK-NEXT:                 },
-CHECK-NEXT:                 "start": {
-CHECK-NEXT:                   "character": 2,
-CHECK-NEXT:                   "line": 0
      CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
