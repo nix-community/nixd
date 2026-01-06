@@ -270,8 +270,8 @@ void generateNestedText(const nixf::SemaAttrs &SA, llvm::StringRef Src,
 /// \param Src The source text
 /// \param Out Output string to append to
 void generateShallowNestedText(const nixf::Binds &Binds,
-                               const std::string &FirstSeg,
-                               llvm::StringRef Src, std::string &Out) {
+                               const std::string &FirstSeg, llvm::StringRef Src,
+                               std::string &Out) {
   Out += "{ ";
   bool First = true;
 
@@ -471,8 +471,8 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
     Actions.emplace_back(createSingleEditAction(
         "Pack all '" + FirstSeg + "' bindings to nested set",
-        CodeAction::REFACTOR_REWRITE_KIND, FileURI,
-        toLSPRange(Src, *BulkRange), std::move(ShallowText)));
+        CodeAction::REFACTOR_REWRITE_KIND, FileURI, toLSPRange(Src, *BulkRange),
+        std::move(ShallowText)));
 
     // Action 3: Recursive Pack All - fully nest all sibling bindings
     std::string RecursiveText;
@@ -483,8 +483,8 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
     Actions.emplace_back(createSingleEditAction(
         "Recursively pack all '" + FirstSeg + "' bindings to nested set",
-        CodeAction::REFACTOR_REWRITE_KIND, FileURI,
-        toLSPRange(Src, *BulkRange), std::move(RecursiveText)));
+        CodeAction::REFACTOR_REWRITE_KIND, FileURI, toLSPRange(Src, *BulkRange),
+        std::move(RecursiveText)));
   }
 }
 
