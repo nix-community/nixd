@@ -219,7 +219,7 @@ size_t getSiblingCount(const nixf::Binding &Bind,
 constexpr size_t MAX_NESTED_DEPTH = 100;
 
 /// \brief Recursively generate nested attribute set text from SemaAttrs.
-/// This produces the packed/nested form of attributes.
+/// This produces the fully packed/nested form of attributes.
 /// \param Depth Current recursion depth (for safety limit)
 void generateNestedText(const nixf::SemaAttrs &SA, llvm::StringRef Src,
                         std::string &Out, size_t Depth = 0) {
@@ -256,6 +256,64 @@ void generateNestedText(const nixf::SemaAttrs &SA, llvm::StringRef Src,
       }
     } else if (Attr.value()) {
       Out += Attr.value()->src(Src);
+    }
+    Out += ";";
+  }
+  Out += " }";
+}
+
+/// \brief Generate shallow nested attribute set text from original bindings.
+/// Unlike generateNestedText, this only expands one level and preserves
+/// remaining dotted paths as-is by extracting from original source.
+/// \param Binds The original Binds node containing all bindings
+/// \param FirstSeg The first path segment to match (e.g., "foo" for "foo.bar")
+/// \param Src The source text
+/// \param Out Output string to append to
+void generateShallowNestedText(const nixf::Binds &Binds,
+                               const std::string &FirstSeg,
+                               llvm::StringRef Src, std::string &Out) {
+  Out += "{ ";
+  bool First = true;
+
+  for (const auto &Child : Binds.bindings()) {
+    if (Child->kind() != nixf::Node::NK_Binding)
+      continue;
+
+    const auto &SibBind = static_cast<const nixf::Binding &>(*Child);
+    const auto &Names = SibBind.path().names();
+
+    // Only process bindings that match the first segment
+    if (Names.empty() || !Names[0]->isStatic() ||
+        Names[0]->staticName() != FirstSeg)
+      continue;
+
+    if (!First)
+      Out += " ";
+    First = false;
+
+    if (Names.size() == 1) {
+      // Single segment path (e.g., just "foo") - shouldn't happen in bulk pack
+      // but handle it gracefully by using value directly
+      Out += quoteNixAttrKey(Names[0]->staticName());
+      Out += " = ";
+      if (SibBind.value()) {
+        Out += SibBind.value()->src(Src);
+      }
+    } else {
+      // Multi-segment path - extract rest of path from source
+      // e.g., "foo.bar.x = 1" -> "bar.x = 1"
+      const nixf::LexerCursor RestStart = Names[1]->range().lCur();
+      const nixf::LexerCursor PathEnd = SibBind.path().range().rCur();
+
+      if (PathEnd.offset() >= RestStart.offset()) {
+        std::string_view RestPath = Src.substr(
+            RestStart.offset(), PathEnd.offset() - RestStart.offset());
+        Out += RestPath;
+        Out += " = ";
+        if (SibBind.value()) {
+          Out += SibBind.value()->src(Src);
+        }
+      }
     }
     Out += ";";
   }
@@ -336,8 +394,8 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   if (SiblingCount == 0)
     return; // Can't pack (dynamic attrs or other conflicts)
 
-  if (SiblingCount == 1) {
-    // Single binding - offer simple pack action
+  // Helper lambda to generate Pack One action text
+  auto generatePackOneText = [&]() -> std::string {
     std::string NewText;
     const std::string_view FirstName = Names[0]->src(Src);
 
@@ -352,7 +410,7 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
     // Safety check: ensure valid range to prevent integer underflow
     if (RestEnd.offset() < RestStart.offset())
-      return;
+      return "";
 
     std::string_view RestPath =
         Src.substr(RestStart.offset(), RestEnd.offset() - RestStart.offset());
@@ -364,12 +422,20 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
       NewText += Bind.value()->src(Src);
     }
     NewText += "; };";
+    return NewText;
+  };
+
+  if (SiblingCount == 1) {
+    // Single binding - offer simple pack action
+    std::string NewText = generatePackOneText();
+    if (NewText.empty())
+      return;
 
     Actions.emplace_back(createSingleEditAction(
         "Pack dotted path to nested set", CodeAction::REFACTOR_REWRITE_KIND,
         FileURI, toLSPRange(Src, Bind.range()), std::move(NewText)));
   } else {
-    // Multiple siblings share the prefix - offer bulk pack action
+    // Multiple siblings share the prefix - offer Pack One and bulk pack actions
     const nixf::SemaAttrs &SA = ParentAttrs.sema();
     auto It = SA.staticAttrs().find(FirstSeg);
     if (It == SA.staticAttrs().end())
@@ -382,23 +448,43 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     const auto &NestedAttrs =
         static_cast<const nixf::ExprAttrs &>(*Attr.value());
 
-    // Generate the packed text using SemaAttrs
-    std::string NewText;
-    NewText += quoteNixAttrKey(FirstSeg);
-    NewText += " = ";
-    generateNestedText(NestedAttrs.sema(), Src, NewText);
-    NewText += ";";
-
-    // Find the range covering all sibling bindings
+    // Find the range covering all sibling bindings (needed for bulk actions)
     const auto &ParentBinds = static_cast<const nixf::Binds &>(*BindsNode);
-    auto Range = findSiblingBindingsRange(Bind, ParentBinds, FirstSeg);
-    if (!Range)
+    auto BulkRange = findSiblingBindingsRange(Bind, ParentBinds, FirstSeg);
+    if (!BulkRange)
       return;
+
+    // Action 1: Pack One - pack only the current binding
+    std::string PackOneText = generatePackOneText();
+    if (!PackOneText.empty()) {
+      Actions.emplace_back(createSingleEditAction(
+          "Pack dotted path to nested set", CodeAction::REFACTOR_REWRITE_KIND,
+          FileURI, toLSPRange(Src, Bind.range()), std::move(PackOneText)));
+    }
+
+    // Action 2: Shallow Pack All - pack all siblings but only one level deep
+    std::string ShallowText;
+    ShallowText += quoteNixAttrKey(FirstSeg);
+    ShallowText += " = ";
+    generateShallowNestedText(ParentBinds, FirstSeg, Src, ShallowText);
+    ShallowText += ";";
 
     Actions.emplace_back(createSingleEditAction(
         "Pack all '" + FirstSeg + "' bindings to nested set",
-        CodeAction::REFACTOR_REWRITE_KIND, FileURI, toLSPRange(Src, *Range),
-        std::move(NewText)));
+        CodeAction::REFACTOR_REWRITE_KIND, FileURI,
+        toLSPRange(Src, *BulkRange), std::move(ShallowText)));
+
+    // Action 3: Recursive Pack All - fully nest all sibling bindings
+    std::string RecursiveText;
+    RecursiveText += quoteNixAttrKey(FirstSeg);
+    RecursiveText += " = ";
+    generateNestedText(NestedAttrs.sema(), Src, RecursiveText);
+    RecursiveText += ";";
+
+    Actions.emplace_back(createSingleEditAction(
+        "Recursively pack all '" + FirstSeg + "' bindings to nested set",
+        CodeAction::REFACTOR_REWRITE_KIND, FileURI,
+        toLSPRange(Src, *BulkRange), std::move(RecursiveText)));
   }
 }
 
