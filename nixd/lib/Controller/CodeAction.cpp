@@ -216,7 +216,7 @@ size_t getSiblingCount(const nixf::Binding &Bind,
 
 /// \brief Maximum recursion depth for nested text generation.
 /// Prevents stack overflow on maliciously crafted deeply nested inputs.
-constexpr size_t MAX_NESTED_DEPTH = 100;
+constexpr size_t MaxNestedDepth = 100;
 
 /// \brief Recursively generate nested attribute set text from SemaAttrs.
 /// This produces the fully packed/nested form of attributes.
@@ -224,7 +224,7 @@ constexpr size_t MAX_NESTED_DEPTH = 100;
 void generateNestedText(const nixf::SemaAttrs &SA, llvm::StringRef Src,
                         std::string &Out, size_t Depth = 0) {
   // Safety check: prevent stack overflow from deeply nested structures
-  if (Depth > MAX_NESTED_DEPTH) {
+  if (Depth > MaxNestedDepth) {
     Out += "{ /* max depth exceeded */ }";
     return;
   }
@@ -395,7 +395,7 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     return; // Can't pack (dynamic attrs or other conflicts)
 
   // Helper lambda to generate Pack One action text
-  auto generatePackOneText = [&]() -> std::string {
+  auto GeneratePackOneText = [&]() -> std::string {
     std::string NewText;
     const std::string_view FirstName = Names[0]->src(Src);
 
@@ -427,7 +427,7 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
   if (SiblingCount == 1) {
     // Single binding - offer simple pack action
-    std::string NewText = generatePackOneText();
+    std::string NewText = GeneratePackOneText();
     if (NewText.empty())
       return;
 
@@ -455,7 +455,7 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
       return;
 
     // Action 1: Pack One - pack only the current binding
-    std::string PackOneText = generatePackOneText();
+    std::string PackOneText = GeneratePackOneText();
     if (!PackOneText.empty()) {
       Actions.emplace_back(createSingleEditAction(
           "Pack dotted path to nested set", CodeAction::REFACTOR_REWRITE_KIND,
