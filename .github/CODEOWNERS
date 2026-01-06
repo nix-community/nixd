@@ -17,3 +17,8 @@
 # Packaging
 /*.nix @Ruixi-rebirth
 /flake.nix @Ruixi-rebirth
+
+
+# Code Actions
+/nixd/lib/Controller/CodeAction.cpp @takeokunn
+/nixd/tools/nixd/test/code-action/ @takeokunn
