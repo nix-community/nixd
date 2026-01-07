@@ -162,7 +162,8 @@ std::string jsonToNix(const llvm::json::Value &V, size_t Indent = 0,
       Out = "[ ]";
     } else {
       // Pre-allocate memory to reduce reallocations
-      // Estimate: opening + closing + elements * (indent + value_estimate + newline)
+      // Estimate: opening + closing + elements * (indent + value_estimate +
+      // newline)
       size_t EstimatedSize = 4 + A->size() * ((Indent + 1) * 2 + 20);
       Out.reserve(EstimatedSize);
       Out = "[\n";
@@ -183,7 +184,8 @@ std::string jsonToNix(const llvm::json::Value &V, size_t Indent = 0,
       Out = "{ }";
     } else {
       // Pre-allocate memory to reduce reallocations
-      // Estimate: braces + elements * (indent + key + " = " + value_estimate + ";\n")
+      // Estimate: braces + elements * (indent + key + " = " + value_estimate +
+      // ";\n")
       size_t EstimatedSize = 4 + O->size() * ((Indent + 1) * 2 + 30);
       Out.reserve(EstimatedSize);
       Out = "{\n";
@@ -633,7 +635,8 @@ void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 }
 
 /// \brief Add JSON to Nix conversion action for selected JSON text.
-/// This is a selection-based action that works on arbitrary text, not AST nodes.
+/// This is a selection-based action that works on arbitrary text, not AST
+/// nodes.
 void addJsonToNixAction(llvm::StringRef Src, const lspserver::Range &Range,
                         const std::string &FileURI,
                         std::vector<CodeAction> &Actions) {
