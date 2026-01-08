@@ -868,7 +868,12 @@ bool fromJSON(const llvm::json::Value &Response, ApplyWorkspaceEditResponse &R,
 }
 
 llvm::json::Value toJSON(const ShowDocumentParams &Params) {
-  llvm::json::Object Result{{"uri", Params.uri}};
+  llvm::json::Object Result;
+  // Use externalUri if set (for https:// etc), otherwise use uri (for file://)
+  if (Params.externalUri)
+    Result["uri"] = *Params.externalUri;
+  else
+    Result["uri"] = Params.uri;
   if (Params.external)
     Result["external"] = *Params.external;
   if (Params.takeFocus)

@@ -850,7 +850,7 @@ void Controller::onCodeActionResolve(const lspserver::CodeAction &Params,
         if (NoogleUrl) {
           // Call window/showDocument to open the URL in external browser
           ShowDocumentParams ShowParams;
-          ShowParams.uri = URIForFile::canonicalize(NoogleUrl->str(), "");
+          ShowParams.externalUri = NoogleUrl->str();
           ShowParams.external = true;
 
           ShowDocument(

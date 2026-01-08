@@ -1168,8 +1168,12 @@ bool fromJSON(const llvm::json::Value &, ApplyWorkspaceEditResponse &,
 /// Parameters for the `window/showDocument` request.
 /// @since LSP 3.16.0
 struct ShowDocumentParams {
-  /// The document URI to show.
+  /// The document URI to show (for file:// URIs).
   URIForFile uri;
+
+  /// External URI string (for https:// or other non-file URIs).
+  /// When set, this takes precedence over `uri` in serialization.
+  std::optional<std::string> externalUri;
 
   /// Indicates to show the resource in an external program.
   /// To show, for example, `https://noogle.dev/` in the default web browser,
