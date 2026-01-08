@@ -74,6 +74,13 @@ private:
   void
   createWorkDoneProgress(const lspserver::WorkDoneProgressCreateParams &Params);
 
+  /// Request the client to show a document (file or URL).
+  /// @since LSP 3.16.0
+  llvm::unique_function<void(
+      const lspserver::ShowDocumentParams &,
+      lspserver::Callback<lspserver::ShowDocumentResult>)>
+      ShowDocument;
+
   llvm::unique_function<void(
       const lspserver::ProgressParams<lspserver::WorkDoneProgressBegin> &)>
       BeginWorkDoneProgress;
@@ -164,6 +171,9 @@ private:
   void
   onCodeAction(const lspserver::CodeActionParams &Params,
                lspserver::Callback<std::vector<lspserver::CodeAction>> Reply);
+
+  void onCodeActionResolve(const lspserver::CodeAction &Params,
+                           lspserver::Callback<lspserver::CodeAction> Reply);
 
   void onHover(const lspserver::TextDocumentPositionParams &Params,
                lspserver::Callback<std::optional<lspserver::Hover>> Reply);

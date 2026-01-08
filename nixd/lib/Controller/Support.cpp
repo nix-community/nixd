@@ -107,6 +107,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                      &Controller::onDocumentLink);
   Registry.addMethod("textDocument/codeAction", this,
                      &Controller::onCodeAction);
+  Registry.addMethod("codeAction/resolve", this,
+                     &Controller::onCodeActionResolve);
   Registry.addMethod("textDocument/hover", this, &Controller::onHover);
   Registry.addMethod("textDocument/formatting", this, &Controller::onFormat);
   Registry.addMethod("textDocument/rename", this, &Controller::onRename);
@@ -125,6 +127,8 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   CreateWorkDoneProgress =
       mkOutMethod<WorkDoneProgressCreateParams, std::nullptr_t>(
           "window/workDoneProgress/create");
+  ShowDocument = mkOutMethod<ShowDocumentParams, ShowDocumentResult>(
+      "window/showDocument");
   BeginWorkDoneProgress =
       mkOutNotifiction<ProgressParams<WorkDoneProgressBegin>>("$/progress");
   ReportWorkDoneProgress =

@@ -782,7 +782,27 @@ llvm::json::Value toJSON(const CodeAction &CA) {
     CodeAction["edit"] = *CA.edit;
   if (CA.command)
     CodeAction["command"] = *CA.command;
+  if (CA.data)
+    CodeAction["data"] = *CA.data;
   return CodeAction;
+}
+
+bool fromJSON(const llvm::json::Value &Params, CodeAction &CA,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Params, P);
+  if (!O || !O.map("title", CA.title))
+    return false;
+  O.map("kind", CA.kind);
+  O.map("diagnostics", CA.diagnostics);
+  O.map("isPreferred", CA.isPreferred);
+  O.map("edit", CA.edit);
+  O.map("command", CA.command);
+  // Handle data field - it's an arbitrary JSON value
+  if (const auto *Obj = Params.getAsObject()) {
+    if (const auto *Data = Obj->get("data"))
+      CA.data = *Data;
+  }
+  return true;
 }
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const DocumentSymbol &S) {
@@ -845,6 +865,23 @@ bool fromJSON(const llvm::json::Value &Response, ApplyWorkspaceEditResponse &R,
   llvm::json::ObjectMapper O(Response, P);
   return O && O.map("applied", R.applied) &&
          O.map("failureReason", R.failureReason);
+}
+
+llvm::json::Value toJSON(const ShowDocumentParams &Params) {
+  llvm::json::Object Result{{"uri", Params.uri}};
+  if (Params.external)
+    Result["external"] = *Params.external;
+  if (Params.takeFocus)
+    Result["takeFocus"] = *Params.takeFocus;
+  if (Params.selection)
+    Result["selection"] = *Params.selection;
+  return Result;
+}
+
+bool fromJSON(const llvm::json::Value &Response, ShowDocumentResult &R,
+              llvm::json::Path P) {
+  llvm::json::ObjectMapper O(Response, P);
+  return O && O.map("success", R.success);
 }
 
 bool fromJSON(const llvm::json::Value &Params, TextDocumentPositionParams &R,
