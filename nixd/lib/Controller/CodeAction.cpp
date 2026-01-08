@@ -12,9 +12,13 @@
 #include <nixf/Sema/ParentMap.h>
 
 #include <boost/asio/post.hpp>
+#include <llvm/Support/JSON.h>
+#include <lspserver/SourceCode.h>
 
+#include <iomanip>
 #include <optional>
 #include <set>
+#include <sstream>
 
 namespace nixd {
 
@@ -69,23 +73,137 @@ bool isValidNixIdentifier(const std::string &S) {
   return Keywords.find(S) == Keywords.end();
 }
 
+/// \brief Escape special characters for Nix double-quoted string literals.
+/// Escapes: " \ ${ \n \r \t (per Nix Reference Manual)
+std::string escapeNixString(llvm::StringRef S) {
+  std::string Result;
+  Result.reserve(S.size() + S.size() / 4 + 2);
+  for (size_t I = 0; I < S.size(); ++I) {
+    char C = S[I];
+    switch (C) {
+    case '"':
+      Result += "\\\"";
+      break;
+    case '\\':
+      Result += "\\\\";
+      break;
+    case '\n':
+      Result += "\\n";
+      break;
+    case '\r':
+      Result += "\\r";
+      break;
+    case '\t':
+      Result += "\\t";
+      break;
+    case '$':
+      // Only escape ${ to prevent interpolation
+      if (I + 1 < S.size() && S[I + 1] == '{') {
+        Result += "\\${";
+        ++I; // Skip the '{'
+      } else {
+        Result += C;
+      }
+      break;
+    default:
+      Result += C;
+    }
+  }
+  return Result;
+}
+
 /// \brief Quote and escape a Nix attribute key if necessary.
 /// Returns the key as-is if it's a valid identifier, otherwise quotes and
-/// escapes special characters (", \, $).
+/// escapes special characters using escapeNixString().
 std::string quoteNixAttrKey(const std::string &Key) {
   if (isValidNixIdentifier(Key))
     return Key;
 
-  std::string Result;
-  Result.reserve(Key.size() + 4);
-  Result += '"';
-  for (char C : Key) {
-    if (C == '"' || C == '\\' || C == '$')
-      Result += '\\';
-    Result += C;
+  return "\"" + escapeNixString(Key) + "\"";
+}
+
+/// \brief Maximum recursion depth for JSON to Nix conversion.
+constexpr size_t MaxJsonDepth = 100;
+
+/// \brief Maximum array/object width for JSON to Nix conversion.
+constexpr size_t MaxJsonWidth = 10000;
+
+/// \brief Convert a JSON value to Nix expression syntax.
+/// \param V The JSON value to convert
+/// \param Indent Current indentation level (for pretty-printing)
+/// \param Depth Current recursion depth (safety limit)
+/// \return Nix expression string, or empty string on error
+std::string jsonToNix(const llvm::json::Value &V, size_t Indent = 0,
+                      size_t Depth = 0) {
+  if (Depth > MaxJsonDepth)
+    return ""; // Safety limit exceeded
+
+  std::string IndentStr(Indent * 2, ' ');
+  std::string NextIndent((Indent + 1) * 2, ' ');
+  std::string Out;
+
+  if (V.kind() == llvm::json::Value::Null) {
+    Out = "null";
+  } else if (auto B = V.getAsBoolean()) {
+    Out = *B ? "true" : "false";
+  } else if (auto I = V.getAsInteger()) {
+    Out = std::to_string(*I);
+  } else if (auto D = V.getAsNumber()) {
+    // Format floating point with enough precision
+    std::ostringstream SS;
+    SS << std::setprecision(17) << *D;
+    Out = SS.str();
+  } else if (auto S = V.getAsString()) {
+    Out = "\"" + escapeNixString(*S) + "\"";
+  } else if (const auto *A = V.getAsArray()) {
+    if (A->size() > MaxJsonWidth)
+      return ""; // Width limit exceeded
+    if (A->empty()) {
+      Out = "[ ]";
+    } else {
+      // Pre-allocate memory to reduce reallocations
+      // Estimate: opening + closing + elements * (indent + value_estimate +
+      // newline)
+      size_t EstimatedSize = 4 + A->size() * ((Indent + 1) * 2 + 20);
+      Out.reserve(EstimatedSize);
+      Out = "[\n";
+      for (size_t I = 0; I < A->size(); ++I) {
+        std::string Elem = jsonToNix((*A)[I], Indent + 1, Depth + 1);
+        if (Elem.empty())
+          return ""; // Propagate error
+        Out += NextIndent + Elem;
+        if (I + 1 < A->size())
+          Out += "\n";
+      }
+      Out += "\n" + IndentStr + "]";
+    }
+  } else if (const auto *O = V.getAsObject()) {
+    if (O->size() > MaxJsonWidth)
+      return ""; // Width limit exceeded
+    if (O->empty()) {
+      Out = "{ }";
+    } else {
+      // Pre-allocate memory to reduce reallocations
+      // Estimate: braces + elements * (indent + key + " = " + value_estimate +
+      // ";\n")
+      size_t EstimatedSize = 4 + O->size() * ((Indent + 1) * 2 + 30);
+      Out.reserve(EstimatedSize);
+      Out = "{\n";
+      size_t I = 0;
+      for (const auto &KV : *O) {
+        std::string Key = quoteNixAttrKey(KV.first.str());
+        std::string Val = jsonToNix(KV.second, Indent + 1, Depth + 1);
+        if (Val.empty())
+          return ""; // Propagate error
+        Out += NextIndent + Key + " = " + Val + ";";
+        if (I + 1 < O->size())
+          Out += "\n";
+        ++I;
+      }
+      Out += "\n" + IndentStr + "}";
+    }
   }
-  Result += '"';
-  return Result;
+  return Out;
 }
 
 /// \brief Check if an ExprAttrs can be flattened (no rec, inherit, dynamic).
@@ -516,6 +634,67 @@ void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   }
 }
 
+/// \brief Add JSON to Nix conversion action for selected JSON text.
+/// This is a selection-based action that works on arbitrary text, not AST
+/// nodes.
+void addJsonToNixAction(llvm::StringRef Src, const lspserver::Range &Range,
+                        const std::string &FileURI,
+                        std::vector<CodeAction> &Actions) {
+  // Convert LSP positions to byte offsets
+  llvm::Expected<size_t> StartOffset = positionToOffset(Src, Range.start);
+  llvm::Expected<size_t> EndOffset = positionToOffset(Src, Range.end);
+
+  if (!StartOffset || !EndOffset) {
+    if (!StartOffset)
+      llvm::consumeError(StartOffset.takeError());
+    if (!EndOffset)
+      llvm::consumeError(EndOffset.takeError());
+    return;
+  }
+
+  // Validate range
+  if (*StartOffset >= *EndOffset || *EndOffset > Src.size())
+    return;
+
+  // Extract selected text
+  llvm::StringRef SelectedText =
+      Src.substr(*StartOffset, *EndOffset - *StartOffset);
+
+  // Skip if selection is too short (minimum valid JSON is "{}" or "[]")
+  if (SelectedText.size() < 2)
+    return;
+
+  // Skip if first character is not { or [ (quick rejection)
+  char First = SelectedText.front();
+  if (First != '{' && First != '[')
+    return;
+
+  // Try to parse as JSON
+  llvm::Expected<llvm::json::Value> JsonVal = llvm::json::parse(SelectedText);
+  if (!JsonVal) {
+    llvm::consumeError(JsonVal.takeError());
+    return;
+  }
+
+  // Skip empty JSON structures - already valid Nix
+  if (const auto *A = JsonVal->getAsArray()) {
+    if (A->empty())
+      return;
+  } else if (const auto *O = JsonVal->getAsObject()) {
+    if (O->empty())
+      return;
+  }
+
+  // Convert JSON to Nix
+  std::string NixText = jsonToNix(*JsonVal);
+  if (NixText.empty())
+    return;
+
+  Actions.emplace_back(createSingleEditAction(
+      "Convert JSON to Nix", CodeAction::REFACTOR_REWRITE_KIND, FileURI, Range,
+      std::move(NixText)));
+}
+
 } // namespace
 
 void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
@@ -569,6 +748,9 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
         }
       }
+
+      // Selection-based actions (work on arbitrary text, not AST nodes)
+      addJsonToNixAction(TU->src(), Range, FileURI, Actions);
 
       return Actions;
     }());
