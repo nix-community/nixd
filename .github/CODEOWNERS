@@ -21,4 +21,5 @@
 
 # Code Actions
 /nixd/lib/Controller/CodeAction.cpp @takeokunn
+/nixd/lib/Controller/CodeActions/ @takeokunn
 /nixd/tools/nixd/test/code-action/ @takeokunn
