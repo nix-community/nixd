@@ -9,6 +9,8 @@
 #include "nixd/Controller/Controller.h"
 
 #include <nixf/Basic/Nodes/Attrs.h>
+#include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Basic/Nodes/Simple.h>
 #include <nixf/Sema/ParentMap.h>
 
 #include <boost/asio/post.hpp>
@@ -634,6 +636,85 @@ void addAttrNameActions(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   }
 }
 
+/// \brief Construct noogle.dev URL for a lib.* function path.
+/// Examples:
+///   - {"lib", "optionalString"} -> "https://noogle.dev/f/lib/optionalString"
+///   - {"lib", "strings", "optionalString"} ->
+///   "https://noogle.dev/f/lib/strings/optionalString"
+std::string buildNoogleUrl(const std::vector<std::string> &Path) {
+  std::string Url = "https://noogle.dev/f";
+  for (const auto &Segment : Path) {
+    Url += "/";
+    Url += Segment;
+  }
+  return Url;
+}
+
+/// \brief Add a code action to open noogle.dev documentation for lib.*
+/// functions.
+///
+/// This action is offered when the cursor is on an ExprSelect with:
+///   - Base expression is ExprVar with name "lib"
+///   - Path contains at least one static attribute name
+///
+/// Examples that trigger:
+///   - lib.optionalString
+///   - lib.strings.optionalString
+///   - lib.attrsets.mapAttrs
+///
+/// Examples that do NOT trigger:
+///   - lib (just the variable, no selection)
+///   - lib.${x} (dynamic attribute)
+///   - pkgs.hello (not lib.*)
+void addNoogleDocAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
+                        std::vector<CodeAction> &Actions) {
+  // Find if we're inside an ExprSelect
+  const nixf::Node *SelectNode = PM.upTo(N, nixf::Node::NK_ExprSelect);
+  if (!SelectNode)
+    return;
+
+  const auto &Sel = static_cast<const nixf::ExprSelect &>(*SelectNode);
+
+  // Check base expression is ExprVar with name "lib"
+  if (Sel.expr().kind() != nixf::Node::NK_ExprVar)
+    return;
+
+  const auto &Var = static_cast<const nixf::ExprVar &>(Sel.expr());
+  if (Var.id().name() != "lib")
+    return;
+
+  // Check path exists and has at least one attribute
+  if (!Sel.path())
+    return;
+
+  const nixf::AttrPath &Path = *Sel.path();
+  if (Path.names().empty())
+    return;
+
+  // Build the function path, checking all names are static
+  std::vector<std::string> FunctionPath;
+  FunctionPath.reserve(Path.names().size() + 1);
+  FunctionPath.emplace_back("lib");
+
+  for (const auto &Name : Path.names()) {
+    if (!Name->isStatic())
+      return; // Dynamic attribute, can't construct URL
+    FunctionPath.emplace_back(Name->staticName());
+  }
+
+  // Construct the noogle.dev URL
+  std::string NoogleUrl = buildNoogleUrl(FunctionPath);
+
+  // Create a code action that will open the URL
+  // Note: The actual URL opening is handled by the client via
+  // window/showDocument
+  Actions.emplace_back(CodeAction{
+      .title = "Open Noogle documentation for " + FunctionPath.back(),
+      .kind = std::string(CodeAction::REFACTOR_KIND),
+      .data = Object{{"noogleUrl", NoogleUrl}},
+  });
+}
+
 /// \brief Add JSON to Nix conversion action for selected JSON text.
 /// This is a selection-based action that works on arbitrary text, not AST
 /// nodes.
@@ -694,7 +775,6 @@ void addJsonToNixAction(llvm::StringRef Src, const lspserver::Range &Range,
       "Convert JSON to Nix", CodeAction::REFACTOR_REWRITE_KIND, FileURI, Range,
       std::move(NixText)));
 }
-
 } // namespace
 
 void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
@@ -746,6 +826,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addFlattenAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                 Actions);
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
+          addNoogleDocAction(*N, *TU->parentMap(), Actions);
         }
       }
 
@@ -754,6 +835,38 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
 
       return Actions;
     }());
+  };
+  boost::asio::post(Pool, std::move(Action));
+}
+
+void Controller::onCodeActionResolve(const lspserver::CodeAction &Params,
+                                     Callback<CodeAction> Reply) {
+  auto Action = [Reply = std::move(Reply), Params, this]() mutable {
+    // Check if this is a Noogle documentation action
+    if (Params.data) {
+      const auto *DataObj = Params.data->getAsObject();
+      if (DataObj) {
+        auto NoogleUrl = DataObj->getString("noogleUrl");
+        if (NoogleUrl) {
+          // Call window/showDocument to open the URL in external browser
+          ShowDocumentParams ShowParams;
+          ShowParams.externalUri = NoogleUrl->str();
+          ShowParams.external = true;
+
+          ShowDocument(
+              ShowParams, [](llvm::Expected<ShowDocumentResult> Result) {
+                if (!Result) {
+                  lspserver::elog("Failed to open Noogle documentation: {0}",
+                                  Result.takeError());
+                }
+              });
+        }
+      }
+    }
+
+    // Return the resolved code action (unchanged for Noogle actions since
+    // the work is done via showDocument)
+    Reply(Params);
   };
   boost::asio::post(Pool, std::move(Action));
 }

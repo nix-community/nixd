@@ -1072,8 +1072,14 @@ struct CodeAction {
   /// A command this code action executes. If a code action provides an edit
   /// and a command, first the edit is executed and then the command.
   std::optional<Command> command;
+
+  /// A data entry field that is preserved on a code action between a
+  /// `textDocument/codeAction` and a `codeAction/resolve` request.
+  /// @since LSP 3.16.0
+  std::optional<llvm::json::Value> data;
 };
 llvm::json::Value toJSON(const CodeAction &);
+bool fromJSON(const llvm::json::Value &, CodeAction &, llvm::json::Path);
 
 /// Represents programming constructs like variables, classes, interfaces etc.
 /// that appear in a document. Document symbols can be hierarchical and they
@@ -1157,6 +1163,42 @@ struct ApplyWorkspaceEditResponse {
   std::optional<std::string> failureReason;
 };
 bool fromJSON(const llvm::json::Value &, ApplyWorkspaceEditResponse &,
+              llvm::json::Path);
+
+/// Parameters for the `window/showDocument` request.
+/// @since LSP 3.16.0
+struct ShowDocumentParams {
+  /// The document URI to show (for file:// URIs).
+  URIForFile uri;
+
+  /// External URI string (for https:// or other non-file URIs).
+  /// When set, this takes precedence over `uri` in serialization.
+  std::optional<std::string> externalUri;
+
+  /// Indicates to show the resource in an external program.
+  /// To show, for example, `https://noogle.dev/` in the default web browser,
+  /// set `external` to `true`.
+  std::optional<bool> external;
+
+  /// An optional property to indicate whether the editor showing the document
+  /// should take focus or not. Clients might ignore this property if an
+  /// external program is started.
+  std::optional<bool> takeFocus;
+
+  /// An optional selection range if the document is a text document.
+  /// Clients might ignore the property if an external program is started or
+  /// the file is not a text file.
+  std::optional<Range> selection;
+};
+llvm::json::Value toJSON(const ShowDocumentParams &);
+
+/// Result of the `window/showDocument` request.
+/// @since LSP 3.16.0
+struct ShowDocumentResult {
+  /// A boolean indicating if the show was successful.
+  bool success = false;
+};
+bool fromJSON(const llvm::json::Value &, ShowDocumentResult &,
               llvm::json::Path);
 
 struct TextDocumentPositionParams {
