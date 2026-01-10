@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <llvm/ADT/SmallVector.h>
@@ -269,6 +270,80 @@ struct TextDocumentEdit {
 };
 bool fromJSON(const llvm::json::Value &, TextDocumentEdit &, llvm::json::Path);
 llvm::json::Value toJSON(const TextDocumentEdit &);
+
+//===----------------------------------------------------------------------===//
+// Resource Operations (LSP 3.13+)
+//===----------------------------------------------------------------------===//
+
+/// Options for CreateFile operation.
+struct CreateFileOptions {
+  /// Overwrite existing file. Overwrite wins over `ignoreIfExists`.
+  std::optional<bool> overwrite;
+  /// Ignore if exists.
+  std::optional<bool> ignoreIfExists;
+};
+llvm::json::Value toJSON(const CreateFileOptions &);
+
+/// Create file operation.
+struct CreateFile {
+  /// The resource to create.
+  URIForFile uri;
+  /// Additional options.
+  std::optional<CreateFileOptions> options;
+  /// An optional annotation identifier.
+  std::optional<std::string> annotationId;
+};
+llvm::json::Value toJSON(const CreateFile &);
+
+/// Options for RenameFile operation.
+struct RenameFileOptions {
+  /// Overwrite target if existing. Overwrite wins over `ignoreIfExists`.
+  std::optional<bool> overwrite;
+  /// Ignores if target exists.
+  std::optional<bool> ignoreIfExists;
+};
+llvm::json::Value toJSON(const RenameFileOptions &);
+
+/// Rename file operation.
+struct RenameFile {
+  /// The old (existing) location.
+  URIForFile oldUri;
+  /// The new location.
+  URIForFile newUri;
+  /// Rename options.
+  std::optional<RenameFileOptions> options;
+  /// An optional annotation identifier.
+  std::optional<std::string> annotationId;
+};
+llvm::json::Value toJSON(const RenameFile &);
+
+/// Options for DeleteFile operation.
+struct DeleteFileOptions {
+  /// Delete the content recursively if a folder is denoted.
+  std::optional<bool> recursive;
+  /// Ignore the operation if the file doesn't exist.
+  std::optional<bool> ignoreIfNotExists;
+};
+llvm::json::Value toJSON(const DeleteFileOptions &);
+
+/// Delete file operation.
+struct DeleteFile {
+  /// The file to delete.
+  URIForFile uri;
+  /// Delete options.
+  std::optional<DeleteFileOptions> options;
+  /// An optional annotation identifier.
+  std::optional<std::string> annotationId;
+};
+llvm::json::Value toJSON(const DeleteFile &);
+
+/// A document change is either a TextDocumentEdit or a resource operation
+/// (CreateFile, RenameFile, DeleteFile).
+/// The discriminator is the presence of a "kind" field for resource operations.
+using DocumentChange =
+    std::variant<TextDocumentEdit, CreateFile, RenameFile, DeleteFile>;
+llvm::json::Value toJSON(const DocumentChange &);
+bool fromJSON(const llvm::json::Value &, DocumentChange &, llvm::json::Path);
 
 struct TextDocumentItem {
   /// The text document's URI.
@@ -994,12 +1069,12 @@ bool fromJSON(const llvm::json::Value &, CodeActionParams &, llvm::json::Path);
 struct WorkspaceEdit {
   /// Holds changes to existing resources.
   std::optional<std::map<std::string, std::vector<TextEdit>>> changes;
-  /// Versioned document edits.
+  /// Document changes including text edits and resource operations.
   ///
-  /// If a client neither supports `documentChanges` nor
-  /// `workspace.workspaceEdit.resourceOperations` then only plain `TextEdit`s
-  /// using the `changes` property are supported.
-  std::optional<std::vector<TextDocumentEdit>> documentChanges;
+  /// If a client supports `workspace.workspaceEdit.resourceOperations`, this
+  /// can contain TextDocumentEdit, CreateFile, RenameFile, and DeleteFile
+  /// operations. Otherwise, only TextDocumentEdit is supported.
+  std::optional<std::vector<DocumentChange>> documentChanges;
 
   /// A map of change annotations that can be referenced in
   /// AnnotatedTextEdit.

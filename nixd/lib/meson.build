@@ -9,6 +9,7 @@ libnixd_lib = library(
     'Controller/AST.cpp',
     'Controller/CodeAction.cpp',
     'Controller/CodeActions/AttrName.cpp',
+    'Controller/CodeActions/ExtractToFile.cpp',
     'Controller/CodeActions/FlattenAttrs.cpp',
     'Controller/CodeActions/JsonToNix.cpp',
     'Controller/CodeActions/NoogleDoc.cpp',
