@@ -514,12 +514,41 @@ TEST_F(VLATest, PrimOp_Inherit_NoWarning) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
-TEST_F(VLATest, PrimOp_Inherit_Warning) {
+TEST_F(VLATest, PrimOp_Inherit_PrefixNoWarning) {
   const char *Src = R"(
   let
     othername = builtins;
     inherit (othername) functionArgs;
   in functionArgs
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, PrimOp_Inherit_MatchWarning_LessThan) {
+  const char *Src = R"(
+  let
+    othername = builtins;
+    inherit (othername) __lessThan;
+  in __lessThan
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpOverridden);
+}
+
+TEST_F(VLATest, PrimOp_Inherit_MatchWarning_Map) {
+  const char *Src = R"(
+  let
+    othername = builtins;
+    inherit (othername) map;
+  in map
   )";
 
   std::shared_ptr<Node> AST = parse(Src, Diags);
@@ -536,6 +565,15 @@ TEST_F(VLATest, PrimOp_Inherit_NonVar) {
     inherit (othername.a) foo;
   in foo
   )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, PrimOp_Override_Namespace) {
+  const char *Src = R"({ path, ...}: path)";
 
   std::shared_ptr<Node> AST = parse(Src, Diags);
   VariableLookupAnalysis VLA(Diags);

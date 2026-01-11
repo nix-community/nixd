@@ -126,6 +126,13 @@ nvim_lsp.nixd.setup({
            (setq company-idle-delay 0.1))
 
   ```
+
+Configuration via [Eglot](https://www.gnu.org/software/emacs/manual/html_node/eglot/).  Eglot has been included in Emacs core since 29.1.  You can configure nixd per project by putting the following snippet into the `.dir-locals.el` file in your project.
+```lisp
+((nil . ((eglot-workspace-configuration . (:nixd (:options (:nixos (:expr "(builtins.getFlake (builtins.toString ./.)).nixosConfigurations.artemis.options"))))))))
+```
+You can also set the `eglot-workspace-configuration` variable globally (by using `setq-default`), if you prefer that.
+
 </details>
 
 ### Configuration overview

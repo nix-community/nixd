@@ -60,6 +60,10 @@ let
     	relativenumber = true,
     	scrolloff = 8,
     	updatetime = 50, -- faster completion (4000ms default)
+    	foldmethod = "expr",
+    	foldexpr = "v:lua.vim.lsp.foldexpr()",
+    	foldlevel = 99,
+    	foldenable = true,
     }
 
     for k, v in pairs(options) do

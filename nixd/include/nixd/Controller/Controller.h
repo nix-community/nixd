@@ -172,6 +172,10 @@ private:
       const lspserver::DocumentSymbolParams &Params,
       lspserver::Callback<std::vector<lspserver::DocumentSymbol>> Reply);
 
+  void onFoldingRange(
+      const lspserver::FoldingRangeParams &Params,
+      lspserver::Callback<std::vector<lspserver::FoldingRange>> Reply);
+
   void onSemanticTokens(const lspserver::SemanticTokensParams &Params,
                         lspserver::Callback<lspserver::SemanticTokens> Reply);
 
