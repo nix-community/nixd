@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that "Flatten nested attribute set" action is offered for simple nested attrsets.
+Test that "Extract to file" warns about 'with' scope variables in the title.
 
 <-- initialize(0)
 
@@ -13,6 +13,12 @@ Test that "Flatten nested attribute set" action is offered for simple nested att
       "processId":123,
       "rootPath":"",
       "capabilities":{
+         "workspace": {
+            "workspaceEdit": {
+               "documentChanges": true,
+               "resourceOperations": ["create", "rename", "delete"]
+            }
+         }
       },
       "trace":"off"
    }
@@ -22,8 +28,8 @@ Test that "Flatten nested attribute set" action is offered for simple nested att
 
 <-- textDocument/didOpen
 
-```nix file:///flatten-attrs.nix
-{ foo = { bar = 1; }; }
+```nix file:///test.nix
+{ pkgs }: with pkgs; { buildInputs = [ foo bar ]; }
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,16 +42,16 @@ Test that "Flatten nested attribute set" action is offered for simple nested att
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///flatten-attrs.nix"
+         "uri":"file:///test.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":2
+            "character":37
          },
          "end":{
             "line":0,
-            "character":5
+            "character":48
          }
       },
       "context":{
@@ -56,15 +62,13 @@ Test that "Flatten nested attribute set" action is offered for simple nested att
 }
 ```
 
-The Quote action appears first, then Flatten action second.
+The Extract action should detect 'with' scope variables and warn about them.
 
 ```
      CHECK:   "id": 2,
      CHECK:   "result": [
-     CHECK:       "newText": "\"foo\""
-     CHECK:       "title": "Quote attribute name"
-     CHECK:       "newText": "foo.bar = 1;"
-     CHECK:       "title": "Flatten nested attribute set"
+     CHECK:       "kind": "refactor"
+     CHECK:       "title": "Extract to buildInputs.nix (2 free variables, has 'with' vars)"
 ```
 
 ```json

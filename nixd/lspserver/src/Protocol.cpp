@@ -232,6 +232,153 @@ llvm::json::Value toJSON(const TextDocumentEdit &P) {
   return Result;
 }
 
+//===----------------------------------------------------------------------===//
+// Resource Operations (LSP 3.13+)
+//===----------------------------------------------------------------------===//
+
+llvm::json::Value toJSON(const CreateFileOptions &P) {
+  llvm::json::Object Result;
+  if (P.overwrite)
+    Result["overwrite"] = *P.overwrite;
+  if (P.ignoreIfExists)
+    Result["ignoreIfExists"] = *P.ignoreIfExists;
+  return Result;
+}
+
+llvm::json::Value toJSON(const CreateFile &P) {
+  llvm::json::Object Result{
+      {"kind", "create"},
+      {"uri", P.uri},
+  };
+  if (P.options)
+    Result["options"] = *P.options;
+  if (P.annotationId)
+    Result["annotationId"] = *P.annotationId;
+  return Result;
+}
+
+llvm::json::Value toJSON(const RenameFileOptions &P) {
+  llvm::json::Object Result;
+  if (P.overwrite)
+    Result["overwrite"] = *P.overwrite;
+  if (P.ignoreIfExists)
+    Result["ignoreIfExists"] = *P.ignoreIfExists;
+  return Result;
+}
+
+llvm::json::Value toJSON(const RenameFile &P) {
+  llvm::json::Object Result{
+      {"kind", "rename"},
+      {"oldUri", P.oldUri},
+      {"newUri", P.newUri},
+  };
+  if (P.options)
+    Result["options"] = *P.options;
+  if (P.annotationId)
+    Result["annotationId"] = *P.annotationId;
+  return Result;
+}
+
+llvm::json::Value toJSON(const DeleteFileOptions &P) {
+  llvm::json::Object Result;
+  if (P.recursive)
+    Result["recursive"] = *P.recursive;
+  if (P.ignoreIfNotExists)
+    Result["ignoreIfNotExists"] = *P.ignoreIfNotExists;
+  return Result;
+}
+
+llvm::json::Value toJSON(const DeleteFile &P) {
+  llvm::json::Object Result{
+      {"kind", "delete"},
+      {"uri", P.uri},
+  };
+  if (P.options)
+    Result["options"] = *P.options;
+  if (P.annotationId)
+    Result["annotationId"] = *P.annotationId;
+  return Result;
+}
+
+llvm::json::Value toJSON(const DocumentChange &DC) {
+  return std::visit(
+      [](const auto &Change) -> llvm::json::Value { return toJSON(Change); },
+      DC);
+}
+
+bool fromJSON(const llvm::json::Value &Params, DocumentChange &DC,
+              llvm::json::Path P) {
+  // DocumentChange is a variant: TextDocumentEdit | CreateFile | RenameFile |
+  // DeleteFile Resource operations have a "kind" field; TextDocumentEdit does
+  // not.
+  const auto *O = Params.getAsObject();
+  if (!O)
+    return false;
+
+  // Check for "kind" field to distinguish resource operations
+  if (auto Kind = O->getString("kind")) {
+    if (*Kind == "create") {
+      CreateFile CF;
+      if (!fromJSON(Params, CF.uri, P.field("uri")))
+        return false;
+      // Options are optional, parse if present
+      if (const auto *OptsObj = O->getObject("options")) {
+        CF.options = CreateFileOptions{};
+        if (auto Overwrite = OptsObj->getBoolean("overwrite"))
+          CF.options->overwrite = *Overwrite;
+        if (auto IgnoreIfExists = OptsObj->getBoolean("ignoreIfExists"))
+          CF.options->ignoreIfExists = *IgnoreIfExists;
+      }
+      if (auto AnnotationId = O->getString("annotationId"))
+        CF.annotationId = AnnotationId->str();
+      DC = std::move(CF);
+      return true;
+    }
+    if (*Kind == "rename") {
+      RenameFile RF;
+      if (!fromJSON(Params, RF.oldUri, P.field("oldUri")) ||
+          !fromJSON(Params, RF.newUri, P.field("newUri")))
+        return false;
+      if (const auto *OptsObj = O->getObject("options")) {
+        RF.options = RenameFileOptions{};
+        if (auto Overwrite = OptsObj->getBoolean("overwrite"))
+          RF.options->overwrite = *Overwrite;
+        if (auto IgnoreIfExists = OptsObj->getBoolean("ignoreIfExists"))
+          RF.options->ignoreIfExists = *IgnoreIfExists;
+      }
+      if (auto AnnotationId = O->getString("annotationId"))
+        RF.annotationId = AnnotationId->str();
+      DC = std::move(RF);
+      return true;
+    }
+    if (*Kind == "delete") {
+      DeleteFile DF;
+      if (!fromJSON(Params, DF.uri, P.field("uri")))
+        return false;
+      if (const auto *OptsObj = O->getObject("options")) {
+        DF.options = DeleteFileOptions{};
+        if (auto Recursive = OptsObj->getBoolean("recursive"))
+          DF.options->recursive = *Recursive;
+        if (auto IgnoreIfNotExists = OptsObj->getBoolean("ignoreIfNotExists"))
+          DF.options->ignoreIfNotExists = *IgnoreIfNotExists;
+      }
+      if (auto AnnotationId = O->getString("annotationId"))
+        DF.annotationId = AnnotationId->str();
+      DC = std::move(DF);
+      return true;
+    }
+    P.report("unknown document change kind");
+    return false;
+  }
+
+  // No "kind" field - must be TextDocumentEdit
+  TextDocumentEdit TDE;
+  if (!fromJSON(Params, TDE, P))
+    return false;
+  DC = std::move(TDE);
+  return true;
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const TextEdit &TE) {
   OS << TE.range << " => \"";
   llvm::printEscapedString(TE.newText, OS);

@@ -7,6 +7,7 @@
 #include "Convert.h"
 
 #include "CodeActions/AttrName.h"
+#include "CodeActions/ExtractToFile.h"
 #include "CodeActions/FlattenAttrs.h"
 #include "CodeActions/JsonToNix.h"
 #include "CodeActions/NoogleDoc.h"
@@ -72,6 +73,12 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
                                 Actions);
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
           addNoogleDocAction(*N, *TU->parentMap(), Actions);
+
+          // Extract to file requires variable lookup analysis
+          if (TU->variableLookup()) {
+            addExtractToFileAction(*N, *TU->parentMap(), *TU->variableLookup(),
+                                   FileURI, TU->src(), Actions);
+          }
         }
       }
 
