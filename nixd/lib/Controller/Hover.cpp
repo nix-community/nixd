@@ -87,31 +87,116 @@ class NixpkgsHoverProvider {
     return OS.str();
   }
 
+  /// \brief Make markdown including both package and value description
+  static std::string mkMarkdown(const AttrPathInfoResponse &Info) {
+    std::ostringstream OS;
+    // Package section (if available)
+    OS << mkMarkdown(Info.PackageDesc);
+
+    // Value description section
+    if (Info.ValueDesc) {
+      const auto &VD = *Info.ValueDesc;
+      if (!OS.str().empty())
+        OS << "\n";
+      if (!VD.Doc.empty()) {
+        OS << VD.Doc << "\n\n";
+      }
+      if (VD.Arity != 0) {
+        OS << "**Arity:** " << VD.Arity << "\n";
+      }
+      if (!VD.Args.empty()) {
+        OS << "**Args:** ";
+        for (size_t Idx = 0; Idx < VD.Args.size(); ++Idx) {
+          OS << "`" << VD.Args[Idx] << "`";
+          if (Idx + 1 < VD.Args.size())
+            OS << ", ";
+        }
+        OS << "\n";
+      }
+    }
+
+    return OS.str();
+  }
+
 public:
   NixpkgsHoverProvider(AttrSetClient &NixpkgsClient)
       : NixpkgsClient(NixpkgsClient) {}
 
-  std::optional<std::string> resolvePackage(std::vector<std::string> Scope,
-                                            std::string Name) {
+  std::optional<std::string> resolveSelector(const nixd::Selector &Sel) {
     std::binary_semaphore Ready(0);
-    std::optional<AttrPathInfoResponse> Desc;
-    auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
+    std::optional<AttrPathInfoResponse> Info;
+    auto OnReply = [&Ready, &Info](llvm::Expected<AttrPathInfoResponse> Resp) {
       if (Resp)
-        Desc = *Resp;
+        Info = *Resp;
       else
         elog("nixpkgs provider: {0}", Resp.takeError());
       Ready.release();
     };
-    Scope.emplace_back(std::move(Name));
-    NixpkgsClient.attrpathInfo(Scope, std::move(OnReply));
+    NixpkgsClient.attrpathInfo(Sel, std::move(OnReply));
     Ready.acquire();
 
-    if (!Desc)
+    if (!Info)
       return std::nullopt;
 
-    return mkMarkdown(Desc->PackageDesc);
+    return mkMarkdown(*Info);
   }
 };
+
+/// \brief Get nixpkgs hover info from a selector.
+std::optional<Hover> hoverNixpkgsSelector(const Selector &Sel,
+                                          const nixf::Node &N,
+                                          const VariableLookupAnalysis &VLA,
+                                          const ParentMapAnalysis &PM,
+                                          AttrSetClient &NixpkgsClient,
+                                          llvm::StringRef Src) {
+  try {
+    // Ask nixpkgs provider information about this selector.
+    NixpkgsHoverProvider NHP(NixpkgsClient);
+    if (std::optional<std::string> Doc = NHP.resolveSelector(Sel)) {
+      return Hover{
+          .contents =
+              MarkupContent{
+                  .kind = MarkupKind::Markdown,
+                  .value = std::move(*Doc),
+              },
+          .range = toLSPRange(Src, N.range()),
+      };
+    }
+  } catch (std::exception &E) {
+    elog("hover/idiom: {0}", E.what());
+  }
+  return std::nullopt;
+}
+
+/// \brief Get hover info for ExprVar.
+std::optional<Hover> hoverVar(const ExprVar &Var,
+                              const VariableLookupAnalysis &VLA,
+                              const ParentMapAnalysis &PM,
+                              AttrSetClient &NixpkgsClient,
+                              llvm::StringRef Src) {
+  try {
+    Selector Sel = idioms::mkVarSelector(Var, VLA, PM);
+    return hoverNixpkgsSelector(Sel, Var, VLA, PM, NixpkgsClient, Src);
+  } catch (std::exception &E) {
+    elog("hover/idiom/selector: {0}", E.what());
+  }
+  return std::nullopt;
+}
+
+/// \brief Get hover info for ExprSelect.
+std::optional<Hover> hoverSelect(const ExprSelect &Sel,
+                                 const VariableLookupAnalysis &VLA,
+                                 const ParentMapAnalysis &PM,
+                                 AttrSetClient &NixpkgsClient,
+                                 llvm::StringRef Src) {
+  try {
+    Selector S = idioms::mkSelector(Sel, VLA, PM);
+    return hoverNixpkgsSelector(S, Sel, VLA, PM, NixpkgsClient, Src);
+  } catch (std::exception &E) {
+    elog("hover/idiom/selector: {0}", E.what());
+  }
+  return std::nullopt;
+}
 
 } // namespace
 
@@ -130,52 +215,62 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
       const auto Name = std::string(N.name());
       const auto &VLA = *TU->variableLookup();
       const auto &PM = *TU->parentMap();
-      if (havePackageScope(N, VLA, PM) && nixpkgsClient()) {
-        // Ask nixpkgs client what's current package documentation.
-        auto NHP = NixpkgsHoverProvider(*nixpkgsClient());
-        const auto [Scope, Name] = getScopeAndPrefix(N, PM);
-        if (std::optional<std::string> Doc = NHP.resolvePackage(Scope, Name)) {
-          return Hover{
-              .contents =
-                  MarkupContent{
-                      .kind = MarkupKind::Markdown,
-                      .value = std::move(*Doc),
-                  },
-              .range = toLSPRange(TU->src(), N.range()),
-          };
-        }
-      }
 
-      auto Scope = std::vector<std::string>();
-      const auto R = findAttrPathForOptions(N, PM, Scope);
-      if (R == FindAttrPathResult::OK) {
-        std::lock_guard _(OptionsLock);
-        for (const auto &[_, Client] : Options) {
-          if (AttrSetClient *C = Client->client()) {
-            OptionsHoverProvider OHP(*C);
-            std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
-            std::string Docs;
-            if (Desc) {
-              if (Desc->Type) {
-                std::string TypeName = Desc->Type->Name.value_or("");
-                std::string TypeDesc = Desc->Type->Description.value_or("");
-                Docs += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
-              } else {
-                Docs += "? (missing type)";
+      const auto &UpExpr = *CheckDefault(PM.upExpr(N));
+
+      // Try to get hover info from nixpkgs.
+      if (auto *Client = nixpkgsClient(); Client) {
+        switch (UpExpr.kind()) {
+        case Node::NK_ExprVar: {
+          const auto &Var = static_cast<const ExprVar &>(UpExpr);
+          if (auto H = hoverVar(Var, VLA, PM, *Client, TU->src()))
+            return *H;
+          break;
+        }
+        case Node::NK_ExprSelect: {
+          const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
+          if (auto H = hoverSelect(Sel, VLA, PM, *Client, TU->src()))
+            return *H;
+          break;
+        }
+        case Node::NK_ExprAttrs: {
+          // Try to get hover info from options.
+          auto Scope = std::vector<std::string>();
+          const auto R = findAttrPathForOptions(N, PM, Scope);
+          if (R == FindAttrPathResult::OK) {
+            std::lock_guard _(OptionsLock);
+            for (const auto &[_, Client] : Options) {
+              if (AttrSetClient *C = Client->client()) {
+                OptionsHoverProvider OHP(*C);
+                std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
+                std::string Docs;
+                if (Desc) {
+                  if (Desc->Type) {
+                    std::string TypeName = Desc->Type->Name.value_or("");
+                    std::string TypeDesc = Desc->Type->Description.value_or("");
+                    Docs += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
+                  } else {
+                    Docs += "? (missing type)";
+                  }
+                  if (Desc->Description) {
+                    Docs += "\n\n" + Desc->Description.value_or("");
+                  }
+                  return Hover{
+                      .contents =
+                          MarkupContent{
+                              .kind = MarkupKind::Markdown,
+                              .value = std::move(Docs),
+                          },
+                      .range = toLSPRange(TU->src(), N.range()),
+                  };
+                }
               }
-              if (Desc->Description) {
-                Docs += "\n\n" + Desc->Description.value_or("");
-              }
-              return Hover{
-                  .contents =
-                      MarkupContent{
-                          .kind = MarkupKind::Markdown,
-                          .value = std::move(Docs),
-                      },
-                  .range = toLSPRange(TU->src(), N.range()),
-              };
             }
           }
+          break;
+        }
+        default:
+          break;
         }
       }
 
