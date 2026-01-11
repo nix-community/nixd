@@ -17,7 +17,7 @@ let
 in
 stdenv.mkDerivation {
   inherit pname;
-  version = "2.8.1";
+  version = "2.8.2";
 
   src = ../.;
 
