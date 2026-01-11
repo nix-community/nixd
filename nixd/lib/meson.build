@@ -15,6 +15,7 @@ libnixd_lib = library(
     'Controller/CodeActions/NoogleDoc.cpp',
     'Controller/CodeActions/PackAttrs.cpp',
     'Controller/CodeActions/Utils.cpp',
+    'Controller/CodeActions/WithToLet.cpp',
     'Controller/Completion.cpp',
     'Controller/Configuration.cpp',
     'Controller/Convert.cpp',
