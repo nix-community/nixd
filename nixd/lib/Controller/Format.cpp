@@ -89,6 +89,11 @@ void Controller::onFormat(const DocumentFormattingParams &Params,
       Response.append(Buf, Read);
     }
 
+    if (Response == Code) {
+      Reply(std::vector<TextEdit>{});
+      return;
+    }
+
     TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, Response};
     Reply(std::vector{E});
   };
