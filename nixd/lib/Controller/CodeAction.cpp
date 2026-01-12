@@ -7,6 +7,7 @@
 #include "Convert.h"
 
 #include "CodeActions/AttrName.h"
+#include "CodeActions/ConvertToInherit.h"
 #include "CodeActions/ExtractToFile.h"
 #include "CodeActions/FlattenAttrs.h"
 #include "CodeActions/JsonToNix.h"
@@ -69,6 +70,8 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
         nixf::PositionRange NixfRange = toNixfRange(Range);
         if (const nixf::Node *N = TU->ast()->descend(NixfRange)) {
           addAttrNameActions(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
+          addConvertToInheritAction(*N, *TU->parentMap(), FileURI, TU->src(),
+                                    Actions);
           addFlattenAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                 Actions);
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
