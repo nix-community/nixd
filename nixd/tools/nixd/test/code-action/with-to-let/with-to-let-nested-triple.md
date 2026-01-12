@@ -1,10 +1,9 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that NO action is offered for outer `with` in nested `with` expressions.
+Test that NO action is offered for middle `with` in a triple-nested chain.
 
-Converting outer `with` to `let/inherit` can change variable resolution semantics
-because `let` bindings shadow inner `with` scopes. To avoid this semantic issue,
-the code action is only offered for the innermost `with` in a nested chain.
+In `with a; with b; with c; x`, only the innermost `with c` should get the action.
+Both `with a` and `with b` have directly nested `with` expressions in their bodies.
 
 See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
 
@@ -28,12 +27,13 @@ See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
 
 <-- textDocument/didOpen
 
-```nix file:///with-to-let-nested.nix
-with outer; with inner; foo bar
+```nix file:///with-to-let-nested-triple.nix
+with a; with b; with c; foo
 ```
 
 <-- textDocument/codeAction(2)
 
+Request code action on middle `with b` (character 8-12).
 
 ```json
 {
@@ -42,16 +42,16 @@ with outer; with inner; foo bar
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///with-to-let-nested.nix"
+         "uri":"file:///with-to-let-nested-triple.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":0
+            "character":8
          },
          "end":{
             "line":0,
-            "character":4
+            "character":12
          }
       },
       "context":{
@@ -62,8 +62,8 @@ with outer; with inner; foo bar
 }
 ```
 
-No "Convert with to let/inherit" action should be offered when cursor is
-on the outer `with` of a nested chain.
+No "Convert with to let/inherit" action should be offered for middle `with b`
+because its body contains another `with c`.
 
 ```
      CHECK:   "id": 2,

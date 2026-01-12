@@ -1,12 +1,9 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that NO action is offered for outer `with` in nested `with` expressions.
+Test that the code action IS offered for the innermost `with` in nested chains.
 
-Converting outer `with` to `let/inherit` can change variable resolution semantics
-because `let` bindings shadow inner `with` scopes. To avoid this semantic issue,
-the code action is only offered for the innermost `with` in a nested chain.
-
-See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
+The innermost `with` is safe to convert because its `let` bindings would shadow
+outer `with` scopes anyway, preserving the original variable resolution semantics.
 
 <-- initialize(0)
 
@@ -28,7 +25,7 @@ See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
 
 <-- textDocument/didOpen
 
-```nix file:///with-to-let-nested.nix
+```nix file:///with-to-let-nested-inner.nix
 with outer; with inner; foo bar
 ```
 
@@ -42,16 +39,16 @@ with outer; with inner; foo bar
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///with-to-let-nested.nix"
+         "uri":"file:///with-to-let-nested-inner.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":0
+            "character":12
          },
          "end":{
             "line":0,
-            "character":4
+            "character":16
          }
       },
       "context":{
@@ -62,12 +59,14 @@ with outer; with inner; foo bar
 }
 ```
 
-No "Convert with to let/inherit" action should be offered when cursor is
-on the outer `with` of a nested chain.
+The action should convert the inner `with` to `let/inherit`, preserving the
+outer `with` in place.
 
 ```
-     CHECK:   "id": 2,
-CHECK-NOT:   "Convert `with` to `let/inherit`"
+     CHECK: "id": 2,
+     CHECK: "newText": "let inherit (inner) bar foo; in foo bar",
+     CHECK: "kind": "refactor.rewrite",
+     CHECK: "title": "Convert `with` to `let/inherit`"
 ```
 
 ```json

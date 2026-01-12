@@ -31,6 +31,7 @@ namespace nixd {
 /// The action is NOT offered when:
 /// - The cursor is not on the `with` keyword
 /// - No variables are used from the with scope (unused with)
+/// - The with body is directly another with expression (nested with chains)
 void addWithToLetAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
                         const nixf::VariableLookupAnalysis &VLA,
                         const std::string &FileURI, llvm::StringRef Src,

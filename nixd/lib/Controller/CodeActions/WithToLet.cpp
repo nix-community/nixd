@@ -7,12 +7,28 @@
 #include "../Convert.h"
 
 #include <nixf/Basic/Nodes/Expr.h>
+#include <nixf/Basic/Nodes/Simple.h>
 
 #include <set>
 
 namespace nixd {
 
 namespace {
+
+/// \brief Unwrap parenthesized expressions to get the inner expression.
+/// For example, `(expr)` returns `expr`, `((expr))` returns `expr`.
+const nixf::Expr *unwrapParen(const nixf::Expr *E) {
+  while (E && E->kind() == nixf::Node::NK_ExprParen)
+    E = static_cast<const nixf::ExprParen *>(E)->expr();
+  return E;
+}
+
+/// \brief Check if the with body is directly another with expression.
+/// This includes parenthesized with, e.g., `with a; (with b; x)`.
+bool hasDirectlyNestedWith(const nixf::ExprWith &With) {
+  const nixf::Expr *Body = unwrapParen(With.expr());
+  return Body && Body->kind() == nixf::Node::NK_ExprWith;
+}
 
 /// \brief Check if cursor position is on the `with` keyword.
 bool isCursorOnWithKeyword(const nixf::ExprWith &With, const nixf::Node &N) {
@@ -103,6 +119,13 @@ void addWithToLetAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
   // Check if cursor is on the `with` keyword (not in the body or source expr)
   if (!isCursorOnWithKeyword(With, N))
+    return;
+
+  // Skip non-innermost with in nested chains to avoid semantic issues.
+  // Converting outer `with` to `let/inherit` can change variable resolution
+  // because `let` bindings shadow inner `with` scopes.
+  // See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
+  if (hasDirectlyNestedWith(With))
     return;
 
   // Collect variables used from this with scope

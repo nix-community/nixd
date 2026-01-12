@@ -1,10 +1,9 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that NO action is offered for outer `with` in nested `with` expressions.
+Test that NO action is offered for outer `with` when the inner `with` is parenthesized.
 
-Converting outer `with` to `let/inherit` can change variable resolution semantics
-because `let` bindings shadow inner `with` scopes. To avoid this semantic issue,
-the code action is only offered for the innermost `with` in a nested chain.
+The `unwrapParen()` helper correctly unwraps parentheses to detect nested `with`,
+so `with a; (with b; x)` is treated the same as `with a; with b; x`.
 
 See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
 
@@ -28,8 +27,8 @@ See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
 
 <-- textDocument/didOpen
 
-```nix file:///with-to-let-nested.nix
-with outer; with inner; foo bar
+```nix file:///with-to-let-nested-paren.nix
+with outer; (with inner; foo)
 ```
 
 <-- textDocument/codeAction(2)
@@ -42,7 +41,7 @@ with outer; with inner; foo bar
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///with-to-let-nested.nix"
+         "uri":"file:///with-to-let-nested-paren.nix"
       },
       "range":{
          "start":{
@@ -63,7 +62,7 @@ with outer; with inner; foo bar
 ```
 
 No "Convert with to let/inherit" action should be offered when cursor is
-on the outer `with` of a nested chain.
+on the outer `with`, even when the inner `with` is wrapped in parentheses.
 
 ```
      CHECK:   "id": 2,
