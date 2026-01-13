@@ -145,12 +145,12 @@ void addWithToLetAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   if (!isCursorOnWithKeyword(With, N))
     return;
 
-  // Skip `with` expressions that have nested `with` scopes (direct or indirect).
-  // Converting such a `with` to `let/inherit` can change variable resolution
-  // because `let` bindings shadow inner `with` scopes.
-  // This semantic check handles both direct nesting (with a; with b; x) and
-  // indirect nesting (with a; let y = with b; x; in y).
-  // See: https://github.com/nix-community/nixd/pull/768#discussion_r2681198142
+  // Skip `with` expressions that have nested `with` scopes (direct or
+  // indirect). Converting such a `with` to `let/inherit` can change variable
+  // resolution because `let` bindings shadow inner `with` scopes. This semantic
+  // check handles both direct nesting (with a; with b; x) and indirect nesting
+  // (with a; let y = with b; x; in y). See:
+  // https://github.com/nix-community/nixd/pull/768#discussion_r2681198142
   if (hasNestedWithScope(With, VLA))
     return;
 

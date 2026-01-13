@@ -157,9 +157,9 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     Def->usedBy(Var);
     Results.insert({&Var, LookupResult{LookupResultKind::Defined, Def}});
   } else if (!WithEnvs.empty()) { // comes from enclosed "with" expressions.
-    // Collect all `with` expressions that could provide this variable's binding.
-    // This is stored for later queries (e.g., by code actions that need to
-    // determine if converting a `with` to `let/inherit` is safe).
+    // Collect all `with` expressions that could provide this variable's
+    // binding. This is stored for later queries (e.g., by code actions that
+    // need to determine if converting a `with` to `let/inherit` is safe).
     std::vector<const ExprWith *> WithScopes;
     for (const auto *WithEnv : WithEnvs) {
       Def = WithDefs.at(WithEnv->syntax());
