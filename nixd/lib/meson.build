@@ -12,6 +12,7 @@ libnixd_lib = library(
     'Controller/CodeActions/ConvertToInherit.cpp',
     'Controller/CodeActions/ExtractToFile.cpp',
     'Controller/CodeActions/FlattenAttrs.cpp',
+    'Controller/CodeActions/InheritToBinding.cpp',
     'Controller/CodeActions/JsonToNix.cpp',
     'Controller/CodeActions/NoogleDoc.cpp',
     'Controller/CodeActions/PackAttrs.cpp',

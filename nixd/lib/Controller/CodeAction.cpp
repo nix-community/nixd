@@ -10,6 +10,7 @@
 #include "CodeActions/ConvertToInherit.h"
 #include "CodeActions/ExtractToFile.h"
 #include "CodeActions/FlattenAttrs.h"
+#include "CodeActions/InheritToBinding.h"
 #include "CodeActions/JsonToNix.h"
 #include "CodeActions/NoogleDoc.h"
 #include "CodeActions/PackAttrs.h"
@@ -76,6 +77,8 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addFlattenAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                 Actions);
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
+          addInheritToBindingAction(*N, *TU->parentMap(), FileURI, TU->src(),
+                                    Actions);
           addNoogleDocAction(*N, *TU->parentMap(), Actions);
 
           // Extract to file requires variable lookup analysis
