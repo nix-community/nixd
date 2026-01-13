@@ -12,6 +12,7 @@
 #include "CodeActions/JsonToNix.h"
 #include "CodeActions/NoogleDoc.h"
 #include "CodeActions/PackAttrs.h"
+#include "CodeActions/WithToLet.h"
 
 #include "nixd/Controller/Controller.h"
 
@@ -78,6 +79,11 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           if (TU->variableLookup()) {
             addExtractToFileAction(*N, *TU->parentMap(), *TU->variableLookup(),
                                    FileURI, TU->src(), Actions);
+          }
+          // Add with-to-let action (requires VLA for variable tracking)
+          if (TU->variableLookup()) {
+            addWithToLetAction(*N, *TU->parentMap(), *TU->variableLookup(),
+                               FileURI, TU->src(), Actions);
           }
         }
       }
