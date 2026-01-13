@@ -15,19 +15,43 @@ namespace nixd {
 
 namespace {
 
-/// \brief Unwrap parenthesized expressions to get the inner expression.
-/// For example, `(expr)` returns `expr`, `((expr))` returns `expr`.
-const nixf::Expr *unwrapParen(const nixf::Expr *E) {
-  while (E && E->kind() == nixf::Node::NK_ExprParen)
-    E = static_cast<const nixf::ExprParen *>(E)->expr();
-  return E;
-}
+/// \brief Check if any variable used by this `with` could also be provided by
+/// a nested (inner) `with` expression.
+///
+/// This uses semantic analysis to detect indirect nested `with` scenarios.
+/// Converting an outer `with` to `let/inherit` is unsafe when variables could
+/// come from inner `with` scopes, because `let` bindings shadow `with` scopes.
+///
+/// \param With The `with` expression to check.
+/// \param VLA The variable lookup analysis containing scope information.
+/// \return true if this `with` has nested `with` scopes that affect its
+///         variables (conversion unsafe), false if it's safe to convert.
+bool hasNestedWithScope(const nixf::ExprWith &With,
+                        const nixf::VariableLookupAnalysis &VLA) {
+  // Get the Definition for the `with` keyword to find all variables it provides
+  const nixf::Definition *Def = VLA.toDef(With.kwWith());
+  if (!Def)
+    return false;
 
-/// \brief Check if the with body is directly another with expression.
-/// This includes parenthesized with, e.g., `with a; (with b; x)`.
-bool hasDirectlyNestedWith(const nixf::ExprWith &With) {
-  const nixf::Expr *Body = unwrapParen(With.expr());
-  return Body && Body->kind() == nixf::Node::NK_ExprWith;
+  // Check each variable used from this with scope
+  for (const nixf::ExprVar *Var : Def->uses()) {
+    if (!Var)
+      continue;
+
+    // Get all `with` scopes that could provide this variable
+    auto WithScopes = VLA.getWithScopes(*Var);
+
+    // If there are multiple `with` scopes, check if this `with` is not the
+    // innermost one. The WithScopes vector is ordered innermost-to-outermost,
+    // so if our `with` is not the first one, there's a nested `with`.
+    if (WithScopes.size() > 1 && WithScopes.front() != &With) {
+      // This variable could come from a different (inner) `with`,
+      // so converting this outer `with` to `let/inherit` would change semantics
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /// \brief Check if cursor position is on the `with` keyword.
@@ -121,11 +145,13 @@ void addWithToLetAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   if (!isCursorOnWithKeyword(With, N))
     return;
 
-  // Skip non-innermost with in nested chains to avoid semantic issues.
-  // Converting outer `with` to `let/inherit` can change variable resolution
+  // Skip `with` expressions that have nested `with` scopes (direct or indirect).
+  // Converting such a `with` to `let/inherit` can change variable resolution
   // because `let` bindings shadow inner `with` scopes.
-  // See: https://github.com/nix-community/nixd/pull/768#discussion_r2679465713
-  if (hasDirectlyNestedWith(With))
+  // This semantic check handles both direct nesting (with a; with b; x) and
+  // indirect nesting (with a; let y = with b; x; in y).
+  // See: https://github.com/nix-community/nixd/pull/768#discussion_r2681198142
+  if (hasNestedWithScope(With, VLA))
     return;
 
   // Collect variables used from this with scope
