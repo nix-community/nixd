@@ -14,6 +14,7 @@
 #include "CodeActions/JsonToNix.h"
 #include "CodeActions/NoogleDoc.h"
 #include "CodeActions/PackAttrs.h"
+#include "CodeActions/RewriteString.h"
 #include "CodeActions/WithToLet.h"
 
 #include "nixd/Controller/Controller.h"
@@ -80,6 +81,8 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addInheritToBindingAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                     Actions);
           addNoogleDocAction(*N, *TU->parentMap(), Actions);
+          addRewriteStringAction(*N, *TU->parentMap(), FileURI, TU->src(),
+                                 Actions);
 
           // Extract to file requires variable lookup analysis
           if (TU->variableLookup()) {
