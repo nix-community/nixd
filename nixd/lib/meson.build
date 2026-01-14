@@ -14,6 +14,7 @@ libnixd_lib = library(
     'Controller/CodeActions/JsonToNix.cpp',
     'Controller/CodeActions/NoogleDoc.cpp',
     'Controller/CodeActions/PackAttrs.cpp',
+    'Controller/CodeActions/RewriteString.cpp',
     'Controller/CodeActions/Utils.cpp',
     'Controller/Completion.cpp',
     'Controller/Configuration.cpp',
