@@ -15,7 +15,8 @@ namespace {
 /// \brief Check if the string at the given source position is indented style.
 ///
 /// Indented strings start with '' while double-quoted strings start with ".
-bool isIndentedString(llvm::StringRef Src, const nixf::LexerCursorRange &Range) {
+bool isIndentedString(llvm::StringRef Src,
+                      const nixf::LexerCursorRange &Range) {
   size_t Offset = Range.lCur().offset();
   if (Offset + 1 >= Src.size())
     return false;
@@ -109,6 +110,11 @@ void addRewriteStringAction(const nixf::Node &N,
   // Find if we're inside an ExprString
   const nixf::Node *StringNode = PM.upTo(N, nixf::Node::NK_ExprString);
   if (!StringNode)
+    return;
+
+  // Skip if this string is used as an attribute name (handled by AttrName
+  // actions)
+  if (PM.upTo(*StringNode, nixf::Node::NK_AttrName))
     return;
 
   const auto &Str = static_cast<const nixf::ExprString &>(*StringNode);
