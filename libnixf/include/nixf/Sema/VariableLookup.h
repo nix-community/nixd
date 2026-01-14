@@ -164,6 +164,12 @@ private:
 
   std::map<const ExprVar *, LookupResult> Results;
 
+  /// \brief For variables resolved from `with` scopes, track all enclosing
+  /// `with` expressions that could potentially provide the binding.
+  /// This is needed to detect indirect nested `with` scenarios where
+  /// converting an outer `with` to `let/inherit` could change semantics.
+  std::map<const ExprVar *, std::vector<const ExprWith *>> VarWithScopes;
+
 public:
   VariableLookupAnalysis(std::vector<Diagnostic> &Diags);
 
@@ -198,6 +204,28 @@ public:
   }
 
   const EnvNode *env(const Node *N) const;
+
+  /// \brief Get all `with` expressions that could provide the binding for a
+  /// variable.
+  ///
+  /// For variables resolved from `with` scopes, multiple enclosing `with`
+  /// expressions may potentially provide the binding. This method returns
+  /// all such `with` expressions, ordered from innermost to outermost.
+  ///
+  /// This is useful for detecting indirect nested `with` scenarios where
+  /// converting an outer `with` to `let/inherit` could change semantics.
+  ///
+  /// \param Var The variable to query.
+  /// \return A vector of `ExprWith` pointers representing all `with` scopes
+  ///         that could provide the variable's binding. Returns an empty
+  ///         vector if the variable is not resolved from a `with` scope.
+  [[nodiscard]] std::vector<const ExprWith *>
+  getWithScopes(const ExprVar &Var) const {
+    auto It = VarWithScopes.find(&Var);
+    if (It != VarWithScopes.end())
+      return It->second;
+    return {};
+  }
 };
 
 } // namespace nixf

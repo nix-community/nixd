@@ -7,12 +7,15 @@
 #include "Convert.h"
 
 #include "CodeActions/AttrName.h"
+#include "CodeActions/ConvertToInherit.h"
 #include "CodeActions/ExtractToFile.h"
 #include "CodeActions/FlattenAttrs.h"
+#include "CodeActions/InheritToBinding.h"
 #include "CodeActions/JsonToNix.h"
 #include "CodeActions/NoogleDoc.h"
 #include "CodeActions/PackAttrs.h"
 #include "CodeActions/RewriteString.h"
+#include "CodeActions/WithToLet.h"
 
 #include "nixd/Controller/Controller.h"
 
@@ -70,9 +73,13 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
         nixf::PositionRange NixfRange = toNixfRange(Range);
         if (const nixf::Node *N = TU->ast()->descend(NixfRange)) {
           addAttrNameActions(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
+          addConvertToInheritAction(*N, *TU->parentMap(), FileURI, TU->src(),
+                                    Actions);
           addFlattenAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                 Actions);
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
+          addInheritToBindingAction(*N, *TU->parentMap(), FileURI, TU->src(),
+                                    Actions);
           addNoogleDocAction(*N, *TU->parentMap(), Actions);
           addRewriteStringAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                  Actions);
@@ -81,6 +88,11 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           if (TU->variableLookup()) {
             addExtractToFileAction(*N, *TU->parentMap(), *TU->variableLookup(),
                                    FileURI, TU->src(), Actions);
+          }
+          // Add with-to-let action (requires VLA for variable tracking)
+          if (TU->variableLookup()) {
+            addWithToLetAction(*N, *TU->parentMap(), *TU->variableLookup(),
+                               FileURI, TU->src(), Actions);
           }
         }
       }
