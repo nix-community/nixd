@@ -14,7 +14,7 @@ using namespace lspserver;
 
 namespace {
 
-constexpr int MaxItems = 30;
+constexpr int MaxItems = 1000;
 
 void fillString(nix::EvalState &State, nix::Value &V,
                 const std::vector<std::string_view> &AttrPath,
