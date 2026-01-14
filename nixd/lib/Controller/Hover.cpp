@@ -274,16 +274,7 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
         }
       }
 
-      // Reply it's kind by static analysis
-      // FIXME: support more.
-      return Hover{
-          .contents =
-              MarkupContent{
-                  .kind = MarkupKind::Markdown,
-                  .value = "`" + Name + "`",
-              },
-          .range = toLSPRange(TU->src(), N.range()),
-      };
+      return std::nullopt;
     }());
   };
   boost::asio::post(Pool, std::move(Action));
