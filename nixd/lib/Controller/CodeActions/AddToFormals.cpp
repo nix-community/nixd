@@ -55,8 +55,8 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   // 1. Empty formals `{ }:` -> insert varName after `{`
   // 2. Normal `{ a }:` -> insert `, varName` after last formal
   // 3. Ellipsis only `{ ... }:` -> insert `varName, ` before `...`
-  // 4. With ellipsis `{ a, ... }:` -> insert `, varName` after last non-ellipsis
-  // formal
+  // 4. With ellipsis `{ a, ... }:` -> insert `, varName` after last
+  // non-ellipsis formal
 
   std::string NewText;
   lspserver::Range InsertRange;
@@ -68,10 +68,8 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     // Insert right after the opening brace `{`
     size_t BraceOffset = Formals.lCur().offset();
     size_t InsertOffset = BraceOffset + 1;
-    auto InsertCursor =
-        nixf::LexerCursor::unsafeCreate(Formals.lCur().line(),
-                                        Formals.lCur().column() + 1,
-                                        InsertOffset);
+    auto InsertCursor = nixf::LexerCursor::unsafeCreate(
+        Formals.lCur().line(), Formals.lCur().column() + 1, InsertOffset);
     auto InsertPos = toLSPPosition(Src, InsertCursor);
     InsertRange = lspserver::Range{InsertPos, InsertPos};
     NewText = " " + quoteNixAttrKey(VarName) + " ";

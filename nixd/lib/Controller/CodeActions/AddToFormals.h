@@ -32,7 +32,8 @@ namespace nixd {
 /// The action is NOT offered when:
 /// - The variable is already defined in any scope
 /// - There is no enclosing lambda
-/// - The enclosing lambda uses simple argument style (x: body) instead of formals
+/// - The enclosing lambda uses simple argument style (x: body) instead of
+/// formals
 ///
 /// Transformation example: `{x}: y` -> `{x, y}: y`
 void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
