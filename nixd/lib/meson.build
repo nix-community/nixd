@@ -8,6 +8,7 @@ libnixd_lib = library(
     'CommandLine/Options.cpp',
     'Controller/AST.cpp',
     'Controller/CodeAction.cpp',
+    'Controller/CodeActions/AddToFormals.cpp',
     'Controller/CodeActions/AttrName.cpp',
     'Controller/CodeActions/ConvertToInherit.cpp',
     'Controller/CodeActions/ExtractToFile.cpp',
