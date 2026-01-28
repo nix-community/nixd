@@ -15,6 +15,7 @@
 #include "CodeActions/JsonToNix.h"
 #include "CodeActions/NoogleDoc.h"
 #include "CodeActions/PackAttrs.h"
+#include "CodeActions/RemoveUnusedFormal.h"
 #include "CodeActions/RewriteString.h"
 #include "CodeActions/WithToLet.h"
 
@@ -100,6 +101,9 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
             addToFormalsAction(*N, *TU->parentMap(), *TU->variableLookup(),
                                FileURI, TU->src(), Actions);
           }
+          // Add remove unused formal action
+          addRemoveUnusedFormalAction(*N, *TU->parentMap(), Diagnostics, FileURI,
+                                      TU->src(), Actions);
         }
       }
 
