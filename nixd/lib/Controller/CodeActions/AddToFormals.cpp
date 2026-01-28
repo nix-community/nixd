@@ -21,36 +21,36 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
                         const nixf::VariableLookupAnalysis &VLA,
                         const std::string &FileURI, llvm::StringRef Src,
                         std::vector<lspserver::CodeAction> &Actions) {
-  // Step 1: Find ExprVar node (cursor might be on Identifier child)
+  // Find ExprVar node (cursor might be on Identifier child)
   const nixf::Node *VarNode = PM.upTo(N, nixf::Node::NK_ExprVar);
   if (!VarNode)
     return;
   const auto &Var = static_cast<const nixf::ExprVar &>(*VarNode);
 
-  // Step 2: Check if variable is undefined using VLA
+  // Check if variable is undefined using VLA
   auto Result = VLA.query(Var);
   if (Result.Kind != nixf::VariableLookupAnalysis::LookupResultKind::Undefined)
     return;
 
-  // Step 3: Find enclosing lambda using PM.upTo()
+  // Find enclosing lambda using PM.upTo()
   const nixf::Node *LambdaNode = PM.upTo(N, nixf::Node::NK_ExprLambda);
   if (!LambdaNode)
     return;
 
   const auto &Lambda = static_cast<const nixf::ExprLambda &>(*LambdaNode);
 
-  // Step 4: Check if lambda has formals (not simple `x: body` style)
+  // Check if lambda has formals (not simple `x: body` style)
   if (!Lambda.arg() || !Lambda.arg()->formals())
     return;
 
   const nixf::Formals &Formals = *Lambda.arg()->formals();
   const std::string &VarName = Var.id().name();
 
-  // Step 5: Check variable doesn't already exist in formals
+  // Check variable doesn't already exist in formals
   if (Formals.dedup().contains(VarName))
     return;
 
-  // Step 6: Determine insertion point
+  // Determine insertion point
   // There are 4 cases to handle:
   // 1. Empty formals `{ }:` -> insert varName after `{`
   // 2. Normal `{ a }:` -> insert `, varName` after last formal
@@ -113,7 +113,7 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     }
   }
 
-  // Step 7: Create CodeAction
+  // Create CodeAction
   std::string Title = "add `" + VarName + "` to formals";
 
   std::vector<lspserver::TextEdit> Edits;
