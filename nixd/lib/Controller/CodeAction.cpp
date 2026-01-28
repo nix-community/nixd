@@ -6,6 +6,7 @@
 #include "CheckReturn.h"
 #include "Convert.h"
 
+#include "CodeActions/AddToFormals.h"
 #include "CodeActions/AttrName.h"
 #include "CodeActions/ConvertToInherit.h"
 #include "CodeActions/ExtractToFile.h"
@@ -92,6 +93,11 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           // Add with-to-let action (requires VLA for variable tracking)
           if (TU->variableLookup()) {
             addWithToLetAction(*N, *TU->parentMap(), *TU->variableLookup(),
+                               FileURI, TU->src(), Actions);
+          }
+          // Add undefined variable to formals action (requires VLA)
+          if (TU->variableLookup()) {
+            addToFormalsAction(*N, *TU->parentMap(), *TU->variableLookup(),
                                FileURI, TU->src(), Actions);
           }
         }
