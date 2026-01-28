@@ -96,8 +96,7 @@ void addRemoveUnusedFormalAction(
   }
 
   // Get formal name for the title
-  std::string FormalName =
-      Formal.id() ? Formal.id()->name() : "<unknown>";
+  std::string FormalName = Formal.id() ? Formal.id()->name() : "<unknown>";
   std::string Title = "remove unused formal `" + FormalName + "`";
 
   using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;

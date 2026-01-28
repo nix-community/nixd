@@ -102,8 +102,8 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
                                FileURI, TU->src(), Actions);
           }
           // Add remove unused formal action
-          addRemoveUnusedFormalAction(*N, *TU->parentMap(), Diagnostics, FileURI,
-                                      TU->src(), Actions);
+          addRemoveUnusedFormalAction(*N, *TU->parentMap(), Diagnostics,
+                                      FileURI, TU->src(), Actions);
         }
       }
 
