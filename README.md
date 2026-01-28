@@ -37,6 +37,7 @@ We have tested some working & reproducible [editor environments](/nixd/docs/edit
 ❤️This project is sponsored by:
 
 <p align="center">
+  <a href="https://github.com/qaqland"><img src="https://unavatar.io/github/qaqland" width="50" height="50" alt="User avatar: qaqland" loading="lazy" /></a>&nbsp;&nbsp;
   <a href="https://github.com/MidAutumnMoon"><img src="https://unavatar.io/github/MidAutumnMoon" width="50" height="50" alt="User avatar: MidAutumnMoon" loading="lazy" /></a>&nbsp;&nbsp;
   <a href="https://github.com/Moraxyc"><img src="https://unavatar.io/github/Moraxyc" width="50" height="50" alt="User avatar: Moraxyc" loading="lazy" /></a>&nbsp;&nbsp;
   <a href="https://github.com/Guanran928"><img src="https://unavatar.io/github/Guanran928" width="50" height="50" alt="User avatar: Guanran928" loading="lazy" /></a>&nbsp;&nbsp;
