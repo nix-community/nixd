@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-Test that invalid identifiers cannot be unquoted in let bindings (e.g., "123" should NOT offer unquote action)
+Test `remove unused binding` action when all bindings are unused.
 
 <-- initialize(0)
 
@@ -22,8 +22,8 @@ Test that invalid identifiers cannot be unquoted in let bindings (e.g., "123" sh
 
 <-- textDocument/didOpen
 
-```nix file:///unquote-let-invalid.nix
-let "123" = 1; in x
+```nix file:///all-unused.nix
+let x = 1; y = 2; in 3
 ```
 
 <-- textDocument/codeAction(2)
@@ -36,16 +36,16 @@ let "123" = 1; in x
    "method":"textDocument/codeAction",
    "params":{
       "textDocument":{
-         "uri":"file:///unquote-let-invalid.nix"
+         "uri":"file:///all-unused.nix"
       },
       "range":{
          "start":{
             "line": 0,
-            "character":4
+            "character": 4
          },
          "end":{
             "line":0,
-            "character":9
+            "character": 5
          }
       },
       "context":{
@@ -56,15 +56,21 @@ let "123" = 1; in x
 }
 ```
 
-Invalid identifiers (starting with digit) should NOT offer unquote action.
-However, a quickfix for unused binding may still be offered.
+The action should offer to remove `x = 1;`.
 
 ```
-     CHECK:   "id": 2,
-CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
-CHECK-NOT:   "title": "unquote attribute name"
-     CHECK:   "title": "remove unused binding"
+     CHECK: "id": 2,
+     CHECK: "newText": "",
+     CHECK: "range":
+     CHECK:   "end":
+     CHECK:     "character": 10,
+     CHECK:     "line": 0
+     CHECK:   "start":
+     CHECK:     "character": 4,
+     CHECK:     "line": 0
+     CHECK: "isPreferred": true,
+     CHECK: "kind": "quickfix",
+     CHECK: "title": "remove unused binding"
 ```
 
 ```json
