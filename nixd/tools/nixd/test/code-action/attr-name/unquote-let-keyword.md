@@ -56,12 +56,15 @@ let "true" = 1; in x
 }
 ```
 
-Keywords should return empty result (no unquote action available)
+Keywords should NOT offer unquote action.
+However, a quickfix for unused binding may still be offered.
 
 ```
      CHECK:   "id": 2,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": []
+CHECK-NEXT:   "result": [
+CHECK-NOT:   "title": "unquote attribute name"
+     CHECK:   "title": "remove unused binding"
 ```
 
 ```json

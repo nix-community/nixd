@@ -125,6 +125,39 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
       Diagnostic &D = Diags.emplace_back(Kind, Def->syntax()->range());
       D << Name;
       D.tag(DiagnosticTag::Faded);
+
+      // Add fix for unused let bindings
+      if (Def->source() == Definition::DS_Let) {
+        const Node *LetNode = NewEnv->syntax();
+        if (LetNode && LetNode->kind() == Node::NK_ExprLet) {
+          const auto &Let = static_cast<const ExprLet &>(*LetNode);
+          if (Let.binds()) {
+            for (const auto &BindNode : Let.binds()->bindings()) {
+              // Skip non-Binding nodes (Inherit handled separately)
+              if (BindNode->kind() != Node::NK_Binding)
+                continue;
+
+              const auto &Bind = static_cast<const Binding &>(*BindNode);
+              const auto &PathNames = Bind.path().names();
+              if (PathNames.empty())
+                continue;
+
+              const auto &FirstName = PathNames[0];
+              if (!FirstName)
+                continue;
+
+              // Match by comparing first attrname range with Def->syntax()
+              // range
+              if (D.range().lCur() == FirstName->range().lCur() &&
+                  D.range().rCur() == FirstName->range().rCur()) {
+                D.fix("remove unused binding")
+                    .edit(TextEdit::mkRemoval(Bind.range()));
+                break;
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
