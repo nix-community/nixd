@@ -47,6 +47,16 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
         if (!Range.overlap(DRange))
           continue;
 
+        // Determine if this diagnostic's fixes should be preferred
+        bool IsPreferred = false;
+        switch (D.kind()) {
+        case nixf::Diagnostic::DK_UnusedDefLet:
+          IsPreferred = true;
+          break;
+        default:
+          break;
+        }
+
         // Add fixes.
         for (const nixf::Fix &F : D.fixes()) {
           std::vector<TextEdit> Edits;
@@ -64,6 +74,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           Actions.emplace_back(CodeAction{
               .title = F.message(),
               .kind = std::string(CodeAction::QUICKFIX_KIND),
+              .isPreferred = IsPreferred,
               .edit = std::move(WE),
           });
         }
