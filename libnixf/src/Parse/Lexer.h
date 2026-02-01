@@ -10,17 +10,20 @@
 #include "Token.h"
 
 #include "nixf/Basic/Diagnostic.h"
+#include "nixf/Basic/Nodes/Comment.h"
 #include "nixf/Basic/Range.h"
 
 #include <cassert>
 #include <optional>
 #include <string_view>
+#include <vector>
 
 namespace nixf {
 
 class Lexer {
   const std::string_view Src;
   std::vector<Diagnostic> &Diags;
+  std::vector<CommentPtr> Comments;
 
   LexerCursor Cur;
 
@@ -129,6 +132,14 @@ public:
   }
 
   [[nodiscard]] const LexerCursor &cur() const { return Cur; }
+
+  /// \brief Get all collected comments
+  [[nodiscard]] const std::vector<CommentPtr> &comments() const {
+    return Comments;
+  }
+
+  /// \brief Clear collected comments
+  void clearComments() { Comments.clear(); }
 
   Token lex();
   Token lexString();
