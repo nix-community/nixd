@@ -583,7 +583,8 @@ TEST_F(VLATest, PrimOp_Override_Namespace) {
 
 TEST_F(VLATest, Issue761_InheritBuiltinsToString) {
   // https://github.com/nix-community/nixd/issues/761
-  // inherit (builtins) toString should warn about toString being a prelude builtin
+  // inherit (builtins) toString should warn about toString being a prelude
+  // builtin
   const char *Src = R"(
   let
     inherit (builtins) toString;
@@ -593,7 +594,7 @@ TEST_F(VLATest, Issue761_InheritBuiltinsToString) {
   std::shared_ptr<Node> AST = parse(Src, Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
-  
+
   // Should have 1 diagnostic for toString being a prelude builtin
   ASSERT_EQ(Diags.size(), 1);
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpRemovablePrefix);
@@ -614,7 +615,7 @@ TEST_F(VLATest, Issue761_InheritBuiltinsInAttrSet) {
   std::shared_ptr<Node> AST = parse(Src, Diags);
   VariableLookupAnalysis VLA(Diags);
   VLA.runOnAST(*AST);
-  
+
   // Should have no diagnostics because it's in an attrset, not a let block
   ASSERT_EQ(Diags.size(), 0);
 }

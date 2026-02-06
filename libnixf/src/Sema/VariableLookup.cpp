@@ -459,8 +459,8 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   }
 }
 
-void VariableLookupAnalysis::checkInheritBuiltins(
-    const SemaAttrs &SA, const Node *Syntax) {
+void VariableLookupAnalysis::checkInheritBuiltins(const SemaAttrs &SA,
+                                                  const Node *Syntax) {
   for (const auto &[Name, Attr] : SA.staticAttrs()) {
     if (Attr.kind() != Attribute::AttributeKind::InheritFrom)
       continue;
