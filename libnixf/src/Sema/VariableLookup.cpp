@@ -85,6 +85,12 @@ bool checkInheritedFromBuiltin(const Attribute &Attr) {
   return false;
 }
 
+bool isBuiltinConstant(const std::string &Name) {
+  if (Name.starts_with("_"))
+    return false;
+  return Constants.contains(Name) || Constants.contains("__" + Name);
+}
+
 } // namespace
 
 bool EnvNode::isLive() const {
@@ -392,12 +398,6 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
     if (With.with())
       F.edit(TextEdit::mkRemoval(With.with()->range()));
   }
-}
-
-bool isBuiltinConstant(const std::string &Name) {
-  if (Name.starts_with("_"))
-    return false;
-  return Constants.contains(Name) || Constants.contains("__" + Name);
 }
 
 void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
