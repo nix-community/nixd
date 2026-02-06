@@ -281,6 +281,9 @@ void VariableLookupAnalysis::dfsDynamicAttrs(
 std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
     const SemaAttrs &SA, const std::shared_ptr<EnvNode> &Env,
     const Node *Syntax, Definition::DefinitionSource Source) {
+  // Check inherit (builtins) for diagnostics
+  checkInheritBuiltins(SA, Syntax);
+
   if (SA.isRecursive()) {
     // rec { }, or let ... in ...
     DefBuilder DB(Diags);
@@ -295,6 +298,10 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
 
     for (const auto &[_, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
+        continue;
+      // Skip traversing InheritFrom values to avoid duplicate diagnostics
+      if (Attr.kind() == Attribute::AttributeKind::InheritFrom &&
+          checkInheritedFromBuiltin(Attr))
         continue;
       if (Attr.kind() == Attribute::AttributeKind::Plain ||
           Attr.kind() == Attribute::AttributeKind::InheritFrom) {
@@ -312,6 +319,10 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
   // Non-recursive. Dispatch nested node with old Env
   for (const auto &[_, Attr] : SA.staticAttrs()) {
     if (!Attr.value())
+      continue;
+    // Skip traversing InheritFrom values to avoid duplicate diagnostics
+    if (Attr.kind() == Attribute::AttributeKind::InheritFrom &&
+        checkInheritedFromBuiltin(Attr))
       continue;
     dfs(*Attr.value(), Env);
   }
@@ -444,6 +455,30 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
                                          AP.names()[0]->range());
       D << Name;
       return;
+    }
+  }
+}
+
+void VariableLookupAnalysis::checkInheritBuiltins(
+    const SemaAttrs &SA, const Node *Syntax) {
+  for (const auto &[Name, Attr] : SA.staticAttrs()) {
+    if (Attr.kind() != Attribute::AttributeKind::InheritFrom)
+      continue;
+
+    if (!checkInheritedFromBuiltin(Attr))
+      continue;
+
+    // Only emit diagnostic for let blocks, not for attribute sets
+    // to avoid changing the structure of attribute sets
+    if (Syntax->kind() != Node::NK_ExprLet)
+      continue;
+
+    // Check if the inherited name is a prelude builtin
+    if (lookupGlobalPrimOpInfo(Name) == PrimopLookupResult::Found) {
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpRemovablePrefix,
+                                         Attr.key().range());
+      D.fix("remove unnecessary inherit")
+          .edit(TextEdit::mkRemoval(Attr.key().range()));
     }
   }
 }
