@@ -142,7 +142,7 @@ private:
 
   void checkBuiltins(const ExprSelect &Sel);
 
-  void checkInheritBuiltins(const SemaAttrs &SA, const Node *Syntax);
+  void checkLetInheritBuiltins(const SemaAttrs &SA);
 
   std::shared_ptr<EnvNode> dfsAttrs(const SemaAttrs &SA,
                                     const std::shared_ptr<EnvNode> &Env,

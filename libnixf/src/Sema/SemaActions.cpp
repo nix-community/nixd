@@ -345,7 +345,7 @@ Sema::desugarInheritExpr(std::shared_ptr<AttrName> Name,
       Range, std::vector<std::shared_ptr<AttrName>>{std::move(Name)},
       std::vector<std::shared_ptr<Dot>>{});
   return {std::make_shared<ExprSelect>(Range, std::move(E), nullptr,
-                                       std::move(Path), nullptr),
+                                       std::move(Path), nullptr, E.get()),
           Attribute::AttributeKind::InheritFrom};
 }
 

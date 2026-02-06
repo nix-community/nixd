@@ -281,9 +281,6 @@ void VariableLookupAnalysis::dfsDynamicAttrs(
 std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
     const SemaAttrs &SA, const std::shared_ptr<EnvNode> &Env,
     const Node *Syntax, Definition::DefinitionSource Source) {
-  // Check inherit (builtins) for diagnostics
-  checkInheritBuiltins(SA, Syntax);
-
   if (SA.isRecursive()) {
     // rec { }, or let ... in ...
     DefBuilder DB(Diags);
@@ -298,10 +295,6 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
 
     for (const auto &[_, Attr] : SA.staticAttrs()) {
       if (!Attr.value())
-        continue;
-      // Skip traversing InheritFrom values to avoid duplicate diagnostics
-      if (Attr.kind() == Attribute::AttributeKind::InheritFrom &&
-          checkInheritedFromBuiltin(Attr))
         continue;
       if (Attr.kind() == Attribute::AttributeKind::Plain ||
           Attr.kind() == Attribute::AttributeKind::InheritFrom) {
@@ -319,10 +312,6 @@ std::shared_ptr<EnvNode> VariableLookupAnalysis::dfsAttrs(
   // Non-recursive. Dispatch nested node with old Env
   for (const auto &[_, Attr] : SA.staticAttrs()) {
     if (!Attr.value())
-      continue;
-    // Skip traversing InheritFrom values to avoid duplicate diagnostics
-    if (Attr.kind() == Attribute::AttributeKind::InheritFrom &&
-        checkInheritedFromBuiltin(Attr))
       continue;
     dfs(*Attr.value(), Env);
   }
@@ -364,6 +353,7 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
     // If there are some attributes actually, create a new env.
     const SemaAttrs &SA = Let.attrs()->sema();
     assert(SA.isRecursive() && "let ... in ... attrset must be recursive");
+    checkLetInheritBuiltins(SA);
     return dfsAttrs(SA, Env, &Let, Definition::DS_Let);
   };
 
@@ -415,6 +405,10 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   if (!Sel.path())
     return;
 
+  // Don't emit diagnostics for select expressions desugared from inherit.
+  if (Sel.desugaredFrom())
+    return;
+
   if (Sel.expr().kind() != Node::NK_ExprVar)
     return;
 
@@ -459,18 +453,12 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   }
 }
 
-void VariableLookupAnalysis::checkInheritBuiltins(const SemaAttrs &SA,
-                                                  const Node *Syntax) {
+void VariableLookupAnalysis::checkLetInheritBuiltins(const SemaAttrs &SA) {
   for (const auto &[Name, Attr] : SA.staticAttrs()) {
     if (Attr.kind() != Attribute::AttributeKind::InheritFrom)
       continue;
 
     if (!checkInheritedFromBuiltin(Attr))
-      continue;
-
-    // Only emit diagnostic for let blocks, not for attribute sets
-    // to avoid changing the structure of attribute sets
-    if (Syntax->kind() != Node::NK_ExprLet)
       continue;
 
     // Check if the inherited name is a prelude builtin
