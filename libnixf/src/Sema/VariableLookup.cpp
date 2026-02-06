@@ -353,6 +353,7 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
     // If there are some attributes actually, create a new env.
     const SemaAttrs &SA = Let.attrs()->sema();
     assert(SA.isRecursive() && "let ... in ... attrset must be recursive");
+    checkLetInheritBuiltins(SA);
     return dfsAttrs(SA, Env, &Let, Definition::DS_Let);
   };
 
@@ -404,6 +405,10 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   if (!Sel.path())
     return;
 
+  // Don't emit diagnostics for select expressions desugared from inherit.
+  if (Sel.desugaredFrom())
+    return;
+
   if (Sel.expr().kind() != Node::NK_ExprVar)
     return;
 
@@ -444,6 +449,21 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
                                          AP.names()[0]->range());
       D << Name;
       return;
+    }
+  }
+}
+
+void VariableLookupAnalysis::checkLetInheritBuiltins(const SemaAttrs &SA) {
+  for (const auto &[Name, Attr] : SA.staticAttrs()) {
+    if (!checkInheritedFromBuiltin(Attr))
+      continue;
+
+    // Check if the inherited name is a prelude builtin
+    if (lookupGlobalPrimOpInfo(Name) == PrimopLookupResult::Found) {
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpRemovablePrefix,
+                                         Attr.key().range());
+      D.fix("remove unnecessary inherit")
+          .edit(TextEdit::mkRemoval(Attr.key().range()));
     }
   }
 }

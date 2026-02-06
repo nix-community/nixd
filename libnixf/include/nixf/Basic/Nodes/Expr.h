@@ -9,13 +9,15 @@ class ExprSelect : public Expr {
   const std::shared_ptr<Dot> Do;
   const std::shared_ptr<AttrPath> Path;
   const std::shared_ptr<Expr> Default;
+  const Expr *DesugaredFrom;
 
 public:
   ExprSelect(LexerCursorRange Range, std::shared_ptr<Expr> E,
              std::shared_ptr<Dot> Do, std::shared_ptr<AttrPath> Path,
-             std::shared_ptr<Expr> Default)
+             std::shared_ptr<Expr> Default, const Expr *DesugaredFrom)
       : Expr(NK_ExprSelect, Range), E(std::move(E)), Do(std::move(Do)),
-        Path(std::move(Path)), Default(std::move(Default)) {
+        Path(std::move(Path)), Default(std::move(Default)),
+        DesugaredFrom(DesugaredFrom) {
     assert(this->E && "E must not be null");
   }
 
@@ -23,6 +25,8 @@ public:
     assert(E && "E must not be null");
     return *E;
   }
+
+  [[nodiscard]] const Expr *desugaredFrom() const { return DesugaredFrom; }
 
   [[nodiscard]] Dot *dot() const { return Do.get(); }
 

@@ -581,6 +581,45 @@ TEST_F(VLATest, PrimOp_Override_Namespace) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Issue761_InheritBuiltinsToString) {
+  // https://github.com/nix-community/nixd/issues/761
+  // inherit (builtins) toString should warn about toString being a prelude
+  // builtin
+  const char *Src = R"(
+  let
+    inherit (builtins) toString;
+  in toString
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  // Should have 1 diagnostic for toString being a prelude builtin
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpRemovablePrefix);
+  // The diagnostic should highlight toString, not builtins
+  ASSERT_GT(Diags[0].range().lCur().column(), 20);
+}
+
+TEST_F(VLATest, Issue761_InheritBuiltinsInAttrSet) {
+  // https://github.com/nix-community/nixd/issues/761
+  // inherit (builtins) toString in an attrset should NOT warn
+  // because removing it would change the structure
+  const char *Src = R"(
+  {
+    inherit (builtins) toString;
+  }
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  // Should have no diagnostics because it's in an attrset, not a let block
+  ASSERT_EQ(Diags.size(), 0);
+}
+
 //===----------------------------------------------------------------------===//
 // getWithScopes() tests - for detecting nested with scopes
 //===----------------------------------------------------------------------===//

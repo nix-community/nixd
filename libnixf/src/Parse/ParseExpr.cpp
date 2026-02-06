@@ -35,7 +35,8 @@ std::shared_ptr<Expr> Parser::parseExprSelect() {
     // expr_select : expr_simple '.' attrpath
     return std::make_shared<ExprSelect>(
         LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
-        std::move(Do), std::move(Path), /*Default=*/nullptr);
+        std::move(Do), std::move(Path), /*Default=*/nullptr,
+        /*DesugaredFrom=*/nullptr);
   }
 
   // expr_select : expr_simple '.' attrpath 'or' expr_select
@@ -47,7 +48,8 @@ std::shared_ptr<Expr> Parser::parseExprSelect() {
   }
   return std::make_shared<ExprSelect>(
       LexerCursorRange{Begin, LastToken->rCur()}, std::move(Expr),
-      std::move(Do), std::move(Path), std::move(Default));
+      std::move(Do), std::move(Path), std::move(Default),
+      /*DesugaredFrom=*/nullptr);
 }
 
 std::shared_ptr<Expr> Parser::parseExprApp(int Limit) {
