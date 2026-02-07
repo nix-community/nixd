@@ -98,8 +98,10 @@ void Controller::
        {
            "codeActionProvider",
            Object{
-               {"codeActionKinds", Array{CodeAction::QUICKFIX_KIND}},
-               {"resolveProvider", false},
+               {"codeActionKinds",
+                Array{CodeAction::QUICKFIX_KIND, CodeAction::REFACTOR_KIND,
+                      CodeAction::REFACTOR_REWRITE_KIND}},
+               {"resolveProvider", true},
            },
        },
        {"definitionProvider", true},

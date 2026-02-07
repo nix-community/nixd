@@ -581,4 +581,189 @@ TEST_F(VLATest, PrimOp_Override_Namespace) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, Issue761_InheritBuiltinsToString) {
+  // https://github.com/nix-community/nixd/issues/761
+  // inherit (builtins) toString should warn about toString being a prelude
+  // builtin
+  const char *Src = R"(
+  let
+    inherit (builtins) toString;
+  in toString
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  // Should have 1 diagnostic for toString being a prelude builtin
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_PrimOpRemovablePrefix);
+  // The diagnostic should highlight toString, not builtins
+  ASSERT_GT(Diags[0].range().lCur().column(), 20);
+}
+
+TEST_F(VLATest, Issue761_InheritBuiltinsInAttrSet) {
+  // https://github.com/nix-community/nixd/issues/761
+  // inherit (builtins) toString in an attrset should NOT warn
+  // because removing it would change the structure
+  const char *Src = R"(
+  {
+    inherit (builtins) toString;
+  }
+  )";
+
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  // Should have no diagnostics because it's in an attrset, not a let block
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+//===----------------------------------------------------------------------===//
+// getWithScopes() tests - for detecting nested with scopes
+//===----------------------------------------------------------------------===//
+
+TEST_F(VLATest, GetWithScopes_SingleWith) {
+  // A single `with` scope should return exactly one element
+  std::shared_ptr<Node> AST = parse("with lib; foo", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  const auto &With = *static_cast<const ExprWith *>(AST.get());
+  const auto &Var = *static_cast<const ExprVar *>(With.expr());
+
+  auto Scopes = VLA.getWithScopes(Var);
+  ASSERT_EQ(Scopes.size(), 1);
+  ASSERT_EQ(Scopes[0], &With);
+}
+
+TEST_F(VLATest, GetWithScopes_DirectNested) {
+  // Direct nested with: variable should have 2 scopes (inner first, outer last)
+  const char *Src = R"(with outer; with inner; foo)";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  const auto &OuterWith = *static_cast<const ExprWith *>(AST.get());
+  const auto &InnerWith = *static_cast<const ExprWith *>(OuterWith.expr());
+  const auto &Var = *static_cast<const ExprVar *>(InnerWith.expr());
+
+  auto Scopes = VLA.getWithScopes(Var);
+  ASSERT_EQ(Scopes.size(), 2);
+  // Innermost first
+  ASSERT_EQ(Scopes[0], &InnerWith);
+  ASSERT_EQ(Scopes[1], &OuterWith);
+}
+
+TEST_F(VLATest, GetWithScopes_IndirectNested_Let) {
+  // Indirect nested with through let: `with a; let x = with b; foo; in x`
+  // The variable `foo` should have 2 scopes
+  const char *Src = R"(with outer; let x = with inner; foo; in x)";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  // Navigate: ExprWith -> ExprLet -> Binds -> Binding[0].Value -> ExprWith
+  // -> ExprVar
+  const auto &OuterWith = *static_cast<const ExprWith *>(AST.get());
+  const auto *Let = static_cast<const ExprLet *>(OuterWith.expr());
+  ASSERT_TRUE(Let);
+
+  // Find the inner with by navigating the AST
+  // The binding value should be the inner with
+  const auto *Binds = Let->binds();
+  ASSERT_TRUE(Binds);
+  const auto &Bindings = Binds->bindings();
+  ASSERT_EQ(Bindings.size(), 1);
+  const auto *BindingNode = static_cast<const Binding *>(Bindings[0].get());
+  ASSERT_TRUE(BindingNode);
+  const auto *InnerWith =
+      static_cast<const ExprWith *>(BindingNode->value().get());
+  ASSERT_TRUE(InnerWith);
+  ASSERT_EQ(InnerWith->kind(), Node::NK_ExprWith);
+
+  const auto *Var = static_cast<const ExprVar *>(InnerWith->expr());
+  ASSERT_TRUE(Var);
+  ASSERT_EQ(Var->kind(), Node::NK_ExprVar);
+
+  auto Scopes = VLA.getWithScopes(*Var);
+  ASSERT_EQ(Scopes.size(), 2);
+  // Innermost first
+  ASSERT_EQ(Scopes[0], InnerWith);
+  ASSERT_EQ(Scopes[1], &OuterWith);
+}
+
+TEST_F(VLATest, GetWithScopes_IndirectNested_AttrSet) {
+  // Indirect nested with through attrset: `with a; { y = with b; bar; }`
+  const char *Src = R"(with outer; { y = with inner; bar; })";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  const auto &OuterWith = *static_cast<const ExprWith *>(AST.get());
+
+  // Navigate to the inner with through the attrset
+  const auto *Attrs = static_cast<const ExprAttrs *>(OuterWith.expr());
+  ASSERT_TRUE(Attrs);
+  const auto *Binds = Attrs->binds();
+  ASSERT_TRUE(Binds);
+  const auto &Bindings = Binds->bindings();
+  ASSERT_EQ(Bindings.size(), 1);
+
+  const auto *BindingNode = static_cast<const Binding *>(Bindings[0].get());
+  ASSERT_TRUE(BindingNode);
+  const auto *InnerWith =
+      static_cast<const ExprWith *>(BindingNode->value().get());
+  ASSERT_TRUE(InnerWith);
+
+  const auto *Var = static_cast<const ExprVar *>(InnerWith->expr());
+  ASSERT_TRUE(Var);
+
+  auto Scopes = VLA.getWithScopes(*Var);
+  ASSERT_EQ(Scopes.size(), 2);
+  ASSERT_EQ(Scopes[0], InnerWith);
+  ASSERT_EQ(Scopes[1], &OuterWith);
+}
+
+TEST_F(VLATest, GetWithScopes_NoWith) {
+  // Variable not from with should return empty
+  const char *Src = R"(let x = 1; in x)";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  const auto *Let = static_cast<const ExprLet *>(AST.get());
+  const auto *Var = static_cast<const ExprVar *>(Let->expr());
+
+  auto Scopes = VLA.getWithScopes(*Var);
+  ASSERT_TRUE(Scopes.empty());
+}
+
+TEST_F(VLATest, GetWithScopes_TripleNested) {
+  // Triple nested with: variable should have 3 scopes
+  const char *Src = R"(with a; with b; with c; foo)";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_TRUE(AST);
+  const auto &WithA = *static_cast<const ExprWith *>(AST.get());
+  const auto &WithB = *static_cast<const ExprWith *>(WithA.expr());
+  const auto &WithC = *static_cast<const ExprWith *>(WithB.expr());
+  const auto &Var = *static_cast<const ExprVar *>(WithC.expr());
+
+  auto Scopes = VLA.getWithScopes(Var);
+  ASSERT_EQ(Scopes.size(), 3);
+  // Innermost first
+  ASSERT_EQ(Scopes[0], &WithC);
+  ASSERT_EQ(Scopes[1], &WithB);
+  ASSERT_EQ(Scopes[2], &WithA);
+}
+
 } // namespace

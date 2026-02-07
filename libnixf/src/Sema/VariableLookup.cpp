@@ -85,6 +85,12 @@ bool checkInheritedFromBuiltin(const Attribute &Attr) {
   return false;
 }
 
+bool isBuiltinConstant(const std::string &Name) {
+  if (Name.starts_with("_"))
+    return false;
+  return Constants.contains(Name) || Constants.contains("__" + Name);
+}
+
 } // namespace
 
 bool EnvNode::isLive() const {
@@ -125,6 +131,39 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
       Diagnostic &D = Diags.emplace_back(Kind, Def->syntax()->range());
       D << Name;
       D.tag(DiagnosticTag::Faded);
+
+      // Add fix for unused let bindings
+      if (Def->source() == Definition::DS_Let) {
+        const Node *LetNode = NewEnv->syntax();
+        if (LetNode && LetNode->kind() == Node::NK_ExprLet) {
+          const auto &Let = static_cast<const ExprLet &>(*LetNode);
+          if (Let.binds()) {
+            for (const auto &BindNode : Let.binds()->bindings()) {
+              // Skip non-Binding nodes (Inherit handled separately)
+              if (BindNode->kind() != Node::NK_Binding)
+                continue;
+
+              const auto &Bind = static_cast<const Binding &>(*BindNode);
+              const auto &PathNames = Bind.path().names();
+              if (PathNames.empty())
+                continue;
+
+              const auto &FirstName = PathNames[0];
+              if (!FirstName)
+                continue;
+
+              // Match by comparing first attrname range with Def->syntax()
+              // range
+              if (D.range().lCur() == FirstName->range().lCur() &&
+                  D.range().rCur() == FirstName->range().rCur()) {
+                D.fix("remove unused binding")
+                    .edit(TextEdit::mkRemoval(Bind.range()));
+                break;
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -157,10 +196,16 @@ void VariableLookupAnalysis::lookupVar(const ExprVar &Var,
     Def->usedBy(Var);
     Results.insert({&Var, LookupResult{LookupResultKind::Defined, Def}});
   } else if (!WithEnvs.empty()) { // comes from enclosed "with" expressions.
+    // Collect all `with` expressions that could provide this variable's
+    // binding. This is stored for later queries (e.g., by code actions that
+    // need to determine if converting a `with` to `let/inherit` is safe).
+    std::vector<const ExprWith *> WithScopes;
     for (const auto *WithEnv : WithEnvs) {
       Def = WithDefs.at(WithEnv->syntax());
       Def->usedBy(Var);
+      WithScopes.push_back(static_cast<const ExprWith *>(WithEnv->syntax()));
     }
+    VarWithScopes.insert({&Var, std::move(WithScopes)});
     Results.insert({&Var, LookupResult{LookupResultKind::FromWith, Def}});
   } else {
     // Check if this is a primop.
@@ -341,6 +386,7 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
     // If there are some attributes actually, create a new env.
     const SemaAttrs &SA = Let.attrs()->sema();
     assert(SA.isRecursive() && "let ... in ... attrset must be recursive");
+    checkLetInheritBuiltins(SA);
     return dfsAttrs(SA, Env, &Let, Definition::DS_Let);
   };
 
@@ -388,14 +434,12 @@ void VariableLookupAnalysis::dfs(const ExprWith &With,
   }
 }
 
-bool isBuiltinConstant(const std::string &Name) {
-  if (Name.starts_with("_"))
-    return false;
-  return Constants.contains(Name) || Constants.contains("__" + Name);
-}
-
 void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
   if (!Sel.path())
+    return;
+
+  // Don't emit diagnostics for select expressions desugared from inherit.
+  if (Sel.desugaredFrom())
     return;
 
   if (Sel.expr().kind() != Node::NK_ExprVar)
@@ -438,6 +482,21 @@ void VariableLookupAnalysis::checkBuiltins(const ExprSelect &Sel) {
                                          AP.names()[0]->range());
       D << Name;
       return;
+    }
+  }
+}
+
+void VariableLookupAnalysis::checkLetInheritBuiltins(const SemaAttrs &SA) {
+  for (const auto &[Name, Attr] : SA.staticAttrs()) {
+    if (!checkInheritedFromBuiltin(Attr))
+      continue;
+
+    // Check if the inherited name is a prelude builtin
+    if (lookupGlobalPrimOpInfo(Name) == PrimopLookupResult::Found) {
+      Diagnostic &D = Diags.emplace_back(Diagnostic::DK_PrimOpRemovablePrefix,
+                                         Attr.key().range());
+      D.fix("remove unnecessary inherit")
+          .edit(TextEdit::mkRemoval(Attr.key().range()));
     }
   }
 }
