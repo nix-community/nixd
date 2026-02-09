@@ -42,10 +42,10 @@ struct ExceedSizeError : std::exception {
 };
 
 void addItem(std::vector<CompletionItem> &Items, CompletionItem Item) {
+  Items.emplace_back(std::move(Item));
   if (Items.size() >= MaxCompletionSize) {
     throw ExceedSizeError();
   }
-  Items.emplace_back(std::move(Item));
 }
 
 class VLACompletionProvider {
