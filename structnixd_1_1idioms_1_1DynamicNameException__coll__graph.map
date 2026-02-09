@@ -1,0 +1,7 @@
+<map id="nixd::idioms::DynamicNameException" name="nixd::idioms::DynamicNameException">
+<area shape="rect" id="Node000001" title="The attrpath has a dynamic name, thus it cannot be trivially transformed to &quot;static&quot; selector." alt="" coords="5,174,212,218"/>
+<area shape="rect" id="Node000002" href="$structnixd_1_1idioms_1_1IdiomSelectorException.html" title="Exceptions scoped in nixd::mkIdiomSelector." alt="" coords="9,81,208,126"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="111,141,111,173,106,173,106,141"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="52,5,165,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="111,49,111,80,106,80,106,49"/>
+</map>

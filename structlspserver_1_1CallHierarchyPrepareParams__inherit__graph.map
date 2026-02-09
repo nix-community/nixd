@@ -1,0 +1,5 @@
+<map id="lspserver::CallHierarchyPrepareParams" name="lspserver::CallHierarchyPrepareParams">
+<area shape="rect" id="Node000001" title="The parameter of a textDocument/prepareCallHierarchy request." alt="" coords="34,98,212,143"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1TextDocumentPositionParams.html" title=" " alt="" coords="5,5,241,50"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="126,66,126,98,120,98,120,66"/>
+</map>

@@ -1,0 +1,13 @@
+<map id="lspserver::ReferenceParams" name="lspserver::ReferenceParams">
+<area shape="rect" id="Node000001" title=" " alt="" coords="255,324,458,352"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1TextDocumentPositionParams.html" title=" " alt="" coords="116,207,352,251"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="272,260,343,322,340,326,268,264"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1TextDocumentIdentifier.html" title=" " alt="" coords="5,106,247,134"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="152,143,214,204,210,208,148,146"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="48,5,204,33"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="129,49,129,105,123,105,123,49"/>
+<area shape="rect" id="Node000005" href="$structlspserver_1_1Position.html" title=" " alt="" coords="271,106,413,134"/>
+<area shape="poly" id="edge4_Node000002_Node000005" title=" " alt="" coords="326,148,295,185,267,208,263,204,291,181,322,144"/>
+<area shape="rect" id="Node000006" href="$structlspserver_1_1ReferenceContext.html" title=" " alt="" coords="376,215,582,243"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="455,255,374,326,370,322,451,251"/>
+</map>

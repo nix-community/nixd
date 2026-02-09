@@ -1,0 +1,9 @@
+<map id="lspserver::RenameParams" name="lspserver::RenameParams">
+<area shape="rect" id="Node000001" title=" " alt="" coords="138,207,330,234"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1TextDocumentIdentifier.html" title=" " alt="" coords="5,106,247,134"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="153,142,221,204,218,208,149,146"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="48,5,204,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="129,49,129,105,123,105,123,49"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Position.html" title=" " alt="" coords="271,106,413,134"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="330,149,301,185,265,208,262,204,298,181,325,146"/>
+</map>

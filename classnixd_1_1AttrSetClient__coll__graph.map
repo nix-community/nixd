@@ -1,0 +1,9 @@
+<map id="nixd::AttrSetClient" name="nixd::AttrSetClient">
+<area shape="rect" id="Node000001" title=" " alt="" coords="144,183,284,211"/>
+<area shape="rect" id="Node000002" href="$classlspserver_1_1LSPServer.html" title=" " alt="" coords="137,106,291,134"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="216,149,216,183,211,183,211,149"/>
+<area shape="rect" id="Node000003" href="$classlspserver_1_1MessageHandler.html" title=" " alt="" coords="5,5,204,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="132,41,201,103,197,107,128,45"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1HandlerRegistry.html" title=" " alt="" coords="227,5,422,33"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="301,45,230,107,227,103,297,41"/>
+</map>
