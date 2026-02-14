@@ -51,6 +51,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
         bool IsPreferred = false;
         switch (D.kind()) {
         case nixf::Diagnostic::DK_UnusedDefLet:
+        case nixf::Diagnostic::DK_ExtraWith:
           IsPreferred = true;
           break;
         default:
