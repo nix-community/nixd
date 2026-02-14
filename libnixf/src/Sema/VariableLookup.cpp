@@ -4,6 +4,7 @@
 #include "nixf/Basic/Nodes/Expr.h"
 #include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Sema/PrimOpInfo.h"
+#include "nixf/Sema/SemaActions.h"
 
 #include <set>
 
@@ -157,9 +158,29 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
               if (D.range().lCur() == FirstName->range().lCur() &&
                   D.range().rCur() == FirstName->range().rCur()) {
                 D.fix("remove unused binding")
-                    .edit(TextEdit::mkRemoval(Bind.range()));
+                    .edit(TextEdit::mkRemoval(Bind.range()))
+                    .prefer();
                 break;
               }
+            }
+          }
+        }
+      }
+      // Attach fix for unused formal parameters
+      if (Def->source() == Definition::DS_LambdaNoArg_Formal ||
+          Def->source() == Definition::DS_LambdaWithArg_Formal) {
+        // Def->source() guarantees NewEnv->syntax() is ExprLambda*
+        const auto *Lambda = static_cast<const ExprLambda *>(NewEnv->syntax());
+        if (Lambda->arg() && Lambda->arg()->formals()) {
+          const auto &FV = Lambda->arg()->formals()->members();
+          for (auto It = FV.begin(); It != FV.end(); ++It) {
+            if (!(*It)->id()) // skip ellipsis
+              continue;
+            if ((*It)->id() == Def->syntax()) {
+              Fix &F = D.fix("remove unused formal `" + Name + "`");
+              Sema::removeFormal(F, It, FV);
+              F.prefer();
+              break;
             }
           }
         }
