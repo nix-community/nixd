@@ -159,7 +159,7 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
                   D.range().rCur() == FirstName->range().rCur()) {
                 D.fix("remove unused binding")
                     .edit(TextEdit::mkRemoval(Bind.range()))
-                    .setPreferred();
+                    .prefer();
                 break;
               }
             }
@@ -179,7 +179,7 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
             if ((*It)->id() == Def->syntax()) {
               Fix &F = D.fix("remove unused formal `" + Name + "`");
               Sema::removeFormal(F, It, FV);
-              F.setPreferred();
+              F.prefer();
               break;
             }
           }

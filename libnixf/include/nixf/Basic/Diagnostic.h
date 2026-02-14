@@ -70,8 +70,8 @@ public:
 
   [[nodiscard]] const std::vector<TextEdit> &edits() const { return Edits; }
   [[nodiscard]] const std::string &message() const { return Message; }
-  Fix &setPreferred(bool P = true) {
-    Preferred = P;
+  Fix &prefer() {
+    Preferred = true;
     return *this;
   }
   [[nodiscard]] bool isPreferred() const { return Preferred; }
