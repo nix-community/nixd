@@ -30,7 +30,7 @@ namespace {
 /// Set max completion size to this value, we don't want to send large lists
 /// because of slow IO.
 /// Items exceed this size should be marked "incomplete" and recomputed.
-constexpr int MaxCompletionSize = 30;
+constexpr int MaxCompletionSize = 1000;
 
 CompletionItemKind OptionKind = CompletionItemKind::Constructor;
 CompletionItemKind OptionAttrKind = CompletionItemKind::Class;
@@ -277,7 +277,7 @@ void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
   auto R = findAttrPathForOptions(N, PM, Scope);
   if (R == PathResult::OK) {
     // Construct request.
-    std::string Prefix = Scope.back();
+    std::string Prefix = "";
     Scope.pop_back();
     {
       std::lock_guard _(OptionsLock);
@@ -383,13 +383,14 @@ void Controller::onCompletion(const CompletionParams &Params,
     return Reply([&]() -> llvm::Expected<CompletionList> {
       const auto TU = CheckDefault(getTU(File));
       const auto AST = CheckDefault(getAST(*TU));
-
       const auto *Desc = AST->descend({Pos, Pos});
-      CheckDefault(Desc && Desc->children().empty());
+      CheckDefault(Desc);
 
       const auto &N = *Desc;
       const auto &PM = *TU->parentMap();
       const auto &UpExpr = *CheckDefault(PM.upExpr(N));
+      CheckDefault(Desc->children().empty() ||
+                   UpExpr.kind() == Node::NK_ExprAttrs);
 
       return [&]() {
         CompletionList List;
