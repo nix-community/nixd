@@ -1,0 +1,8 @@
+<map id="lspserver::InlayHint" name="lspserver::InlayHint">
+<area shape="rect" id="Node000001" title="Inlay hint information." alt="" coords="5,229,154,257"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1Position.html" title=" " alt="" coords="9,5,150,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="78,49,73,99,73,156,80,229,75,229,68,156,68,98,73,48"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1Range.html" title=" " alt="" coords="142,128,273,156"/>
+<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="106,42,195,126,192,130,102,46"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="180,168,98,230,95,226,177,163"/>
+</map>
