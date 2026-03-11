@@ -52,7 +52,15 @@
 CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": {
 CHECK-NEXT:   "isIncomplete": false,
-CHECK-NEXT:   "items": []
+CHECK-NEXT: "items": [
+CHECK-NEXT:  {
+CHECK-NEXT:     "data": "",
+CHECK-NEXT:     "detail": "nixos",
+CHECK-NEXT:     "kind": 7,
+CHECK-NEXT:     "label": "foo",
+CHECK-NEXT:     "score": 0
+CHECK-NEXT:  }
+CHECK-NEXT: ]
 CHECK-NEXT: }
 ```
 
