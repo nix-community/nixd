@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
@@ -29,12 +29,12 @@
         let
           inherit (pkgs)
             nixVersions
-            llvmPackages_19
+            llvmPackages_21
             callPackage
             stdenv
             ;
-          nixComponents = nixVersions.nixComponents_2_30;
-          llvmPackages = llvmPackages_19;
+          nixComponents = nixVersions.nixComponents_2_33;
+          llvmPackages = llvmPackages_21;
           nixf = callPackage ./libnixf { inherit (nixComponents) nix-expr; };
           nixt = callPackage ./libnixt { inherit nixComponents; };
           nixd = callPackage ./nixd {
@@ -46,7 +46,7 @@
           regressionDeps = with pkgs; [
             clang-tools
             lit
-            nixfmt-rfc-style
+            nixfmt
           ];
           shellOverride = old: {
             nativeBuildInputs = old.nativeBuildInputs ++ regressionDeps;
@@ -75,7 +75,7 @@
           devShells.nvim = pkgs.mkShell {
             nativeBuildInputs = [
               nixd
-              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt
               pkgs.git
               (import ./nixd/docs/editors/nvim-lsp.nix { inherit pkgs; })
             ];
@@ -112,7 +112,7 @@
           devShells.vscodium = pkgs.mkShell {
             nativeBuildInputs = [
               nixd
-              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt
               (import ./nixd/docs/editors/vscodium.nix { inherit pkgs; })
             ];
           };
