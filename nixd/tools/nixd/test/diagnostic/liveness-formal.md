@@ -28,7 +28,7 @@
      CHECK: "diagnostics": [
 CHECK-NEXT:   {
 CHECK-NEXT:     "code": "sema-unused-def-lambda-noarg-formal",
-CHECK-NEXT:     "message": "attribute `y` of argument is not used",
+CHECK-NEXT:     "message": "attribute `y` of argument is not used (fix available)",
 CHECK-NEXT:     "range": {
 CHECK-NEXT:       "end": {
 CHECK-NEXT:         "character": 5,
