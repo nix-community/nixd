@@ -73,31 +73,34 @@ For vscode users you should write `settings.json`[^settings] like this:
 <details>
  <summary>Neovim</summary>
 
- Configuration via [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) plugin. If you want to make configuration changes based on different projects, you can see nvim-lspconfig official [wiki-Project_local_settings](https://github.com/neovim/nvim-lspconfig/wiki/Project-local-settings)
+Configuration via Neovim [built-in LSP](https://neovim.io/doc/user/lsp/#lsp). If you want to make configuration changes based on different projects, you can use Neovim official [exrc](https://neovim.io/doc/user/options/#'exrc') option.
 
 ```lua
-local nvim_lsp = require("lspconfig")
-nvim_lsp.nixd.setup({
-   cmd = { "nixd" },
-   settings = {
-      nixd = {
-         nixpkgs = {
-            expr = "import <nixpkgs> { }",
-         },
-         formatting = {
-            command = { "nixfmt" },
-         },
-         options = {
-            nixos = {
-               expr = '(builtins.getFlake ("git+file://" + toString ./.)).nixosConfigurations.k-on.options',
-            },
-            home_manager = {
-               expr = '(builtins.getFlake ("git+file://" + toString ./.)).homeConfigurations."ruixi@k-on".options',
-            },
-         },
+local nvim_lsp = vim.lsp
+nvim_lsp.config("nixd", {
+  cmd = { "nixd" },
+  filetypes = { "nix" },
+  root_markers = { "flake.nix", ".git" },
+  settings = {
+    nixd = {
+      nixpkgs = {
+        expr = "import <nixpkgs> { }",
       },
-   },
+      formatting = {
+        command = { "nixfmt" },
+      },
+      options = {
+        nixos = {
+          expr = '(builtins.getFlake (toString ./.)).nixosConfigurations.<hostname>.options',
+        },
+        home_manager = {
+          expr = '(builtins.getFlake (toString ./.)).homeConfigurations."<username>@<hostname>".options',
+        },
+      },
+    },
+  },
 })
+nvim_lsp.enable("nixd")
 ```
 </details>
 
