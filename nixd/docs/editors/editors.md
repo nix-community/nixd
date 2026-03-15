@@ -9,7 +9,7 @@ Start up the test environment:
 ```console
 nix develop github:nix-community/nixd#vscodium
 
-codium-test
+codium-test .
 ```
 
 ### Neovim
@@ -17,5 +17,5 @@ codium-test
 ```console
 nix develop github:nix-community/nixd#nvim
 
-nvim-lsp flake.nix
+nvim-lsp .
 ```
