@@ -1,0 +1,7 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" href="$classnixf_1_1PartialDiagnostic.html" title=" " alt="" coords="5,32,169,60"/>
+<area shape="rect" id="Node000001" href="$classnixf_1_1Diagnostic.html" title=" " alt="" coords="217,5,339,33"/>
+<area shape="poly" id="edge52_Node000000_Node000001" title=" " alt="" coords="184,30,216,25,217,30,184,35"/>
+<area shape="rect" id="Node000002" href="$classnixf_1_1Note.html" title=" " alt="" coords="236,57,320,85"/>
+<area shape="poly" id="edge53_Node000000_Node000002" title=" " alt="" coords="185,56,235,63,235,68,184,61"/>
+</map>

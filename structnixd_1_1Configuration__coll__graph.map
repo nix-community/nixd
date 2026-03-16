@@ -1,0 +1,9 @@
+<map id="nixd::Configuration" name="nixd::Configuration">
+<area shape="rect" id="Node000001" title=" " alt="" coords="275,83,419,111"/>
+<area shape="rect" id="Node000002" href="$structnixd_1_1Configuration_1_1Formatting.html" title=" " alt="" coords="5,5,150,50"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="166,43,251,64,305,80,303,85,250,69,165,48"/>
+<area shape="rect" id="Node000003" href="$structnixd_1_1Configuration_1_1NixpkgsProvider.html" title=" " alt="" coords="5,75,150,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="166,94,274,94,274,100,166,100"/>
+<area shape="rect" id="Node000004" href="$structnixd_1_1Configuration_1_1Diagnostic.html" title=" " alt="" coords="5,144,150,189"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="165,146,250,125,302,109,304,114,251,130,166,151"/>
+</map>
