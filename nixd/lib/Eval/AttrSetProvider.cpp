@@ -137,15 +137,13 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   // FIXME: add definitions location.
   if (V.type() == nix::ValueType::nAttrs) [[likely]] {
     assert(V.attrs());
-    if (auto *It = V.attrs()->find(State.symbols.create("type"));
-        It != V.attrs()->end()) [[likely]] {
+    if (auto *It = V.attrs()->get(State.symbols.create("type"))) [[likely]] {
       OptionType Type;
       fillOptionType(State, *It->value, Type);
       R.Type = std::move(Type);
     }
 
-    if (auto *It = V.attrs()->find(State.symbols.create("example"));
-        It != V.attrs()->end()) {
+    if (auto *It = V.attrs()->get(State.symbols.create("example"))) {
       State.forceValue(*It->value, It->pos);
 
       // In nixpkgs some examples are nested in "literalExpression"
@@ -190,7 +188,7 @@ std::optional<ValueDescription> describeValue(nix::EvalState &State,
     const auto *PrimOp = V.primOp();
     assert(PrimOp);
     return ValueDescription{
-        .Doc = PrimOp->doc ? std::string(PrimOp->doc) : "",
+        .Doc = PrimOp->doc.value_or(""),
         .Arity = static_cast<int>(PrimOp->arity),
         .Args = PrimOp->args,
     };
