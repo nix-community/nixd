@@ -130,6 +130,7 @@ struct OptionDescription {
   std::vector<lspserver::Location> Declarations;
   std::vector<lspserver::Location> Definitions;
   std::optional<std::string> Example;
+  std::optional<std::string> Default;
   std::optional<OptionType> Type;
 };
 
