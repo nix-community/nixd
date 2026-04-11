@@ -313,6 +313,18 @@ nixd::FindAttrPathResult nixd::findAttrPath(const nixf::Node &N,
     }
   }
 
+  if (const Node *Expr = PM.upExpr(N)) {
+    if (Expr->kind() == Node::NK_ExprAttrs) {
+      try {
+        getValueAttrPath(*Expr, PM, Path);
+        Path.emplace_back("");
+        return R::OK;
+      } catch (AttrPathHasDynamicError &E) {
+        return R::WithDynamic;
+      }
+    }
+  }
+
   return R::NotAttrPath;
 }
 
