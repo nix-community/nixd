@@ -35,6 +35,7 @@ libnixd_lib = library(
     'Controller/InlayHints.cpp',
     'Controller/LifeTime.cpp',
     'Controller/NixTU.cpp',
+    'Controller/OptionDiagnostics.cpp',
     'Controller/Rename.cpp',
     'Controller/SemanticTokens.cpp',
     'Controller/Support.cpp',
