@@ -5,9 +5,11 @@
 
 #include "AST.h"
 #include "CheckReturn.h"
+#include "CompletionOptionEnum.h"
 #include "Convert.h"
 
 #include "lspserver/Protocol.h"
+#include "lspserver/SourceCode.h"
 
 #include "nixd/Controller/Controller.h"
 #include "nixd/Protocol/AttrSet.h"
@@ -16,7 +18,10 @@
 
 #include <boost/asio/post.hpp>
 
+#include <llvm/ADT/StringRef.h>
+
 #include <exception>
+#include <optional>
 #include <semaphore>
 #include <set>
 #include <utility>
@@ -183,14 +188,55 @@ class OptionCompletionProvider {
     return Ret;
   }
 
+  static std::string escapeSnippetChoice(llvm::StringRef Origin) {
+    std::string Ret;
+    for (char Ch : Origin) {
+      if (Ch == '\\' || Ch == ',' || Ch == '|' || Ch == '}')
+        Ret += "\\";
+      Ret += Ch;
+    }
+    return Ret;
+  }
+
+  static std::optional<std::string>
+  enumChoiceSnippet(const std::vector<std::string> &EnumValues) {
+    if (EnumValues.empty())
+      return std::nullopt;
+
+    std::string Choices;
+    for (std::size_t I = 0; I < EnumValues.size(); ++I) {
+      if (I != 0)
+        Choices += ",";
+      Choices += escapeSnippetChoice(quoteNixString(EnumValues[I]));
+    }
+    return "${1|" + Choices + "|}";
+  }
+
+  static std::optional<std::string>
+  defaultEnumValue(const OptionDescription &Desc) {
+    if (!Desc.Type || !Desc.Type->EnumValues || Desc.Type->EnumValues->empty())
+      return std::nullopt;
+    return quoteNixString(Desc.Type->EnumValues->front());
+  }
+
   void fillInsertText(CompletionItem &Item, const std::string &Name,
                       const OptionDescription &Desc) const {
+    std::optional<std::string> EnumDefault = defaultEnumValue(Desc);
     if (!ClientSupportSnippet) {
       Item.insertTextFormat = InsertTextFormat::PlainText;
-      Item.insertText = Name + " = " + Desc.Example.value_or("") + ";";
+      Item.insertText =
+          Name + " = " + EnumDefault.value_or(Desc.Example.value_or("")) + ";";
       return;
     }
     Item.insertTextFormat = InsertTextFormat::Snippet;
+    if (Desc.Type && Desc.Type->EnumValues) {
+      if (std::optional<std::string> Choice =
+              enumChoiceSnippet(*Desc.Type->EnumValues)) {
+        Item.insertText = Name + " = " + *Choice + ";";
+        return;
+      }
+    }
+
     Item.insertText =
         Name + " = " +
         "${1:" + escapeCharacters({'\\', '$', '}'}, Desc.Example.value_or("")) +
@@ -245,6 +291,9 @@ public:
           Item.detail += "? (missing type)";
         }
         addItem(Items, std::move(Item));
+        addOptionEnumNameItems(
+            Field, Desc, ModuleOrigin,
+            [&Items](CompletionItem Item) { addItem(Items, std::move(Item)); });
       } else {
         Item.kind = OptionAttrKind;
         addItem(Items, std::move(Item));
@@ -378,27 +427,46 @@ void Controller::onCompletion(const CompletionParams &Params,
                               Callback<CompletionList> Reply) {
   using CheckTy = CompletionList;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
-                 Pos = toNixfPosition(Params.position), this]() mutable {
+                 Pos = toNixfPosition(Params.position),
+                 LSPPos = Params.position, this]() mutable {
     const auto File = URI.file().str();
     return Reply([&]() -> llvm::Expected<CompletionList> {
       const auto TU = CheckDefault(getTU(File));
       const auto AST = CheckDefault(getAST(*TU));
+      llvm::Expected<size_t> MaybeOffset =
+          lspserver::positionToOffset(TU->src(), LSPPos);
+      std::optional<std::size_t> Offset;
+      if (MaybeOffset)
+        Offset = *MaybeOffset;
+      else
+        llvm::consumeError(MaybeOffset.takeError());
 
       const auto *Desc = AST->descend({Pos, Pos});
-      CheckDefault(Desc && Desc->children().empty());
+      CheckDefault(Desc);
 
       const auto &N = *Desc;
       const auto &PM = *TU->parentMap();
-      const auto &UpExpr = *CheckDefault(PM.upExpr(N));
+      const auto *UpExpr = Desc->children().empty() ? PM.upExpr(N) : nullptr;
 
       return [&]() {
         CompletionList List;
         const VariableLookupAnalysis &VLA = *TU->variableLookup();
         try {
-          switch (UpExpr.kind()) {
+          if (!UpExpr) {
+            if (List.items.empty() && Offset)
+              completeOptionEnumValuesAfterEq(
+                  TU->src(), *Offset, OptionsLock, Options,
+                  [&List](CompletionItem Item) {
+                    addItem(List.items, std::move(Item));
+                  });
+            return List;
+          }
+
+          switch (UpExpr->kind()) {
           // In these cases, assume the cursor have "variable" scoping.
           case Node::NK_ExprVar: {
-            completeVarName(VLA, PM, static_cast<const nixf::ExprVar &>(UpExpr),
+            completeVarName(VLA, PM,
+                            static_cast<const nixf::ExprVar &>(*UpExpr),
                             *nixpkgsClient(), List.items);
             return List;
           }
@@ -407,7 +475,7 @@ void Controller::onCompletion(const CompletionParams &Params,
           // foo.|
           // foo.a.bar|
           case Node::NK_ExprSelect: {
-            const auto &Select = static_cast<const nixf::ExprSelect &>(UpExpr);
+            const auto &Select = static_cast<const nixf::ExprSelect &>(*UpExpr);
             completeSelect(Select, *nixpkgsClient(), VLA, PM,
                            N.kind() == Node::NK_Dot, List.items);
             return List;
@@ -415,6 +483,19 @@ void Controller::onCompletion(const CompletionParams &Params,
           case Node::NK_ExprAttrs: {
             completeAttrPath(N, PM, OptionsLock, Options,
                              ClientCaps.CompletionSnippets, List.items);
+            if (List.items.empty() && Offset)
+              completeOptionEnumValuesAfterEq(
+                  TU->src(), *Offset, OptionsLock, Options,
+                  [&List](CompletionItem Item) {
+                    addItem(List.items, std::move(Item));
+                  });
+            return List;
+          }
+          case Node::NK_ExprString: {
+            completeOptionEnumValuesInString(
+                N, PM, OptionsLock, Options, [&List](CompletionItem Item) {
+                  addItem(List.items, std::move(Item));
+                });
             return List;
           }
           default:
