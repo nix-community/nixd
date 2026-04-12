@@ -493,8 +493,7 @@ void Controller::onCompletion(const CompletionParams &Params,
           }
           case Node::NK_ExprString: {
             completeOptionEnumValuesInString(
-                N, PM, OptionsLock, Options,
-                [&List](CompletionItem Item) {
+                N, PM, OptionsLock, Options, [&List](CompletionItem Item) {
                   addItem(List.items, std::move(Item));
                 });
             return List;

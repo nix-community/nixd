@@ -27,14 +27,13 @@ std::string quoteNixString(llvm::StringRef Origin);
 std::optional<OptionDescription>
 resolveOptionInfo(AttrSetClient &Client, const std::vector<std::string> &Scope);
 
-void completeOptionEnumValuesForScope(const std::vector<std::string> &Scope,
-                                      std::mutex &OptionsLock,
-                                      Controller::OptionMapTy &Options,
-                                      const AddCompletionItem &AddItem,
-                                      bool InsertQuotedValue,
-                                      std::optional<lspserver::Range> Range = {});
+void completeOptionEnumValuesForScope(
+    const std::vector<std::string> &Scope, std::mutex &OptionsLock,
+    Controller::OptionMapTy &Options, const AddCompletionItem &AddItem,
+    bool InsertQuotedValue, std::optional<lspserver::Range> Range = {});
 
-void addOptionEnumNameItems(const OptionField &Field, const OptionDescription &Desc,
+void addOptionEnumNameItems(const OptionField &Field,
+                            const OptionDescription &Desc,
                             const std::string &ModuleOrigin,
                             const AddCompletionItem &AddItem);
 
