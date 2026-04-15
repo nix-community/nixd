@@ -48,6 +48,20 @@ void addItem(std::vector<CompletionItem> &Items, CompletionItem Item) {
   Items.emplace_back(std::move(Item));
 }
 
+bool hasConcreteChild(const Node &N) {
+  for (const Node *Child : N.children()) {
+    if (Child)
+      return true;
+  }
+  return false;
+}
+
+bool canCompleteAt(const Node &N) {
+  if (!hasConcreteChild(N))
+    return true;
+  return N.kind() == Node::NK_Binds || N.kind() == Node::NK_ExprAttrs;
+}
+
 class VLACompletionProvider {
   const VariableLookupAnalysis &VLA;
 
@@ -385,7 +399,7 @@ void Controller::onCompletion(const CompletionParams &Params,
       const auto AST = CheckDefault(getAST(*TU));
 
       const auto *Desc = AST->descend({Pos, Pos});
-      CheckDefault(Desc && Desc->children().empty());
+      CheckDefault(Desc && canCompleteAt(*Desc));
 
       const auto &N = *Desc;
       const auto &PM = *TU->parentMap();
