@@ -198,17 +198,16 @@ class OptionCompletionProvider {
   }
 
   void fillInsertText(CompletionItem &Item, const std::string &Name,
-                      const OptionDescription &Desc) const {
+                      const std::string &Value) const {
     if (!ClientSupportSnippet) {
       Item.insertTextFormat = InsertTextFormat::PlainText;
-      Item.insertText = Name + " = " + Desc.Example.value_or("") + ";";
+      Item.insertText = Name + " = " + Value + ";";
       return;
     }
     Item.insertTextFormat = InsertTextFormat::Snippet;
-    Item.insertText =
-        Name + " = " +
-        "${1:" + escapeCharacters({'\\', '$', '}'}, Desc.Example.value_or("")) +
-        "}" + ";";
+    Item.insertText = Name + " = " +
+                      "${1:" + escapeCharacters({'\\', '$', '}'}, Value) + "}" +
+                      ";";
   }
 
 public:
@@ -237,30 +236,81 @@ public:
     Ready.acquire();
     // Now we have "Names", use these to fill "Items".
     for (const nixd::OptionField &Field : Names) {
-      CompletionItem Item;
-
-      Item.label = Field.Name;
-      Item.detail = ModuleOrigin;
-
-      if (Field.Description) {
-        const OptionDescription &Desc = *Field.Description;
-        Item.kind = OptionKind;
-        fillInsertText(Item, Field.Name, Desc);
-        Item.documentation = MarkupContent{
-            .kind = MarkupKind::Markdown,
-            .value = Desc.Description.value_or(""),
-        };
-        Item.detail += " | "; // separater between origin and type desc.
-        if (Desc.Type) {
-          std::string TypeName = Desc.Type->Name.value_or("");
-          std::string TypeDesc = Desc.Type->Description.value_or("");
-          Item.detail += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
-        } else {
-          Item.detail += "? (missing type)";
-        }
-        addItem(Items, std::move(Item));
-      } else {
+      if (!Field.Description) {
+        CompletionItem Item;
+        Item.label = Field.Name;
+        Item.detail = ModuleOrigin;
         Item.kind = OptionAttrKind;
+        addItem(Items, std::move(Item));
+        continue;
+      }
+
+      const OptionDescription &Desc = *Field.Description;
+
+      // Build the shared bits (detail, documentation) once, then emit one
+      // completion item per value source (`example`, `default`). This lets
+      // the user pick between the sample code the option author suggested
+      // and its default value - useful when an option only has one of the
+      // two, or when the user wants the default as a starting point.
+      std::string TypeDetail = ModuleOrigin + " | ";
+      if (Desc.Type) {
+        std::string TypeName = Desc.Type->Name.value_or("");
+        std::string TypeDesc = Desc.Type->Description.value_or("");
+        TypeDetail += llvm::formatv("{0} ({1})", TypeName, TypeDesc);
+      } else {
+        TypeDetail += "? (missing type)";
+      }
+      MarkupContent Doc{
+          .kind = MarkupKind::Markdown,
+          .value = Desc.Description.value_or(""),
+      };
+
+      // Check whether both variants will be emitted so we can decide
+      // whether to disambiguate the labels with "(example)" / "(default)".
+      bool HasExample = Desc.Example.has_value();
+      // Only emit a separate `default` item when it would differ from the
+      // example; otherwise the user would see two identical snippets.
+      bool HasDefault =
+          Desc.Default.has_value() && Desc.Default != Desc.Example;
+      bool HasBoth = HasExample && HasDefault;
+
+      auto emit = [&](const std::string &Value, llvm::StringRef Source,
+                      llvm::StringRef SortPrefix) {
+        CompletionItem Item;
+        // When both variants exist, append the source so users can tell
+        // them apart. `filterText` is always the plain option name so
+        // typing the name matches both items.
+        if (HasBoth)
+          Item.label = llvm::formatv("{0} ({1})", Field.Name, Source);
+        else
+          Item.label = Field.Name;
+        Item.filterText = Field.Name;
+        Item.sortText = (SortPrefix + Field.Name).str();
+        Item.kind = OptionKind;
+        Item.detail = TypeDetail;
+        Item.documentation = Doc;
+        fillInsertText(Item, Field.Name, Value);
+        addItem(Items, std::move(Item));
+      };
+
+      bool Emitted = false;
+      if (HasExample) {
+        emit(*Desc.Example, "example", "0");
+        Emitted = true;
+      }
+      if (HasDefault) {
+        emit(*Desc.Default, "default", "1");
+        Emitted = true;
+      }
+      if (!Emitted) {
+        // No example or default to insert — still offer the option name
+        // as a bare completion so users can discover it.
+        CompletionItem Item;
+        Item.label = Field.Name;
+        Item.kind = OptionKind;
+        Item.detail = TypeDetail;
+        Item.documentation = Doc;
+        fillInsertText(Item, Field.Name, "");
         addItem(Items, std::move(Item));
       }
     }
