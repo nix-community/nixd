@@ -4,16 +4,20 @@ using namespace nixd;
 using namespace llvm::json;
 
 Value nixd::toJSON(const OptionType &Params) {
-  return Object{
+  Object Result{
       {"Description", Params.Description},
       {"Name", Params.Name},
   };
+  if (Params.EnumValues)
+    Result["EnumValues"] = *Params.EnumValues;
+  return Result;
 }
 
 bool nixd::fromJSON(const Value &Params, OptionType &R, Path P) {
   ObjectMapper O(Params, P);
   return O                                              //
          && O.mapOptional("Description", R.Description) //
+         && O.mapOptional("EnumValues", R.EnumValues)   //
          && O.mapOptional("Name", R.Name);
 }
 
