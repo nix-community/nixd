@@ -59,6 +59,15 @@ private:
   /// Sync tokens will not be consumed as "unknown".
   std::multiset<TokenKind> SyncTokens;
 
+  struct NodeInfo {
+    Node *N;
+    LexerCursor StartCur;
+    LexerCursor EndCur;
+  };
+
+  std::vector<CommentPtr> PendingComments;
+  std::vector<NodeInfo> ParsedNodes;
+
   class StateRAII {
     Parser &P;
 
@@ -336,6 +345,15 @@ public:
 
   /// Top-level parsing.
   std::shared_ptr<Expr> parse();
+
+  /// \brief Collect comments from lexer
+  void collectComments();
+
+  /// \brief Register a parsed node for later comment attachment
+  void registerNode(Node *N);
+
+  /// \brief Attach all pending comments to registered nodes
+  void attachAllComments();
 };
 
 } // namespace nixf
