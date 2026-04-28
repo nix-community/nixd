@@ -66,7 +66,7 @@ std::optional<Location> locationOf(nix::PosTable &PTable, nix::Value &V) {
 
 ValueMeta metadataOf(nix::EvalState &State, nix::Value &V) {
   return {
-      .Type = V.type(true),
+      .Type = V.type<true>(),
       .Location = locationOf(State.positions, V),
   };
 }
@@ -130,6 +130,46 @@ void fillOptionType(nix::EvalState &State, nix::Value &VType, OptionType &R) {
   fillString(State, VType, {"name"}, R.Name);
 }
 
+/// Render an option's `example` or `default` field as a string suitable for
+/// code completion. Handles `literalExpression` wrappers as used in nixpkgs.
+/// When \p AllowComplex is false, only scalar values (strings, numbers,
+/// booleans, null, paths) are rendered; attrsets, lists, lambdas, and thunks
+/// are skipped to avoid infinite recursion.
+std::optional<std::string> renderOptionValue(nix::EvalState &State,
+                                             nix::Value &V, bool AllowComplex) {
+  try {
+    State.forceValue(V, nix::noPos);
+
+    // In nixpkgs these fields are often wrapped in `literalExpression`
+    // which carries the source text.
+    if (nixt::checkField(State, V, "_type", "literalExpression")) {
+      if (auto Text = nixt::getFieldString(State, V, "text"))
+        return std::string(*Text);
+      return std::nullopt;
+    }
+
+    if (!AllowComplex) {
+      switch (V.type()) {
+      case nix::ValueType::nString:
+      case nix::ValueType::nInt:
+      case nix::ValueType::nFloat:
+      case nix::ValueType::nBool:
+      case nix::ValueType::nNull:
+      case nix::ValueType::nPath:
+        break;
+      default:
+        return std::nullopt;
+      }
+    }
+
+    std::ostringstream OS;
+    V.print(State, OS);
+    return OS.str();
+  } catch (std::exception &) {
+    return std::nullopt;
+  }
+}
+
 void fillOptionDescription(nix::EvalState &State, nix::Value &V,
                            OptionDescription &R) {
   fillString(State, V, {"description"}, R.Description);
@@ -137,25 +177,27 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   // FIXME: add definitions location.
   if (V.type() == nix::ValueType::nAttrs) [[likely]] {
     assert(V.attrs());
-    if (auto *It = V.attrs()->find(State.symbols.create("type"));
-        It != V.attrs()->end()) [[likely]] {
+    if (auto *It = V.attrs()->get(State.symbols.create("type"))) [[likely]] {
       OptionType Type;
       fillOptionType(State, *It->value, Type);
       R.Type = std::move(Type);
     }
 
-    if (auto *It = V.attrs()->find(State.symbols.create("example"));
-        It != V.attrs()->end()) {
-      State.forceValue(*It->value, It->pos);
+    if (auto *It = V.attrs()->get(State.symbols.create("example"))) {
+      R.Example = renderOptionValue(State, *It->value, /*AllowComplex=*/true);
+    }
 
-      // In nixpkgs some examples are nested in "literalExpression"
-      if (nixt::checkField(State, *It->value, "_type", "literalExpression")) {
-        R.Example = nixt::getFieldString(State, *It->value, "text");
-      } else {
-        std::ostringstream OS;
-        It->value->print(State, OS);
-        R.Example = OS.str();
-      }
+    // Fall back to the option's default so completion still has something
+    // useful to offer when no `example` is provided. `defaultText` takes
+    // priority over `default`: nixpkgs authors set `defaultText` precisely
+    // when the raw `default` would be unhelpful (e.g. a self-referential
+    // attrset or lambda), so its presence alone means `default` should be
+    // ignored — falling back would defeat the author's intent. Complex
+    // raw defaults are also refused to avoid infinite recursion.
+    if (auto *It = V.attrs()->get(State.symbols.create("defaultText"))) {
+      R.Default = renderOptionValue(State, *It->value, /*AllowComplex=*/false);
+    } else if (auto *It = V.attrs()->get(State.symbols.create("default"))) {
+      R.Default = renderOptionValue(State, *It->value, /*AllowComplex=*/false);
     }
   }
 }
@@ -190,7 +232,7 @@ std::optional<ValueDescription> describeValue(nix::EvalState &State,
     const auto *PrimOp = V.primOp();
     assert(PrimOp);
     return ValueDescription{
-        .Doc = PrimOp->doc ? std::string(PrimOp->doc) : "",
+        .Doc = PrimOp->doc.value_or(""),
         .Arity = static_cast<int>(PrimOp->arity),
         .Args = PrimOp->args,
     };

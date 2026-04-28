@@ -14,7 +14,7 @@ std::optional<nix::Value> nixt::getField(nix::EvalState &State, nix::Value &V,
     return std::nullopt;
 
   nix::Symbol SFiled = State.symbols.create(Field);
-  if (auto *It = V.attrs()->find(SFiled); It != V.attrs()->end())
+  if (const auto *It = V.attrs()->get(SFiled))
     return *It->value;
 
   return std::nullopt;
@@ -53,7 +53,7 @@ bool nixt::isDerivation(nix::EvalState &State, nix::Value &V) {
 
 std::string nixt::attrPathStr(nix::EvalState &State, nix::Value &V,
                               const std::string &AttrPath) {
-  auto &AutoArgs = *State.allocBindings(0);
+  auto &AutoArgs = nix::Bindings::emptyBindings;
   auto [VPath, Pos] = nix::findAlongAttrPath(State, AttrPath, AutoArgs, V);
   State.forceValue(*VPath, Pos);
   return std::string(State.forceStringNoCtx(*VPath, nix::noPos, ""));
@@ -89,8 +89,8 @@ nix::Value &nixt::selectAttr(nix::EvalState &State, nix::Value &V,
     throw nix::TypeError(State, "value is not an attrset");
 
   assert(V.attrs() && "nix must allocate non-null attrs!");
-  auto *Nested = V.attrs()->find(Attr);
-  if (Nested == V.attrs()->end())
+  const auto *Nested = V.attrs()->get(Attr);
+  if (!Nested)
     throw nix::AttrPathNotFound("attrname " + State.symbols[Attr] +
                                 " not found in attrset");
 
@@ -102,7 +102,7 @@ nix::Value &nixt::selectAttr(nix::EvalState &State, nix::Value &V,
 nix::Value &nixt::selectAttrPath(nix::EvalState &State, nix::Value &V,
                                  std::vector<nix::Symbol>::const_iterator Begin,
                                  std::vector<nix::Symbol>::const_iterator End) {
-  // If the attrpath is emtpy, return value itself.
+  // If the attrpath is empty, return value itself.
   if (Begin == End)
     return V;
 
@@ -120,7 +120,7 @@ bool isTypeSubmodule(nix::EvalState &State, nix::Value &Type) {
 
 nix::Value *trySelectAttr(nix::EvalState &State, nix::Value &V, nix::Symbol S) {
   try {
-    nix::Value &Type = selectAttr(State, V, State.sType);
+    nix::Value &Type = selectAttr(State, V, nix::EvalState::s.type);
     return &Type;
   } catch (nix::TypeError &) {
     // The value is not an attrset, thus it definitely cannot be a submodule.
@@ -134,7 +134,7 @@ nix::Value *trySelectAttr(nix::EvalState &State, nix::Value &V, nix::Symbol S) {
 
 /// \brief Get the type of an option.
 nix::Value *tryGetSubmoduleType(nix::EvalState &State, nix::Value &V) {
-  if (nix::Value *Type = trySelectAttr(State, V, State.sType))
+  if (nix::Value *Type = trySelectAttr(State, V, nix::EvalState::s.type))
     return isTypeSubmodule(State, *Type) ? Type : nullptr;
   return nullptr;
 }
@@ -174,7 +174,7 @@ nix::Value nixt::selectOptions(nix::EvalState &State, nix::Value &V,
     //      networking.interfaces
     //
     // Take care of such case.
-    nix::Value &Type = selectAttr(State, V, State.sType);
+    nix::Value &Type = selectAttr(State, V, nix::EvalState::s.type);
     if (checkField(State, Type, "name", "attrsOf")) {
       nix::Value NestedTypes =
           selectAttr(State, Type, State.symbols.create("nestedTypes"));

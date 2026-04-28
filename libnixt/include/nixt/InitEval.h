@@ -8,6 +8,7 @@
 #include <nix/flake/settings.hh>
 #include <nix/main/plugin.hh>
 #include <nix/main/shared.hh>
+#include <nix/store/globals.hh>
 #include <nix/store/store-api.hh>
 
 namespace nixt {

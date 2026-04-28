@@ -26,7 +26,7 @@ CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": {
 CHECK-NEXT:   "Meta": {
 CHECK-NEXT:     "Location": null,
-CHECK-NEXT:     "Type": 9
+CHECK-NEXT:     "Type": 10
 CHECK-NEXT:   },
 CHECK-NEXT:   "PackageDesc": {
 CHECK-NEXT:     "Description": null,

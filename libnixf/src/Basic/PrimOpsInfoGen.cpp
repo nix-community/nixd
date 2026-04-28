@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     std::cout << "    .Arity = " << PrimOp.arity << ",\n";
 
     // .doc
-    std::cout << "    .Doc = R\"xabc(" << (PrimOp.doc ? PrimOp.doc : "")
+    std::cout << "    .Doc = R\"xabc(" << PrimOp.doc.value_or("")
               << ")xabc\",\n";
 
     // .internal

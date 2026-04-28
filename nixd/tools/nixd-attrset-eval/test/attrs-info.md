@@ -26,7 +26,7 @@ CHECK-NEXT:  "jsonrpc": "2.0",
 CHECK-NEXT:  "result": {
 CHECK-NEXT:    "Meta": {
 CHECK-NEXT:      "Location": null,
-CHECK-NEXT:      "Type": 7
+CHECK-NEXT:      "Type": 8
 CHECK-NEXT:    },
 CHECK-NEXT:    "PackageDesc": {
 CHECK-NEXT:      "Description": "A program that produces a familiar, friendly greeting",
