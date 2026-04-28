@@ -66,7 +66,7 @@ std::optional<Location> locationOf(nix::PosTable &PTable, nix::Value &V) {
 
 ValueMeta metadataOf(nix::EvalState &State, nix::Value &V) {
   return {
-      .Type = V.type(true),
+      .Type = V.type<true>(),
       .Location = locationOf(State.positions, V),
   };
 }
