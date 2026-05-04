@@ -158,6 +158,7 @@ private:
   void dfs(const ExprLambda &Lambda, const std::shared_ptr<EnvNode> &Env);
   void dfs(const ExprAttrs &Attrs, const std::shared_ptr<EnvNode> &Env);
   void dfs(const ExprLet &Let, const std::shared_ptr<EnvNode> &Env);
+  void dfs(const ExprLegacyLet &LegacyLet, const std::shared_ptr<EnvNode> &Env);
   void dfs(const ExprWith &With, const std::shared_ptr<EnvNode> &Env);
 
   void dfs(const Node &Root, const std::shared_ptr<EnvNode> &Env);
