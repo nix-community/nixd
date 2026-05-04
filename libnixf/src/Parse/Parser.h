@@ -330,6 +330,11 @@ public:
   std::shared_ptr<ExprLet> parseExprLet();
 
   /// \code
+  /// expr_legacy_let : 'let' '{' binds '}'
+  /// \endcode
+  std::shared_ptr<ExprLegacyLet> parseExprLegacyLet();
+
+  /// \code
   /// expr_with :  'with' expr ';' expr
   /// \endcode
   std::shared_ptr<ExprWith> parseExprWith();

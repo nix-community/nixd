@@ -397,6 +397,12 @@ void VariableLookupAnalysis::dfs(const ExprLet &Let,
   emitEnvLivenessWarning(LetEnv);
 }
 
+void VariableLookupAnalysis::dfs(const ExprLegacyLet &LegacyLet,
+                                 const std::shared_ptr<EnvNode> &Env) {
+  if (LegacyLet.attrs())
+    dfs(*LegacyLet.attrs(), Env);
+}
+
 void VariableLookupAnalysis::trivialDispatch(
     const Node &Root, const std::shared_ptr<EnvNode> &Env) {
   for (const Node *Ch : Root.children()) {
@@ -523,6 +529,11 @@ void VariableLookupAnalysis::dfs(const Node &Root,
   case Node::NK_ExprLet: {
     const auto &Let = static_cast<const ExprLet &>(Root);
     dfs(Let, Env);
+    break;
+  }
+  case Node::NK_ExprLegacyLet: {
+    const auto &LegacyLet = static_cast<const ExprLegacyLet &>(Root);
+    dfs(LegacyLet, Env);
     break;
   }
   case Node::NK_ExprWith: {
