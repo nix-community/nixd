@@ -358,9 +358,9 @@ std::shared_ptr<ExprLegacyLet> Parser::parseExprLegacyLet() {
         << std::string(tok::spelling(LCurly.kind()));
   }
 
-  auto Attrs = Act.onExprAttrs(
-      LexerCursorRange{TokLet.lCur(), LastToken->rCur()}, std::move(Binds),
-      KwLet);
+  auto Attrs =
+      Act.onExprAttrs(LexerCursorRange{TokLet.lCur(), LastToken->rCur()},
+                      std::move(Binds), KwLet);
 
   LexerCursorRange FullRange{LCur, LastToken->rCur()};
 
@@ -384,8 +384,8 @@ std::shared_ptr<ExprLegacyLet> Parser::parseExprLegacyLet() {
       Fix &F = DWarn.fix("convert to `let ... in ...`");
       F.edit(TextEdit::mkRemoval(LCurlyRange));
       F.edit(TextEdit::mkRemoval(Bind.range()));
-      F.edit(TextEdit(RCurlyRange,
-                      "in " + std::string(Bind.value()->src(Src))));
+      F.edit(
+          TextEdit(RCurlyRange, "in " + std::string(Bind.value()->src(Src))));
       break;
     }
   }
