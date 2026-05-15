@@ -7,6 +7,7 @@
 #include "CheckReturn.h"
 #include "Convert.h"
 
+#include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 
 #include "nixd/Controller/Controller.h"
@@ -141,7 +142,8 @@ public:
   }
 
   /// \brief Ask nixpkgs provider, give us a list of names. (thunks)
-  void completePackages(const AttrPathCompleteParams &Params,
+  void completePackages(const lspserver::Range EditRange,
+                        const AttrPathCompleteParams &Params,
                         std::vector<CompletionItem> &Items) {
     std::binary_semaphore Ready(0);
     std::vector<std::string> Names;
@@ -161,11 +163,18 @@ public:
     // Now we have "Names", use these to fill "Items".
     for (const auto &Name : Names) {
       if (Name.starts_with(Params.Prefix)) {
-        addItem(Items, CompletionItem{
-                           .label = Name,
-                           .kind = CompletionItemKind::Field,
-                           .data = llvm::formatv("{0}", toJSON(Params)),
-                       });
+        CompletionItem Item;
+        Item.label = Name;
+        Item.kind = CompletionItemKind::Field;
+        Item.data = llvm::formatv("{0}", toJSON(Params));
+
+        lspserver::TextEdit Edit;
+        Edit.range = EditRange;
+        Edit.newText = Item.label;
+
+        Item.textEdit = Edit;
+
+        addItem(Items, Item);
       }
     }
   }
@@ -216,7 +225,8 @@ public:
       : OptionClient(OptionClient), ModuleOrigin(std::move(ModuleOrigin)),
         ClientSupportSnippet(ClientSupportSnippet) {}
 
-  void completeOptions(std::vector<std::string> Scope, std::string Prefix,
+  void completeOptions(const lspserver::Range EditRange,
+                       std::vector<std::string> Scope, std::string Prefix,
                        std::vector<CompletionItem> &Items) {
     std::binary_semaphore Ready(0);
     OptionCompleteResponse Names;
@@ -241,6 +251,17 @@ public:
         Item.label = Field.Name;
         Item.detail = ModuleOrigin;
         Item.kind = OptionAttrKind;
+
+        // If prefix is empty there isn't anything to replace and the EditRange
+        // is probably wrong So only perform a textEdit if there is a Prefix
+        if (Params.Prefix != "") {
+          lspserver::TextEdit Edit;
+          Edit.range = EditRange;
+          Edit.newText = Item.label;
+
+          Item.textEdit = Edit;
+        }
+
         addItem(Items, std::move(Item));
         continue;
       }
@@ -289,7 +310,22 @@ public:
         Item.kind = OptionKind;
         Item.detail = TypeDetail;
         Item.documentation = Doc;
+
+        // If prefix is empty there isn't anything to replace and the EditRange
+        // is probably wrong So only perform a textEdit if there is a Prefix
+
         fillInsertText(Item, Field.Name, Value);
+
+        // If prefix is empty there isn't anything to replace and the EditRange
+        // is probably wrong So only perform a textEdit if there is a Prefix
+        if (Params.Prefix != "") {
+          lspserver::TextEdit Edit;
+          Edit.range = EditRange;
+          Edit.newText = Item.insertText;
+
+          Item.textEdit = Edit;
+        }
+
         addItem(Items, std::move(Item));
       };
 
@@ -310,14 +346,27 @@ public:
         Item.kind = OptionKind;
         Item.detail = TypeDetail;
         Item.documentation = Doc;
+
         fillInsertText(Item, Field.Name, "");
+
+        // If prefix is empty there isn't anything to replace and the EditRange
+        // is probably wrong So only perform a textEdit if there is a Prefix
+        if (Params.Prefix != "") {
+          lspserver::TextEdit Edit;
+          Edit.range = EditRange;
+          Edit.newText = Item.insertText;
+
+          Item.textEdit = Edit;
+        }
+
         addItem(Items, std::move(Item));
       }
     }
   }
 };
 
-void completeAttrName(const std::vector<std::string> &Scope,
+void completeAttrName(const lspserver::Range EditRange,
+                      const std::vector<std::string> &Scope,
                       const std::string &Prefix,
                       Controller::OptionMapTy &Options, bool CompletionSnippets,
                       std::vector<CompletionItem> &List) {
@@ -328,13 +377,13 @@ void completeAttrName(const std::vector<std::string> &Scope,
       continue;
     }
     OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
-    OCP.completeOptions(Scope, Prefix, List);
+    OCP.completeOptions(EditRange, Scope, Prefix, List);
   }
 }
 
-void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
-                      std::mutex &OptionsLock, Controller::OptionMapTy &Options,
-                      bool Snippets,
+void completeAttrPath(const lspserver::Range EditRange, const Node &N,
+                      const ParentMapAnalysis &PM, std::mutex &OptionsLock,
+                      Controller::OptionMapTy &Options, bool Snippets,
                       std::vector<lspserver::CompletionItem> &Items) {
   std::vector<std::string> Scope;
   using PathResult = FindAttrPathResult;
@@ -345,7 +394,7 @@ void completeAttrPath(const Node &N, const ParentMapAnalysis &PM,
     Scope.pop_back();
     {
       std::lock_guard _(OptionsLock);
-      completeAttrName(Scope, Prefix, Options, Snippets, Items);
+      completeAttrName(EditRange, Scope, Prefix, Options, Snippets, Items);
     }
   }
 }
@@ -367,7 +416,8 @@ AttrPathCompleteParams mkParams(nixd::Selector Sel, bool IsComplete) {
 
 #define DBG DBGPREFIX ": "
 
-void completeVarName(const VariableLookupAnalysis &VLA,
+void completeVarName(const lspserver::Range EditRange,
+                     const VariableLookupAnalysis &VLA,
                      const ParentMapAnalysis &PM, const nixf::ExprVar &N,
                      AttrSetClient &Client, std::vector<CompletionItem> &List) {
 #define DBGPREFIX "completion/var"
@@ -386,7 +436,7 @@ void completeVarName(const VariableLookupAnalysis &VLA,
     // Invoke nixpkgs provider to get the completion list.
     NixpkgsCompletionProvider NCP(Client);
     // Variable names are always incomplete.
-    NCP.completePackages(mkParams(Sel, /*IsComplete=*/false), List);
+    NCP.completePackages(EditRange, mkParams(Sel, /*IsComplete=*/false), List);
   } catch (ExceedSizeError &) {
     // Let "onCompletion" catch this exception to set "inComplete" field.
     throw;
@@ -403,7 +453,8 @@ void completeVarName(const VariableLookupAnalysis &VLA,
 /// e.g.
 ///      - incomplete: `lib.gen|`
 ///      - complete:   `lib.attrset.|`
-void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
+void completeSelect(const lspserver::Range EditRange,
+                    const nixf::ExprSelect &Select, AttrSetClient &Client,
                     const nixf::VariableLookupAnalysis &VLA,
                     const nixf::ParentMapAnalysis &PM, bool IsComplete,
                     std::vector<CompletionItem> &List) {
@@ -425,7 +476,7 @@ void completeSelect(const nixf::ExprSelect &Select, AttrSetClient &Client,
   try {
     Selector Sel =
         idioms::mkSelector(Select, idioms::mkVarSelector(Var, VLA, PM));
-    NCP.completePackages(mkParams(Sel, IsComplete), List);
+    NCP.completePackages(EditRange, mkParams(Sel, IsComplete), List);
   } catch (ExceedSizeError &) {
     // Let "onCompletion" catch this exception to set "inComplete" field.
     throw;
@@ -455,6 +506,12 @@ void Controller::onCompletion(const CompletionParams &Params,
       const auto &PM = *TU->parentMap();
       const auto &UpExpr = *CheckDefault(PM.upExpr(N));
 
+      lspserver::Range EditRange = toLSPRange(TU->src(), N.range());
+      if (N.kind() == Node::NK_Dot) {
+        // If the node is a dot, insert after the dot
+        EditRange.start = EditRange.end;
+      }
+
       return [&]() {
         CompletionList List;
         const VariableLookupAnalysis &VLA = *TU->variableLookup();
@@ -462,7 +519,8 @@ void Controller::onCompletion(const CompletionParams &Params,
           switch (UpExpr.kind()) {
           // In these cases, assume the cursor have "variable" scoping.
           case Node::NK_ExprVar: {
-            completeVarName(VLA, PM, static_cast<const nixf::ExprVar &>(UpExpr),
+            completeVarName(EditRange, VLA, PM,
+                            static_cast<const nixf::ExprVar &>(UpExpr),
                             *nixpkgsClient(), List.items);
             return List;
           }
@@ -472,12 +530,12 @@ void Controller::onCompletion(const CompletionParams &Params,
           // foo.a.bar|
           case Node::NK_ExprSelect: {
             const auto &Select = static_cast<const nixf::ExprSelect &>(UpExpr);
-            completeSelect(Select, *nixpkgsClient(), VLA, PM,
+            completeSelect(EditRange, Select, *nixpkgsClient(), VLA, PM,
                            N.kind() == Node::NK_Dot, List.items);
             return List;
           }
           case Node::NK_ExprAttrs: {
-            completeAttrPath(N, PM, OptionsLock, Options,
+            completeAttrPath(EditRange, N, PM, OptionsLock, Options,
                              ClientCaps.CompletionSnippets, List.items);
             return List;
           }
