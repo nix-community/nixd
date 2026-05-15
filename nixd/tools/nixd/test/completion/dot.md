@@ -59,7 +59,20 @@ CHECK-NEXT:        "data": "",
 CHECK-NEXT:        "detail": "nixos",
 CHECK-NEXT:        "kind": 7,
 CHECK-NEXT:        "label": "foo",
-CHECK-NEXT:        "score": 0
+CHECK-NEXT:        "score": 0,
+CHECK-NEXT:        "textEdit": {
+CHECK-NEXT:          "newText": "foo",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 14,
+CHECK-NEXT:              "line": 0
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 11,
+CHECK-NEXT:              "line": 0
+CHECK-NEXT:            }
+CHECK-NEXT:          }        
+CHECK-NEXT:        }
 CHECK-NEXT:      }
 CHECK-NEXT:    ]
 CHECK-NEXT:  }
