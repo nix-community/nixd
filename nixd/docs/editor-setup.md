@@ -125,6 +125,21 @@ language-servers = ["nixd","nil"]
 command = "nixd"
 ```
 
+
+### Kakoune
+
+#### [kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp)
+
+```kakscript
+remove-hooks global lsp-filetype-nix
+hook -group lsp-filetype-nix global BufSetOption filetype=nix %{
+    set-option buffer lsp_servers %{
+        [nixd]
+        root_globs = ["flake.nix", "shell.nix", ".git", ".hg"]
+    }
+}
+```
+
 ### KDE Kate
 Kate with [LSP Client Plugin:](https://docs.kde.org/stable5/en/kate/kate/kate-application-plugin-lspclient.html)
 #### /$HOME/$USER/.config/kate/lspclient/settings.json

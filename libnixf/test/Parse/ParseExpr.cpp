@@ -393,4 +393,49 @@ TEST(Parser, ExprWith_NoExpr) {
   ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_Expected);
 }
 
+TEST(Parser, LegacyLetOK) {
+  auto Src = R"(let { x = 1; body = x; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprLegacyLet);
+
+  const auto &LegacyLet = static_cast<ExprLegacyLet &>(*AST);
+  ASSERT_TRUE(LegacyLet.attrs());
+  ASSERT_TRUE(LegacyLet.attrs()->isRecursive());
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DeprecatedLet);
+
+  // Check the fix: convert to let ... in ...
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  const Fix &F = Diags[0].fixes()[0];
+  ASSERT_EQ(F.message(), "convert to `let ... in ...`");
+  ASSERT_EQ(F.edits().size(), 3);
+  // Edit 0: remove '{'
+  ASSERT_TRUE(F.edits()[0].isRemoval());
+  // Edit 1: remove 'body = x;'
+  ASSERT_TRUE(F.edits()[1].isRemoval());
+  // Edit 2: replace '}' with 'in x'
+  ASSERT_EQ(F.edits()[2].newText(), "in x");
+}
+
+TEST(Parser, LegacyLetMissingBody) {
+  auto Src = R"(let { x = 1; })"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parseExpr();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprLegacyLet);
+
+  ASSERT_EQ(Diags.size(), 2);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_DeprecatedLet);
+  ASSERT_EQ(Diags[1].kind(), Diagnostic::DK_LetAttrsMissingBody);
+}
+
 } // namespace

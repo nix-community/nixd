@@ -23,6 +23,7 @@ Value nixd::toJSON(const OptionDescription &Params) {
       {"Declarations", Params.Declarations},
       {"Definitions", Params.Definitions},
       {"Example", Params.Example},
+      {"Default", Params.Default},
       {"Type", Params.Type},
   };
 }
@@ -33,6 +34,7 @@ bool nixd::fromJSON(const Value &Params, OptionDescription &R, Path P) {
          && O.mapOptional("Declarations", R.Declarations) //
          && O.mapOptional("Definitions", R.Definitions)   //
          && O.mapOptional("Example", R.Example)           //
+         && O.mapOptional("Default", R.Default)           //
          && O.mapOptional("Type", R.Type)                 //
       ;
 }
