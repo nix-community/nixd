@@ -212,13 +212,28 @@ void Lexer::lexNumbers() {
 bool Lexer::consumePathStart() {
   // PATH_CHAR   [a-zA-Z0-9\.\_\-\+]
   // PATH        {PATH_CHAR}*(\/{PATH_CHAR}+)+\/?
+  // HOME_PATH   ~\/{PATH_CHAR}+
   // PATH_SEG    {PATH_CHAR}*\/
   //
 
-  // Path, starts with any valid path char, and must contain slashs
-  // Here, we look ahead characters, the must be valid path char
-  // And also check if it contains a slash.
+  // Path, starts with any valid path char, or a leading "~/" home path, and
+  // must contain slashs Here, we look ahead characters, the must be valid path
+  // char And also check if it contains a slash.
   LexerCursor Saved = cur();
+
+  // Nix accepts paths under the user's home directory, e.g. ~/foo. The '~'
+  // marker is only valid as a path start when immediately followed by '/'.
+  // Keep '~foo/bar' and interior '~' segments rejected, matching libexpr.
+  if (consumeOne('~')) {
+    if (consumeOne('/')) {
+      if (auto Ch = peek(); Ch && isPathChar(*Ch))
+        return true;
+      if (peekPrefix("${"))
+        return true;
+    }
+    Cur = Saved;
+    return false;
+  }
 
   // {PATH_CHAR}*
   consumeManyPathChar();
@@ -341,6 +356,18 @@ Token Lexer::lexPath() {
     return finishToken();
   }
 
+  if (peekPrefix("~/")) {
+    Tok = tok_path_fragment;
+    consume(2);
+    while (!eof() && (isPathChar(peekUnwrap()) || peekUnwrap() == '/')) {
+      // Encountered an interpolation, stop here
+      if (peekPrefix("${"))
+        break;
+      consume();
+    }
+    return finishToken();
+  }
+
   if (isPathChar(peekUnwrap()) || peekUnwrap() == '/') {
     Tok = tok_path_fragment;
     while (!eof() && (isPathChar(peekUnwrap()) || peekUnwrap() == '/')) {
@@ -456,7 +483,7 @@ Token Lexer::lex() {
 
   // Determine if this is a path, or identifier.
   // a/b (including 1/2) should be considered as a whole path, not (a / b)
-  if (isPathChar(*Ch) || *Ch == '/') {
+  if (isPathChar(*Ch) || *Ch == '/' || *Ch == '~') {
     if (consumePathStart()) {
       // Form a concret token, this is a path part.
       Tok = tok_path_fragment;

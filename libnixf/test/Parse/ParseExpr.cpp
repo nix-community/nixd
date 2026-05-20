@@ -152,6 +152,22 @@ TEST(Parser, ParseExprApp) {
   ASSERT_EQ(A->args().size(), 1);
 }
 
+TEST(Parser, ParseExprAppHomePathArg) {
+  auto Src = R"(builtins.pathExists ~/some/file.nix)"sv;
+
+  std::vector<Diagnostic> Diags;
+  Parser P(Src, Diags);
+  auto AST = P.parse();
+
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 0);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprCall);
+
+  const auto &Call = static_cast<ExprCall &>(*AST);
+  ASSERT_EQ(Call.args().size(), 1);
+  ASSERT_EQ(Call.args()[0]->kind(), Node::NK_ExprPath);
+}
+
 TEST(Parser, ExprDispatch_id_at) {
   // ID @
   auto Src = R"(a @)"sv;

@@ -173,6 +173,32 @@ TEST_F(LexerTest, lexIDPath) {
   ASSERT_EQ(Tokens.size(), sizeof(Match) / sizeof(TokenKind));
 }
 
+TEST_F(LexerTest, lexHomePathStart) {
+  Lexer Lexer(R"(~/foo/bar.nix)", Diags);
+  Token First = Lexer.lex();
+  ASSERT_EQ(First.kind(), tok_path_fragment);
+  ASSERT_EQ(First.view(), "~/");
+
+  Token Rest = Lexer.lexPath();
+  ASSERT_EQ(Rest.kind(), tok_path_fragment);
+  ASSERT_EQ(Rest.view(), "foo/bar.nix");
+
+  Token End = Lexer.lexPath();
+  ASSERT_EQ(End.kind(), tok_path_end);
+  ASSERT_TRUE(Diags.empty());
+}
+
+TEST_F(LexerTest, lexHomePathInterpolationStart) {
+  Lexer Lexer(R"(~/${"subdir"}/file.nix)", Diags);
+  Token First = Lexer.lex();
+  ASSERT_EQ(First.kind(), tok_path_fragment);
+  ASSERT_EQ(First.view(), "~/");
+
+  Token Interpolation = Lexer.lexPath();
+  ASSERT_EQ(Interpolation.kind(), tok_dollar_curly);
+  ASSERT_TRUE(Diags.empty());
+}
+
 TEST_F(LexerTest, lexKW) {
   // FIXME: test  pp//a to see that we can lex this as Update(pp, a)
   Lexer Lexer(R"(if then)", Diags);
