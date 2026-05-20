@@ -7,7 +7,6 @@
 #include "CheckReturn.h"
 #include "Convert.h"
 
-#include "lspserver/Logger.h"
 #include "lspserver/Protocol.h"
 
 #include "nixd/Controller/Controller.h"
@@ -163,18 +162,13 @@ public:
     // Now we have "Names", use these to fill "Items".
     for (const auto &Name : Names) {
       if (Name.starts_with(Params.Prefix)) {
-        CompletionItem Item;
-        Item.label = Name;
-        Item.kind = CompletionItemKind::Field;
-        Item.data = llvm::formatv("{0}", toJSON(Params));
-
-        lspserver::TextEdit Edit;
-        Edit.range = EditRange;
-        Edit.newText = Item.label;
-
-        Item.textEdit = Edit;
-
-        addItem(Items, Item);
+        addItem(Items, CompletionItem{
+                           .label = Name,
+                           .kind = CompletionItemKind::Field,
+                           .textEdit = lspserver::TextEdit{.range = EditRange,
+                                                           .newText = Name},
+                           .data = llvm::formatv("{0}", toJSON(Params)),
+                       });
       }
     }
   }
@@ -245,24 +239,25 @@ public:
     OptionClient.optionComplete(Params, std::move(OnReply));
     Ready.acquire();
     // Now we have "Names", use these to fill "Items".
+    //
+    // When Params.Prefix is empty, the cursor is inside an empty hole and
+    // EditRange does not point at a real prefix to replace, so we omit the
+    // textEdit and let the editor fall back to insertText/label.
+    bool HasPrefix = !Params.Prefix.empty();
+    auto MkTextEdit =
+        [&](llvm::StringRef NewText) -> std::optional<lspserver::TextEdit> {
+      if (!HasPrefix)
+        return std::nullopt;
+      return lspserver::TextEdit{.range = EditRange, .newText = NewText.str()};
+    };
     for (const nixd::OptionField &Field : Names) {
       if (!Field.Description) {
-        CompletionItem Item;
-        Item.label = Field.Name;
-        Item.detail = ModuleOrigin;
-        Item.kind = OptionAttrKind;
-
-        // If prefix is empty there isn't anything to replace and the EditRange
-        // is probably wrong So only perform a textEdit if there is a Prefix
-        if (Params.Prefix != "") {
-          lspserver::TextEdit Edit;
-          Edit.range = EditRange;
-          Edit.newText = Item.label;
-
-          Item.textEdit = Edit;
-        }
-
-        addItem(Items, std::move(Item));
+        addItem(Items, CompletionItem{
+                           .label = Field.Name,
+                           .kind = OptionAttrKind,
+                           .detail = ModuleOrigin,
+                           .textEdit = MkTextEdit(Field.Name),
+                       });
         continue;
       }
 
@@ -297,35 +292,22 @@ public:
 
       auto emit = [&](const std::string &Value, llvm::StringRef Source,
                       llvm::StringRef SortPrefix) {
-        CompletionItem Item;
         // When both variants exist, append the source so users can tell
         // them apart. `filterText` is always the plain option name so
         // typing the name matches both items.
-        if (HasBoth)
-          Item.label = llvm::formatv("{0} ({1})", Field.Name, Source);
-        else
-          Item.label = Field.Name;
-        Item.filterText = Field.Name;
-        Item.sortText = (SortPrefix + Field.Name).str();
-        Item.kind = OptionKind;
-        Item.detail = TypeDetail;
-        Item.documentation = Doc;
-
-        // If prefix is empty there isn't anything to replace and the EditRange
-        // is probably wrong So only perform a textEdit if there is a Prefix
-
+        std::string Label =
+            HasBoth ? llvm::formatv("{0} ({1})", Field.Name, Source).str()
+                    : Field.Name;
+        CompletionItem Item{
+            .label = std::move(Label),
+            .kind = OptionKind,
+            .detail = TypeDetail,
+            .documentation = Doc,
+            .sortText = (SortPrefix + Field.Name).str(),
+            .filterText = Field.Name,
+        };
         fillInsertText(Item, Field.Name, Value);
-
-        // If prefix is empty there isn't anything to replace and the EditRange
-        // is probably wrong So only perform a textEdit if there is a Prefix
-        if (Params.Prefix != "") {
-          lspserver::TextEdit Edit;
-          Edit.range = EditRange;
-          Edit.newText = Item.insertText;
-
-          Item.textEdit = Edit;
-        }
-
+        Item.textEdit = MkTextEdit(Item.insertText);
         addItem(Items, std::move(Item));
       };
 
@@ -341,24 +323,14 @@ public:
       if (!Emitted) {
         // No example or default to insert — still offer the option name
         // as a bare completion so users can discover it.
-        CompletionItem Item;
-        Item.label = Field.Name;
-        Item.kind = OptionKind;
-        Item.detail = TypeDetail;
-        Item.documentation = Doc;
-
+        CompletionItem Item{
+            .label = Field.Name,
+            .kind = OptionKind,
+            .detail = TypeDetail,
+            .documentation = Doc,
+        };
         fillInsertText(Item, Field.Name, "");
-
-        // If prefix is empty there isn't anything to replace and the EditRange
-        // is probably wrong So only perform a textEdit if there is a Prefix
-        if (Params.Prefix != "") {
-          lspserver::TextEdit Edit;
-          Edit.range = EditRange;
-          Edit.newText = Item.insertText;
-
-          Item.textEdit = Edit;
-        }
-
+        Item.textEdit = MkTextEdit(Item.insertText);
         addItem(Items, std::move(Item));
       }
     }
