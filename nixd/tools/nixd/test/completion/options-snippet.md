@@ -68,7 +68,20 @@ CHECK-NEXT:        "insertText": "bar = ${1:};",
 CHECK-NEXT:        "insertTextFormat": 2,
 CHECK-NEXT:        "kind": 4,
 CHECK-NEXT:        "label": "bar",
-CHECK-NEXT:        "score": 0
+CHECK-NEXT:        "score": 0,
+CHECK-NEXT:        "textEdit": {
+CHECK-NEXT:          "newText": "bar = ${1:};",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 17,
+CHECK-NEXT:              "line": 0 
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 15,
+CHECK-NEXT:              "line": 0
+CHECK-NEXT:            }
+CHECK-NEXT:          }
+CHECK-NEXT:        }
 CHECK-NEXT:      }
 CHECK-NEXT:    ]
 CHECK-NEXT:  }
