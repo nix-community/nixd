@@ -110,6 +110,22 @@ A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is
                      :server-id 'nixd)))
 ```
 
+### Sublime Text 4
+
+Using [Sublime LSP](https://lsp.sublimetext.io/):
+1. Open the command palette
+2. Run "Preferences: LSP Server Configurations"
+3. Add the following to your config:
+```json
+{
+  "nixd": {
+    "enabled": true,
+    "command": ["nixd"],
+    "selector": "source.nix",
+  },
+}
+```
+
 ### Helix
 
 `nixd` will be supported by default in the next release after 24.07.
