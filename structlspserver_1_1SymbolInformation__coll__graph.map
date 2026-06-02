@@ -1,0 +1,11 @@
+<map id="lspserver::SymbolInformation" name="lspserver::SymbolInformation">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,330,220,357"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1Location.html" title=" " alt="" coords="40,229,185,257"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="115,272,115,329,110,329,110,272"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="7,128,162,156"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="95,170,111,228,106,229,90,171"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Range.html" title=" " alt="" coords="186,128,316,156"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="222,167,133,231,130,226,219,163"/>
+<area shape="rect" id="Node000005" href="$structlspserver_1_1Position.html" title=" " alt="" coords="180,5,322,33"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="254,49,254,128,248,128,248,49"/>
+</map>

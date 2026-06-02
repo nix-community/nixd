@@ -1,0 +1,9 @@
+<map id="nixd::idioms::VLAException" name="nixd::idioms::VLAException">
+<area shape="rect" id="Node000001" title=" " alt="" coords="149,81,348,109"/>
+<area shape="rect" id="Node000003" href="$structnixd_1_1idioms_1_1NoSuchVarException.html" title="No such variable." alt="" coords="5,165,249,193"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="218,120,148,167,145,162,215,115"/>
+<area shape="rect" id="Node000004" href="$structnixd_1_1idioms_1_1UndefinedVarException.html" title=" " alt="" coords="273,157,469,201"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="282,115,340,154,337,158,279,120"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="192,5,305,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="251,49,251,81,246,81,246,49"/>
+</map>

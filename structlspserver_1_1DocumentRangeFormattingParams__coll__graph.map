@@ -1,0 +1,11 @@
+<map id="lspserver::DocumentRangeFormattingParams" name="lspserver::DocumentRangeFormattingParams">
+<area shape="rect" id="Node000001" title=" " alt="" coords="131,229,329,274"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1TextDocumentIdentifier.html" title=" " alt="" coords="5,128,247,156"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="150,165,187,203,210,227,206,230,183,207,147,169"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1URIForFile.html" title=" " alt="" coords="48,5,204,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="129,49,129,128,123,128,123,49"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1Range.html" title=" " alt="" coords="270,128,400,156"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="319,170,288,207,261,231,257,227,284,203,315,167"/>
+<area shape="rect" id="Node000005" href="$structlspserver_1_1Position.html" title=" " alt="" coords="265,5,406,33"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="338,49,338,128,333,128,333,49"/>
+</map>

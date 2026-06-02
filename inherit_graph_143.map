@@ -1,0 +1,75 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" href="$classnixf_1_1Node.html" title=" " alt="" coords="5,551,93,578"/>
+<area shape="rect" id="Node000001" href="$classnixf_1_1AttrName.html" title=" " alt="" coords="165,187,281,214"/>
+<area shape="poly" id="edge17_Node000000_Node000001" title=" " alt="" coords="47,535,49,472,61,389,73,345,89,302,111,261,139,225,163,209,166,214,142,229,115,264,94,304,78,347,66,390,55,472,52,535"/>
+<area shape="rect" id="Node000002" href="$classnixf_1_1AttrPath.html" title=" " alt="" coords="170,239,276,266"/>
+<area shape="poly" id="edge18_Node000000_Node000002" title=" " alt="" coords="49,535,54,481,68,412,80,376,95,340,114,307,139,277,153,267,168,259,171,264,155,271,143,281,119,310,100,343,85,378,73,413,59,482,54,536"/>
+<area shape="rect" id="Node000003" href="$classnixf_1_1Binding.html" title=" " alt="" coords="172,291,274,318"/>
+<area shape="poly" id="edge19_Node000000_Node000003" title=" " alt="" coords="51,534,59,490,75,435,101,378,118,352,139,329,154,319,170,311,172,316,156,323,142,333,122,356,106,381,80,437,65,491,56,535"/>
+<area shape="rect" id="Node000004" href="$classnixf_1_1Binds.html" title=" " alt="" coords="178,343,268,370"/>
+<area shape="poly" id="edge20_Node000000_Node000004" title=" " alt="" coords="55,535,66,500,83,459,107,417,139,381,157,369,177,362,179,367,159,374,142,385,111,420,88,461,71,502,60,537"/>
+<area shape="rect" id="Node000005" href="$classnixf_1_1Dot.html" title="Holds a &quot;.&quot; in the language." alt="" coords="185,395,261,422"/>
+<area shape="poly" id="edge21_Node000000_Node000005" title=" " alt="" coords="61,535,92,483,114,456,139,433,161,421,183,413,185,418,163,426,142,437,117,460,96,486,65,538"/>
+<area shape="rect" id="Node000006" href="$classnixf_1_1Expr.html" title=" " alt="" coords="182,447,264,474"/>
+<area shape="poly" id="edge22_Node000000_Node000006" title=" " alt="" coords="73,537,103,510,139,485,180,468,182,473,142,490,106,514,76,541"/>
+<area shape="rect" id="Node000028" href="$classnixf_1_1Formal.html" title=" " alt="" coords="174,499,272,526"/>
+<area shape="poly" id="edge44_Node000000_Node000028" title=" " alt="" coords="107,545,173,524,175,530,108,550"/>
+<area shape="rect" id="Node000029" href="$classnixf_1_1Formals.html" title="Lambda formal arguments." alt="" coords="170,551,276,578"/>
+<area shape="poly" id="edge45_Node000000_Node000029" title=" " alt="" coords="108,562,170,562,170,567,108,567"/>
+<area shape="rect" id="Node000030" href="$classnixf_1_1Identifier.html" title="Identifier. Variable names, attribute names, etc." alt="" coords="167,603,278,630"/>
+<area shape="poly" id="edge46_Node000000_Node000030" title=" " alt="" coords="108,579,175,599,173,605,107,584"/>
+<area shape="rect" id="Node000031" href="$classnixf_1_1Inherit.html" title=" " alt="" coords="175,655,270,682"/>
+<area shape="poly" id="edge47_Node000000_Node000031" title=" " alt="" coords="76,588,106,615,142,640,176,654,174,659,139,644,103,619,73,592"/>
+<area shape="rect" id="Node000032" href="$classnixf_1_1InterpolatedParts.html" title=" " alt="" coords="141,707,305,734"/>
+<area shape="poly" id="edge48_Node000000_Node000032" title=" " alt="" coords="65,591,96,643,117,669,142,692,164,704,161,708,139,696,114,673,92,646,61,594"/>
+<area shape="rect" id="Node000033" href="$classnixf_1_1Interpolation.html" title="${expr} construct" alt="" coords="155,759,291,786"/>
+<area shape="poly" id="edge49_Node000000_Node000033" title=" " alt="" coords="60,592,71,627,88,668,111,709,142,744,161,756,159,760,139,748,107,712,83,670,66,629,55,594"/>
+<area shape="rect" id="Node000034" href="$classnixf_1_1LambdaArg.html" title=" " alt="" coords="159,811,286,838"/>
+<area shape="poly" id="edge50_Node000000_Node000034" title=" " alt="" coords="56,594,65,638,80,692,106,748,122,773,142,796,160,808,157,812,139,800,118,777,101,751,75,694,59,639,51,595"/>
+<area shape="rect" id="Node000035" href="$classnixf_1_1Misc.html" title="Misc node, used for parentheses, keywords, etc." alt="" coords="181,863,264,890"/>
+<area shape="poly" id="edge51_Node000000_Node000035" title=" " alt="" coords="54,593,59,647,73,716,85,751,100,786,119,819,142,848,161,861,182,868,180,873,158,865,139,852,114,822,95,789,80,753,68,717,54,648,49,594"/>
+<area shape="rect" id="Node000036" href="$classnixf_1_1Op.html" title=" " alt="" coords="187,915,258,942"/>
+<area shape="poly" id="edge52_Node000000_Node000036" title=" " alt="" coords="52,594,55,657,66,739,78,782,94,825,115,865,142,900,163,914,188,922,186,927,161,919,139,904,111,868,89,827,73,784,61,740,49,657,47,594"/>
+<area shape="rect" id="Node000007" href="$classnixf_1_1ExprAssert.html" title=" " alt="" coords="366,5,489,33"/>
+<area shape="poly" id="edge23_Node000006_Node000007" title=" " alt="" coords="278,449,292,442,303,432,320,407,332,383,339,359,341,336,338,288,327,241,317,193,313,145,315,120,322,95,334,70,351,44,366,32,369,36,355,48,338,72,327,97,321,121,318,145,322,193,332,240,343,288,346,336,344,360,337,385,325,410,307,436,295,446,281,454"/>
+<area shape="rect" id="Node000008" href="$classnixf_1_1ExprAttrs.html" title=" " alt="" coords="370,57,484,85"/>
+<area shape="poly" id="edge24_Node000006_Node000008" title=" " alt="" coords="278,449,292,442,303,432,318,411,328,390,337,349,335,308,327,267,319,225,316,183,325,140,336,118,351,96,368,82,372,86,355,100,340,121,330,142,322,184,324,225,332,266,340,307,343,349,333,392,323,414,307,436,295,446,280,454"/>
+<area shape="rect" id="Node000009" href="$classnixf_1_1ExprCall.html" title="A call/apply to some function." alt="" coords="374,109,481,137"/>
+<area shape="poly" id="edge25_Node000006_Node000009" title=" " alt="" coords="278,449,292,442,303,432,325,397,334,362,333,328,327,293,321,258,320,222,328,185,351,148,371,133,375,137,355,152,333,187,325,222,326,257,332,292,338,327,339,363,330,399,307,436,295,446,280,454"/>
+<area shape="rect" id="Node000010" href="$classnixf_1_1ExprFloat.html" title=" " alt="" coords="370,161,485,189"/>
+<area shape="poly" id="edge26_Node000006_Node000010" title=" " alt="" coords="278,449,303,432,322,403,330,375,330,347,327,319,323,290,324,260,332,230,351,200,367,187,371,191,355,204,337,233,329,261,329,289,332,318,336,347,335,376,327,406,307,436,281,453"/>
+<area shape="rect" id="Node000011" href="$classnixf_1_1ExprIf.html" title=" " alt="" coords="382,213,473,241"/>
+<area shape="poly" id="edge27_Node000006_Node000011" title=" " alt="" coords="278,448,303,432,319,410,326,388,327,344,327,299,335,275,351,252,364,241,380,234,382,238,367,246,355,256,340,278,333,300,332,344,331,389,323,413,307,436,280,453"/>
+<area shape="rect" id="Node000012" href="$classnixf_1_1ExprInt.html" title=" " alt="" coords="378,265,477,293"/>
+<area shape="poly" id="edge28_Node000006_Node000012" title=" " alt="" coords="278,448,303,432,316,417,322,401,327,370,331,337,338,321,351,304,376,288,378,293,355,308,343,323,336,339,332,370,327,403,320,419,307,436,280,452"/>
+<area shape="rect" id="Node000013" href="$classnixf_1_1ExprLambda.html" title=" " alt="" coords="360,317,494,345"/>
+<area shape="poly" id="edge29_Node000006_Node000013" title=" " alt="" coords="278,446,303,432,319,414,327,395,335,375,351,356,372,343,375,348,355,360,339,378,332,397,324,417,307,436,280,450"/>
+<area shape="rect" id="Node000014" href="$classnixf_1_1ExprLegacyLet.html" title=" " alt="" coords="353,369,501,397"/>
+<area shape="poly" id="edge30_Node000006_Node000014" title=" " alt="" coords="278,441,304,431,352,407,383,395,385,400,354,412,306,436,280,446"/>
+<area shape="rect" id="Node000015" href="$classnixf_1_1ExprLet.html" title=" " alt="" coords="376,421,478,449"/>
+<area shape="poly" id="edge31_Node000006_Node000015" title=" " alt="" coords="279,451,375,439,376,444,280,456"/>
+<area shape="rect" id="Node000016" href="$classnixf_1_1ExprList.html" title=" " alt="" coords="374,473,480,501"/>
+<area shape="poly" id="edge32_Node000006_Node000016" title=" " alt="" coords="280,465,374,478,374,483,279,470"/>
+<area shape="rect" id="Node000017" href="$classnixf_1_1ExprOp.html" title="Abstract class for binary operators and unary operators." alt="" coords="377,525,477,553"/>
+<area shape="poly" id="edge33_Node000006_Node000017" title=" " alt="" coords="280,475,306,485,354,510,384,522,382,527,352,515,304,490,278,480"/>
+<area shape="rect" id="Node000021" href="$classnixf_1_1ExprParen.html" title=" " alt="" coords="368,577,486,605"/>
+<area shape="poly" id="edge37_Node000006_Node000021" title=" " alt="" coords="279,470,307,485,324,505,332,525,339,544,355,562,375,575,372,579,351,567,334,547,327,527,319,508,303,489,277,475"/>
+<area shape="rect" id="Node000022" href="$classnixf_1_1ExprPath.html" title=" " alt="" coords="372,629,482,657"/>
+<area shape="poly" id="edge38_Node000006_Node000022" title=" " alt="" coords="280,469,307,485,320,502,328,519,332,551,336,583,343,599,355,615,373,627,370,632,351,618,338,602,331,585,327,552,322,520,316,505,303,489,278,473"/>
+<area shape="rect" id="Node000023" href="$classnixf_1_1ExprSPath.html" title=" " alt="" coords="368,681,486,709"/>
+<area shape="poly" id="edge39_Node000006_Node000023" title=" " alt="" coords="280,468,307,485,324,509,331,532,332,577,332,622,340,644,355,667,371,679,367,683,351,670,335,647,327,623,327,578,326,533,319,511,303,489,277,473"/>
+<area shape="rect" id="Node000024" href="$classnixf_1_1ExprSelect.html" title=" " alt="" coords="366,733,488,761"/>
+<area shape="poly" id="edge40_Node000006_Node000024" title=" " alt="" coords="281,468,307,485,327,516,335,545,336,575,332,604,329,632,329,661,336,690,355,719,370,731,367,735,351,722,332,692,324,662,323,632,327,603,330,574,330,546,322,518,303,489,278,472"/>
+<area shape="rect" id="Node000025" href="$classnixf_1_1ExprString.html" title=" " alt="" coords="367,785,487,813"/>
+<area shape="poly" id="edge41_Node000006_Node000025" title=" " alt="" coords="280,467,295,475,307,485,330,522,339,559,338,594,332,630,326,665,325,700,333,735,355,771,370,783,366,787,351,774,328,737,320,700,321,664,327,629,333,594,334,559,325,524,303,489,292,479,278,472"/>
+<area shape="rect" id="Node000026" href="$classnixf_1_1ExprVar.html" title=" " alt="" coords="376,837,479,865"/>
+<area shape="poly" id="edge42_Node000006_Node000026" title=" " alt="" coords="280,467,295,475,307,485,323,507,334,529,343,572,340,614,332,656,324,697,322,738,330,780,340,801,355,823,377,839,373,843,351,826,336,804,325,782,316,739,319,696,327,655,335,614,337,573,329,531,318,510,303,489,292,479,278,472"/>
+<area shape="rect" id="Node000027" href="$classnixf_1_1ExprWith.html" title=" " alt="" coords="371,889,483,917"/>
+<area shape="poly" id="edge43_Node000006_Node000027" title=" " alt="" coords="281,467,295,475,307,485,325,511,337,536,344,561,347,586,343,634,332,682,322,729,318,777,320,801,327,825,338,850,355,875,372,889,369,893,351,878,333,852,322,827,315,802,313,777,317,728,327,681,338,633,341,586,339,562,332,538,320,514,303,489,292,479,278,472"/>
+<area shape="rect" id="Node000018" href="$classnixf_1_1ExprBinOp.html" title=" " alt="" coords="563,473,685,501"/>
+<area shape="poly" id="edge34_Node000017_Node000018" title=" " alt="" coords="492,519,568,499,570,504,493,525"/>
+<area shape="rect" id="Node000019" href="$classnixf_1_1ExprOpHasAttr.html" title=" " alt="" coords="549,525,699,553"/>
+<area shape="poly" id="edge35_Node000017_Node000019" title=" " alt="" coords="493,536,549,536,549,542,493,542"/>
+<area shape="rect" id="Node000020" href="$classnixf_1_1ExprUnaryOp.html" title=" " alt="" coords="554,577,694,605"/>
+<area shape="poly" id="edge36_Node000017_Node000020" title=" " alt="" coords="493,554,570,574,568,579,492,559"/>
+</map>

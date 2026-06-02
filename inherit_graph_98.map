@@ -1,0 +1,11 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" href="$structlspserver_1_1TextDocumentPositionParams.html" title=" " alt="" coords="5,92,241,137"/>
+<area shape="rect" id="Node000001" href="$structlspserver_1_1CallHierarchyPrepareParams.html" title="The parameter of a textDocument/prepareCallHierarchy request." alt="" coords="306,5,484,50"/>
+<area shape="poly" id="edge13_Node000000_Node000001" title=" " alt="" coords="210,84,321,48,323,53,211,89"/>
+<area shape="rect" id="Node000002" href="$structlspserver_1_1CompletionParams.html" title=" " alt="" coords="289,74,501,102"/>
+<area shape="poly" id="edge14_Node000000_Node000002" title=" " alt="" coords="256,99,288,95,288,101,257,104"/>
+<area shape="rect" id="Node000003" href="$structlspserver_1_1ReferenceParams.html" title=" " alt="" coords="293,126,496,154"/>
+<area shape="poly" id="edge15_Node000000_Node000003" title=" " alt="" coords="256,124,293,128,292,133,256,129"/>
+<area shape="rect" id="Node000004" href="$structlspserver_1_1TypeHierarchyPrepareParams.html" title=" " alt="" coords="304,177,486,222"/>
+<area shape="poly" id="edge16_Node000000_Node000004" title=" " alt="" coords="212,139,322,174,321,179,210,144"/>
+</map>
