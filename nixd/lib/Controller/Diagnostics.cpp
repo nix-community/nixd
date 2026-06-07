@@ -41,9 +41,10 @@ bool Controller::isSuppressed(nixf::Diagnostic::DiagnosticKind Kind) {
 
 void Controller::publishDiagnostics(
     PathRef File, std::optional<int64_t> Version, std::string_view Src,
-    const std::vector<nixf::Diagnostic> &Diagnostics) {
+    const std::vector<nixf::Diagnostic> &Diagnostics,
+    const std::vector<NixdDiagnostic> &NixdDiagnostics) {
   std::vector<Diagnostic> LSPDiags;
-  LSPDiags.reserve(Diagnostics.size());
+  LSPDiags.reserve(Diagnostics.size() + NixdDiagnostics.size());
   for (const nixf::Diagnostic &D : Diagnostics) {
     // Before actually doing anything,
     // let's check if the diagnostic is suppressed.
@@ -111,6 +112,15 @@ void Controller::publishDiagnostics(
                   }},
       });
     }
+  }
+  for (const NixdDiagnostic &D : NixdDiagnostics) {
+    LSPDiags.emplace_back(Diagnostic{
+        .range = toLSPRange(Src, D.Range),
+        .severity = static_cast<int>(D.Severity),
+        .code = D.Code,
+        .source = D.Source,
+        .message = D.Message,
+    });
   }
   PublishDiagnostic({
       .uri = URIForFile::canonicalize(File, File),

@@ -125,9 +125,34 @@ void fillOptionDeclarations(nix::EvalState &State, nix::Value &V,
   }
 }
 
+std::optional<std::vector<std::string>>
+getEnumValuesFromFunctor(nix::EvalState &State, nix::Value &VType) {
+  try {
+    nix::Value &Values =
+        nixt::selectStringViews(State, VType, {"functor", "payload", "values"});
+    State.forceValue(Values, nix::noPos);
+    if (Values.type() != nix::ValueType::nList)
+      return std::nullopt;
+
+    std::vector<std::string> EnumValues;
+    for (nix::Value *Item : Values.listView()) {
+      State.forceValue(*Item, nix::noPos);
+      if (Item->type() != nix::ValueType::nString)
+        return std::nullopt;
+      EnumValues.emplace_back(Item->string_view());
+    }
+    return EnumValues;
+  } catch (std::exception &E) {
+    return std::nullopt;
+  }
+}
+
 void fillOptionType(nix::EvalState &State, nix::Value &VType, OptionType &R) {
   fillString(State, VType, {"description"}, R.Description);
   fillString(State, VType, {"name"}, R.Name);
+
+  if (R.Name && *R.Name == "enum")
+    R.EnumValues = getEnumValuesFromFunctor(State, VType);
 }
 
 /// Render an option's `example` or `default` field as a string suitable for

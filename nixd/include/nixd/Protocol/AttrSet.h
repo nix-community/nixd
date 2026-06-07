@@ -118,6 +118,7 @@ using AttrPathCompleteResponse = std::vector<std::string>;
 
 struct OptionType {
   std::optional<std::string> Description;
+  std::optional<std::vector<std::string>> EnumValues;
   std::optional<std::string> Name;
 };
 

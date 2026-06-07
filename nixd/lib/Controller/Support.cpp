@@ -32,25 +32,27 @@ void Controller::actOnDocumentAdd(PathRef File,
         nixf::parse(*Draft->Contents, Diagnostics);
 
     if (!AST) {
-      std::lock_guard G(TUsLock);
       publishDiagnostics(File, Version, *Src, Diagnostics);
-      TUs.insert_or_assign(File,
-                           std::make_shared<NixTU>(std::move(Diagnostics),
-                                                   std::move(AST), std::nullopt,
-                                                   /*VLA=*/nullptr, Src));
+      auto TU = std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
+                                        std::nullopt, /*VLA=*/nullptr, Src);
+      std::lock_guard G(TUsLock);
+      TUs.insert_or_assign(File, std::move(TU));
       return;
     }
 
     auto VLA = std::make_unique<nixf::VariableLookupAnalysis>(Diagnostics);
     VLA->runOnAST(*AST);
 
-    publishDiagnostics(File, Version, *Src, Diagnostics);
+    auto TU = std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
+                                      std::nullopt, std::move(VLA), Src);
+    TU->setNixdDiagnostics(collectOptionDiagnostics(*TU));
+
+    publishDiagnostics(File, Version, *Src, TU->diagnostics(),
+                       TU->nixdDiagnostics());
 
     {
       std::lock_guard G(TUsLock);
-      TUs.insert_or_assign(
-          File, std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
-                                        std::nullopt, std::move(VLA), Src));
+      TUs.insert_or_assign(File, std::move(TU));
       return;
     }
   };
