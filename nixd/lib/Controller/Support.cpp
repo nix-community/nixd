@@ -107,8 +107,6 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
                      &Controller::onDocumentLink);
   Registry.addMethod("textDocument/codeAction", this,
                      &Controller::onCodeAction);
-  Registry.addMethod("codeAction/resolve", this,
-                     &Controller::onCodeActionResolve);
   Registry.addMethod("textDocument/hover", this, &Controller::onHover);
   Registry.addMethod("textDocument/formatting", this, &Controller::onFormat);
   Registry.addMethod("textDocument/rename", this, &Controller::onRename);
@@ -118,6 +116,10 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
   // Workspace features
   Registry.addNotification("workspace/didChangeConfiguration", this,
                            &Controller::onDidChangeConfiguration);
+
+  // Commands
+  Registry.addCommand("openNoogleDoc", this,
+                      &Controller::onOpenNoogleDocCommand);
 
   WorkspaceConfiguration = mkOutMethod<ConfigurationParams, llvm::json::Value>(
       "workspace/configuration");

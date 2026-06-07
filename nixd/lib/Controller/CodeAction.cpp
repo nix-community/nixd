@@ -29,8 +29,8 @@ using namespace llvm::json;
 using namespace lspserver;
 
 void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
-                              Callback<std::vector<CodeAction>> Reply) {
-  using CheckTy = std::vector<CodeAction>;
+                              Callback<std::vector<CodeActionItem>> Reply) {
+  using CheckTy = std::vector<CodeActionItem>;
   std::string File(Params.textDocument.uri.file());
   Range Range = Params.range;
   auto Action = [Reply = std::move(Reply), File, Range, this]() mutable {
@@ -39,6 +39,7 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
 
       const auto &Diagnostics = TU->diagnostics();
       auto Actions = std::vector<CodeAction>();
+      auto ActionsNew = std::vector<CodeActionItem>();
       Actions.reserve(Diagnostics.size());
       std::string FileURI = URIForFile::canonicalize(File, File).uri();
 
@@ -92,7 +93,9 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
           addPackAttrsAction(*N, *TU->parentMap(), FileURI, TU->src(), Actions);
           addInheritToBindingAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                     Actions);
-          addNoogleDocAction(*N, *TU->parentMap(), Actions);
+          std::move(Actions.begin(), Actions.end(),
+                    std::back_inserter(ActionsNew));
+          addNoogleDocAction(*N, *TU->parentMap(), ActionsNew);
           addRewriteStringAction(*N, *TU->parentMap(), FileURI, TU->src(),
                                  Actions);
 
@@ -117,40 +120,30 @@ void Controller::onCodeAction(const lspserver::CodeActionParams &Params,
       // Selection-based actions (work on arbitrary text, not AST nodes)
       addJsonToNixAction(TU->src(), Range, FileURI, Actions);
 
-      return Actions;
+      std::move(Actions.begin(), Actions.end(), std::back_inserter(ActionsNew));
+      return ActionsNew;
     }());
   };
   boost::asio::post(Pool, std::move(Action));
 }
 
-void Controller::onCodeActionResolve(const lspserver::CodeAction &Params,
-                                     Callback<CodeAction> Reply) {
+void Controller::onOpenNoogleDocCommand(const std::string &Params,
+                                        Callback<std::nullptr_t> Reply) {
   auto Action = [Reply = std::move(Reply), Params, this]() mutable {
-    // Check if this is a Noogle documentation action
-    if (Params.data) {
-      const auto *DataObj = Params.data->getAsObject();
-      if (DataObj) {
-        auto NoogleUrl = DataObj->getString("noogleUrl");
-        if (NoogleUrl) {
-          // Call window/showDocument to open the URL in external browser
-          ShowDocumentParams ShowParams;
-          ShowParams.externalUri = NoogleUrl->str();
-          ShowParams.external = true;
+    // Call window/showDocument to open the URL in external browser
+    ShowDocumentParams ShowParams;
+    ShowParams.externalUri = Params;
+    ShowParams.external = true;
 
-          ShowDocument(
-              ShowParams, [](llvm::Expected<ShowDocumentResult> Result) {
-                if (!Result) {
-                  lspserver::elog("Failed to open Noogle documentation: {0}",
-                                  Result.takeError());
-                }
-              });
-        }
+    ShowDocument(ShowParams, [](llvm::Expected<ShowDocumentResult> Result) {
+      if (!Result) {
+        lspserver::elog("Failed to open Noogle documentation: {0}",
+                        Result.takeError());
       }
-    }
+    });
 
-    // Return the resolved code action (unchanged for Noogle actions since
-    // the work is done via showDocument)
-    Reply(Params);
+    // Return null, the work is done via showDocument
+    Reply(nullptr);
   };
   boost::asio::post(Pool, std::move(Action));
 }
