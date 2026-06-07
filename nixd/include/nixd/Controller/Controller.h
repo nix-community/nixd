@@ -172,12 +172,12 @@ private:
 
   void onDocumentDidClose(const lspserver::DidCloseTextDocumentParams &Params);
 
-  void
-  onCodeAction(const lspserver::CodeActionParams &Params,
-               lspserver::Callback<std::vector<lspserver::CodeAction>> Reply);
+  void onCodeAction(
+      const lspserver::CodeActionParams &Params,
+      lspserver::Callback<std::vector<lspserver::CodeActionItem>> Reply);
 
-  void onCodeActionResolve(const lspserver::CodeAction &Params,
-                           lspserver::Callback<lspserver::CodeAction> Reply);
+  void onOpenNoogleDocCommand(const std::string &Params,
+                              lspserver::Callback<std::nullptr_t> Reply);
 
   void onHover(const lspserver::TextDocumentPositionParams &Params,
                lspserver::Callback<std::optional<lspserver::Hover>> Reply);

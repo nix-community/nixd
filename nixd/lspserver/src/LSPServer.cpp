@@ -97,4 +97,16 @@ int LSPServer::bindReply(Callback<llvm::json::Value> CB) {
   return Ret;
 }
 
+void LSPServer::onExecuteCommand(const ExecuteCommandParams &Params,
+                                 Callback<llvm::json::Value> Reply) {
+  auto Handler = Registry.CommandHandlers.find(Params.command);
+  if (Handler != Registry.CommandHandlers.end()) {
+    Handler->second(std::move(Params.argument), std::move(Reply));
+  } else {
+    llvm::Error Err = error("unknown command: {0}", Params.command);
+    log("unknown command: {0}", Params.command);
+    Reply(std::move(Err));
+  }
+}
+
 } // namespace lspserver
