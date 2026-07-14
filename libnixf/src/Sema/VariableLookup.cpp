@@ -5,6 +5,7 @@
 #include "nixf/Basic/Nodes/Lambda.h"
 #include "nixf/Sema/PrimOpInfo.h"
 
+#include <ranges>
 #include <set>
 
 using namespace nixf;
@@ -108,6 +109,9 @@ void VariableLookupAnalysis::emitEnvLivenessWarning(
     // because there is no elegant way to "fix" this trivially & keep
     // the lambda signature.
     if (Def->source() == Definition::DS_LambdaArg)
+      continue;
+    // call-flake always passes these
+    if (Def->source() == Definition::DS_FlakeInjectedFormal)
       continue;
     // Ignore builtins usage.
     if (!Def->syntax())
@@ -276,9 +280,12 @@ void VariableLookupAnalysis::dfs(const ExprLambda &Lambda,
   // parameter is reduced in this scenario.
   if (Arg.formals()) {
     for (const auto &[Name, Formal] : Arg.formals()->dedup()) {
-      Definition::DefinitionSource Source =
-          Arg.id() ? Definition::DS_LambdaWithArg_Formal
-                   : Definition::DS_LambdaNoArg_Formal;
+      Definition::DefinitionSource Source;
+      if (&Lambda == OutputsLambda && FlakeInjected.contains(Name))
+        Source = Definition::DS_FlakeInjectedFormal;
+      else
+        Source = Arg.id() ? Definition::DS_LambdaWithArg_Formal
+                          : Definition::DS_LambdaNoArg_Formal;
       ToDef.insert_or_assign(Formal->id(),
                              DBuilder.add(Name, Formal->id(), Source,
                                           /*IsInheritFromBuiltin=*/false));
@@ -552,7 +559,7 @@ void VariableLookupAnalysis::dfs(const Node &Root,
   }
 }
 
-void VariableLookupAnalysis::runOnAST(const Node &Root) {
+void VariableLookupAnalysis::runOnAST(const Node &Root, bool IsFlake) {
   // Create a basic env
   DefBuilder DB(Diags);
 
@@ -572,6 +579,9 @@ void VariableLookupAnalysis::runOnAST(const Node &Root) {
 
   auto Env = std::make_shared<EnvNode>(nullptr, DB.finish(), nullptr);
 
+  if (IsFlake)
+    collectFlakeInjected(Root);
+
   dfs(Root, Env);
 }
 
@@ -582,4 +592,32 @@ const EnvNode *VariableLookupAnalysis::env(const Node *N) const {
   if (!Envs.contains(N))
     return nullptr;
   return Envs.at(N).get();
+}
+
+/// \brief Identify formals that the Nix flake evaluator unconditionally injects
+/// into the `outputs` function.
+void VariableLookupAnalysis::collectFlakeInjected(const Node &Root) {
+  if (Root.kind() != Node::NK_ExprAttrs)
+    return;
+  const auto &S = static_cast<const ExprAttrs &>(Root).sema().staticAttrs();
+
+  FlakeInjected.insert("self");
+  if (auto It = S.find("inputs"); It != S.end())
+    if (const auto *V = It->second.value();
+        V && V->kind() == Node::NK_ExprAttrs) {
+      const auto &Keys =
+          static_cast<const ExprAttrs &>(*V).sema().staticAttrs();
+      std::ranges::copy(std::views::keys(Keys),
+                        std::inserter(FlakeInjected, FlakeInjected.end()));
+    }
+
+  auto It = S.find("outputs");
+  if (It == S.end())
+    return;
+  const auto *V = It->second.value();
+  if (!V || V->kind() != Node::NK_ExprLambda)
+    return;
+  const auto &L = static_cast<const ExprLambda &>(*V);
+  if (L.arg() && L.arg()->formals())
+    OutputsLambda = &L;
 }

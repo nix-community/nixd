@@ -17,6 +17,7 @@
 
 #include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -52,6 +53,9 @@ public:
 
     /// \brief Builtin names.
     DS_Builtin,
+
+    /// \brief Formal in flake `outputs` injected by `call-flake.nix`
+    DS_FlakeInjectedFormal,
   };
 
 private:
@@ -173,13 +177,23 @@ private:
   /// converting an outer `with` to `let/inherit` could change semantics.
   std::map<const ExprVar *, std::vector<const ExprWith *>> VarWithScopes;
 
+  /// \brief The `outputs` lambda of the top-level flake attrset, null if not
+  /// a flake or if `outputs` is not a formals-lambda.
+  const ExprLambda *OutputsLambda = nullptr;
+
+  /// \brief Names unconditionally injected by call-flake: always `self`, plus
+  /// every key declared under `inputs`.
+  std::set<std::string> FlakeInjected;
+
+  void collectFlakeInjected(const Node &Root);
+
 public:
   VariableLookupAnalysis(std::vector<Diagnostic> &Diags);
 
   /// \brief Perform variable lookup analysis (def-use) on AST.
   /// \note This method should be invoked after any other method called.
   /// \note The result remains immutable thus it can be shared among threads.
-  void runOnAST(const Node &Root);
+  void runOnAST(const Node &Root, bool IsFlake = false);
 
   /// \brief Query the which name/with binds to specific varaible.
   [[nodiscard]] LookupResult query(const ExprVar &Var) const {
