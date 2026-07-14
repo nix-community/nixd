@@ -105,3 +105,35 @@ CHECK-NEXT:   }
 CHECK-NEXT: ],
 CHECK-NEXT: "uri": "file:///foo.nix",
 ```
+
+<-- textDocument/didOpen
+
+```nix file:///flake.nix
+{ outputs = { self }@inputs: {}; }
+```
+
+```
+     CHECK: "diagnostics": [
+CHECK-NEXT:   {
+CHECK-NEXT:     "code": "sema-unused-def-lambda-witharg-arg",
+CHECK-NEXT:     "message": "argument `inputs` in `@`-pattern is not used",
+CHECK-NEXT:     "range": {
+CHECK-NEXT:       "end": {
+CHECK-NEXT:         "character": 27,
+CHECK-NEXT:         "line": 0
+CHECK-NEXT:       },
+CHECK-NEXT:       "start": {
+CHECK-NEXT:         "character": 21,
+CHECK-NEXT:         "line": 0
+CHECK-NEXT:       }
+CHECK-NEXT:     },
+CHECK-NEXT:     "relatedInformation": [],
+CHECK-NEXT:     "severity": 2,
+CHECK-NEXT:     "source": "nixf",
+CHECK-NEXT:     "tags": [
+CHECK-NEXT:       1
+CHECK-NEXT:     ]
+CHECK-NEXT:   }
+CHECK-NEXT: ],
+CHECK-NEXT: "uri": "file:///flake.nix",
+```

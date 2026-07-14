@@ -49,7 +49,8 @@ void suppressFlakeInjectedFormals(const nixf::Node &AST,
 
   const auto FR = L.arg()->formals()->range();
   std::erase_if(Diagnostics, [&](const nixf::Diagnostic &D) {
-    return D.kind() == nixf::Diagnostic::DK_UnusedDefLambdaNoArg_Formal &&
+    return (D.kind() == nixf::Diagnostic::DK_UnusedDefLambdaNoArg_Formal ||
+            D.kind() == nixf::Diagnostic::DK_UnusedDefLambdaWithArg_Formal) &&
            !D.args().empty() && Injected.contains(D.args()[0]) &&
            FR.contains(D.range());
   });
