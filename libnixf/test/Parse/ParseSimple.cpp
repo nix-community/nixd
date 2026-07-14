@@ -354,6 +354,39 @@ TEST(Parser, PathOK) {
   ASSERT_EQ(Parts.fragments()[2].escaped(), "/d");
 }
 
+TEST(Parser, HomePathOK) {
+  auto Src = R"(~/foo/bar.nix)"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprPath);
+  ASSERT_EQ(Diags.size(), 0);
+
+  const auto &Parts = static_cast<ExprPath *>(AST.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 1);
+  ASSERT_EQ(Parts.fragments()[0].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[0].escaped(), "~/foo/bar.nix");
+}
+
+TEST(Parser, HomePathInterpolationOK) {
+  auto Src = R"(~/${"subdir"}/file.nix)"sv;
+
+  std::vector<Diagnostic> Diags;
+  auto AST = nixf::parse(Src, Diags);
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprPath);
+  ASSERT_EQ(Diags.size(), 0);
+
+  const auto &Parts = static_cast<ExprPath *>(AST.get())->parts();
+  ASSERT_EQ(Parts.fragments().size(), 3);
+  ASSERT_EQ(Parts.fragments()[0].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[0].escaped(), "~/");
+  ASSERT_EQ(Parts.fragments()[1].kind(), InterpolablePart::SPK_Interpolation);
+  ASSERT_EQ(Parts.fragments()[2].kind(), InterpolablePart::SPK_Escaped);
+  ASSERT_EQ(Parts.fragments()[2].escaped(), "/file.nix");
+}
+
 TEST(Parser, SPath) {
   auto Src = R"(<nixpkgs>)"sv;
 

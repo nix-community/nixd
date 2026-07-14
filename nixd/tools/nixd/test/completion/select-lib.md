@@ -55,7 +55,20 @@ CHECK-NEXT:      {
 CHECK-NEXT:        "data": "{\"Prefix\":\"hel\",\"Scope\":[\"lib\"]}",
 CHECK-NEXT:        "kind": 5,
 CHECK-NEXT:        "label": "hello",
-CHECK-NEXT:        "score": 0
+CHECK-NEXT:        "score": 0,
+CHECK-NEXT:        "textEdit": {
+CHECK-NEXT:          "newText": "hello",
+CHECK-NEXT:          "range": {
+CHECK-NEXT:            "end": {
+CHECK-NEXT:              "character": 7,
+CHECK-NEXT:              "line": 0 
+CHECK-NEXT:            },
+CHECK-NEXT:            "start": {
+CHECK-NEXT:              "character": 4,
+CHECK-NEXT:              "line": 0
+CHECK-NEXT:            }
+CHECK-NEXT:          } 
+CHECK-NEXT:        }
 CHECK-NEXT:      }
 CHECK-NEXT:    ]
 ```

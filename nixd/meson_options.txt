@@ -1,0 +1,6 @@
+option(
+  'llvm_static',
+  type: 'boolean',
+  value: false,
+  description: 'Link LLVM statically (only the "support" component is used). Requires LLVM static archives to be installed. Greatly reduces the runtime closure since the monolithic libLLVM dylib is not needed.',
+)

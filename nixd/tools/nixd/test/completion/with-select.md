@@ -55,13 +55,39 @@ CHECK-NEXT:     {
 CHECK-NEXT:       "data": "{\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
 CHECK-NEXT:       "kind": 5,
 CHECK-NEXT:       "label": "bx",
-CHECK-NEXT:       "score": 0
+CHECK-NEXT:       "score": 0,
+CHECK-NEXT:       "textEdit": {
+CHECK-NEXT:         "newText": "bx",
+CHECK-NEXT:         "range": {
+CHECK-NEXT:           "end": {
+CHECK-NEXT:             "character": 17,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           },
+CHECK-NEXT:           "start": {
+CHECK-NEXT:             "character": 16,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           }
+CHECK-NEXT:         }  
+CHECK-NEXT:       }
 CHECK-NEXT:     },
 CHECK-NEXT:     {
 CHECK-NEXT:       "data": "{\"Prefix\":\"b\",\"Scope\":[\"ax\"]}",
 CHECK-NEXT:       "kind": 5,
 CHECK-NEXT:       "label": "by",
-CHECK-NEXT:       "score": 0
+CHECK-NEXT:       "score": 0,
+CHECK-NEXT:       "textEdit": {
+CHECK-NEXT:         "newText": "by",
+CHECK-NEXT:         "range": {
+CHECK-NEXT:           "end": {
+CHECK-NEXT:             "character": 17,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           },
+CHECK-NEXT:           "start": {
+CHECK-NEXT:             "character": 16,
+CHECK-NEXT:             "line": 0
+CHECK-NEXT:           }
+CHECK-NEXT:         }
+CHECK-NEXT:       }
 CHECK-NEXT:     }
 CHECK-NEXT:   ]
 ```

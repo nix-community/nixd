@@ -43,6 +43,7 @@
             inherit nixComponents nixf nixt;
             inherit llvmPackages;
           };
+          nixd-llvm-static = nixd.override { llvmStatic = true; };
           nixdMono = callPackage ./. { inherit nixComponents llvmPackages; };
           nixdLLVM = nixdMono.override { stdenv = if stdenv.isDarwin then stdenv else llvmPackages.stdenv; };
           regressionDeps = with pkgs; [
@@ -69,7 +70,12 @@
             inherit (config.packages) nixd;
           };
           packages = {
-            inherit nixd nixf nixt;
+            inherit
+              nixd
+              nixd-llvm-static
+              nixf
+              nixt
+              ;
           };
 
           devShells = {

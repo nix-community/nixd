@@ -42,7 +42,7 @@ void Controller::actOnDocumentAdd(PathRef File,
     }
 
     auto VLA = std::make_unique<nixf::VariableLookupAnalysis>(Diagnostics);
-    VLA->runOnAST(*AST);
+    VLA->runOnAST(*AST, llvm::sys::path::filename(File) == "flake.nix");
 
     publishDiagnostics(File, Version, *Src, Diagnostics);
 

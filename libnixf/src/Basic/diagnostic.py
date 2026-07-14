@@ -130,6 +130,12 @@ diagnostics: list[Diagnostic] = [
         "message": "using deprecated `let' syntactic sugar `let {{..., body = ...}}' -> (rec {{..., body = ...}}).body'",
     },
     {
+        "sname": "deprecated-let-missing-body",
+        "cname": "LetAttrsMissingBody",
+        "severity": "Error",
+        "message": "`let {{ ... }}` expression requires a `body` attribute",
+    },
+    {
         "sname": "path-trailing-slash",
         "cname": "PathTrailingSlash",
         "severity": "Fatal",

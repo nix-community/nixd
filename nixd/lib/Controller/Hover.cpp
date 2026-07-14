@@ -138,7 +138,11 @@ public:
     if (!Info)
       return std::nullopt;
 
-    return mkMarkdown(*Info);
+    auto Md = mkMarkdown(*Info);
+    if (Md.empty())
+      return std::nullopt;
+
+    return Md;
   }
 };
 

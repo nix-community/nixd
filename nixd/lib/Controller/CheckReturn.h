@@ -4,7 +4,7 @@
 ///
 ///   const auto *foo = checkReturn(get(), nullptr)
 #define CheckReturn(x, Ret)                                                    \
-  ({                                                                           \
+  __extension__({                                                              \
     decltype(x) temp = (x);                                                    \
     if (!temp) [[unlikely]] {                                                  \
       return Ret;                                                              \

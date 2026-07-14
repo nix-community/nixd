@@ -133,7 +133,7 @@ std::shared_ptr<Expr> Parser::parseExpr() {
   case tok_kw_let:
     if (peek(1).kind() != tok_l_curly)
       return parseExprLet();
-    break;
+    return parseExprLegacyLet();
   case tok_kw_with:
     return parseExprWith();
   default:
@@ -329,4 +329,70 @@ std::shared_ptr<ExprWith> Parser::parseExprWith() {
   return std::make_shared<ExprWith>(LexerCursorRange{LCur, LastToken->rCur()},
                                     std::move(KwWith), std::move(TokSemi),
                                     std::move(With), std::move(E));
+}
+
+std::shared_ptr<ExprLegacyLet> Parser::parseExprLegacyLet() {
+  LexerCursor LCur = lCur();
+  Token TokLet = peek();
+  assert(TokLet.kind() == tok_kw_let &&
+         "parseExprLegacyLet should start with `let`");
+  auto KwLet = std::make_shared<Misc>(TokLet.range());
+  consume(); // 'let'
+
+  auto Sync = withSync(tok_r_curly);
+  Token LCurly = peek();
+  LexerCursorRange LCurlyRange = LCurly.range();
+  if (ExpectResult ER = expect(tok_l_curly); ER.ok()) {
+    consume(); // '{'
+  }
+  assert(LastToken && "LastToken should be set after consume()");
+
+  auto Binds = parseBinds();
+
+  LexerCursorRange RCurlyRange{LastToken->rCur(), LastToken->rCur()};
+  if (ExpectResult ER = expect(tok_r_curly); ER.ok()) {
+    RCurlyRange = ER.tok().range();
+    consume();
+  } else {
+    ER.diag().note(Note::NK_ToMachThis, LCurly.range())
+        << std::string(tok::spelling(LCurly.kind()));
+  }
+
+  auto Attrs =
+      Act.onExprAttrs(LexerCursorRange{TokLet.lCur(), LastToken->rCur()},
+                      std::move(Binds), KwLet);
+
+  LexerCursorRange FullRange{LCur, LastToken->rCur()};
+
+  bool HasBody = Attrs && Attrs->sema().staticAttrs().contains("body");
+
+  Diagnostic &DWarn =
+      Diags.emplace_back(Diagnostic::DK_DeprecatedLet, FullRange);
+
+  if (HasBody && Attrs->binds()) {
+    for (const auto &BindNode : Attrs->binds()->bindings()) {
+      if (BindNode->kind() != Node::NK_Binding)
+        continue;
+      const auto &Bind = static_cast<const Binding &>(*BindNode);
+      if (Bind.path().names().empty() || !Bind.path().names()[0])
+        continue;
+      const auto &Name = *Bind.path().names()[0];
+      if (!Name.isStatic() || Name.staticName() != "body")
+        continue;
+      if (!Bind.value())
+        break;
+      Fix &F = DWarn.fix("convert to `let ... in ...`");
+      F.edit(TextEdit::mkRemoval(LCurlyRange));
+      F.edit(TextEdit::mkRemoval(Bind.range()));
+      F.edit(
+          TextEdit(RCurlyRange, "in " + std::string(Bind.value()->src(Src))));
+      break;
+    }
+  }
+
+  if (!HasBody)
+    Diags.emplace_back(Diagnostic::DK_LetAttrsMissingBody, FullRange);
+
+  return std::make_shared<ExprLegacyLet>(FullRange, std::move(KwLet),
+                                         std::move(Attrs));
 }

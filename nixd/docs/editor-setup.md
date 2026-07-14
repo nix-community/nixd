@@ -110,6 +110,23 @@ A simple Emacs Lisp configuration that adds nixd to LSP Mode in the mean time is
                      :server-id 'nixd)))
 ```
 
+### Sublime Text 4
+
+Using [Sublime LSP](https://lsp.sublimetext.io/):
+1. Open `Preferences > Package Settings > LSP > Server Configurations` (or run "Preferences: LSP Server Configurations" in the command palette)
+2. Add the `"nixd"` configuration:
+
+
+    ```json
+    {
+      "nixd": {
+        "enabled": true,
+        "command": ["nixd"],
+        "selector": "source.nix"
+      }
+    }
+    ```
+
 ### Helix
 
 `nixd` will be supported by default in the next release after 24.07.
@@ -123,6 +140,21 @@ language-servers = ["nixd","nil"]
 
 [language-server.nixd]
 command = "nixd"
+```
+
+
+### Kakoune
+
+#### [kakoune-lsp](https://github.com/kakoune-lsp/kakoune-lsp)
+
+```kakscript
+remove-hooks global lsp-filetype-nix
+hook -group lsp-filetype-nix global BufSetOption filetype=nix %{
+    set-option buffer lsp_servers %{
+        [nixd]
+        root_globs = ["flake.nix", "shell.nix", ".git", ".hg"]
+    }
+}
 ```
 
 ### KDE Kate

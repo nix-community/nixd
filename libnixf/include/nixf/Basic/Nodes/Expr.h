@@ -162,6 +162,26 @@ public:
   }
 };
 
+class ExprLegacyLet : public Expr {
+  const std::shared_ptr<Misc> KwLet;
+  const std::shared_ptr<ExprAttrs> Attrs;
+
+public:
+  ExprLegacyLet(LexerCursorRange Range, std::shared_ptr<Misc> KwLet,
+                std::shared_ptr<ExprAttrs> Attrs)
+      : Expr(NK_ExprLegacyLet, Range), KwLet(std::move(KwLet)),
+        Attrs(std::move(Attrs)) {
+    assert(this->KwLet && "KwLet should not be empty!");
+  }
+
+  [[nodiscard]] const Misc &let() const { return *KwLet; }
+  [[nodiscard]] const ExprAttrs *attrs() const { return Attrs.get(); }
+
+  [[nodiscard]] ChildVector children() const override {
+    return {KwLet.get(), Attrs.get()};
+  }
+};
+
 class ExprWith : public Expr {
   const std::shared_ptr<Misc> KwWith;
   const std::shared_ptr<Misc> TokSemi;

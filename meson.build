@@ -56,7 +56,7 @@ endif
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
 
-llvm = dependency('llvm')
+llvm = dependency('llvm', modules: ['support'], static: get_option('llvm_static'))
 boost = dependency('boost')
 nlohmann_json = dependency('nlohmann_json')
 

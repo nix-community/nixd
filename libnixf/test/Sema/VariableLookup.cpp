@@ -766,4 +766,66 @@ TEST_F(VLATest, GetWithScopes_TripleNested) {
   ASSERT_EQ(Scopes[2], &WithA);
 }
 
+TEST_F(VLATest, FlakeOutputs_SelfSuppressed) {
+  std::shared_ptr<Node> AST = parse("{ outputs = { self }: {}; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST, true);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, FlakeOutputs_DeclaredInputSuppressed) {
+  const char *Src = R"({
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs";
+  outputs = { self, nixpkgs }: {};
+})";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST, true);
+
+  ASSERT_EQ(Diags.size(), 0);
+}
+
+TEST_F(VLATest, FlakeOutputs_UndeclaredFormalWarns) {
+  std::shared_ptr<Node> AST = parse("{ outputs = { self, foo }: {}; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST, true);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
+}
+
+TEST_F(VLATest, FlakeOutputs_NotFlakeWarns) {
+  std::shared_ptr<Node> AST = parse("{ outputs = { self }: {}; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST, false);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
+}
+
+TEST_F(VLATest, FlakeOutputs_AtArgWarns) {
+  std::shared_ptr<Node> AST =
+      parse("{ outputs = { self }@inputs: {}; }", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST, true);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Arg);
+}
+
+TEST_F(VLATest, FlakeOutputs_NestedLambdaWarns) {
+  const char *Src = R"({
+  outputs = { self }:
+    let f = { self }: 1;
+    in f {};
+})";
+  std::shared_ptr<Node> AST = parse(Src, Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST, true);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
+}
+
 } // namespace
