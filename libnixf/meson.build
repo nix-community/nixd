@@ -1,7 +1,7 @@
 project( 'nixf'
        , ['c', 'cpp']
        , default_options : ['cpp_std=gnu++20']
-       , version: '2.9.1'
+       , version: '2.9.2'
        )
 
 nix_expr = dependency('nix-expr')

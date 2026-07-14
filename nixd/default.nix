@@ -20,7 +20,7 @@ let
 in
 stdenv.mkDerivation {
   inherit pname;
-  version = "2.9.1";
+  version = "2.9.2";
 
   src = ../.;
 
