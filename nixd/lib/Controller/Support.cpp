@@ -11,6 +11,52 @@
 using namespace lspserver;
 using namespace nixd;
 
+namespace {
+
+/// \brief Suppress false-positive unused-formal warnings for names that the Nix
+/// flake evaluator unconditionally injects into the outputs function.
+///
+/// The evaluator calls outputs as:
+///   flake.outputs(inputs // { self = result; })
+///
+/// Suppression is scoped to the outputs lambda's own formals in flake.nix.
+/// Nested lambdas and other files are unaffected.
+void suppressFlakeInjectedFormals(const nixf::Node &AST,
+                                  std::vector<nixf::Diagnostic> &Diagnostics) {
+  if (AST.kind() != nixf::Node::NK_ExprAttrs)
+    return;
+
+  const auto &S =
+      static_cast<const nixf::ExprAttrs &>(AST).sema().staticAttrs();
+
+  std::set<std::string> Injected{"self"};
+  if (auto It = S.find("inputs"); It != S.end())
+    if (const auto *V = It->second.value();
+        V && V->kind() == nixf::Node::NK_ExprAttrs)
+      for (const auto &[Name, _] :
+           static_cast<const nixf::ExprAttrs &>(*V).sema().staticAttrs())
+        Injected.insert(Name);
+
+  auto It = S.find("outputs");
+  if (It == S.end())
+    return;
+  const auto *V = It->second.value();
+  if (!V || V->kind() != nixf::Node::NK_ExprLambda)
+    return;
+  const auto &L = static_cast<const nixf::ExprLambda &>(*V);
+  if (!L.arg() || !L.arg()->formals())
+    return;
+
+  const auto FR = L.arg()->formals()->range();
+  std::erase_if(Diagnostics, [&](const nixf::Diagnostic &D) {
+    return D.kind() == nixf::Diagnostic::DK_UnusedDefLambdaNoArg_Formal &&
+           !D.args().empty() && Injected.contains(D.args()[0]) &&
+           FR.contains(D.range());
+  });
+}
+
+} // namespace
+
 void Controller::removeDocument(lspserver::PathRef File) {
   Store.removeDraft(File);
   {
@@ -43,6 +89,9 @@ void Controller::actOnDocumentAdd(PathRef File,
 
     auto VLA = std::make_unique<nixf::VariableLookupAnalysis>(Diagnostics);
     VLA->runOnAST(*AST);
+
+    if (llvm::sys::path::filename(File) == "flake.nix")
+      suppressFlakeInjectedFormals(*AST, Diagnostics);
 
     publishDiagnostics(File, Version, *Src, Diagnostics);
 
