@@ -465,9 +465,10 @@ void Controller::onCompletion(const CompletionParams &Params,
                               Callback<CompletionList> Reply) {
   using CheckTy = CompletionList;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
-                 Pos = toNixfPosition(Params.position), this]() mutable {
+                 Pos = toNixfPosition(Params.position),
+                 Context = Params.context, this]() mutable {
     const auto File = URI.file().str();
-    return Reply([&]() -> llvm::Expected<CompletionList> {
+    auto Result = [&]() -> llvm::Expected<CompletionList> {
       const auto TU = CheckDefault(getTU(File));
       const auto AST = CheckDefault(getAST(*TU));
 
@@ -484,42 +485,50 @@ void Controller::onCompletion(const CompletionParams &Params,
         EditRange.start = EditRange.end;
       }
 
-      return [&]() {
-        CompletionList List;
-        const VariableLookupAnalysis &VLA = *TU->variableLookup();
-        try {
-          switch (UpExpr.kind()) {
-          // In these cases, assume the cursor have "variable" scoping.
-          case Node::NK_ExprVar: {
-            completeVarName(EditRange, VLA, PM,
-                            static_cast<const nixf::ExprVar &>(UpExpr),
-                            *nixpkgsClient(), List.items);
-            return List;
-          }
-          // A "select" expression. e.g.
-          // foo.a|
-          // foo.|
-          // foo.a.bar|
-          case Node::NK_ExprSelect: {
-            const auto &Select = static_cast<const nixf::ExprSelect &>(UpExpr);
-            completeSelect(EditRange, Select, *nixpkgsClient(), VLA, PM,
-                           N.kind() == Node::NK_Dot, List.items);
-            return List;
-          }
-          case Node::NK_ExprAttrs: {
-            completeAttrPath(EditRange, N, PM, OptionsLock, Options,
-                             ClientCaps.CompletionSnippets, List.items);
-            return List;
-          }
-          default:
-            return List;
-          }
-        } catch (ExceedSizeError &Err) {
-          List.isIncomplete = true;
+      CompletionList List;
+      const VariableLookupAnalysis &VLA = *TU->variableLookup();
+      try {
+        switch (UpExpr.kind()) {
+        // In these cases, assume the cursor have "variable" scoping.
+        case Node::NK_ExprVar: {
+          completeVarName(EditRange, VLA, PM,
+                          static_cast<const nixf::ExprVar &>(UpExpr),
+                          *nixpkgsClient(), List.items);
           return List;
         }
-      }();
-    }());
+        // A "select" expression. e.g.
+        // foo.a|
+        // foo.|
+        // foo.a.bar|
+        case Node::NK_ExprSelect: {
+          const auto &Select = static_cast<const nixf::ExprSelect &>(UpExpr);
+          completeSelect(EditRange, Select, *nixpkgsClient(), VLA, PM,
+                         N.kind() == Node::NK_Dot, List.items);
+          return List;
+        }
+        case Node::NK_ExprAttrs: {
+          completeAttrPath(EditRange, N, PM, OptionsLock, Options,
+                           ClientCaps.CompletionSnippets, List.items);
+          return List;
+        }
+        default:
+          return List;
+        }
+      } catch (ExceedSizeError &Err) {
+        List.isIncomplete = true;
+        return List;
+      }
+    }();
+
+    // The evaluator may return no names for an empty package prefix even
+    // though completing a subsequent prefix produces results. Tell clients to
+    // request completion again instead of caching the empty response from a
+    // dot-triggered request such as `pkgs.`.
+    if (Result &&
+        Context.triggerKind == CompletionTriggerKind::TriggerCharacter &&
+        Context.triggerCharacter == "." && Result->items.empty())
+      Result->isIncomplete = true;
+    return Reply(std::move(Result));
   };
   boost::asio::post(Pool, std::move(Action));
 }
