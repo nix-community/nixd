@@ -24,6 +24,19 @@ lspserver::CodeAction createSingleEditAction(const std::string &Title,
   };
 }
 
+lspserver::CodeAction
+createMultiEditAction(const std::string &Title, llvm::StringLiteral Kind,
+                      const std::string &FileURI,
+                      std::vector<lspserver::TextEdit> Edits) {
+  using Changes = std::map<std::string, std::vector<lspserver::TextEdit>>;
+  lspserver::WorkspaceEdit WE{.changes = Changes{{FileURI, std::move(Edits)}}};
+  return lspserver::CodeAction{
+      .title = Title,
+      .kind = std::string(Kind),
+      .edit = std::move(WE),
+  };
+}
+
 bool isValidNixIdentifier(const std::string &S) {
   if (S.empty())
     return false;

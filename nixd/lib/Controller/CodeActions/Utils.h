@@ -23,6 +23,15 @@ lspserver::CodeAction createSingleEditAction(const std::string &Title,
                                              const lspserver::Range &EditRange,
                                              std::string NewText);
 
+/// \brief Create a CodeAction with multiple text edits applied as one.
+///
+/// Per LSP, all edits in a single WorkspaceEdit are applied against the
+/// pre-edit document state, so callers must ensure ranges do not overlap.
+lspserver::CodeAction
+createMultiEditAction(const std::string &Title, llvm::StringLiteral Kind,
+                      const std::string &FileURI,
+                      std::vector<lspserver::TextEdit> Edits);
+
 /// \brief Check if a string is a valid Nix identifier that can be unquoted.
 ///
 /// Valid identifiers: start with letter or underscore, contain letters,
