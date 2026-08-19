@@ -8,8 +8,14 @@
 
 namespace nixd {
 
-/// \brief Parse the startup JSON patch over defaults and CLI patches.
-nixd::Configuration parseCLIConfig(nixd::ConfigurationPatch DefaultPatch,
-                                  nixd::ConfigurationPatch LegacyPatch);
+struct CommandLineConfiguration {
+  Configuration baseConfiguration;
+  bool configSpecified = false;
+  bool enableProjectConfig = false;
+};
+
+/// Parse all command-line startup configuration and project-file policy.
+CommandLineConfiguration parseCLIConfig(nixd::ConfigurationPatch DefaultPatch,
+                                        nixd::ConfigurationPatch LegacyPatch);
 
 } // namespace nixd

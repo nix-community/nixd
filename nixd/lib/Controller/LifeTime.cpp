@@ -15,6 +15,8 @@
 
 #include <llvm/Support/CommandLine.h>
 
+#include <filesystem>
+
 using namespace nixd;
 using namespace util;
 using namespace llvm::json;
@@ -173,20 +175,35 @@ void Controller::
 
   ClientCaps = Params.capabilities;
 
+  CommandLineConfiguration CLI;
   try {
-    Config = parseCLIConfig(litTestDefaults(), legacyCLIConfig());
+    CLI = parseCLIConfig(litTestDefaults(), legacyCLIConfig());
   } catch (LLVMErrorException &Err) {
     lspserver::elog("parse CLI config error: {0}, {1}", Err.what(),
                     Err.takeError());
     std::exit(-1);
   }
 
-  startNixpkgs(NixpkgsEval);
-  updateConfig(Config);
+  Startup = std::make_unique<const StartupSelection>(
+      selectStartup(CLI, Params, std::filesystem::current_path()));
+  if (Startup->warning)
+    lspserver::elog("{0}", *Startup->warning);
+
+  startNixpkgs(NixpkgsEval, Startup->executionCWD);
+  updateConfig(Startup->baseConfiguration);
   fetchConfig();
 }
 
-void Controller::onInitialized(const lspserver::InitializedParams &Params) {}
+void Controller::onInitialized(const lspserver::InitializedParams &Params) {
+  if (!Startup || !Startup->warning)
+    return;
+  std::call_once(StartupWarningOnce, [this] {
+    ShowMessage({
+        .type = MessageType::Warning,
+        .message = *Startup->warning,
+    });
+  });
+}
 
 void Controller::onShutdown(const lspserver::NoParams &,
                             lspserver::Callback<std::nullptr_t> Reply) {

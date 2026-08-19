@@ -10,14 +10,19 @@
 #include "nixd/Support/ForkPiped.h"
 
 #include <boost/asio/post.hpp>
+#include <cstdio>
 #include <sys/wait.h>
+#include <unistd.h>
 
 using namespace nixd;
 using namespace lspserver;
 
 void Controller::onFormat(const DocumentFormattingParams &Params,
                           Callback<std::vector<TextEdit>> Reply) {
-  auto Action = [this, Params, Reply = std::move(Reply)]() mutable {
+  assert(Startup);
+  const std::filesystem::path ExecutionCWD = Startup->executionCWD;
+  auto Action = [this, Params, ExecutionCWD,
+                 Reply = std::move(Reply)]() mutable {
     lspserver::PathRef File = Params.textDocument.uri.file();
     const std::string &Code = *Store.getDraft(File)->Contents;
     // Invokes another process and then read it's stdout.
@@ -50,8 +55,12 @@ void Controller::onFormat(const DocumentFormattingParams &Params,
 
     pid_t Child = forkPiped(In, Out, Err);
     if (Child == 0) {
+      if (chdir(ExecutionCWD.c_str()) != 0) {
+        perror("failed to change formatter working directory");
+        _exit(127);
+      }
       execvp(Syscall[0], Syscall.data());
-      exit(-1);
+      _exit(127);
     }
     // Firstly, send the document to the process stdin.
     // Invoke POSIX write(2) to do such thing.

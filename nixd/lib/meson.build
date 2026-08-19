@@ -22,6 +22,7 @@ libnixd_lib = library(
     'Controller/CodeActions/WithToLet.cpp',
     'Controller/Completion.cpp',
     'Controller/Configuration.cpp',
+    'Controller/Startup.cpp',
     'Controller/Convert.cpp',
     'Controller/Definition.cpp',
     'Controller/Diagnostics.cpp',

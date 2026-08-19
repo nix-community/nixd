@@ -124,6 +124,7 @@ Controller::Controller(std::unique_ptr<lspserver::InboundPort> In,
 
   PublishDiagnostic = mkOutNotifiction<PublishDiagnosticsParams>(
       "textDocument/publishDiagnostics");
+  ShowMessage = mkOutNotifiction<ShowMessageParams>("window/showMessage");
   CreateWorkDoneProgress =
       mkOutMethod<WorkDoneProgressCreateParams, std::nullptr_t>(
           "window/workDoneProgress/create");

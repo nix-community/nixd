@@ -3,6 +3,7 @@
 #include "Configuration.h"
 #include "EvalClient.h"
 #include "NixTU.h"
+#include "Startup.h"
 
 #include "lspserver/DraftStore.h"
 #include "lspserver/LSPServer.h"
@@ -49,6 +50,8 @@ private:
 
   std::mutex ConfigLock;
   Configuration Config; // GUARDED_BY(ConfigLock)
+  std::unique_ptr<const StartupSelection> Startup;
+  std::once_flag StartupWarningOnce;
 
   llvm::unique_function<void(const lspserver::ConfigurationParams &,
                              lspserver::Callback<llvm::json::Value>)>
@@ -67,6 +70,7 @@ private:
 
   llvm::unique_function<void(const lspserver::PublishDiagnosticsParams &)>
       PublishDiagnostic;
+  llvm::unique_function<void(const lspserver::ShowMessageParams &)> ShowMessage;
   llvm::unique_function<void(const lspserver::WorkDoneProgressCreateParams &,
                              lspserver::Callback<std::nullptr_t>)>
       CreateWorkDoneProgress;

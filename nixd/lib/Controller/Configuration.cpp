@@ -157,7 +157,8 @@ void Controller::updateConfig(Configuration NewConfig) {
       auto &Client = Options[Name];
       if (!Client) {
         // If it does not exist. Launch a new client.
-        startOption(Name, Client);
+        assert(Startup);
+        startOption(Name, Client, Startup->executionCWD);
       }
       assert(Client);
       evalExprWithProgress(*Client->client(), Opt.expr, Name);
@@ -199,11 +200,8 @@ void Controller::fetchConfig() {
         return;
       }
 
-      Configuration Base;
-      {
-        std::lock_guard G(ConfigLock);
-        Base = Config;
-      }
+      assert(Startup);
+      Configuration Base = Startup->baseConfiguration;
 
       // OK, update the config
       updateConfig(overlay(std::move(Base), Patch));

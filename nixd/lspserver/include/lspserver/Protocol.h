@@ -657,6 +657,12 @@ struct InitializationOptions {
 bool fromJSON(const llvm::json::Value &, InitializationOptions &,
               llvm::json::Path);
 
+struct WorkspaceFolder {
+  URIForFile uri;
+  std::string name;
+};
+bool fromJSON(const llvm::json::Value &, WorkspaceFolder &, llvm::json::Path);
+
 struct InitializeParams {
   /// The process Id of the parent process that started
   /// the server. Is null if the process has not been started by another
@@ -674,6 +680,13 @@ struct InitializeParams {
   /// folder is open. If both `rootPath` and `rootUri` are set
   /// `rootUri` wins.
   std::optional<URIForFile> rootUri;
+  std::optional<std::string> rootUriError;
+
+  std::optional<std::string> rootPathError;
+
+  std::optional<std::vector<WorkspaceFolder>> workspaceFolders;
+  std::optional<std::size_t> workspaceFoldersRawSize;
+  std::optional<std::string> workspaceFoldersError;
 
   // User provided initialization options.
   // initializationOptions?: any;
