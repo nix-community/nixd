@@ -33,6 +33,9 @@ private:
   /// If the call has no response for a long time, it should be removed and
   /// associated an error.
   std::map<int, Callback<llvm::json::Value>> PendingCalls;
+  bool CallsAccepted = true;
+  unsigned SendsInFlight = 0;
+  std::string TerminalReason;
 
   /// Number of maximum callbacks stored in the structure.
   /// Give an error to the oldest callback (least ID) while exceeding this
@@ -41,15 +44,12 @@ private:
 
   int TopID = 1;
 
-  /// Allocate an "ID" (as returned value) for this callback.
-  int bindReply(Callback<llvm::json::Value>);
+  /// Fail and remove every outstanding call without invoking callbacks while
+  /// PendingCallsLock is held.
+  void failPendingCalls(std::string Reason);
 
   void callMethod(llvm::StringRef Method, llvm::json::Value Params,
-                  Callback<llvm::json::Value> CB, OutboundPort *O) {
-    llvm::json::Value ID(bindReply(std::move(CB)));
-    log("--> call {0}({1})", Method, ID.getAsInteger());
-    O->call(Method, Params, ID);
-  }
+                  Callback<llvm::json::Value> CB, OutboundPort *O);
 
 protected:
   HandlerRegistry Registry;
@@ -88,7 +88,10 @@ public:
       : In(std::move(In)), Out(std::move(Out)) {};
 
   /// \brief Close the inbound port.
-  void closeInbound() { In->close(); }
+  void closeInbound() {
+    failPendingCalls("LSP input closed");
+    In->close();
+  }
   void run();
 
   void switchStreamStyle(JSONStreamStyle Style) { In->StreamStyle = Style; }

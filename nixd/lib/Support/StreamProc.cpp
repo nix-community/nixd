@@ -18,12 +18,13 @@ StreamProc::StreamProc(const std::function<int()> &Action) {
   int In;
   int Out;
   int Err;
+  pid_t ProcessGroup = -1;
 
-  pid_t Child = forkPiped(In, Out, Err);
+  pid_t Child = forkPiped(In, Out, Err, &ProcessGroup);
   if (Child == 0)
     exit(Action());
 
   // Parent process.
-  Proc = std::make_unique<PipedProc>(Child, In, Out, Err);
+  Proc = std::make_unique<PipedProc>(Child, ProcessGroup, In, Out, Err);
   Stream = std::make_unique<llvm::raw_fd_ostream>(In, false);
 }

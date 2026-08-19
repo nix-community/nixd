@@ -12,7 +12,92 @@
 
 namespace lspserver {
 
-void LSPServer::run() { In->loop(*this); }
+void LSPServer::run() {
+  In->loop(*this);
+  failPendingCalls("LSP input ended");
+}
+
+void LSPServer::failPendingCalls(std::string Reason) {
+  std::map<int, Callback<llvm::json::Value>> Pending;
+  std::string Failure;
+  {
+    std::lock_guard Guard(PendingCallsLock);
+    if (CallsAccepted) {
+      CallsAccepted = false;
+      TerminalReason = std::move(Reason);
+    }
+    Failure = TerminalReason;
+    if (SendsInFlight == 0)
+      Pending.swap(PendingCalls);
+  }
+  for (auto &[ID, Reply] : Pending)
+    Reply(error("{0}: request {1}", Failure, ID));
+}
+
+void LSPServer::callMethod(llvm::StringRef Method, llvm::json::Value Params,
+                           Callback<llvm::json::Value> CB, OutboundPort *O) {
+  std::optional<std::pair<int, Callback<llvm::json::Value>>> Evicted;
+  std::optional<Callback<llvm::json::Value>> Rejected;
+  std::string RejectionReason;
+  int ID = 0;
+  {
+    std::lock_guard Guard(PendingCallsLock);
+    if (!CallsAccepted) {
+      Rejected = std::move(CB);
+      RejectionReason = TerminalReason;
+    } else {
+      ID = TopID++;
+      PendingCalls.emplace(ID, std::move(CB));
+      if (PendingCalls.size() > MaxPendingCalls) {
+        auto Begin = PendingCalls.begin();
+        Evicted.emplace(Begin->first, std::move(Begin->second));
+        PendingCalls.erase(Begin);
+      }
+      ++SendsInFlight;
+    }
+  }
+
+  if (Rejected) {
+    (*Rejected)(error("{0}: request rejected", RejectionReason));
+    return;
+  }
+
+  log("--> call {0}({1})", Method, ID);
+  std::error_code SendFailure = O->call(Method, std::move(Params), ID);
+
+  std::map<int, Callback<llvm::json::Value>> Terminal;
+  std::optional<Callback<llvm::json::Value>> FailedSend;
+  std::string Failure;
+  {
+    std::lock_guard Guard(PendingCallsLock);
+    assert(SendsInFlight > 0);
+    --SendsInFlight;
+    if (SendFailure) {
+      auto It = PendingCalls.find(ID);
+      if (It != PendingCalls.end()) {
+        FailedSend = std::move(It->second);
+        PendingCalls.erase(It);
+      }
+    }
+    if (!CallsAccepted && SendsInFlight == 0) {
+      Failure = TerminalReason;
+      Terminal.swap(PendingCalls);
+    }
+  }
+
+  if (FailedSend)
+    (*FailedSend)(
+        error("failed to send request {0}: {1}", ID, SendFailure.message()));
+  for (auto &[PendingID, Reply] : Terminal)
+    Reply(error("{0}: request {1}", Failure, PendingID));
+  if (Evicted) {
+    auto [EvictedID, Reply] = std::move(*Evicted);
+    Reply(
+        error("failed to receive a client reply for request ({0})", EvictedID));
+    elog("more than {0} outstanding LSP calls, forgetting about {1}",
+         MaxPendingCalls, EvictedID);
+  }
+}
 
 bool LSPServer::onNotify(llvm::StringRef Method, llvm::json::Value Params) {
   log("<-- {0}", Method);
@@ -76,25 +161,6 @@ bool LSPServer::onReply(llvm::json::Value ID,
   // need to lock PendingCalls.
   (*CB)(std::move(Result));
   return true;
-}
-
-int LSPServer::bindReply(Callback<llvm::json::Value> CB) {
-  std::lock_guard<std::mutex> _(PendingCallsLock);
-  int Ret = TopID++;
-  PendingCalls[Ret] = std::move(CB);
-
-  // Check the limit
-  if (PendingCalls.size() > MaxPendingCalls) {
-    auto Begin = PendingCalls.begin();
-    auto [ID, OldestCallback] =
-        std::tuple{Begin->first, std::move(Begin->second)};
-    OldestCallback(
-        error("failed to receive a client reply for request ({0})", ID));
-    elog("more than {0} outstanding LSP calls, forgetting about {1}",
-         MaxPendingCalls, ID);
-    PendingCalls.erase(Begin);
-  }
-  return Ret;
 }
 
 } // namespace lspserver

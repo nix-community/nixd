@@ -6,6 +6,7 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/raw_ostream.h>
 #include <mutex>
+#include <system_error>
 #include <unistd.h>
 
 namespace lspserver {
@@ -70,6 +71,7 @@ public:
 class OutboundPort {
 private:
   llvm::raw_ostream &Outs;
+  llvm::raw_fd_ostream *FDOut = nullptr;
 
   llvm::SmallVector<char, 0> OutputBuffer;
 
@@ -79,15 +81,17 @@ private:
 
 public:
   explicit OutboundPort(bool Pretty = false)
-      : Outs(llvm::outs()), Pretty(Pretty) {}
+      : Outs(llvm::outs()), FDOut(&llvm::outs()), Pretty(Pretty) {}
+  OutboundPort(llvm::raw_fd_ostream &Outs, bool Pretty = false)
+      : Outs(Outs), FDOut(&Outs), OutputBuffer(), Pretty(Pretty) {}
   OutboundPort(llvm::raw_ostream &Outs, bool Pretty = false)
       : Outs(Outs), OutputBuffer(), Pretty(Pretty) {}
   void notify(llvm::StringRef Method, llvm::json::Value Params);
-  void call(llvm::StringRef Method, llvm::json::Value Params,
-            llvm::json::Value ID);
+  [[nodiscard]] std::error_code
+  call(llvm::StringRef Method, llvm::json::Value Params, llvm::json::Value ID);
   void reply(llvm::json::Value ID, llvm::Expected<llvm::json::Value> Result);
 
-  void sendMessage(llvm::json::Value Message);
+  [[nodiscard]] std::error_code sendMessage(llvm::json::Value Message);
 };
 
 } // namespace lspserver

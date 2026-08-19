@@ -5,6 +5,9 @@
 
 #include <lspserver/LSPServer.h>
 
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 
 namespace nixd {
@@ -75,20 +78,38 @@ public:
 class AttrSetClientProc {
   StreamProc Proc;
   AttrSetClient Client;
+  std::function<void()> OnDeath;
   std::thread Input;
+  mutable std::atomic<bool> TransportAlive{true};
+  enum class StopPhase { Running, Stopping, Stopped };
+  std::mutex StopMutex;
+  std::condition_variable StopChanged;
+  StopPhase Phase = StopPhase::Running;
+  mutable std::mutex ReapMutex;
+  mutable bool LeaderExited = false;
+  mutable bool ChildReaped = false;
+
+  bool observeChildExit() const;
+  bool ownsChildIdentity() const;
+  bool reapChild() const;
 
 public:
   /// \brief Check if the process is still alive
   /// \returns nullptr if it has been dead.
   AttrSetClient *client();
-  ~AttrSetClientProc() {
-    Client.exit();
-    Client.closeInbound();
-    Input.join();
-  }
+  [[nodiscard]] bool alive() const;
+  [[nodiscard]] pid_t pid() const { return Proc.proc().PID; }
+  /// Stop, join, and reap the worker. Concurrent owning-thread callers wait
+  /// for the single Running -> Stopping -> Stopped transition. Returns false
+  /// on the input thread, where joining or final destruction is forbidden.
+  bool stop() noexcept;
+  ~AttrSetClientProc();
 
   /// \see StreamProc::StreamProc
-  AttrSetClientProc(const std::function<int()> &Action);
+  /// OnDeath runs on the input thread and must retain only weak ownership. It
+  /// must never release the final AttrSetClientProc owner on that thread.
+  AttrSetClientProc(const std::function<int()> &Action,
+                    std::function<void()> OnDeath = {});
 };
 
 } // namespace nixd
