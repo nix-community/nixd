@@ -22,9 +22,13 @@ opt<std::string> DefaultConfigJSON{"config",
 
 } // namespace
 
-Configuration nixd::parseCLIConfig() {
+Configuration nixd::parseCLIConfig(ConfigurationPatch DefaultPatch,
+                                   ConfigurationPatch LegacyPatch) {
+  Configuration Config = overlay(defaultConfiguration(), DefaultPatch);
+  Config = overlay(std::move(Config), LegacyPatch);
   if (DefaultConfigJSON.empty())
-    return {};
+    return Config;
 
-  return nixd::fromJSON<Configuration>(nixd::parse(DefaultConfigJSON));
+  return overlay(std::move(Config),
+                 nixd::fromJSON<ConfigurationPatch>(nixd::parse(DefaultConfigJSON)));
 }

@@ -8,7 +8,8 @@
 
 namespace nixd {
 
-/// \brief Parse the CLI flag and initialize the config nixd::DefaultConfig
-nixd::Configuration parseCLIConfig();
+/// \brief Parse the startup JSON patch over defaults and CLI patches.
+nixd::Configuration parseCLIConfig(nixd::ConfigurationPatch DefaultPatch,
+                                  nixd::ConfigurationPatch LegacyPatch);
 
 } // namespace nixd

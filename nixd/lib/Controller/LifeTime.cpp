@@ -26,33 +26,35 @@ namespace {
 opt<std::string> DefaultNixpkgsExpr{
     "nixpkgs-expr",
     desc("Default expression intrepreted as `import <nixpkgs> { }`"),
-    cat(NixdCategory), init("import <nixpkgs> { }")};
+    cat(NixdCategory), init("")};
 
 opt<std::string> DefaultNixOSOptionsExpr{
     "nixos-options-expr",
     desc("Default expression interpreted as option declarations"),
-    cat(NixdCategory),
-    init("(let pkgs = import <nixpkgs> { }; in (pkgs.lib.evalModules { modules "
-         "=  (import <nixpkgs/nixos/modules/module-list.nix>) ++ [ ({...}: { "
-         "nixpkgs.hostPlatform = builtins.currentSystem;} ) ] ; })).options")};
+    cat(NixdCategory), init("")};
 
 opt<bool> EnableSemanticTokens{"semantic-tokens",
                                desc("Enable/Disable semantic tokens"),
                                init(false), cat(NixdCategory)};
 
-// Here we try to wrap nixpkgs, nixos options in a single emtpy attrset in test.
-std::string getDefaultNixpkgsExpr() {
-  if (LitTest && !DefaultNixpkgsExpr.getNumOccurrences()) {
-    return "{ }";
-  }
-  return DefaultNixpkgsExpr;
+ConfigurationPatch legacyCLIConfig() {
+  ConfigurationPatch Patch;
+  if (DefaultNixpkgsExpr.getNumOccurrences())
+    Patch.nixpkgs = {.expr = DefaultNixpkgsExpr};
+  if (DefaultNixOSOptionsExpr.getNumOccurrences())
+    Patch.options = {{"nixos", {.expr = DefaultNixOSOptionsExpr}}};
+  return Patch;
 }
 
-std::string getDefaultNixOSOptionsExpr() {
-  if (LitTest && !DefaultNixOSOptionsExpr.getNumOccurrences()) {
-    return "{ }";
-  }
-  return DefaultNixOSOptionsExpr;
+ConfigurationPatch litTestDefaults() {
+  ConfigurationPatch Patch;
+  if (!LitTest)
+    return Patch;
+  if (!DefaultNixpkgsExpr.getNumOccurrences())
+    Patch.nixpkgs = {.expr = "{ }"};
+  if (!DefaultNixOSOptionsExpr.getNumOccurrences())
+    Patch.options = {{"nixos", {.expr = "{ }"}}};
+  return Patch;
 }
 
 } // namespace
@@ -171,30 +173,16 @@ void Controller::
 
   ClientCaps = Params.capabilities;
 
-  // Start default workers.
-  startNixpkgs(NixpkgsEval);
-
-  if (nixpkgsClient()) {
-    evalExprWithProgress(*nixpkgsClient(), getDefaultNixpkgsExpr(),
-                         "nixpkgs entries");
-  }
-
-  // Launch nixos worker also.
-  {
-    std::lock_guard _(OptionsLock);
-    startOption("nixos", Options["nixos"]);
-
-    if (AttrSetClient *Client = Options["nixos"]->client())
-      evalExprWithProgress(*Client, getDefaultNixOSOptionsExpr(),
-                           "nixos options");
-  }
   try {
-    Config = parseCLIConfig();
+    Config = parseCLIConfig(litTestDefaults(), legacyCLIConfig());
   } catch (LLVMErrorException &Err) {
     lspserver::elog("parse CLI config error: {0}, {1}", Err.what(),
                     Err.takeError());
     std::exit(-1);
   }
+
+  startNixpkgs(NixpkgsEval);
+  updateConfig(Config);
   fetchConfig();
 }
 

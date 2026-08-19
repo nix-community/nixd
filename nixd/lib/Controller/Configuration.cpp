@@ -8,43 +8,129 @@ using namespace lspserver;
 using llvm::json::ObjectMapper;
 using llvm::json::Value;
 
-bool nixd::fromJSON(const Value &Params, Configuration::Diagnostic &R,
-                    llvm::json::Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("suppress", R.suppress);
+namespace {
+
+template <typename IsKnown>
+bool checkObject(const Value &Params, llvm::json::Path P, IsKnown Known) {
+  const auto *Object = Params.getAsObject();
+  if (!Object) {
+    P.report("expected object");
+    return false;
+  }
+
+  for (const auto &Entry : *Object) {
+    if (!Known(Entry.first)) {
+      P.field(Entry.first).report("unknown configuration field");
+      return false;
+    }
+    if (Entry.second.kind() == Value::Null) {
+      P.field(Entry.first).report("null configuration fields are not allowed");
+      return false;
+    }
+  }
+  return true;
 }
 
-bool nixd::fromJSON(const Value &Params, Configuration::Formatting &R,
+} // namespace
+
+bool nixd::fromJSON(const Value &Params, ConfigurationPatch::Formatting &R,
                     llvm::json::Path P) {
-  // If it is a single string, treat it as a single vector
-  if (auto Str = Params.getAsString()) {
-    R.command = {Str->str()};
+  if (auto String = Params.getAsString()) {
+    if (String->empty()) {
+      P.report("formatting command must not be empty");
+      return false;
+    }
+    R.command = std::vector<std::string>{String->str()};
     return true;
   }
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("command", R.command);
+
+  if (!checkObject(Params, P, [](llvm::StringRef Key) {
+        return Key == "command";
+      }))
+    return false;
+  ObjectMapper Mapper(Params, P);
+  return Mapper && Mapper.mapOptional("command", R.command);
+}
+
+bool nixd::fromJSON(const Value &Params,
+                    ConfigurationPatch::NixpkgsProvider &R,
+                    llvm::json::Path P) {
+  if (!checkObject(Params, P, [](llvm::StringRef Key) {
+        return Key == "expr";
+      }))
+    return false;
+  ObjectMapper Mapper(Params, P);
+  return Mapper && Mapper.mapOptional("expr", R.expr);
+}
+
+bool nixd::fromJSON(const Value &Params, ConfigurationPatch::Diagnostic &R,
+                    llvm::json::Path P) {
+  if (!checkObject(Params, P, [](llvm::StringRef Key) {
+        return Key == "suppress";
+      }))
+    return false;
+  ObjectMapper Mapper(Params, P);
+  return Mapper && Mapper.mapOptional("suppress", R.suppress);
 }
 
 bool nixd::fromJSON(const Value &Params, Configuration::OptionProvider &R,
                     llvm::json::Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("expr", R.expr);
+  if (!checkObject(Params, P,
+                   [](llvm::StringRef Key) { return Key == "expr"; }))
+    return false;
+
+  std::optional<std::string> Expr;
+  ObjectMapper Mapper(Params, P);
+  if (!Mapper || !Mapper.mapOptional("expr", Expr))
+    return false;
+  if (!Expr || Expr->empty()) {
+    P.field("expr").report("expected non-empty string");
+    return false;
+  }
+  R.expr = std::move(*Expr);
+  return true;
 }
 
-bool nixd::fromJSON(const Value &Params, Configuration::NixpkgsProvider &R,
+Configuration nixd::defaultConfiguration() {
+  Configuration Config;
+  Config.nixpkgs.expr = "import <nixpkgs> { }";
+  Config.options.emplace(
+      "nixos", Configuration::OptionProvider{
+                   "(let pkgs = import <nixpkgs> { }; in (pkgs.lib.evalModules "
+                   "{ modules =  (import <nixpkgs/nixos/modules/module-list.nix>) "
+                   "++ [ ({...}: { nixpkgs.hostPlatform = "
+                   "builtins.currentSystem;} ) ] ; })).options"});
+  return Config;
+}
+
+Configuration nixd::overlay(Configuration Base,
+                            const ConfigurationPatch &Patch) {
+  if (Patch.formatting && Patch.formatting->command)
+    Base.formatting.command = *Patch.formatting->command;
+  if (Patch.options)
+    Base.options = *Patch.options;
+  if (Patch.nixpkgs && Patch.nixpkgs->expr)
+    Base.nixpkgs.expr = *Patch.nixpkgs->expr;
+  if (Patch.diagnostic && Patch.diagnostic->suppress)
+    Base.diagnostic.suppress = *Patch.diagnostic->suppress;
+  return Base;
+}
+
+bool nixd::fromJSON(const Value &Params, ConfigurationPatch &R,
                     llvm::json::Path P) {
-  ObjectMapper O(Params, P);
-  return O && O.mapOptional("expr", R.expr);
-}
+  if (!checkObject(Params, P, [](llvm::StringRef Key) {
+        return Key == "$schema" || Key == "formatting" || Key == "options" ||
+               Key == "nixpkgs" || Key == "diagnostic";
+      }))
+    return false;
 
-bool nixd::fromJSON(const Value &Params, Configuration &R, llvm::json::Path P) {
-  ObjectMapper O(Params, P);
-  return O                                            //
-         && O.mapOptional("formatting", R.formatting) //
-         && O.mapOptional("options", R.options)       //
-         && O.mapOptional("nixpkgs", R.nixpkgs)       //
-         && O.mapOptional("diagnostic", R.diagnostic) //
-      ;
+  std::string Schema;
+  ObjectMapper Mapper(Params, P);
+  return Mapper && Mapper.mapOptional("$schema", Schema) &&
+         Mapper.mapOptional("formatting", R.formatting) &&
+         Mapper.mapOptional("options", R.options) &&
+         Mapper.mapOptional("nixpkgs", R.nixpkgs) &&
+         Mapper.mapOptional("diagnostic", R.diagnostic);
 }
 
 void Controller::onDidChangeConfiguration(
@@ -105,16 +191,22 @@ void Controller::fetchConfig() {
 
     // Run this job in the thread pool. Don't block input thread.
     auto ConfigAction = [this, FirstConfig]() mutable {
-      // Parse the config
-      Configuration NewConfig;
+      // Parse and apply the editor patch over the current configuration.
+      ConfigurationPatch Patch;
       llvm::json::Path::Root P;
-      if (!fromJSON(FirstConfig, NewConfig, P)) {
+      if (!fromJSON(FirstConfig, Patch, P)) {
         elog("workspace/configuration: parse error {0}", P.getError());
         return;
       }
 
+      Configuration Base;
+      {
+        std::lock_guard G(ConfigLock);
+        Base = Config;
+      }
+
       // OK, update the config
-      updateConfig(std::move(NewConfig));
+      updateConfig(overlay(std::move(Base), Patch));
     };
 
     boost::asio::post(Pool, std::move(ConfigAction));

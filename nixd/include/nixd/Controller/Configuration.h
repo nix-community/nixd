@@ -5,6 +5,7 @@
 #include <llvm/Support/JSON.h>
 
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -33,19 +34,45 @@ struct Configuration {
   } diagnostic;
 };
 
-bool fromJSON(const llvm::json::Value &Params, Configuration::Diagnostic &R,
-              llvm::json::Path P);
+/// \brief A partial configuration supplied by one configuration source.
+struct ConfigurationPatch {
+  struct Formatting {
+    std::optional<std::vector<std::string>> command;
+  };
 
-bool fromJSON(const llvm::json::Value &Params, Configuration::Formatting &R,
-              llvm::json::Path P);
+  struct NixpkgsProvider {
+    std::optional<std::string> expr;
+  };
 
-bool fromJSON(const llvm::json::Value &Params, Configuration::OptionProvider &R,
-              llvm::json::Path P);
+  struct Diagnostic {
+    std::optional<std::vector<std::string>> suppress;
+  };
+
+  std::optional<Formatting> formatting;
+  std::optional<std::map<std::string, Configuration::OptionProvider>> options;
+  std::optional<NixpkgsProvider> nixpkgs;
+  std::optional<Diagnostic> diagnostic;
+};
+
+/// \brief The configuration used when no external source overrides a field.
+Configuration defaultConfiguration();
+
+/// \brief Apply a partial configuration over an existing configuration.
+Configuration overlay(Configuration Base, const ConfigurationPatch &Patch);
 
 bool fromJSON(const llvm::json::Value &Params,
-              Configuration::NixpkgsProvider &R, llvm::json::Path P);
+              Configuration::OptionProvider &R, llvm::json::Path P);
 
-bool fromJSON(const llvm::json::Value &Params, Configuration &R,
+bool fromJSON(const llvm::json::Value &Params,
+              ConfigurationPatch::Formatting &R, llvm::json::Path P);
+
+bool fromJSON(const llvm::json::Value &Params,
+              ConfigurationPatch::NixpkgsProvider &R, llvm::json::Path P);
+
+bool fromJSON(const llvm::json::Value &Params,
+              ConfigurationPatch::Diagnostic &R, llvm::json::Path P);
+
+bool fromJSON(const llvm::json::Value &Params, ConfigurationPatch &R,
               llvm::json::Path P);
 
 // NOLINTEND(readability-identifier-naming)
