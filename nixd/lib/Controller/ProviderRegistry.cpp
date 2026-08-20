@@ -2,6 +2,7 @@
 
 #include <boost/asio/post.hpp>
 
+#include <algorithm>
 #include <cassert>
 #include <mutex>
 #include <utility>
@@ -499,32 +500,33 @@ ProviderRegistry::acquire(const ProviderKey &Key) const {
                     ProcessSerial, Epoch);
 }
 
-std::vector<ProviderRegistry::QueryToken>
+ProviderRegistry::OptionsSnapshot
 ProviderRegistry::acquireOptions() const {
-  std::vector<QueryToken> Tokens;
+  OptionsSnapshot Snapshot;
   {
     std::lock_guard Guard(Shared->Mutex);
+    Snapshot.Epoch = Shared->EpochValues.Options;
     if (!isAccepting(*Shared))
-      return Tokens;
-    const auto Epoch = Shared->EpochValues.Options;
+      return Snapshot;
     for (const auto &[Key, Record] : Shared->Records) {
       if (Key.Kind != ProviderKind::Option ||
           Record->State != ProviderState::Active || !Record->Worker)
         continue;
-      Tokens.push_back(QueryToken(Record, Record->Worker, Record->Revision,
-                                  Record->ProcessSerial, Epoch));
+      Snapshot.Tokens.push_back(
+          QueryToken(Record, Record->Worker, Record->Revision,
+                     Record->ProcessSerial, Snapshot.Epoch));
     }
   }
 
-  for (auto It = Tokens.begin(); It != Tokens.end();) {
+  for (auto It = Snapshot.Tokens.begin(); It != Snapshot.Tokens.end();) {
     if (It->Worker->alive()) {
       ++It;
       continue;
     }
     queryFailed(*It);
-    It = Tokens.erase(It);
+    It = Snapshot.Tokens.erase(It);
   }
-  return Tokens;
+  return Snapshot;
 }
 
 bool ProviderRegistry::validate(const QueryToken &Token) const {
@@ -545,6 +547,43 @@ bool ProviderRegistry::validate(const QueryToken &Token) const {
     return true;
   queryFailed(Token);
   return false;
+}
+
+bool ProviderRegistry::validate(const OptionsSnapshot &Snapshot) const {
+  {
+    std::lock_guard Guard(Shared->Mutex);
+    if (!isAccepting(*Shared) ||
+        Shared->EpochValues.Options != Snapshot.Epoch)
+      return false;
+
+    size_t ActiveOptions = 0;
+    for (const auto &[Key, Record] : Shared->Records) {
+      if (Key.Kind != ProviderKind::Option ||
+          Record->State != ProviderState::Active || !Record->Worker)
+        continue;
+      ++ActiveOptions;
+      const auto It = std::find_if(
+          Snapshot.Tokens.begin(), Snapshot.Tokens.end(),
+          [&](const QueryToken &Token) {
+            return Token.Record == Record && Token.Worker == Record->Worker &&
+                   Token.Revision == Record->Revision &&
+                   Token.ProcessSerial == Record->ProcessSerial &&
+                   Token.Epoch == Snapshot.Epoch;
+          });
+      if (It == Snapshot.Tokens.end())
+        return false;
+    }
+    if (ActiveOptions != Snapshot.Tokens.size())
+      return false;
+  }
+
+  for (const auto &Token : Snapshot.Tokens) {
+    if (Token.Worker->alive())
+      continue;
+    queryFailed(Token);
+    return false;
+  }
+  return true;
 }
 
 void ProviderRegistry::queryFailed(const QueryToken &Token) const {

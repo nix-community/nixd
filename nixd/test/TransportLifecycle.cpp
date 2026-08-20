@@ -114,6 +114,46 @@ public:
   void beginShutdown() { closeRequestGate("explicit test shutdown"); }
 };
 
+class BlockingOutputStream final : public llvm::raw_ostream {
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  bool Entered = false;
+  bool Released = false;
+  std::string Buffer;
+
+  void write_impl(const char *Ptr, size_t Size) override {
+    std::unique_lock Lock(Mutex);
+    Entered = true;
+    Changed.notify_all();
+    Changed.wait(Lock, [&] { return Released; });
+    Buffer.append(Ptr, Size);
+  }
+
+  [[nodiscard]] uint64_t current_pos() const override {
+    return Buffer.size();
+  }
+
+public:
+  bool waitUntilEntered() {
+    std::unique_lock Lock(Mutex);
+    return Changed.wait_for(Lock, std::chrono::seconds(1),
+                            [&] { return Entered; });
+  }
+
+  void release() {
+    {
+      std::lock_guard Guard(Mutex);
+      Released = true;
+    }
+    Changed.notify_all();
+  }
+
+  [[nodiscard]] std::string str() {
+    std::lock_guard Guard(Mutex);
+    return Buffer;
+  }
+};
+
 void writeAll(int FD, std::string_view Data) {
   while (!Data.empty()) {
     const ssize_t Written = ::write(FD, Data.data(), Data.size());
@@ -211,6 +251,74 @@ TEST(TransportLifecycle, InboundReplyCompletionIsOneShotAndReentrantSafe) {
   Stream.flush();
 
   EXPECT_EQ(countOccurrences(Output, "\"result\":"), 1U);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle,
+     ConcurrentDuplicateRepliesKeepImmutableIDAndFinishExactlyOnce) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeStandardMessage(Input[1],
+                       llvm::json::Object{{"jsonrpc", "2.0"},
+                                          {"id", "duplicate-id"},
+                                          {"method", "test/inbound"},
+                                          {"params", nullptr}});
+  writeInputExit(Input[1]);
+
+  BlockingOutputStream Output;
+  std::string Logs;
+  llvm::raw_string_ostream LogStream(Logs);
+  lspserver::StreamLogger Logger(LogStream, lspserver::Logger::Debug);
+  lspserver::LoggingSession Logging(Logger);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Output),
+                            InboundReplyBehavior::Delayed);
+
+  std::atomic<unsigned> ReturnedReplies = 0;
+  std::thread Replier([&] {
+    std::shared_ptr<lspserver::Callback<llvm::json::Value>> Reply;
+    {
+      std::unique_lock Lock(Server.Mutex);
+      ASSERT_TRUE(Server.Captured.wait_for(Lock, std::chrono::seconds(1), [&] {
+        return static_cast<bool>(Server.SavedReply);
+      }));
+      Reply = Server.SavedReply;
+    }
+    std::barrier Start(3);
+    std::thread First([&] {
+      Start.arrive_and_wait();
+      (*Reply)(1);
+      ++ReturnedReplies;
+    });
+    std::thread Second([&] {
+      Start.arrive_and_wait();
+      (*Reply)(2);
+      ++ReturnedReplies;
+    });
+    Start.arrive_and_wait();
+    ASSERT_TRUE(Output.waitUntilEntered());
+    const auto Deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (ReturnedReplies.load() == 0 &&
+           std::chrono::steady_clock::now() < Deadline)
+      std::this_thread::yield();
+    EXPECT_EQ(ReturnedReplies.load(), 1U);
+    Output.release();
+    First.join();
+    Second.join();
+  });
+
+  Server.run();
+  Replier.join();
+  Output.flush();
+  LogStream.flush();
+
+  EXPECT_EQ(ReturnedReplies.load(), 2U);
+  EXPECT_EQ(countOccurrences(Output.str(), "\"result\":"), 1U);
+  EXPECT_NE(Logs.find("ignored duplicate reply for test/inbound(\"duplicate-id\")"),
+            std::string::npos)
+      << Logs;
   EXPECT_EQ(::close(Input[1]), 0);
   EXPECT_EQ(::close(Input[0]), 0);
 }

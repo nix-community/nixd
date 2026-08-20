@@ -369,6 +369,52 @@ TEST(ProviderRegistry, MaintainsSeparateEpochsAndIgnoresProviderNoOps) {
   EXPECT_EQ(Registry.epochs().Options, OptionsChanged.Options);
 }
 
+TEST(ProviderRegistry,
+     WholeOptionsSnapshotRejectsReconfigureBetweenProviderResults) {
+  ManualExecutor Executor;
+  FakeFactory Factory;
+  ProviderRegistry Registry(Executor.executor(), Factory.factory(),
+                            "/startup/cwd");
+  ProviderSpec Initial;
+  Initial.Options = {{"a", "a-old"}, {"b", "b-old"}};
+  Registry.apply(Initial);
+  Executor.runAll();
+  Factory.worker(ProviderKey::option("a"))->finish(0, true);
+  Factory.worker(ProviderKey::option("b"))->finish(0, true);
+  Executor.runAll();
+
+  auto Snapshot = Registry.acquireOptions();
+  ASSERT_EQ(Snapshot.size(), 2U);
+  std::vector<std::string> Staged{Snapshot[0].key().Name};
+
+  ProviderSpec Replacement;
+  Replacement.Options = {{"a", "a-new"}, {"b", "b-old"}};
+  Registry.apply(std::move(Replacement));
+  Staged.push_back(Snapshot[1].key().Name);
+
+  ASSERT_EQ(Staged, (std::vector<std::string>{"a", "b"}));
+  EXPECT_FALSE(Registry.validate(Snapshot));
+}
+
+TEST(ProviderRegistry, WholeOptionsSnapshotRejectsReconfigureBeforeHoverCommit) {
+  ManualExecutor Executor;
+  FakeFactory Factory;
+  ProviderRegistry Registry(Executor.executor(), Factory.factory(),
+                            "/startup/cwd");
+  Registry.apply(option("a", "a-old"));
+  Executor.runAll();
+  Factory.worker(ProviderKey::option("a"))->finish(0, true);
+  Executor.runAll();
+
+  auto Snapshot = Registry.acquireOptions();
+  ASSERT_EQ(Snapshot.size(), 1U);
+  const std::optional<std::string> StagedHover = "hover-a";
+  Registry.apply(option("a", "a-new"));
+
+  ASSERT_TRUE(StagedHover);
+  EXPECT_FALSE(Registry.validate(Snapshot));
+}
+
 TEST(ProviderRegistry, InvalidatesQueryTokenAfterConfigurationChanges) {
   ManualExecutor Executor;
   FakeFactory Factory;

@@ -95,6 +95,23 @@ public:
     }
   };
 
+  class OptionsSnapshot {
+    std::vector<QueryToken> Tokens;
+    uint64_t Epoch = 0;
+
+    friend class ProviderRegistry;
+
+  public:
+    using const_iterator = std::vector<QueryToken>::const_iterator;
+
+    [[nodiscard]] const_iterator begin() const { return Tokens.begin(); }
+    [[nodiscard]] const_iterator end() const { return Tokens.end(); }
+    [[nodiscard]] size_t size() const { return Tokens.size(); }
+    [[nodiscard]] const QueryToken &operator[](size_t Index) const {
+      return Tokens[Index];
+    }
+  };
+
 private:
   std::shared_ptr<ProviderRegistryState> Shared;
 
@@ -107,8 +124,9 @@ public:
   /// strand and describes only the exact revisions published by this call.
   void apply(ProviderSpec Spec, ApplyCallback OnApplied = {});
   [[nodiscard]] std::optional<QueryToken> acquire(const ProviderKey &Key) const;
-  [[nodiscard]] std::vector<QueryToken> acquireOptions() const;
+  [[nodiscard]] OptionsSnapshot acquireOptions() const;
   [[nodiscard]] bool validate(const QueryToken &Token) const;
+  [[nodiscard]] bool validate(const OptionsSnapshot &Snapshot) const;
   void queryFailed(const QueryToken &Token) const;
   [[nodiscard]] Epochs epochs() const;
   [[nodiscard]] std::optional<ProviderState>

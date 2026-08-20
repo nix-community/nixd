@@ -8,7 +8,9 @@
 #include <llvm/Support/Error.h>
 
 #include <optional>
+#include <semaphore>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -200,6 +202,60 @@ TEST(EditorConfig, ShutdownClosesIssueAndCommitGate) {
   Executor.runAll();
 
   EXPECT_TRUE(Commits.empty());
+}
+
+TEST(EditorConfig, CommitCallbackCanReenterStopBeforeReturning) {
+  EditorExecutor Executor;
+  std::unique_ptr<EditorConfigState> State;
+  std::binary_semaphore Reentered(0);
+  std::thread Reentrant;
+  bool CompletedInsideCallback = false;
+  State = std::make_unique<EditorConfigState>(
+      Executor.executor(), editorBase(), [&](Configuration) {
+        Reentrant = std::thread([&] {
+          State->stop();
+          Reentered.release();
+        });
+        CompletedInsideCallback =
+            Reentered.try_acquire_for(std::chrono::milliseconds(100));
+      });
+
+  auto Generation = State->issue();
+  ASSERT_TRUE(Generation);
+  State->submit(*Generation, response("[{}]"));
+  Executor.runAll();
+  Reentrant.join();
+
+  EXPECT_TRUE(CompletedInsideCallback);
+  EXPECT_FALSE(State->accepting());
+}
+
+TEST(EditorConfig, ErrorCallbackCanReenterIssueBeforeReturning) {
+  EditorExecutor Executor;
+  std::unique_ptr<EditorConfigState> State;
+  std::binary_semaphore Reentered(0);
+  std::thread Reentrant;
+  bool CompletedInsideCallback = false;
+  bool ReissueSucceeded = false;
+  State = std::make_unique<EditorConfigState>(
+      Executor.executor(), editorBase(), [](Configuration) {},
+      [&](std::string) {
+        Reentrant = std::thread([&] {
+          ReissueSucceeded = State->issue().has_value();
+          Reentered.release();
+        });
+        CompletedInsideCallback =
+            Reentered.try_acquire_for(std::chrono::milliseconds(100));
+      });
+
+  auto Generation = State->issue();
+  ASSERT_TRUE(Generation);
+  State->submit(*Generation, responseError());
+  Executor.runAll();
+  Reentrant.join();
+
+  EXPECT_TRUE(CompletedInsideCallback);
+  EXPECT_TRUE(ReissueSucceeded);
 }
 
 } // namespace

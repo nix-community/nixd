@@ -352,10 +352,13 @@ void completeAttrName(const lspserver::Range EditRange,
                       const std::string &Prefix, ProviderRegistry &Registry,
                       bool CompletionSnippets,
                       std::vector<CompletionItem> &List) {
-  for (auto Token : Registry.acquireOptions()) {
+  auto Snapshot = Registry.acquireOptions();
+  std::vector<std::vector<CompletionItem>> Staged;
+  Staged.reserve(Snapshot.size());
+  for (const auto &Token : Snapshot) {
     const std::string Name = Token.key().Name;
-    auto ProviderItems = queryProvider<std::vector<CompletionItem>>(
-        Registry, std::move(Token), {},
+    Staged.push_back(queryProviderStaged<std::vector<CompletionItem>>(
+        Registry, Token, {},
         [&](ProviderWorker &Worker)
             -> llvm::Expected<std::vector<CompletionItem>> {
           auto *Client = Worker.attrSetClient();
@@ -365,10 +368,13 @@ void completeAttrName(const lspserver::Range EditRange,
           OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
           OCP.completeOptions(EditRange, Scope, Prefix, Items);
           return Items;
-        });
+        }));
+  }
+  if (!Registry.validate(Snapshot))
+    return;
+  for (auto &ProviderItems : Staged)
     for (auto &Item : ProviderItems)
       addItem(List, std::move(Item));
-  }
 }
 
 void completeAttrPath(const lspserver::Range EditRange, const Node &N,

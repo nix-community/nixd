@@ -35,16 +35,26 @@ bool isCurrent(const EditorConfigSharedState &Shared, uint64_t Generation) {
 
 void reportError(const std::shared_ptr<EditorConfigSharedState> &Shared,
                  uint64_t Generation, std::string Error) {
-  std::lock_guard Guard(Shared->Mutex);
-  if (isCurrent(*Shared, Generation) && Shared->OnError)
-    Shared->OnError(std::move(Error));
+  EditorConfigState::ReportError OnError;
+  {
+    std::lock_guard Guard(Shared->Mutex);
+    if (isCurrent(*Shared, Generation))
+      OnError = Shared->OnError;
+  }
+  if (OnError)
+    OnError(std::move(Error));
 }
 
 void commit(const std::shared_ptr<EditorConfigSharedState> &Shared,
             uint64_t Generation, Configuration Config) {
-  std::lock_guard Guard(Shared->Mutex);
-  if (isCurrent(*Shared, Generation))
-    Shared->OnCommit(std::move(Config));
+  EditorConfigState::Commit OnCommit;
+  {
+    std::lock_guard Guard(Shared->Mutex);
+    if (isCurrent(*Shared, Generation))
+      OnCommit = Shared->OnCommit;
+  }
+  if (OnCommit)
+    OnCommit(std::move(Config));
 }
 
 void applyResponse(const std::shared_ptr<EditorConfigSharedState> &Shared,

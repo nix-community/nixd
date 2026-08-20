@@ -167,14 +167,16 @@ void Controller::applyConfig(Configuration NewConfig,
 
   const ProviderSpec Spec = providerSpec(NewConfig);
   const auto Suppressed = NewConfig.diagnostic.suppress;
+
+  // Publish provider revisions before the corresponding configuration can be
+  // observed. Once Config exposes the new expressions, no query may still
+  // validate a token from the previous provider snapshot.
+  Providers->apply(Spec, std::move(OnApplied));
+
   {
     std::lock_guard Guard(ConfigLock);
     Config = std::move(NewConfig);
   }
-
-  // ProviderRegistry publishes Pending/Retired revisions synchronously, so
-  // queries cannot acquire an old provider after this configuration commits.
-  Providers->apply(Spec, std::move(OnApplied));
 
   // Update the diagnostic part.
   updateSuppressed(Suppressed);

@@ -154,6 +154,7 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
     std::shared_ptr<OutboundPort> Output;
     llvm::json::Value ID;
     std::string Method;
+    std::string DisplayID;
     std::atomic<bool> Completed = false;
 
     void finish() {
@@ -169,7 +170,7 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
       if (Completed.exchange(true)) {
         if (!Response)
           llvm::consumeError(Response.takeError());
-        elog("ignored duplicate reply for {0}({1})", Method, ID);
+        elog("ignored duplicate reply for {0}({1})", Method, DisplayID);
         return;
       }
       if (Response) {
@@ -197,8 +198,10 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
     std::lock_guard Guard(InboundReplies->Mutex);
     ++InboundReplies->Active;
   }
+  std::string DisplayID = llvm::formatv("{0}", ID).str();
   auto Lease = std::make_shared<ReplyLease>(InboundReplies, Out, std::move(ID),
-                                            std::string(Method));
+                                            std::string(Method),
+                                            std::move(DisplayID));
   Handler->second(std::move(Params),
                   [Lease = std::move(Lease)](
                       llvm::Expected<llvm::json::Value> Response) mutable {

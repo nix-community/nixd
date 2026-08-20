@@ -9,9 +9,9 @@
 namespace nixd {
 
 template <typename Result, typename Query>
-Result queryProvider(ProviderRegistry &Registry,
-                     ProviderRegistry::QueryToken Token, Result Fallback,
-                     Query &&Action) {
+Result queryProviderStaged(ProviderRegistry &Registry,
+                           const ProviderRegistry::QueryToken &Token,
+                           Result Fallback, Query &&Action) {
   auto Worker = Token.worker();
   auto Response = std::forward<Query>(Action)(*Worker);
   if (!Response) {
@@ -25,9 +25,19 @@ Result queryProvider(ProviderRegistry &Registry,
     Registry.queryFailed(Token);
     return Fallback;
   }
-  if (!Registry.validate(Token))
-    return Fallback;
   return std::move(*Response);
+}
+
+template <typename Result, typename Query>
+Result queryProvider(ProviderRegistry &Registry,
+                     ProviderRegistry::QueryToken Token, Result Fallback,
+                     Query &&Action) {
+  Result InvalidFallback = Fallback;
+  Result Response = queryProviderStaged(
+      Registry, Token, std::move(Fallback), std::forward<Query>(Action));
+  if (!Registry.validate(Token))
+    return InvalidFallback;
+  return Response;
 }
 
 template <typename Result, typename Query>

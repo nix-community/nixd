@@ -1,11 +1,48 @@
 #include "nixd/Controller/Configuration.h"
+#include "nixd/Controller/Controller.h"
 #include "nixd/Support/JSON.h"
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <semaphore>
+#include <thread>
+
 using namespace nixd;
 
+namespace nixd {
+
+struct ControllerTestPeer {
+  static void installProviders(Controller &C,
+                               ProviderRegistry::WorkerFactory Factory) {
+    C.Providers = std::make_unique<ProviderRegistry>(
+        C.ConfigStrand, std::move(Factory), std::filesystem::current_path());
+  }
+
+  static void apply(Controller &C, Configuration Config,
+                    ProviderRegistry::ApplyCallback OnApplied = {}) {
+    C.applyConfig(std::move(Config), std::move(OnApplied));
+  }
+
+  static bool configHasNixpkgsExpression(Controller &C,
+                                         std::string_view Expression) {
+    std::lock_guard Guard(C.ConfigLock);
+    return C.Config.nixpkgs.expr == Expression;
+  }
+
+  static ProviderRegistry &providers(Controller &C) { return *C.Providers; }
+};
+
+} // namespace nixd
+
 namespace {
+
+class ImmediateWorker final : public ProviderWorker {
+public:
+  void evaluate(std::string, EvaluationCallback Reply) override { Reply(true); }
+  void cancel() override {}
+  [[nodiscard]] bool alive() const override { return true; }
+};
 
 Configuration apply(llvm::StringRef JSON) {
   return overlay(defaultConfiguration(),
@@ -139,6 +176,55 @@ TEST(ConfigurationPatch, ConvertsOnlyEvaluatorFieldsToProviderSpec) {
   const ProviderSpec Removed = providerSpec(First);
   EXPECT_FALSE(Removed.Nixpkgs);
   EXPECT_TRUE(Removed.Options.empty());
+}
+
+TEST(ConfigurationPublication,
+     VisibleConfigurationNeverPrecedesProviderTokenInvalidation) {
+  Controller C(std::make_unique<lspserver::InboundPort>(-1),
+               std::make_unique<lspserver::OutboundPort>());
+  ControllerTestPeer::installProviders(
+      C, [](const ProviderKey &, const std::filesystem::path &,
+            ProviderWorker::DeathCallback) {
+        return std::make_shared<ImmediateWorker>();
+      });
+
+  Configuration Initial = defaultConfiguration();
+  Initial.nixpkgs.expr = "old-visible";
+  Initial.options = {{"zzzz-target", {.expr = "old-target"}}};
+  std::binary_semaphore InitialApplied(0);
+  ControllerTestPeer::apply(C, Initial, [&](ProviderApplyResult Result) {
+    EXPECT_EQ(Result, ProviderApplyResult::Ready);
+    InitialApplied.release();
+  });
+  ASSERT_TRUE(InitialApplied.try_acquire_for(std::chrono::seconds(2)));
+  auto OldToken = ControllerTestPeer::providers(C).acquire(
+      ProviderKey::option("zzzz-target"));
+  ASSERT_TRUE(OldToken);
+
+  Configuration Replacement = defaultConfiguration();
+  Replacement.nixpkgs.expr = "new-visible";
+  for (unsigned I = 0; I < 20000; ++I)
+    Replacement.options.emplace("option-" + std::to_string(I),
+                                Configuration::OptionProvider{.expr = "value"});
+  Replacement.options.emplace("zzzz-target",
+                              Configuration::OptionProvider{
+                                  .expr = "new-target"});
+
+  std::atomic<bool> ObserverReady = false;
+  std::atomic<bool> ObservedOldTokenAfterPublication = false;
+  std::jthread Observer([&] {
+    ObserverReady = true;
+    while (!ControllerTestPeer::configHasNixpkgsExpression(C, "new-visible"))
+      std::this_thread::yield();
+    ObservedOldTokenAfterPublication =
+        ControllerTestPeer::providers(C).validate(*OldToken);
+  });
+  while (!ObserverReady)
+    std::this_thread::yield();
+
+  ControllerTestPeer::apply(C, std::move(Replacement));
+  Observer.join();
+  EXPECT_FALSE(ObservedOldTokenAfterPublication);
 }
 
 } // namespace

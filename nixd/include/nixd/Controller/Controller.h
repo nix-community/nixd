@@ -22,6 +22,8 @@
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
+  friend struct ControllerTestPeer;
+
 private:
 #if BOOST_VERSION < 108800
   // Default constructor is broken in Boost 1.87, fixed in 1.88:

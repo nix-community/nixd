@@ -264,9 +264,12 @@ Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
   auto R = findAttrPathForOptions(N, PM, Scope);
   Locations Locs;
   if (R == PathResult::OK && Registry) {
-    for (auto Token : Registry->acquireOptions()) {
-      auto ProviderLocs = queryProvider<Locations>(
-          *Registry, std::move(Token), {},
+    auto Snapshot = Registry->acquireOptions();
+    std::vector<Locations> Staged;
+    Staged.reserve(Snapshot.size());
+    for (const auto &Token : Snapshot) {
+      Staged.push_back(queryProviderStaged<Locations>(
+          *Registry, Token, {},
           [&](ProviderWorker &Worker) -> llvm::Expected<Locations> {
             auto *Client = Worker.attrSetClient();
             if (!Client)
@@ -275,9 +278,12 @@ Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
             OptionsDefinitionProvider ODP(*Client);
             ODP.resolveLocations(Scope, Result);
             return Result;
-          });
-      Locs.insert(Locs.end(), ProviderLocs.begin(), ProviderLocs.end());
+          }));
     }
+    if (!Registry->validate(Snapshot))
+      return {};
+    for (auto &ProviderLocs : Staged)
+      Locs.insert(Locs.end(), ProviderLocs.begin(), ProviderLocs.end());
   }
   return Locs;
 }

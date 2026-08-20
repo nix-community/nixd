@@ -253,9 +253,12 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
         auto Scope = std::vector<std::string>();
         if (findAttrPathForOptions(N, PM, Scope) != FindAttrPathResult::OK)
           break;
-        for (auto Token : Providers->acquireOptions()) {
-          auto Result = queryProvider<CheckTy>(
-              *Providers, std::move(Token), std::nullopt,
+        auto Snapshot = Providers->acquireOptions();
+        std::vector<CheckTy> Staged;
+        Staged.reserve(Snapshot.size());
+        for (const auto &Token : Snapshot) {
+          Staged.push_back(queryProviderStaged<CheckTy>(
+              *Providers, Token, std::nullopt,
               [&](ProviderWorker &Worker) -> llvm::Expected<CheckTy> {
                 auto *Client = Worker.attrSetClient();
                 if (!Client)
@@ -283,10 +286,13 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
                         },
                     .range = toLSPRange(TU->src(), N.range()),
                 };
-              });
+              }));
+        }
+        if (!Providers->validate(Snapshot))
+          return std::nullopt;
+        for (auto &Result : Staged)
           if (Result)
             return Result;
-        }
         break;
       }
       default:
