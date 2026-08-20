@@ -10,7 +10,6 @@ import subprocess
 import threading
 import time
 
-
 TIMEOUT_SECONDS = 30
 SHUTDOWN_SECONDS = 3
 
@@ -71,9 +70,7 @@ class Client:
         if self.proc.stdin is None or self.proc.stdin.closed:
             raise BrokenPipeError("nixd protocol input is closed")
         payload = json.dumps(message, separators=(",", ":")).encode()
-        frame = memoryview(
-            f"Content-Length: {len(payload)}\r\n\r\n".encode() + payload
-        )
+        frame = memoryview(f"Content-Length: {len(payload)}\r\n\r\n".encode() + payload)
         descriptor = self.proc.stdin.fileno()
         deadline = time.monotonic() + timeout
         while frame:
@@ -167,9 +164,7 @@ class Client:
             if remaining <= 0:
                 return
             if not self._has_complete_message():
-                readable, _, _ = select.select(
-                    [self.proc.stdout], [], [], remaining
-                )
+                readable, _, _ = select.select([self.proc.stdout], [], [], remaining)
                 if not readable:
                     return
             message = self.receive(remaining)
@@ -194,15 +189,16 @@ class Client:
             self._stderr_done.wait(0.01)
 
     def notify(self, method, params=None, timeout=TIMEOUT_SECONDS):
-        self.send({
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": {} if params is None else params,
-        }, timeout=timeout)
+        self.send(
+            {
+                "jsonrpc": "2.0",
+                "method": method,
+                "params": {} if params is None else params,
+            },
+            timeout=timeout,
+        )
 
-    def reply(
-        self, request, *, result=None, error=None, timeout=TIMEOUT_SECONDS
-    ):
+    def reply(self, request, *, result=None, error=None, timeout=TIMEOUT_SECONDS):
         response = {"jsonrpc": "2.0", "id": request["id"]}
         if error is None:
             response["result"] = result
@@ -227,18 +223,20 @@ class Client:
             params["rootPath"] = root_path
         if workspace_folders is not None:
             params["workspaceFolders"] = workspace_folders
-        self.send({
-            "jsonrpc": "2.0",
-            "id": 0,
-            "method": "initialize",
-            "params": params,
-        }, timeout=timeout)
+        self.send(
+            {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "initialize",
+                "params": params,
+            },
+            timeout=timeout,
+        )
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("timed out waiting for initialize response")
         return self.wait_for(
-            lambda message: message.get("id") == 0
-            and "method" not in message,
+            lambda message: message.get("id") == 0 and "method" not in message,
             timeout=remaining,
         )
 
@@ -246,37 +244,47 @@ class Client:
         self.notify("initialized")
 
     def open_document(self, uri, text, version=1):
-        self.notify("textDocument/didOpen", {
-            "textDocument": {
-                "uri": uri,
-                "languageId": "nix",
-                "version": version,
-                "text": text,
-            }
-        })
+        self.notify(
+            "textDocument/didOpen",
+            {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "nix",
+                    "version": version,
+                    "text": text,
+                }
+            },
+        )
 
     def request(self, request_id, method, params, timeout=TIMEOUT_SECONDS):
         deadline = time.monotonic() + timeout
-        self.send({
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": method,
-            "params": params,
-        }, timeout=timeout)
+        self.send(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "method": method,
+                "params": params,
+            },
+            timeout=timeout,
+        )
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError("timed out waiting for an LSP response")
         return self.wait_for(
-            lambda message: message.get("id") == request_id
-            and "method" not in message,
+            lambda message: message.get("id") == request_id and "method" not in message,
             timeout=remaining,
         )
 
     def formatting(self, request_id, uri, timeout=TIMEOUT_SECONDS):
-        return self.request(request_id, "textDocument/formatting", {
-            "textDocument": {"uri": uri},
-            "options": {"tabSize": 2, "insertSpaces": True},
-        }, timeout=timeout)
+        return self.request(
+            request_id,
+            "textDocument/formatting",
+            {
+                "textDocument": {"uri": uri},
+                "options": {"tabSize": 2, "insertSpaces": True},
+            },
+            timeout=timeout,
+        )
 
     def workspace_request(self, timeout=TIMEOUT_SECONDS):
         return self.wait_for(
@@ -366,9 +374,7 @@ class Client:
 
         if self._stderr_thread_started:
             self._stderr_done.wait(max(0.0, deadline - time.monotonic()))
-            self._stderr_thread.join(
-                timeout=max(0.0, deadline - time.monotonic())
-            )
+            self._stderr_thread.join(timeout=max(0.0, deadline - time.monotonic()))
         for stream in (self.proc.stdout, self.proc.stderr):
             if stream is not None and not stream.closed:
                 stream.close()

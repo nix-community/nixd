@@ -19,7 +19,6 @@ sys.dont_write_bytecode = True
 
 from lsp_test_client import Client, SHUTDOWN_SECONDS, TIMEOUT_SECONDS
 
-
 CAPABILITIES = {"workspace": {"configuration": True}}
 NO_PROVIDERS = ("--nixpkgs-expr=", "--nixos-options-expr=")
 
@@ -30,8 +29,7 @@ def write_json(path, value):
 
 def write_script(path, body):
     path.write_text(
-        f"#!{sys.executable}\n"
-        f"{body}\n",
+        f"#!{sys.executable}\n" f"{body}\n",
         encoding="utf-8",
     )
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
@@ -40,10 +38,7 @@ def write_script(path, body):
 def write_executable(path, body):
     write_script(
         path,
-        "import os\n"
-        "import sys\n"
-        "sys.stdin.read()\n"
-        f"{body}",
+        "import os\n" "import sys\n" "sys.stdin.read()\n" f"{body}",
     )
 
 
@@ -167,9 +162,7 @@ def request_editor_configuration(client):
     return client.workspace_request()
 
 
-def wait_for_formatted_text(
-    client, uri, expected, request_id, timeout=TIMEOUT_SECONDS
-):
+def wait_for_formatted_text(client, uri, expected, request_id, timeout=TIMEOUT_SECONDS):
     deadline = time.monotonic() + timeout
     last = None
     while True:
@@ -184,43 +177,68 @@ def wait_for_formatted_text(
 
 
 def completion(client, request_id, uri, timeout=TIMEOUT_SECONDS):
-    return client.request(request_id, "textDocument/completion", {
-        "textDocument": {"uri": uri},
-        "position": {"line": 0, "character": 13},
-        "context": {"triggerKind": 1},
-    }, timeout=timeout)["result"]
+    return client.request(
+        request_id,
+        "textDocument/completion",
+        {
+            "textDocument": {"uri": uri},
+            "position": {"line": 0, "character": 13},
+            "context": {"triggerKind": 1},
+        },
+        timeout=timeout,
+    )["result"]
 
 
 def option_completion(client, request_id, uri, timeout=TIMEOUT_SECONDS):
-    return client.request(request_id, "textDocument/completion", {
-        "textDocument": {"uri": uri},
-        "position": {"line": 0, "character": 6},
-        "context": {"triggerKind": 1},
-    }, timeout=timeout)["result"]
+    return client.request(
+        request_id,
+        "textDocument/completion",
+        {
+            "textDocument": {"uri": uri},
+            "position": {"line": 0, "character": 6},
+            "context": {"triggerKind": 1},
+        },
+        timeout=timeout,
+    )["result"]
 
 
 def hover(client, request_id, uri, timeout=TIMEOUT_SECONDS):
-    return client.request(request_id, "textDocument/hover", {
-        "textDocument": {"uri": uri},
-        "position": {"line": 0, "character": 18},
-    }, timeout=timeout)["result"]
+    return client.request(
+        request_id,
+        "textDocument/hover",
+        {
+            "textDocument": {"uri": uri},
+            "position": {"line": 0, "character": 18},
+        },
+        timeout=timeout,
+    )["result"]
 
 
 def definition(client, request_id, uri, timeout=TIMEOUT_SECONDS):
-    return client.request(request_id, "textDocument/definition", {
-        "textDocument": {"uri": uri},
-        "position": {"line": 0, "character": 18},
-    }, timeout=timeout)["result"]
+    return client.request(
+        request_id,
+        "textDocument/definition",
+        {
+            "textDocument": {"uri": uri},
+            "position": {"line": 0, "character": 18},
+        },
+        timeout=timeout,
+    )["result"]
 
 
 def inlay_hints(client, request_id, uri, timeout=TIMEOUT_SECONDS):
-    return client.request(request_id, "textDocument/inlayHint", {
-        "textDocument": {"uri": uri},
-        "range": {
-            "start": {"line": 0, "character": 0},
-            "end": {"line": 0, "character": 29},
+    return client.request(
+        request_id,
+        "textDocument/inlayHint",
+        {
+            "textDocument": {"uri": uri},
+            "range": {
+                "start": {"line": 0, "character": 0},
+                "end": {"line": 0, "character": 29},
+            },
         },
-    }, timeout=timeout)["result"]
+        timeout=timeout,
+    )["result"]
 
 
 def completion_labels(result):
@@ -273,9 +291,7 @@ def exercise_harness_buffering():
         except AssertionError:
             pass
         else:
-            raise AssertionError(
-                "second warning buffered in one read was not observed"
-            )
+            raise AssertionError("second warning buffered in one read was not observed")
     finally:
         os.close(write_fd)
         reader.close()
@@ -358,9 +374,9 @@ def exercise_harness_lifecycle():
                 if process.returncode is None:
                     process.terminate()
                     process.wait(timeout=1)
-        assert cleaned_during_construction, (
-            "Client constructor leaked its child after post-launch failure"
-        )
+        assert (
+            cleaned_during_construction
+        ), "Client constructor leaked its child after post-launch failure"
 
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
@@ -388,9 +404,7 @@ def exercise_harness_lifecycle():
             assert client.close() == stderr
             assert client.proc.wait.call_count == 1, client.proc.wait.call_count
         finally:
-            emergency_cleanup(
-                client.proc, real_wait, leader_pid, leader_pgid
-            )
+            emergency_cleanup(client.proc, real_wait, leader_pid, leader_pgid)
 
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
@@ -482,20 +496,13 @@ def exercise_explicit_config(base):
     (root / ".nixd.json").symlink_to(".nixd.json")
     config = {
         "formatting": {"command": ["cli-formatter"]},
-        "nixpkgs": {
-            "expr": '{ cliMarker.meta.description = "CLI configuration"; }'
-        },
-        "options": {
-            "cli": {
-                "expr": '{ nixdCliOption = { _type = "option"; }; }'
-            }
-        },
+        "nixpkgs": {"expr": '{ cliMarker.meta.description = "CLI configuration"; }'},
+        "options": {"cli": {"expr": '{ nixdCliOption = { _type = "option"; }; }'}},
     }
     args = (
         "--enable-project-config",
         '--nixpkgs-expr={ legacyMarker.meta.description = "legacy"; }',
-        "--nixos-options-expr="
-        '{ nixdLegacyOption = { _type = "option"; }; }',
+        "--nixos-options-expr=" '{ nixdLegacyOption = { _type = "option"; }; }',
         "--config=" + json.dumps(config),
     )
     format_uri = (root / "explicit-format.nix").as_uri()
@@ -510,10 +517,14 @@ def exercise_explicit_config(base):
         client.open_document(hover_uri, "pkgs.cliMarker\n")
         client.open_document(options_uri, "{ nixd }\n")
         assert formatted_text(client, 11, format_uri) == "cli-formatter"
-        hover = client.request(12, "textDocument/hover", {
-            "textDocument": {"uri": hover_uri},
-            "position": {"line": 0, "character": 10},
-        })
+        hover = client.request(
+            12,
+            "textDocument/hover",
+            {
+                "textDocument": {"uri": hover_uri},
+                "position": {"line": 0, "character": 10},
+            },
+        )
         assert "CLI configuration" in json.dumps(hover["result"]), hover
         assert "legacy" not in json.dumps(hover["result"]), hover
         options, _ = wait_for_endpoint(
@@ -546,25 +557,34 @@ def exercise_root_precedence(base):
         roots[name] = root
 
     cases = (
-        ({
-            "root_uri": roots["root-uri"].as_uri(),
-            "root_path": str(roots["root-path"]),
-            "workspace_folders": [{
-                "uri": roots["workspace"].as_uri(), "name": "workspace"
-            }],
-        }, "root-uri"),
-        ({
-            "root_path": str(roots["root-path"]),
-            "workspace_folders": [{
-                "uri": roots["workspace"].as_uri(), "name": "workspace"
-            }],
-        }, "root-path"),
-        ({
-            "root_path": "",
-            "workspace_folders": [{
-                "uri": roots["workspace"].as_uri(), "name": "workspace"
-            }],
-        }, "workspace"),
+        (
+            {
+                "root_uri": roots["root-uri"].as_uri(),
+                "root_path": str(roots["root-path"]),
+                "workspace_folders": [
+                    {"uri": roots["workspace"].as_uri(), "name": "workspace"}
+                ],
+            },
+            "root-uri",
+        ),
+        (
+            {
+                "root_path": str(roots["root-path"]),
+                "workspace_folders": [
+                    {"uri": roots["workspace"].as_uri(), "name": "workspace"}
+                ],
+            },
+            "root-path",
+        ),
+        (
+            {
+                "root_path": "",
+                "workspace_folders": [
+                    {"uri": roots["workspace"].as_uri(), "name": "workspace"}
+                ],
+            },
+            "workspace",
+        ),
         ({"root_path": ""}, "launch"),
     )
     for index, (initialize, expected) in enumerate(cases, 20):
@@ -610,10 +630,14 @@ def exercise_empty_project_rebases(base):
             actual_cwd,
             selected,
         )
-        hover = client.request(31, "textDocument/hover", {
-            "textDocument": {"uri": uri},
-            "position": {"line": 0, "character": 9},
-        })
+        hover = client.request(
+            31,
+            "textDocument/hover",
+            {
+                "textDocument": {"uri": uri},
+                "position": {"line": 0, "character": 9},
+            },
+        )
         assert "selected evaluator cwd" in json.dumps(hover["result"]), hover
 
 
@@ -650,9 +674,9 @@ def exercise_no_fallback_roots(base):
     ) as client:
         client.initialize(
             root_path=str(missing_root_path),
-            workspace_folders=[{
-                "uri": lower.as_uri(), "name": "must-not-fall-through"
-            }],
+            workspace_folders=[
+                {"uri": lower.as_uri(), "name": "must-not-fall-through"}
+            ],
         )
         expected = (
             "cannot use rootPath as project configuration root "
@@ -669,9 +693,7 @@ def exercise_no_fallback_roots(base):
     ) as client:
         client.initialize(
             root_path="",
-            workspace_folders=[{
-                "uri": missing_workspace.as_uri(), "name": "missing"
-            }],
+            workspace_folders=[{"uri": missing_workspace.as_uri(), "name": "missing"}],
         )
         expected = (
             "cannot use workspaceFolders[0] as project configuration root "
@@ -685,9 +707,7 @@ def exercise_no_fallback_roots(base):
     with Client(
         args=(*NO_PROVIDERS, "--enable-project-config"), cwd=launch, env=env
     ) as client:
-        client.initialize(
-            root_uri="https://example.test/root", root_path=str(lower)
-        )
+        client.initialize(root_uri="https://example.test/root", root_path=str(lower))
         expected = (
             "cannot use rootUri as project configuration root: "
             "clangd only supports 'file' URI scheme for workspace files at "
@@ -771,9 +791,7 @@ def exercise_startup_case(base, kind, request_id):
             "JSON result cannot be parsed: [1:1, byte=1]: Expected object key"
         )
     elif kind == "invalid-schema":
-        project_path.write_text(
-            '{"formatting":{"command":42}}', encoding="utf-8"
-        )
+        project_path.write_text('{"formatting":{"command":42}}', encoding="utf-8")
         expected = (
             f"failed to load project configuration at {project_path}: "
             "JSON schema mismatch: expected array at "
@@ -806,8 +824,7 @@ def exercise_startup_case(base, kind, request_id):
             expect_startup_warning(client, expected)
         client.open_document(uri, "{ value = 1; }\n")
         assert (
-            Path(formatted_text(client, request_id, uri)).resolve()
-            == launch.resolve()
+            Path(formatted_text(client, request_id, uri)).resolve() == launch.resolve()
         )
         if expected is None:
             client.assert_no_message(show_message, timeout=0.5)
@@ -857,37 +874,25 @@ def exercise_editor_overlays():
             initial = client.workspace_request()
             client.reply(initial, result=[None])
             client.open_document(uri, "{ value = 1; }\n")
-            request_id = wait_for_formatted_text(
-                client, uri, "base", request_id
-            )
+            request_id = wait_for_formatted_text(client, uri, "base", request_id)
 
             request = request_editor_configuration(client)
             client.reply(request, result=editor_patch("editor-one"))
-            request_id = wait_for_formatted_text(
-                client, uri, "editor-one", request_id
-            )
+            request_id = wait_for_formatted_text(client, uri, "editor-one", request_id)
             request = request_editor_configuration(client)
             client.reply(request, result=[None])
-            request_id = wait_for_formatted_text(
-                client, uri, "base", request_id
-            )
+            request_id = wait_for_formatted_text(client, uri, "base", request_id)
 
             request = request_editor_configuration(client)
             client.reply(request, result=editor_patch("editor-two"))
-            request_id = wait_for_formatted_text(
-                client, uri, "editor-two", request_id
-            )
+            request_id = wait_for_formatted_text(client, uri, "editor-two", request_id)
             request = request_editor_configuration(client)
             client.reply(request, result=[{}])
-            request_id = wait_for_formatted_text(
-                client, uri, "base", request_id
-            )
+            request_id = wait_for_formatted_text(client, uri, "base", request_id)
 
             request = request_editor_configuration(client)
             client.reply(request, result=editor_patch("retained"))
-            request_id = wait_for_formatted_text(
-                client, uri, "retained", request_id
-            )
+            request_id = wait_for_formatted_text(client, uri, "retained", request_id)
 
             invalid_responses = (
                 (
@@ -930,15 +935,11 @@ def exercise_editor_overlays():
                 client, uri, "newer-success", request_id
             )
             client.reply(older, result=editor_patch("stale-success"))
-            barrier_error = (
-                "workspace/configuration: expected exactly one array item"
-            )
+            barrier_error = "workspace/configuration: expected exactly one array item"
             before = client.stderr.count(barrier_error)
             barrier = request_editor_configuration(client)
             client.reply(barrier, result=[])
-            client.read_stderr_until(
-                lambda text: text.count(barrier_error) > before
-            )
+            client.read_stderr_until(lambda text: text.count(barrier_error) > before)
             assert formatted_text(client, request_id, uri) == "newer-success"
             request_id += 1
 
@@ -1032,9 +1033,7 @@ def exercise_provider_recovery():
                 lambda current, current_id, remaining: inlay_hints(
                     current, current_id, uri, timeout=remaining
                 ),
-                lambda result: any(
-                    hint.get("label") == ": 1.0.0" for hint in result
-                ),
+                lambda result: any(hint.get("label") == ": 1.0.0" for hint in result),
                 request_id,
                 "initial inlay hints",
             )
@@ -1043,13 +1042,16 @@ def exercise_provider_recovery():
             ), initial_inlay
 
             invalid = request_editor_configuration(client)
-            client.reply(invalid, result=[{
-                "formatting": {"command": ["provider-invalid"]},
-                "nixpkgs": {
-                    "expr": 'builtins.throw "nixd-transition-invalid"'
-                },
-                "options": {},
-            }])
+            client.reply(
+                invalid,
+                result=[
+                    {
+                        "formatting": {"command": ["provider-invalid"]},
+                        "nixpkgs": {"expr": 'builtins.throw "nixd-transition-invalid"'},
+                        "options": {},
+                    }
+                ],
+            )
             request_id = wait_for_formatted_text(
                 client, uri, "provider-invalid", request_id
             )
@@ -1067,11 +1069,16 @@ def exercise_provider_recovery():
             assert invalid_inlay == [], invalid_inlay
 
             recovered = request_editor_configuration(client)
-            client.reply(recovered, result=[{
-                "formatting": {"command": ["provider-recovered"]},
-                "nixpkgs": {"expr": recovered_expr},
-                "options": {},
-            }])
+            client.reply(
+                recovered,
+                result=[
+                    {
+                        "formatting": {"command": ["provider-recovered"]},
+                        "nixpkgs": {"expr": recovered_expr},
+                        "options": {},
+                    }
+                ],
+            )
             request_id = wait_for_formatted_text(
                 client, uri, "provider-recovered", request_id
             )
@@ -1110,15 +1117,11 @@ def exercise_provider_recovery():
                 lambda current, current_id, remaining: inlay_hints(
                     current, current_id, uri, timeout=remaining
                 ),
-                lambda result: any(
-                    hint.get("label") == ": 2.0.0" for hint in result
-                ),
+                lambda result: any(hint.get("label") == ": 2.0.0" for hint in result),
                 request_id,
                 "inlay hints",
             )
-            assert any(
-                hint.get("label") == ": 2.0.0" for hint in recovered_inlay
-            )
+            assert any(hint.get("label") == ": 2.0.0" for hint in recovered_inlay)
         finally:
             client.close()
 
