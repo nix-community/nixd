@@ -323,6 +323,9 @@ class Client:
         if state != "reaped":
             # The leader remains an unreaped child here, so its process-group
             # identity cannot be recycled before this final descendant cleanup.
+            # Do not probe killpg(PGID, 0) afterward: the zombie leader keeps
+            # that probe true even when no live descendants remain. The harness
+            # instead verifies an exact same-group descendant disappears.
             self._signal_process_group(signal.SIGKILL)
             if state == "running":
                 self._wait_for_unreaped_leader(deadline)

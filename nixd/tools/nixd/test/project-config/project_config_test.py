@@ -10,6 +10,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from types import SimpleNamespace
 from unittest import mock
@@ -62,6 +63,65 @@ def write_formatter(bin_dir, name, marker=None):
 
 def write_project(root, command):
     write_json(root / ".nixd.json", {"formatting": {"command": [command]}})
+
+
+def process_exists(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+
+
+def wait_for_process_absent(pid, timeout=SHUTDOWN_SECONDS):
+    deadline = time.monotonic() + timeout
+    while process_exists(pid):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        threading.Event().wait(min(0.01, remaining))
+    return True
+
+
+def wait_for_pid_file(path, timeout=TIMEOUT_SECONDS):
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            return int(path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, ValueError):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"timed out waiting for PID file {path}")
+            threading.Event().wait(min(0.01, remaining))
+
+
+def emergency_cleanup(process, wait, leader_pid, leader_pgid, descendants=()):
+    for pid in descendants:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    if process.returncode is None:
+        if os.name == "posix":
+            try:
+                os.killpg(leader_pgid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        try:
+            os.kill(leader_pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+        try:
+            wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            try:
+                os.kill(leader_pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            wait(timeout=1)
+    for pid in descendants:
+        if not wait_for_process_absent(pid, timeout=1):
+            raise RuntimeError(f"emergency cleanup could not remove PID {pid}")
 
 
 def formatted_text(client, request_id, uri, timeout=TIMEOUT_SECONDS):
@@ -127,6 +187,14 @@ def completion(client, request_id, uri, timeout=TIMEOUT_SECONDS):
     return client.request(request_id, "textDocument/completion", {
         "textDocument": {"uri": uri},
         "position": {"line": 0, "character": 13},
+        "context": {"triggerKind": 1},
+    }, timeout=timeout)["result"]
+
+
+def option_completion(client, request_id, uri, timeout=TIMEOUT_SECONDS):
+    return client.request(request_id, "textDocument/completion", {
+        "textDocument": {"uri": uri},
+        "position": {"line": 0, "character": 6},
         "context": {"triggerKind": 1},
     }, timeout=timeout)["result"]
 
@@ -306,16 +374,74 @@ def exercise_harness_lifecycle():
             "    signal.pause()",
         )
         client = Client(cwd=root, env=test_environment(bin_dir))
+        leader_pid = client.proc.pid
+        leader_pgid = os.getpgid(leader_pid)
         real_wait = client.proc.wait
         client.proc.wait = mock.Mock(wraps=real_wait)
-        started = time.monotonic()
-        stderr = client.close()
-        elapsed = time.monotonic() - started
-        assert elapsed <= SHUTDOWN_SECONDS + 0.5, elapsed
-        assert client.proc.returncode == -signal.SIGKILL, client.proc.returncode
-        assert client.proc.wait.call_count == 1, client.proc.wait.call_count
-        assert client.close() == stderr
-        assert client.proc.wait.call_count == 1, client.proc.wait.call_count
+        try:
+            started = time.monotonic()
+            stderr = client.close()
+            elapsed = time.monotonic() - started
+            assert elapsed <= SHUTDOWN_SECONDS + 0.5, elapsed
+            assert client.proc.returncode == -signal.SIGKILL, client.proc.returncode
+            assert client.proc.wait.call_count == 1, client.proc.wait.call_count
+            assert client.close() == stderr
+            assert client.proc.wait.call_count == 1, client.proc.wait.call_count
+        finally:
+            emergency_cleanup(
+                client.proc, real_wait, leader_pid, leader_pgid
+            )
+
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        child_pid_file = root / "descendant.pid"
+        child_body = (
+            "import signal\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            "while True:\n"
+            "    signal.pause()"
+        )
+        write_script(
+            bin_dir / "nixd",
+            "import os\n"
+            "import signal\n"
+            "import subprocess\n"
+            "import sys\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            f"child = subprocess.Popen([sys.executable, '-c', {child_body!r}])\n"
+            "with open(os.environ['NIXD_TEST_DESCENDANT_PID_FILE'], 'w', "
+            "encoding='utf-8') as output:\n"
+            "    output.write(str(child.pid))\n"
+            "while True:\n"
+            "    signal.pause()",
+        )
+        env = test_environment(bin_dir)
+        env["NIXD_TEST_DESCENDANT_PID_FILE"] = str(child_pid_file)
+        client = Client(cwd=root, env=env)
+        leader_pid = client.proc.pid
+        leader_pgid = os.getpgid(leader_pid)
+        real_wait = client.proc.wait
+        descendants = []
+        try:
+            descendant_pid = wait_for_pid_file(child_pid_file)
+            descendants.append(descendant_pid)
+            assert os.getpgid(descendant_pid) == leader_pgid
+            started = time.monotonic()
+            client.close()
+            elapsed = time.monotonic() - started
+            assert elapsed <= SHUTDOWN_SECONDS + 0.5, elapsed
+            assert wait_for_process_absent(descendant_pid), descendant_pid
+            descendants.clear()
+        finally:
+            emergency_cleanup(
+                client.proc,
+                real_wait,
+                leader_pid,
+                leader_pgid,
+                descendants,
+            )
 
 
 def exercise_empty_formatter():
@@ -359,7 +485,11 @@ def exercise_explicit_config(base):
         "nixpkgs": {
             "expr": '{ cliMarker.meta.description = "CLI configuration"; }'
         },
-        "options": {},
+        "options": {
+            "cli": {
+                "expr": '{ nixdCliOption = { _type = "option"; }; }'
+            }
+        },
     }
     args = (
         "--enable-project-config",
@@ -378,7 +508,7 @@ def exercise_explicit_config(base):
         client.assert_no_message(show_message)
         client.open_document(format_uri, "{ value = 1; }\n")
         client.open_document(hover_uri, "pkgs.cliMarker\n")
-        client.open_document(options_uri, "{ nixdLegacy }\n")
+        client.open_document(options_uri, "{ nixd }\n")
         assert formatted_text(client, 11, format_uri) == "cli-formatter"
         hover = client.request(12, "textDocument/hover", {
             "textDocument": {"uri": hover_uri},
@@ -386,11 +516,16 @@ def exercise_explicit_config(base):
         })
         assert "CLI configuration" in json.dumps(hover["result"]), hover
         assert "legacy" not in json.dumps(hover["result"]), hover
-        options = client.request(13, "textDocument/completion", {
-            "textDocument": {"uri": options_uri},
-            "position": {"line": 0, "character": 12},
-            "context": {"triggerKind": 1},
-        })["result"]
+        options, _ = wait_for_endpoint(
+            client,
+            lambda current, current_id, remaining: option_completion(
+                current, current_id, options_uri, timeout=remaining
+            ),
+            lambda result: "nixdCliOption" in completion_labels(result),
+            13,
+            "explicit config options",
+        )
+        assert "nixdCliOption" in completion_labels(options), options
         assert "nixdLegacyOption" not in completion_labels(options), options
     finally:
         stderr = client.close()
@@ -918,15 +1053,8 @@ def exercise_provider_recovery():
             request_id = wait_for_formatted_text(
                 client, uri, "provider-invalid", request_id
             )
-            invalid_hover, request_id = wait_for_endpoint(
-                client,
-                lambda current, current_id, remaining: hover(
-                    current, current_id, uri, timeout=remaining
-                ),
-                lambda result: result is None,
-                request_id,
-                "invalid hover barrier",
-            )
+            invalid_hover = hover(client, request_id, uri)
+            request_id += 1
             assert invalid_hover is None, invalid_hover
             invalid_completion = completion(client, request_id, uri)
             request_id += 1
