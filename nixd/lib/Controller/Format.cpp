@@ -35,8 +35,7 @@ void Controller::onFormat(const DocumentFormattingParams &Params,
       }
 
       if (FormatCommand.empty()) {
-        Reply(
-            error("formating command is empty, please set external formatter"));
+        Reply(std::vector<TextEdit>{});
         return;
       }
 
