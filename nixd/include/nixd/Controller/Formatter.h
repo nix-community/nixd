@@ -43,7 +43,7 @@ public:
   std::optional<FormatterProcess> launch(const Launcher &Launcher);
   void deregister(const std::shared_ptr<ProcessTreeIdentity> &Identity);
   void cancel(const std::shared_ptr<ProcessTreeIdentity> &Identity) noexcept;
-  void terminateCompletedOwnedGroup(
+  bool terminateCompletedOwnedGroup(
       const std::shared_ptr<ProcessTreeIdentity> &Identity) noexcept;
   pid_t reap(const std::shared_ptr<ProcessTreeIdentity> &Identity, int &Status,
              int Options) noexcept;

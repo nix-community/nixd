@@ -189,10 +189,9 @@ void FormatterProcessRegistry::cancel(
   cancelProcessTrees(Trees, Backend);
 }
 
-void FormatterProcessRegistry::terminateCompletedOwnedGroup(
+bool FormatterProcessRegistry::terminateCompletedOwnedGroup(
     const std::shared_ptr<ProcessTreeIdentity> &Identity) noexcept {
-  if (Identity)
-    Identity->terminateCompletedOwnedGroup(Backend);
+  return Identity && Identity->terminateCompletedOwnedGroup(Backend);
 }
 
 pid_t FormatterProcessRegistry::reap(
@@ -341,13 +340,16 @@ FormatterRunResult nixd::runFormatter(FormatterProcessRegistry &Registry,
       return Result;
     }
     if (Process.Identity->observeLeaderExit()) {
-      // Normal formatter completion is not a shutdown grace path: forcefully
-      // clean background members while the unreaped leader still pins PGID.
-      Registry.terminateCompletedOwnedGroup(Process.Identity);
+      // Completion that wins arbitration force-cleans background members while
+      // the unreaped leader pins PGID. A winning shutdown keeps that barrier,
+      // receives its full grace, and releases this path only when finished.
+      const bool CompletionWon =
+          Registry.terminateCompletedOwnedGroup(Process.Identity);
       int Status = 0;
       const pid_t Reaped = Registry.reap(Process.Identity, Status, 0);
       if (Reaped != Process.Identity->pid() && !(Reaped < 0 && errno == ECHILD))
         throw std::system_error(errno, std::generic_category());
+      Result.Cancelled = !CompletionWon;
       Result.ExitStatus = Status;
       return Result;
     }

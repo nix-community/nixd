@@ -67,7 +67,9 @@ public:
   /// While its unreaped PID still pins a validated dedicated PGID, send TERM
   /// and immediately KILL any background members. Direct-PID fallback owns no
   /// descendant identity and is left for the sole reap owner.
-  void terminateCompletedOwnedGroup(const ProcessTreeBackend &Backend =
+  /// Returns true when completion won finalization. If shutdown already won,
+  /// waits for its graceful cancellation to finish and returns false.
+  bool terminateCompletedOwnedGroup(const ProcessTreeBackend &Backend =
                                         ProcessTreeBackend::system()) noexcept;
 
   /// The sole owner calls this instead of waitpid so group signaling and reap

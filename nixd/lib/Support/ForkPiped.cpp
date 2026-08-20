@@ -8,6 +8,7 @@
 #include <mutex>
 
 #include <system_error>
+#include <utility>
 #ifdef __linux__
 #include <sys/syscall.h>
 #endif
@@ -68,6 +69,21 @@ void closeUnownedChildDescriptors(std::span<const int> ChildFDs,
   errno = SavedErrno;
 }
 
+nixd::util::AutoCloseFD normalizePipeSource(nixd::util::AutoCloseFD FD) {
+  if (FD.get() > STDERR_FILENO)
+    return FD;
+
+  int Normalized;
+  do {
+    Normalized = ::fcntl(FD.get(), F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
+  } while (Normalized < 0 && errno == EINTR);
+  if (Normalized < 0) {
+    const int Failure = errno;
+    throw std::system_error(Failure, std::generic_category());
+  }
+  return nixd::util::AutoCloseFD(Normalized);
+}
+
 } // namespace
 
 int nixd::detail::forkPipedWith(int &In, int &Out, int &Err,
@@ -76,30 +92,32 @@ int nixd::detail::forkPipedWith(int &In, int &Out, int &Err,
                                 std::span<const int> ChildFDs) {
   static constexpr int READ = 0;
   static constexpr int WRITE = 1;
-  int PipeIn[2];
-  int PipeOut[2];
-  int PipeErr[2];
-  if (Syscalls.Pipe(PipeIn) == -1)
-    throw std::system_error(errno, std::generic_category());
-  util::AutoCloseFD InRead(PipeIn[READ]);
-  util::AutoCloseFD InWrite(PipeIn[WRITE]);
-  if (Syscalls.Pipe(PipeOut) == -1) {
-    const int Failure = errno;
-    throw std::system_error(Failure, std::generic_category());
-  }
-  util::AutoCloseFD OutRead(PipeOut[READ]);
-  util::AutoCloseFD OutWrite(PipeOut[WRITE]);
-  if (Syscalls.Pipe(PipeErr) == -1) {
-    const int Failure = errno;
-    throw std::system_error(Failure, std::generic_category());
-  }
-  util::AutoCloseFD ErrRead(PipeErr[READ]);
-  util::AutoCloseFD ErrWrite(PipeErr[WRITE]);
+  const auto OpenPipe = [&] {
+    int FDs[2];
+    if (Syscalls.Pipe(FDs) == -1) {
+      const int Failure = errno;
+      throw std::system_error(Failure, std::generic_category());
+    }
+    util::AutoCloseFD RawRead(FDs[READ]);
+    util::AutoCloseFD RawWrite(FDs[WRITE]);
+    auto Read = normalizePipeSource(std::move(RawRead));
+    auto Write = normalizePipeSource(std::move(RawWrite));
+    return std::pair(std::move(Read), std::move(Write));
+  };
+  auto [InRead, InWrite] = OpenPipe();
+  auto [OutRead, OutWrite] = OpenPipe();
+  auto [ErrRead, ErrWrite] = OpenPipe();
 
   const int DescriptorLimit = ::getdtablesize();
   pid_t Child = Syscalls.Fork();
 
   if (Child == 0) {
+    const int ChildInRead = InRead.get();
+    const int ChildInWrite = InWrite.get();
+    const int ChildOutRead = OutRead.get();
+    const int ChildOutWrite = OutWrite.get();
+    const int ChildErrRead = ErrRead.get();
+    const int ChildErrWrite = ErrWrite.get();
     // The child retains raw descriptor values for close/dup2 below. Neutralize
     // every inherited scope guard first so returning from this function cannot
     // double-close an fd number that has since been reused.
@@ -113,15 +131,23 @@ int nixd::detail::forkPipedWith(int &In, int &Out, int &Err,
     // retain inherited pipe writers. The parent independently validates it.
     (void)setpgid(0, 0);
     // Redirect stdin, stdout, stderr.
-    close(PipeIn[WRITE]);
-    close(PipeOut[READ]);
-    close(PipeErr[READ]);
-    dup2(PipeIn[READ], STDIN_FILENO);
-    dup2(PipeOut[WRITE], STDOUT_FILENO);
-    dup2(PipeErr[WRITE], STDERR_FILENO);
-    close(PipeIn[READ]);
-    close(PipeOut[WRITE]);
-    close(PipeErr[WRITE]);
+    close(ChildInWrite);
+    close(ChildOutRead);
+    close(ChildErrRead);
+    const auto DuplicateTo = [&](int OldFD, int NewFD) {
+      int Result;
+      do {
+        Result = Syscalls.Dup2(OldFD, NewFD);
+      } while (Result < 0 && errno == EINTR);
+      return Result;
+    };
+    if (DuplicateTo(ChildInRead, STDIN_FILENO) < 0 ||
+        DuplicateTo(ChildOutWrite, STDOUT_FILENO) < 0 ||
+        DuplicateTo(ChildErrWrite, STDERR_FILENO) < 0)
+      _exit(126);
+    close(ChildInRead);
+    close(ChildOutWrite);
+    close(ChildErrWrite);
     // CLOEXEC protects exec children. StreamProc actions may remain in-process,
     // so close every unrelated inherited descriptor before returning to them;
     // tests that need a coordination descriptor opt in through ChildFDs.
@@ -160,6 +186,7 @@ int nixd::forkPiped(int &In, int &Out, int &Err, pid_t *ProcessGroup,
   detail::ForkPipedSyscalls Syscalls{
       .Pipe = [](int *FDs) { return pipeCloseOnExec(FDs); },
       .Fork = [] { return ::fork(); },
+      .Dup2 = [](int OldFD, int NewFD) { return ::dup2(OldFD, NewFD); },
   };
   return detail::forkPipedWith(In, Out, Err, ProcessGroup, Syscalls, ChildFDs);
 }

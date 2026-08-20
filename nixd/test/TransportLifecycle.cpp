@@ -86,6 +86,60 @@ public:
   [[nodiscard]] bool fired() const { return Fired; }
 };
 
+class ExactDetachedProcessCleanup {
+  pid_t PID = -1;
+
+public:
+  void setPID(pid_t NewPID) { PID = NewPID; }
+
+  ~ExactDetachedProcessCleanup() {
+    if (PID <= 0)
+      return;
+    (void)::kill(-PID, SIGKILL);
+    (void)::kill(PID, SIGKILL);
+    const auto Deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (std::chrono::steady_clock::now() < Deadline) {
+      errno = 0;
+      if (::kill(PID, 0) < 0 && errno == ESRCH)
+        return;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
+};
+
+bool writeExact(int FD, const void *Data, size_t Size) {
+  const auto *Bytes = static_cast<const char *>(Data);
+  size_t Offset = 0;
+  while (Offset < Size) {
+    const ssize_t Written = ::write(FD, Bytes + Offset, Size - Offset);
+    if (Written > 0) {
+      Offset += static_cast<size_t>(Written);
+      continue;
+    }
+    if (Written < 0 && errno == EINTR)
+      continue;
+    return false;
+  }
+  return true;
+}
+
+bool readExact(int FD, void *Data, size_t Size) {
+  auto *Bytes = static_cast<char *>(Data);
+  size_t Offset = 0;
+  while (Offset < Size) {
+    const ssize_t Read = ::read(FD, Bytes + Offset, Size - Offset);
+    if (Read > 0) {
+      Offset += static_cast<size_t>(Read);
+      continue;
+    }
+    if (Read < 0 && errno == EINTR)
+      continue;
+    return false;
+  }
+  return true;
+}
+
 size_t countOpenDescriptors() {
   size_t Count = 0;
   for (int FD = 0; FD < ::getdtablesize(); ++FD) {
@@ -1048,6 +1102,154 @@ TEST(TransportLifecycle,
   errno = 0;
   EXPECT_EQ(::kill(Descendant, 0), -1);
   EXPECT_EQ(errno, ESRCH);
+}
+
+TEST(TransportLifecycle, ForkPipedRoutesAllStreamsWhenParentStdioIsClosed) {
+  int Report[2];
+  ASSERT_EQ(::pipe(Report), 0);
+  const pid_t Outer = ::fork();
+  if (Outer < 0) {
+    (void)::close(Report[0]);
+    (void)::close(Report[1]);
+    FAIL() << "failed to launch isolated closed-stdio test process";
+  }
+  if (Outer == 0) {
+    (void)::close(Report[0]);
+    (void)::close(STDIN_FILENO);
+    (void)::close(STDOUT_FILENO);
+    (void)::close(STDERR_FILENO);
+    (void)::signal(SIGPIPE, SIG_IGN);
+    const std::array ChildFDs{Report[1]};
+    int In = -1;
+    int Out = -1;
+    int Err = -1;
+    const pid_t Child = forkPiped(In, Out, Err, nullptr, ChildFDs);
+    if (Child == 0) {
+      (void)::alarm(2);
+      char Input = '?';
+      const ssize_t Read = ::read(STDIN_FILENO, &Input, 1);
+      static constexpr char Stdout[] = "stdout:";
+      static constexpr char Stderr[] = "stderr";
+      const bool Wrote =
+          writeExact(STDOUT_FILENO, Stdout, sizeof(Stdout) - 1) &&
+          writeExact(STDOUT_FILENO, &Input, 1) &&
+          writeExact(STDERR_FILENO, Stderr, sizeof(Stderr) - 1);
+      _exit(Read == 1 && Wrote ? 0 : 3);
+    }
+    if (Child < 0 || !writeExact(Report[1], &Child, sizeof(Child)))
+      _exit(4);
+
+    const char Input = 'I';
+    const bool WroteInput = writeExact(In, &Input, 1);
+    (void)::close(In);
+    const std::string Stdout = readAll(Out);
+    const std::string Stderr = readAll(Err);
+    (void)::close(Out);
+    (void)::close(Err);
+    int Status = 0;
+    const bool Reaped = ::waitpid(Child, &Status, 0) == Child;
+    const uint8_t Success =
+        WroteInput && Stdout == "stdout:I" && Stderr == "stderr" && Reaped &&
+                WIFEXITED(Status) && WEXITSTATUS(Status) == 0
+            ? 1
+            : 0;
+    (void)writeExact(Report[1], &Success, sizeof(Success));
+    (void)::close(Report[1]);
+    _exit(0);
+  }
+
+  ExactChildCleanup OuterCleanup(Outer);
+  ExactDetachedProcessCleanup ChildCleanup;
+  (void)::close(Report[1]);
+  pid_t Child = -1;
+  const bool ReceivedPID = readExact(Report[0], &Child, sizeof(Child));
+  if (ReceivedPID && Child > 0)
+    ChildCleanup.setPID(Child);
+  uint8_t Success = 0;
+  const bool ReceivedResult = readExact(Report[0], &Success, sizeof(Success));
+  (void)::close(Report[0]);
+  int OuterStatus = 0;
+  const pid_t ReapedOuter = ::waitpid(Outer, &OuterStatus, 0);
+
+  EXPECT_TRUE(ReceivedPID);
+  EXPECT_GT(Child, 0);
+  EXPECT_TRUE(ReceivedResult);
+  EXPECT_EQ(Success, 1);
+  EXPECT_EQ(ReapedOuter, Outer);
+  EXPECT_TRUE(WIFEXITED(OuterStatus));
+  EXPECT_EQ(WEXITSTATUS(OuterStatus), 0);
+}
+
+TEST(TransportLifecycle, ForkPipedRetriesDup2AfterEINTR) {
+  bool Interrupted = false;
+  detail::ForkPipedSyscalls Syscalls{
+      .Pipe = [](int *FDs) { return ::pipe(FDs); },
+      .Fork = [] { return ::fork(); },
+      .Dup2 =
+          [&](int OldFD, int NewFD) {
+            if (NewFD == STDOUT_FILENO && !Interrupted) {
+              Interrupted = true;
+              errno = EINTR;
+              return -1;
+            }
+            return ::dup2(OldFD, NewFD);
+          },
+  };
+  int In = -1;
+  int Out = -1;
+  int Err = -1;
+  const pid_t Child = detail::forkPipedWith(In, Out, Err, nullptr, Syscalls);
+  if (Child == 0) {
+    static constexpr char Message[] = "retry";
+    _exit(writeExact(STDOUT_FILENO, Message, sizeof(Message) - 1) ? 0 : 3);
+  }
+
+  ExactChildCleanup Cleanup(Child);
+  (void)::close(In);
+  const std::string Stdout = readAll(Out);
+  const std::string Stderr = readAll(Err);
+  (void)::close(Out);
+  (void)::close(Err);
+  int Status = 0;
+  const pid_t Reaped = ::waitpid(Child, &Status, 0);
+
+  EXPECT_EQ(Stdout, "retry");
+  EXPECT_TRUE(Stderr.empty());
+  EXPECT_EQ(Reaped, Child);
+  ASSERT_TRUE(WIFEXITED(Status));
+  EXPECT_EQ(WEXITSTATUS(Status), 0);
+}
+
+TEST(TransportLifecycle, ForkPipedExitsChildWhenDup2Fails) {
+  detail::ForkPipedSyscalls Syscalls{
+      .Pipe = [](int *FDs) { return ::pipe(FDs); },
+      .Fork = [] { return ::fork(); },
+      .Dup2 =
+          [](int OldFD, int NewFD) {
+            if (NewFD == STDERR_FILENO) {
+              errno = EBADF;
+              return -1;
+            }
+            return ::dup2(OldFD, NewFD);
+          },
+  };
+  int In = -1;
+  int Out = -1;
+  int Err = -1;
+  const pid_t Child = detail::forkPipedWith(In, Out, Err, nullptr, Syscalls);
+  if (Child == 0)
+    _exit(0);
+
+  ExactChildCleanup Cleanup(Child);
+  (void)::close(In);
+  (void)::close(Out);
+  (void)::close(Err);
+  int Status = 0;
+  const pid_t Reaped = ::waitpid(Child, &Status, 0);
+
+  EXPECT_EQ(Reaped, Child);
+  ASSERT_TRUE(WIFEXITED(Status));
+  EXPECT_EQ(WEXITSTATUS(Status), 126);
 }
 
 TEST(TransportLifecycle,

@@ -14,9 +14,12 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <functional>
+#include <future>
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <semaphore>
 #include <set>
 #include <signal.h>
@@ -188,27 +191,57 @@ public:
   [[nodiscard]] bool alive() const override { return Identity->ownsIdentity(); }
 };
 
+class ExactEvaluatorCleanup {
+  pid_t PID = -1;
+
+public:
+  ExactEvaluatorCleanup() = default;
+  explicit ExactEvaluatorCleanup(pid_t PID) : PID(PID) {}
+
+  void setPID(pid_t NewPID) { PID = NewPID; }
+
+  ~ExactEvaluatorCleanup() {
+    if (PID <= 0)
+      return;
+    siginfo_t Info{};
+    errno = 0;
+    if (::waitid(P_PID, PID, &Info, WEXITED | WNOHANG | WNOWAIT) < 0 &&
+        errno == ECHILD)
+      return;
+    (void)::kill(-PID, SIGKILL);
+    (void)::kill(PID, SIGKILL);
+    int Status = 0;
+    while (::waitpid(PID, &Status, 0) < 0 && errno == EINTR) {
+    }
+  }
+};
+
 class TermIgnoringEvaluatorWorker final : public ProviderWorker {
+  ExactEvaluatorCleanup Cleanup;
   std::unique_ptr<AttrSetClientProc> Process;
   bool ChildReady = false;
 
 public:
-  explicit TermIgnoringEvaluatorWorker(DeathCallback OnDeath) {
+  explicit TermIgnoringEvaluatorWorker(
+      DeathCallback OnDeath, bool PublishReady = true,
+      std::function<void(pid_t)> OnLaunched = {}) {
     int Ready[2];
     if (::pipe(Ready) != 0)
       return;
     const std::array ChildFDs{Ready[1]};
     try {
       Process = std::make_unique<AttrSetClientProc>(
-          [ReadFD = Ready[0], WriteFD = Ready[1]] {
+          [ReadFD = Ready[0], WriteFD = Ready[1], PublishReady] {
             (void)::close(ReadFD);
             (void)::signal(SIGTERM, SIG_IGN);
-            const char Byte = 'R';
-            ssize_t Written;
-            do {
-              Written = ::write(WriteFD, &Byte, 1);
-            } while (Written < 0 && errno == EINTR);
-            (void)::close(WriteFD);
+            if (PublishReady) {
+              const char Byte = 'R';
+              ssize_t Written;
+              do {
+                Written = ::write(WriteFD, &Byte, 1);
+              } while (Written < 0 && errno == EINTR);
+              (void)::close(WriteFD);
+            }
             for (;;)
               ::pause();
             return 0;
@@ -219,14 +252,28 @@ public:
       (void)::close(Ready[1]);
       throw;
     }
+    Cleanup.setPID(Process->pid());
+    if (OnLaunched)
+      OnLaunched(Process->pid());
     (void)::close(Ready[1]);
     char Byte = 0;
-    ssize_t Read;
+    pollfd ReadyEvent{.fd = Ready[0], .events = POLLIN, .revents = 0};
+    int PollResult;
     do {
-      Read = ::read(Ready[0], &Byte, 1);
-    } while (Read < 0 && errno == EINTR);
+      PollResult = ::poll(&ReadyEvent, 1, 250);
+    } while (PollResult < 0 && errno == EINTR);
+    ssize_t Read = -1;
+    if (PollResult > 0) {
+      do {
+        Read = ::read(Ready[0], &Byte, 1);
+      } while (Read < 0 && errno == EINTR);
+    }
     (void)::close(Ready[0]);
     ChildReady = Read == 1 && Byte == 'R';
+    if (!ChildReady) {
+      (void)Process->stop();
+      throw std::runtime_error("evaluator readiness was not published");
+    }
   }
 
   void evaluate(std::string, EvaluationCallback Reply) override { Reply(true); }
@@ -251,28 +298,6 @@ public:
 
   [[nodiscard]] pid_t pid() const { return Process ? Process->pid() : -1; }
   [[nodiscard]] bool ready() const { return ChildReady; }
-};
-
-class ExactEvaluatorCleanup {
-  pid_t PID;
-
-public:
-  explicit ExactEvaluatorCleanup(pid_t PID) : PID(PID) {}
-
-  ~ExactEvaluatorCleanup() {
-    if (PID <= 0)
-      return;
-    siginfo_t Info{};
-    errno = 0;
-    if (::waitid(P_PID, PID, &Info, WEXITED | WNOHANG | WNOWAIT) < 0 &&
-        errno == ECHILD)
-      return;
-    (void)::kill(-PID, SIGKILL);
-    (void)::kill(PID, SIGKILL);
-    int Status = 0;
-    while (::waitpid(PID, &Status, 0) < 0 && errno == EINTR) {
-    }
-  }
 };
 
 class ExactEvaluatorWatchdog {
@@ -765,6 +790,44 @@ TEST(ProviderRegistry, ShutdownUsesOneSharedGraceForCoordinatedWorkers) {
     EXPECT_EQ(Worker->CancelCount, 0U);
     EXPECT_EQ(Worker->FinishCount, 1U);
   }
+}
+
+TEST(ProviderRegistry,
+     MissingEvaluatorReadinessIsBoundedAndReapedDuringConstruction) {
+  std::promise<pid_t> Launched;
+  std::future<pid_t> LaunchedPID = Launched.get_future();
+  const auto Start = std::chrono::steady_clock::now();
+  auto Construction = std::async(std::launch::async, [&] {
+    try {
+      TermIgnoringEvaluatorWorker Worker(
+          ProviderWorker::DeathCallback{}, false,
+          [&](pid_t PID) { Launched.set_value(PID); });
+      return false;
+    } catch (const std::runtime_error &) {
+      return true;
+    }
+  });
+  const pid_t PID = LaunchedPID.get();
+  ExactEvaluatorCleanup Cleanup(PID);
+  const std::future_status Completion =
+      Construction.wait_for(std::chrono::milliseconds(1500));
+  if (Completion != std::future_status::ready) {
+    (void)::kill(-PID, SIGKILL);
+    (void)::kill(PID, SIGKILL);
+  }
+  const bool Threw = Construction.get();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+  siginfo_t Info{};
+  errno = 0;
+  const int WaitResult =
+      ::waitid(P_PID, PID, &Info, WEXITED | WNOHANG | WNOWAIT);
+  const int WaitError = errno;
+
+  EXPECT_EQ(Completion, std::future_status::ready);
+  EXPECT_TRUE(Threw);
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(1500));
+  EXPECT_EQ(WaitResult, -1);
+  EXPECT_EQ(WaitError, ECHILD);
 }
 
 TEST(ProviderRegistry, ShutdownUsesOneGraceForRealTermIgnoringEvaluators) {

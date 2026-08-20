@@ -179,17 +179,26 @@ bool ProcessTreeIdentity::observeLeaderExit(
   return false;
 }
 
-void ProcessTreeIdentity::terminateCompletedOwnedGroup(
+bool ProcessTreeIdentity::terminateCompletedOwnedGroup(
     const ProcessTreeBackend &Backend) noexcept {
-  std::lock_guard Guard(Mutex);
-  if (!ownsDedicatedGroupLocked())
-    return;
-  try {
-    (void)Backend.Kill(-ProcessGroup, SIGTERM);
-    (void)Backend.Kill(-ProcessGroup, SIGKILL);
-  } catch (...) {
-    // Successful-job cleanup is best effort; sole-owner reap still follows.
+  if (!beginCancellation()) {
+    waitForCancellation();
+    return false;
   }
+
+  {
+    std::lock_guard Guard(Mutex);
+    if (ownsDedicatedGroupLocked()) {
+      try {
+        (void)Backend.Kill(-ProcessGroup, SIGTERM);
+        (void)Backend.Kill(-ProcessGroup, SIGKILL);
+      } catch (...) {
+        // Successful-job cleanup is best effort; sole-owner reap still follows.
+      }
+    }
+  }
+  finishCancellation();
+  return true;
 }
 
 pid_t ProcessTreeIdentity::reapChild(
