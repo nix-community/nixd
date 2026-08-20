@@ -36,17 +36,26 @@ AttrSetClientProc::AttrSetClientProc(const std::function<int()> &Action,
     : Proc(Action, ChildFDs), Identity(std::make_shared<ProcessTreeIdentity>(
                                   Proc.proc().PID, Proc.proc().ProcessGroup)),
       Client(Proc.mkIn(), Proc.mkOut()), OnDeath(std::move(OnDeath)),
-      Input([this]() {
-        Client.run();
-        TransportAlive = false;
-        if (this->OnDeath) {
-          try {
-            this->OnDeath();
-          } catch (...) {
-            // A process-input callback must never escape the input thread.
-          }
-        }
-      }) {}
+      Input([this] { runInput(); }) {}
+
+AttrSetClientProc::AttrSetClientProc(const ExecSpec &Spec,
+                                     std::function<void()> OnDeath)
+    : Proc(Spec), Identity(std::make_shared<ProcessTreeIdentity>(
+                      Proc.proc().PID, Proc.proc().ProcessGroup)),
+      Client(Proc.mkIn(), Proc.mkOut()), OnDeath(std::move(OnDeath)),
+      Input([this] { runInput(); }) {}
+
+void AttrSetClientProc::runInput() {
+  Client.run();
+  TransportAlive = false;
+  if (!OnDeath)
+    return;
+  try {
+    OnDeath();
+  } catch (...) {
+    // A process-input callback must never escape the input thread.
+  }
+}
 
 AttrSetClientProc::~AttrSetClientProc() {
   // Releasing the final owner from OnDeath would destroy the callback and its

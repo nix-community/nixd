@@ -4,6 +4,7 @@
 #include "nixd/Support/ForkPiped.h"
 
 #include <gtest/gtest.h>
+#include <llvm/Support/Program.h>
 
 #include <atomic>
 #include <barrier>
@@ -11,6 +12,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <fcntl.h>
+#include <filesystem>
 #include <mutex>
 #include <signal.h>
 #include <string>
@@ -27,6 +29,7 @@ class ExactChildCleanup {
 
 public:
   explicit ExactChildCleanup(pid_t PID) : PID(PID) {}
+  void release() { PID = -1; }
 
   ~ExactChildCleanup() {
     if (PID <= 0)
@@ -43,6 +46,39 @@ public:
     }
   }
 };
+
+class TemporaryOutputFile {
+  std::string Path;
+
+public:
+  TemporaryOutputFile() {
+    Path = (std::filesystem::temp_directory_path() /
+            "codex-nixd-exec-stderr.XXXXXX")
+               .string();
+    const int FD = ::mkstemp(Path.data());
+    EXPECT_GE(FD, 0);
+    if (FD >= 0) {
+      (void)::close(FD);
+    } else {
+      Path.clear();
+    }
+  }
+
+  ~TemporaryOutputFile() {
+    if (!Path.empty())
+      (void)::unlink(Path.c_str());
+  }
+
+  [[nodiscard]] const std::string &path() const { return Path; }
+};
+
+std::filesystem::path findTestExecutable(llvm::StringRef Name) {
+  auto Executable = llvm::sys::findProgramByName(Name);
+  EXPECT_TRUE(static_cast<bool>(Executable))
+      << "test executable is unavailable: " << Name.str();
+  return Executable ? std::filesystem::path(*Executable)
+                    : std::filesystem::path();
+}
 
 class ExactChildWatchdog {
   pid_t PID;
@@ -91,6 +127,7 @@ class ExactDetachedProcessCleanup {
 
 public:
   void setPID(pid_t NewPID) { PID = NewPID; }
+  void release() { PID = -1; }
 
   ~ExactDetachedProcessCleanup() {
     if (PID <= 0)
@@ -1168,6 +1205,8 @@ TEST(TransportLifecycle, ForkPipedRoutesAllStreamsWhenParentStdioIsClosed) {
   uint8_t Success = 0;
   const bool ReceivedResult = readExact(Report[0], &Success, sizeof(Success));
   (void)::close(Report[0]);
+  if (ReceivedResult && Success == 1)
+    ChildCleanup.release();
   int OuterStatus = 0;
   const pid_t ReapedOuter = ::waitpid(Outer, &OuterStatus, 0);
 
@@ -1178,6 +1217,145 @@ TEST(TransportLifecycle, ForkPipedRoutesAllStreamsWhenParentStdioIsClosed) {
   EXPECT_EQ(ReapedOuter, Outer);
   EXPECT_TRUE(WIFEXITED(OuterStatus));
   EXPECT_EQ(WEXITSTATUS(OuterStatus), 0);
+}
+
+TEST(TransportLifecycle, StreamProcExecRoutesPipesAndRedirectsStderr) {
+  TemporaryOutputFile Stderr;
+  ASSERT_FALSE(Stderr.path().empty());
+  const auto Shell = findTestExecutable("sh");
+  ASSERT_FALSE(Shell.empty());
+  util::AutoCloseFD InheritedFD(::open("/dev/null", O_RDONLY));
+  ASSERT_GT(InheritedFD.get(), STDERR_FILENO);
+  const int InheritedFlags = ::fcntl(InheritedFD.get(), F_GETFD);
+  ASSERT_GE(InheritedFlags, 0);
+  ASSERT_EQ(::fcntl(InheritedFD.get(), F_SETFD, InheritedFlags & ~FD_CLOEXEC),
+            0);
+  StreamProc Process(ExecSpec{
+      .Executable = Shell,
+      .Arguments = {"nixd-test", "-c",
+                    "if eval \"true <&$1\" 2>/dev/null; then exit 9; fi; "
+                    "read value; printf 'stdout:%s' \"$value\"; "
+                    "printf 'stderr:%s' \"$value\" >&2",
+                    "nixd-test", std::to_string(InheritedFD.get())},
+      .Stderr = Stderr.path(),
+  });
+  ExactChildCleanup Cleanup(Process.proc().PID);
+  const pid_t PID = Process.proc().PID;
+
+  ASSERT_GT(PID, 0);
+  EXPECT_EQ(Process.proc().ProcessGroup, PID);
+  EXPECT_NE(::fcntl(Process.proc().Stdin.get(), F_GETFD) & FD_CLOEXEC, 0);
+  EXPECT_NE(::fcntl(Process.proc().Stdout.get(), F_GETFD) & FD_CLOEXEC, 0);
+  ASSERT_TRUE(writeExact(Process.proc().Stdin.get(), "input\n", 6));
+  ASSERT_EQ(::close(Process.proc().Stdin.get()), 0);
+  Process.proc().Stdin.release();
+
+  const std::string Stdout = readAll(Process.proc().Stdout.get());
+  int Status = 0;
+  ASSERT_EQ(::waitpid(PID, &Status, 0), PID);
+  Cleanup.release();
+  const int StderrFD = ::open(Stderr.path().c_str(), O_RDONLY);
+  ASSERT_GE(StderrFD, 0);
+  const std::string Error = readAll(StderrFD);
+  ASSERT_EQ(::close(StderrFD), 0);
+
+  ASSERT_TRUE(WIFEXITED(Status));
+  EXPECT_EQ(WEXITSTATUS(Status), 0);
+  EXPECT_EQ(Stdout, "stdout:input");
+  EXPECT_EQ(Error, "stderr:input");
+}
+
+TEST(TransportLifecycle, StreamProcExecOpenFailureDoesNotLeakDescriptors) {
+  const size_t Before = countOpenDescriptors();
+  const auto Shell = findTestExecutable("sh");
+  ASSERT_FALSE(Shell.empty());
+
+  EXPECT_THROW(
+      {
+        StreamProc Process(ExecSpec{
+            .Executable = Shell,
+            .Arguments = {"nixd-test"},
+            .Stderr = "/does-not-exist/codex-nixd-exec-stderr",
+        });
+      },
+      std::system_error);
+
+  EXPECT_EQ(countOpenDescriptors(), Before);
+}
+
+TEST(TransportLifecycle, StreamProcExecRoutesPipesWhenParentStdioIsClosed) {
+  TemporaryOutputFile Stderr;
+  ASSERT_FALSE(Stderr.path().empty());
+  const auto Shell = findTestExecutable("sh");
+  ASSERT_FALSE(Shell.empty());
+  int Report[2];
+  ASSERT_EQ(::pipe(Report), 0);
+  const pid_t Outer = ::fork();
+  if (Outer < 0) {
+    (void)::close(Report[0]);
+    (void)::close(Report[1]);
+    FAIL() << "failed to launch isolated closed-stdio exec test process";
+  }
+  if (Outer == 0) {
+    (void)::close(Report[0]);
+    (void)::close(STDIN_FILENO);
+    (void)::close(STDOUT_FILENO);
+    (void)::close(STDERR_FILENO);
+    (void)::signal(SIGPIPE, SIG_IGN);
+    (void)::alarm(3);
+    try {
+      StreamProc Process(ExecSpec{
+          .Executable = Shell,
+          .Arguments = {"nixd-test", "-c",
+                        "read value; printf 'stdout:%s' \"$value\""},
+          .Stderr = Stderr.path(),
+      });
+      const pid_t Child = Process.proc().PID;
+      if (!writeExact(Report[1], &Child, sizeof(Child)))
+        _exit(2);
+      const bool Wrote = writeExact(Process.proc().Stdin.get(), "input\n", 6);
+      (void)::close(Process.proc().Stdin.get());
+      Process.proc().Stdin.release();
+      const std::string Output = readAll(Process.proc().Stdout.get());
+      int Status = 0;
+      const bool Reaped = ::waitpid(Child, &Status, 0) == Child;
+      const uint8_t Success = Wrote && Output == "stdout:input" && Reaped &&
+                                      WIFEXITED(Status) &&
+                                      WEXITSTATUS(Status) == 0
+                                  ? 1
+                                  : 0;
+      (void)writeExact(Report[1], &Success, sizeof(Success));
+      (void)::close(Report[1]);
+      _exit(0);
+    } catch (...) {
+      _exit(3);
+    }
+  }
+
+  ExactChildCleanup OuterCleanup(Outer);
+  ExactDetachedProcessCleanup ChildCleanup;
+  (void)::close(Report[1]);
+  pid_t Child = -1;
+  const bool ReceivedPID = readExact(Report[0], &Child, sizeof(Child));
+  if (ReceivedPID && Child > 0)
+    ChildCleanup.setPID(Child);
+  uint8_t Success = 0;
+  const bool ReceivedResult = readExact(Report[0], &Success, sizeof(Success));
+  (void)::close(Report[0]);
+  if (ReceivedResult && Success == 1)
+    ChildCleanup.release();
+  int Status = 0;
+  const pid_t Reaped = ::waitpid(Outer, &Status, 0);
+  if (Reaped == Outer)
+    OuterCleanup.release();
+
+  EXPECT_TRUE(ReceivedPID);
+  EXPECT_GT(Child, 0);
+  EXPECT_TRUE(ReceivedResult);
+  EXPECT_EQ(Success, 1);
+  EXPECT_EQ(Reaped, Outer);
+  ASSERT_TRUE(WIFEXITED(Status));
+  EXPECT_EQ(WEXITSTATUS(Status), 0);
 }
 
 TEST(TransportLifecycle, ForkPipedRetriesDup2AfterEINTR) {

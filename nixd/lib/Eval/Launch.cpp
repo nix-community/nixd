@@ -3,8 +3,7 @@
 
 #include <llvm/Support/CommandLine.h>
 
-#include <cstdio>
-#include <unistd.h>
+#include <vector>
 
 using namespace llvm::cl;
 using namespace nixd;
@@ -28,14 +27,28 @@ void nixd::startAttrSetEval(const std::string &Name,
                             std::unique_ptr<AttrSetClientProc> &Worker,
                             const std::filesystem::path &CWD,
                             std::function<void()> OnDeath) {
+  const std::filesystem::path ConfiguredExecutable = AttrSetClient::getExe();
+  const std::filesystem::path Executable = ConfiguredExecutable.is_absolute()
+                                               ? ConfiguredExecutable
+                                               : CWD / ConfiguredExecutable;
+  std::vector<std::string> Arguments{"nixd-attrset-eval"};
+  std::error_code EC;
+  const auto LaunchCWD = std::filesystem::current_path(EC);
+  bool Rebase = true;
+  if (!EC) {
+    Rebase = !std::filesystem::equivalent(CWD, LaunchCWD, EC);
+    if (EC)
+      Rebase = true;
+  }
+  if (Rebase) {
+    Arguments.emplace_back("--internal-working-directory");
+    Arguments.push_back(CWD.string());
+  }
   Worker = std::make_unique<AttrSetClientProc>(
-      [Name, CWD]() {
-        freopen(Name.c_str(), "w", stderr);
-        if (chdir(CWD.c_str()) != 0) {
-          perror("failed to change evaluator working directory");
-          return -1;
-        }
-        return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
+      ExecSpec{
+          .Executable = Executable,
+          .Arguments = std::move(Arguments),
+          .Stderr = Name,
       },
       std::move(OnDeath));
 }

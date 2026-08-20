@@ -7,6 +7,7 @@
 #include <lspserver/Connection.h>
 #include <nixt/InitEval.h>
 
+#include <cstdio>
 #include <unistd.h>
 
 using namespace llvm::cl;
@@ -42,6 +43,10 @@ opt<Logger::Level> LogLevel{
 opt<bool> PrettyPrint{"pretty", desc("Pretty-print JSON output"), init(false),
                       cat(Debug)};
 
+opt<std::string> InternalWorkingDirectory{"internal-working-directory",
+                                          desc("Evaluator working directory"),
+                                          init(""), cat(Debug), Hidden};
+
 const OptionCategory *Catogories[] = {&Misc, &Debug};
 
 } // namespace
@@ -61,6 +66,12 @@ int main(int Argc, const char *Argv[]) {
   HideUnrelatedOptions(Catogories);
   ParseCommandLineOptions(Argc, Argv, "nixd nixpkgs evaluator", nullptr,
                           "NIXD_NIXPKGS_EVAL_FLAGS");
+
+  if (InternalWorkingDirectory.getNumOccurrences() &&
+      ::chdir(InternalWorkingDirectory.c_str()) != 0) {
+    ::perror("failed to change evaluator working directory");
+    return 1;
+  }
 
   if (LitTest) {
     InputStyle = JSONStreamStyle::LitTest;

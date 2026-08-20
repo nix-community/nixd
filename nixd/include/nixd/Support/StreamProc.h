@@ -5,9 +5,19 @@
 #include <llvm/Support/raw_ostream.h>
 #include <lspserver/Connection.h>
 
+#include <filesystem>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace nixd {
+
+struct ExecSpec {
+  std::filesystem::path Executable;
+  /// Complete argv, including argv[0].
+  std::vector<std::string> Arguments;
+  std::filesystem::path Stderr;
+};
 
 struct StreamProc {
 private:
@@ -21,6 +31,9 @@ public:
   /// value.
   StreamProc(const std::function<int()> &Action,
              std::span<const int> ChildFDs = {});
+
+  /// Launch an executable without running application code after fork.
+  explicit StreamProc(const ExecSpec &Spec);
 
   [[nodiscard]] llvm::raw_fd_ostream &stream() const {
     assert(Stream);

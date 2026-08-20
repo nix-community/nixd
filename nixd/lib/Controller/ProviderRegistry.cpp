@@ -16,6 +16,7 @@ struct ProviderRecord {
   std::shared_ptr<ProviderWorker> Worker;
   uint64_t Revision = 0;
   uint64_t ProcessSerial = 0;
+  bool AutomaticRecoveryAvailable = true;
   std::atomic<ProviderState> State{ProviderState::Pending};
 };
 
@@ -382,6 +383,7 @@ ApplyWork publishSpec(const std::shared_ptr<ProviderRegistryState> &Shared,
         continue;
       Record->DesiredExpression = std::move(Expression);
       Record->State = ProviderState::Pending;
+      Record->AutomaticRecoveryAvailable = true;
       ++Record->Revision;
       if (Changed)
         ++epochFor(*Shared, Key.Kind);
@@ -417,6 +419,7 @@ void recoverDead(const std::shared_ptr<ProviderRegistryState> &Shared,
                  const std::shared_ptr<ProviderRecord> &Record,
                  uint64_t ProcessSerial) {
   std::shared_ptr<ProviderWorker> DeadWorker;
+  bool Recover = false;
   {
     std::lock_guard Guard(Shared->Mutex);
     if (!isAccepting(*Shared) || !isCurrent(*Shared, Record) ||
@@ -432,7 +435,9 @@ void recoverDead(const std::shared_ptr<ProviderRegistryState> &Shared,
         }
       }
     }
-    Record->State = ProviderState::Pending;
+    Recover = Record->AutomaticRecoveryAvailable;
+    Record->AutomaticRecoveryAvailable = false;
+    Record->State = Recover ? ProviderState::Pending : ProviderState::Failed;
     ++Record->Revision;
     ++epochFor(*Shared, Record->Key.Kind);
     DeadWorker = std::move(Record->Worker);
@@ -440,7 +445,8 @@ void recoverDead(const std::shared_ptr<ProviderRegistryState> &Shared,
   if (DeadWorker)
     cancelNoThrow(DeadWorker);
   runApplyTickets(Shared);
-  createWorkerAndEvaluate(Shared, Record);
+  if (Recover)
+    createWorkerAndEvaluate(Shared, Record);
 }
 
 void postDeath(const std::shared_ptr<ProviderRegistryState> &Shared,

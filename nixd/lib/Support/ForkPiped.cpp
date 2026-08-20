@@ -69,7 +69,10 @@ void closeUnownedChildDescriptors(std::span<const int> ChildFDs,
   errno = SavedErrno;
 }
 
-nixd::util::AutoCloseFD normalizePipeSource(nixd::util::AutoCloseFD FD) {
+} // namespace
+
+nixd::util::AutoCloseFD
+nixd::detail::normalizePipeSource(nixd::util::AutoCloseFD FD) {
   if (FD.get() > STDERR_FILENO)
     return FD;
 
@@ -84,7 +87,24 @@ nixd::util::AutoCloseFD normalizePipeSource(nixd::util::AutoCloseFD FD) {
   return nixd::util::AutoCloseFD(Normalized);
 }
 
-} // namespace
+std::mutex &nixd::detail::spawnWindowMutex() {
+  static std::mutex Mutex;
+  return Mutex;
+}
+
+std::pair<nixd::util::AutoCloseFD, nixd::util::AutoCloseFD>
+nixd::detail::openPipeCloseOnExec() {
+  int FDs[2];
+  if (pipeCloseOnExec(FDs) == -1) {
+    const int Failure = errno;
+    throw std::system_error(Failure, std::generic_category());
+  }
+  util::AutoCloseFD RawRead(FDs[0]);
+  util::AutoCloseFD RawWrite(FDs[1]);
+  auto Read = normalizePipeSource(std::move(RawRead));
+  auto Write = normalizePipeSource(std::move(RawWrite));
+  return {std::move(Read), std::move(Write)};
+}
 
 int nixd::detail::forkPipedWith(int &In, int &Out, int &Err,
                                 pid_t *ProcessGroup,
@@ -100,8 +120,8 @@ int nixd::detail::forkPipedWith(int &In, int &Out, int &Err,
     }
     util::AutoCloseFD RawRead(FDs[READ]);
     util::AutoCloseFD RawWrite(FDs[WRITE]);
-    auto Read = normalizePipeSource(std::move(RawRead));
-    auto Write = normalizePipeSource(std::move(RawWrite));
+    auto Read = detail::normalizePipeSource(std::move(RawRead));
+    auto Write = detail::normalizePipeSource(std::move(RawWrite));
     return std::pair(std::move(Read), std::move(Write));
   };
   auto [InRead, InWrite] = OpenPipe();
@@ -181,8 +201,7 @@ int nixd::forkPiped(int &In, int &Out, int &Err, pid_t *ProcessGroup,
   // Darwin lacks pipe2(O_CLOEXEC). Serializing every production forkPiped call
   // keeps its pipe+fcntl window closed to other children created here. Linux
   // uses atomic pipe2 as defense in depth and participates in the same window.
-  static std::mutex ForkMutex;
-  std::lock_guard Guard(ForkMutex);
+  std::lock_guard Guard(detail::spawnWindowMutex());
   detail::ForkPipedSyscalls Syscalls{
       .Pipe = [](int *FDs) { return pipeCloseOnExec(FDs); },
       .Fork = [] { return ::fork(); },

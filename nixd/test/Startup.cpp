@@ -3,10 +3,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cerrno>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 #include <utility>
 
 using namespace nixd;
@@ -17,11 +19,13 @@ namespace {
 class TemporaryDirectory {
 public:
   TemporaryDirectory() {
-    char Pattern[] = "/private/tmp/codex-nixd-startup-XXXXXX";
-    char *Created = mkdtemp(Pattern);
-    EXPECT_NE(Created, nullptr);
-    if (Created)
-      Path = Created;
+    std::string Pattern =
+        (std::filesystem::temp_directory_path() / "codex-nixd-startup-XXXXXX")
+            .string();
+    char *Created = mkdtemp(Pattern.data());
+    if (!Created)
+      throw std::system_error(errno, std::generic_category(), "mkdtemp");
+    Path = Created;
   }
 
   ~TemporaryDirectory() {
@@ -71,6 +75,14 @@ void writeProject(const std::filesystem::path &Root, llvm::StringRef Marker) {
   writeFile(Root / ".nixd.json", (R"json({"formatting":{"command":[")json" +
                                   Marker + R"json("]}})json")
                                      .str());
+}
+
+TEST(StartupSelection, TemporaryFixtureUsesHostTemporaryDirectory) {
+  TemporaryDirectory Temp;
+
+  ASSERT_FALSE(Temp.path().empty());
+  EXPECT_TRUE(std::filesystem::equivalent(
+      Temp.path().parent_path(), std::filesystem::temp_directory_path()));
 }
 
 InitializeParams parseInitialize(llvm::json::Value Value) {

@@ -90,6 +90,7 @@ class AttrSetClientProc {
   StopPhase Phase = StopPhase::Running;
   bool observeChildExit() const;
   bool reapChild() const;
+  void runInput();
 
 public:
   /// \brief Check if the process is still alive
@@ -113,6 +114,7 @@ public:
   AttrSetClientProc(const std::function<int()> &Action,
                     std::function<void()> OnDeath = {},
                     std::span<const int> ChildFDs = {});
+  AttrSetClientProc(const ExecSpec &Spec, std::function<void()> OnDeath = {});
 };
 
 } // namespace nixd

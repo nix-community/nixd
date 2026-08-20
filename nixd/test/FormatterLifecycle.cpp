@@ -127,6 +127,7 @@ class ExactDescendantCleanup {
 
 public:
   void setPID(pid_t NewPID) { PID = NewPID; }
+  void release() { PID = -1; }
 
   ~ExactDescendantCleanup() {
     if (PID <= 0)
@@ -444,7 +445,8 @@ TEST(FormatterLifecycle, HostileTreeWithInheritedWritersIsBoundedAndReaped) {
   EXPECT_LT(std::chrono::steady_clock::now() - Start, 2s);
   EXPECT_TRUE(Run.get().Cancelled);
   expectReaped(Leader);
-  EXPECT_TRUE(waitForPIDGone(Descendant));
+  ASSERT_TRUE(waitForPIDGone(Descendant));
+  DescendantCleanup.release();
 }
 
 TEST(FormatterLifecycle,
@@ -485,7 +487,8 @@ TEST(FormatterLifecycle,
   EXPECT_FALSE(Result.Cancelled);
   EXPECT_EQ(Result.ExitStatus, 0);
   EXPECT_LT(Elapsed, 600ms);
-  EXPECT_TRUE(waitForPIDGone(Descendant));
+  ASSERT_TRUE(waitForPIDGone(Descendant));
+  DescendantCleanup.release();
   expectReaped(Leader);
 }
 

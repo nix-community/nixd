@@ -519,6 +519,90 @@ TEST(ProviderRegistry, RecoversCurrentDeadWorkerUsingStartupCWD) {
   EXPECT_EQ(Registry.epochs().Options, ActiveEpoch + 2);
 }
 
+TEST(ProviderRegistry, RepeatedPreActivationDeathStopsAfterOneRecovery) {
+  ManualExecutor Executor;
+  FakeFactory Factory;
+  ProviderRegistry Registry(Executor.executor(), Factory.factory(),
+                            "/startup/cwd");
+
+  Registry.apply(nixpkgs("expr"));
+  Executor.runAll();
+  auto First = Factory.worker(ProviderKey::nixpkgs());
+  ASSERT_TRUE(First);
+
+  First->die();
+  Executor.runAll();
+  auto Second = Factory.worker(ProviderKey::nixpkgs(), 1);
+  ASSERT_TRUE(Second);
+
+  Second->die();
+  Executor.runAll();
+
+  EXPECT_EQ(Factory.Created.size(), 2U);
+  EXPECT_EQ(Registry.state(ProviderKey::nixpkgs()), ProviderState::Failed);
+  Executor.runAll();
+  EXPECT_EQ(Factory.Created.size(), 2U);
+}
+
+TEST(ProviderRegistry, ExplicitApplyRetriesAfterRecoveryBudgetIsExhausted) {
+  ManualExecutor Executor;
+  FakeFactory Factory;
+  ProviderRegistry Registry(Executor.executor(), Factory.factory(),
+                            "/startup/cwd");
+
+  Registry.apply(nixpkgs("expr"));
+  Executor.runAll();
+  auto First = Factory.worker(ProviderKey::nixpkgs());
+  ASSERT_TRUE(First);
+  First->die();
+  Executor.runAll();
+  auto Second = Factory.worker(ProviderKey::nixpkgs(), 1);
+  ASSERT_TRUE(Second);
+  Second->die();
+  Executor.runAll();
+  ASSERT_EQ(Registry.state(ProviderKey::nixpkgs()), ProviderState::Failed);
+
+  Registry.apply(nixpkgs("expr"));
+  Executor.runAll();
+
+  EXPECT_EQ(Factory.Created.size(), 3U);
+  EXPECT_EQ(Registry.state(ProviderKey::nixpkgs()), ProviderState::Pending);
+  auto Retry = Factory.worker(ProviderKey::nixpkgs(), 2);
+  ASSERT_TRUE(Retry);
+  ASSERT_EQ(Retry->Evaluations.size(), 1U);
+  EXPECT_EQ(Retry->Evaluations.front().Expression, "expr");
+
+  Retry->die();
+  Executor.runAll();
+  EXPECT_EQ(Factory.Created.size(), 4U);
+  EXPECT_EQ(Registry.state(ProviderKey::nixpkgs()), ProviderState::Pending);
+}
+
+TEST(ProviderRegistry, SuccessfulRecoveryDoesNotResetAutomaticRecoveryBudget) {
+  ManualExecutor Executor;
+  FakeFactory Factory;
+  ProviderRegistry Registry(Executor.executor(), Factory.factory(),
+                            "/startup/cwd");
+
+  Registry.apply(nixpkgs("expr"));
+  Executor.runAll();
+  auto First = Factory.worker(ProviderKey::nixpkgs());
+  ASSERT_TRUE(First);
+  First->die();
+  Executor.runAll();
+  auto Second = Factory.worker(ProviderKey::nixpkgs(), 1);
+  ASSERT_TRUE(Second);
+  Second->finish(0, true);
+  Executor.runAll();
+  ASSERT_EQ(Registry.state(ProviderKey::nixpkgs()), ProviderState::Active);
+
+  Second->die();
+  Executor.runAll();
+
+  EXPECT_EQ(Factory.Created.size(), 2U);
+  EXPECT_EQ(Registry.state(ProviderKey::nixpkgs()), ProviderState::Failed);
+}
+
 TEST(ProviderRegistry, MaintainsSeparateEpochsAndIgnoresProviderNoOps) {
   ManualExecutor Executor;
   FakeFactory Factory;
