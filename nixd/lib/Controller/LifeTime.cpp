@@ -96,6 +96,15 @@ public:
       Process->stop();
   }
 
+  std::shared_ptr<ProcessTreeIdentity> prepareCancellation() override {
+    return Process ? Process->prepareStop() : nullptr;
+  }
+
+  void finishCancellation() noexcept override {
+    if (Process)
+      Process->finishStop();
+  }
+
   [[nodiscard]] bool alive() const override {
     return Process && Process->alive();
   }

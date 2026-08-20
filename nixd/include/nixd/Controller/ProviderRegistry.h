@@ -1,5 +1,7 @@
 #pragma once
 
+#include "nixd/Support/ProcessTree.h"
+
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/strand.hpp>
 
@@ -50,6 +52,13 @@ public:
   virtual ~ProviderWorker() = default;
   virtual void evaluate(std::string Expression, EvaluationCallback Reply) = 0;
   virtual void cancel() = 0;
+  /// Begin cancellation without waiting for process-tree grace. The default
+  /// preserves the legacy synchronous fake-worker contract.
+  virtual std::shared_ptr<ProcessTreeIdentity> prepareCancellation() {
+    cancel();
+    return {};
+  }
+  virtual void finishCancellation() noexcept {}
   [[nodiscard]] virtual bool alive() const = 0;
   [[nodiscard]] virtual AttrSetClient *attrSetClient() { return nullptr; }
 };
@@ -116,8 +125,9 @@ private:
   std::shared_ptr<ProviderRegistryState> Shared;
 
 public:
-  ProviderRegistry(Executor Post, WorkerFactory Factory,
-                   std::filesystem::path StartupCWD);
+  ProviderRegistry(
+      Executor Post, WorkerFactory Factory, std::filesystem::path StartupCWD,
+      ProcessTreeBackend CancellationBackend = ProcessTreeBackend::system());
 
   /// Publish Spec synchronously so existing query tokens are invalidated before
   /// this call returns. OnApplied is always invoked later on the registry

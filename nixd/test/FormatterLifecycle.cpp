@@ -1,6 +1,9 @@
 #include "nixd/Controller/Formatter.h"
+#include "nixd/Eval/AttrSetClient.h"
+#include "nixd/Support/ForkPiped.h"
 #include "nixd/Support/ProcessTree.h"
 
+#include "../lib/Controller/FormatterInternal.h"
 #include "ControllerTestPeer.h"
 
 #include <gtest/gtest.h>
@@ -12,6 +15,7 @@
 #include <condition_variable>
 #include <cstdlib>
 #include <fcntl.h>
+#include <filesystem>
 #include <future>
 #include <memory>
 #include <mutex>
@@ -139,8 +143,10 @@ class TemporaryPIDFile {
 
 public:
   TemporaryPIDFile() {
-    char Template[] = "/private/tmp/codex-nixd-formatter-pid.XXXXXX";
-    const int FD = ::mkstemp(Template);
+    std::string Template = (std::filesystem::temp_directory_path() /
+                            "codex-nixd-formatter-pid.XXXXXX")
+                               .string();
+    const int FD = ::mkstemp(Template.data());
     EXPECT_GE(FD, 0);
     if (FD >= 0)
       (void)::close(FD);
@@ -298,10 +304,9 @@ TEST(FormatterLifecycle, BlockedInputIsCancelledWithoutSIGPIPE) {
   FormatterProcessRegistry Registry;
   std::string Input(2 * 1024 * 1024, 'x');
   auto Run = std::async(std::launch::async, [&] {
-    return runFormatter(
-        Registry,
-        {"/bin/sh", "-c", "trap '' TERM; exec /usr/bin/tail -f /dev/null"},
-        std::filesystem::current_path(), Input);
+    return runFormatter(Registry,
+                        {"sh", "-c", "trap '' TERM; exec tail -f /dev/null"},
+                        std::filesystem::current_path(), Input);
   });
   ExactProcessCleanup Cleanup;
   const pid_t Leader = waitForLeader(Registry);
@@ -331,7 +336,7 @@ TEST(FormatterLifecycle, DrainsLargeStdoutAndStderrBeforeWaiting) {
                              "' >&2; i=$((i+1)); done; cat";
 
   auto Run = std::async(std::launch::async, [&] {
-    return runFormatter(Registry, {"/bin/sh", "-c", Script},
+    return runFormatter(Registry, {"sh", "-c", Script},
                         std::filesystem::current_path(), "input");
   });
   ExactProcessCleanup Cleanup;
@@ -362,14 +367,13 @@ TEST(FormatterLifecycle, HostileTreeWithInheritedWritersIsBoundedAndReaped) {
   ExactDescendantCleanup DescendantCleanup;
   FormatterProcessRegistry Registry;
   auto Run = std::async(std::launch::async, [&] {
-    return runFormatter(
-        Registry,
-        {"/bin/sh", "-c",
-         "(trap '' TERM; exec /usr/bin/tail -f /dev/null) & child=$!; "
-         "printf '%s' \"$child\" > " +
-             DescendantFile.path() +
-             "; trap '' TERM; exec /usr/bin/tail -f /dev/null"},
-        std::filesystem::current_path(), "input");
+    return runFormatter(Registry,
+                        {"sh", "-c",
+                         "(trap '' TERM; exec tail -f /dev/null) & child=$!; "
+                         "printf '%s' \"$child\" > " +
+                             DescendantFile.path() +
+                             "; trap '' TERM; exec tail -f /dev/null"},
+                        std::filesystem::current_path(), "input");
   });
   ExactProcessCleanup Cleanup;
   const pid_t Leader = waitForLeader(Registry);
@@ -388,13 +392,55 @@ TEST(FormatterLifecycle, HostileTreeWithInheritedWritersIsBoundedAndReaped) {
   EXPECT_TRUE(waitForPIDGone(Descendant));
 }
 
+TEST(FormatterLifecycle,
+     SuccessfulFormatterCleansBackgroundOwnedGroupBeforeLeaderReap) {
+  TemporaryPIDFile DescendantFile;
+  ExactDescendantCleanup DescendantCleanup;
+  FormatterProcessRegistry Registry;
+  const auto Start = std::chrono::steady_clock::now();
+  auto Run = std::async(std::launch::async, [&] {
+    return runFormatter(
+        Registry,
+        {"sh", "-c",
+         "(trap '' TERM; exec tail -f /dev/null </dev/null >/dev/null 2>&1) "
+         "& child=$!; printf '%s' \"$child\" > " +
+             DescendantFile.path() + "; sleep 0.2; exit 0"},
+        std::filesystem::current_path(), "input");
+  });
+  ExactProcessCleanup LeaderCleanup;
+  const pid_t Leader = waitForLeader(Registry);
+  LeaderCleanup.setLeader(Leader);
+  if (Leader <= 0) {
+    Registry.cancelAll();
+    (void)Run.get();
+    FAIL() << "formatter leader was never registered";
+  }
+  const pid_t Descendant = waitForPIDFile(DescendantFile);
+  DescendantCleanup.setPID(Descendant);
+  if (Descendant <= 0) {
+    Registry.cancelAll();
+    (void)Run.get();
+    FAIL() << "formatter descendant PID was never published";
+  }
+  EXPECT_EQ(::getpgid(Descendant), Leader);
+
+  const FormatterRunResult Result = Run.get();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+
+  EXPECT_FALSE(Result.Cancelled);
+  EXPECT_EQ(Result.ExitStatus, 0);
+  EXPECT_LT(Elapsed, 600ms);
+  EXPECT_TRUE(waitForPIDGone(Descendant));
+  expectReaped(Leader);
+}
+
 TEST(FormatterLifecycle, RepeatedOutcomesKeepFDsStableAndReapOnce) {
   const size_t Before = countFormatterDescriptors();
   for (unsigned Iteration = 0; Iteration < 4; ++Iteration) {
     FormatterProcessRegistry Registry;
     auto Normal = std::async(std::launch::async, [&] {
-      return runFormatter(Registry, {"/bin/cat"},
-                          std::filesystem::current_path(), "normal");
+      return runFormatter(Registry, {"cat"}, std::filesystem::current_path(),
+                          "normal");
     });
     ExactProcessCleanup NormalCleanup;
     const pid_t NormalPID = waitForLeader(Registry);
@@ -404,7 +450,7 @@ TEST(FormatterLifecycle, RepeatedOutcomesKeepFDsStableAndReapOnce) {
     expectReaped(NormalPID);
 
     auto Error = std::async(std::launch::async, [&] {
-      return runFormatter(Registry, {"/bin/sh", "-c", "exit 7"},
+      return runFormatter(Registry, {"sh", "-c", "exit 7"},
                           std::filesystem::current_path(), "error");
     });
     ExactProcessCleanup ErrorCleanup;
@@ -417,8 +463,7 @@ TEST(FormatterLifecycle, RepeatedOutcomesKeepFDsStableAndReapOnce) {
     FormatterProcessRegistry CancelRegistry;
     auto Cancel = std::async(std::launch::async, [&] {
       return runFormatter(
-          CancelRegistry,
-          {"/bin/sh", "-c", "trap '' TERM; exec /usr/bin/tail -f /dev/null"},
+          CancelRegistry, {"sh", "-c", "trap '' TERM; exec tail -f /dev/null"},
           std::filesystem::current_path(), std::string(1024 * 1024, 'x'));
     });
     ExactProcessCleanup CancelCleanup;
@@ -430,6 +475,175 @@ TEST(FormatterLifecycle, RepeatedOutcomesKeepFDsStableAndReapOnce) {
     expectReaped(CancelPID);
   }
   EXPECT_EQ(countFormatterDescriptors(), Before);
+}
+
+TEST(FormatterLifecycle, ForkPipedParentEndpointsAreCloseOnExec) {
+  int In = -1;
+  int Out = -1;
+  int Err = -1;
+  pid_t ProcessGroup = -1;
+  const pid_t Child = forkPiped(In, Out, Err, &ProcessGroup);
+  if (Child == 0)
+    _exit(0);
+  ExactProcessCleanup Cleanup;
+  Cleanup.setLeader(Child);
+  const int InFlags = ::fcntl(In, F_GETFD);
+  const int OutFlags = ::fcntl(Out, F_GETFD);
+  const int ErrFlags = ::fcntl(Err, F_GETFD);
+  (void)::close(In);
+  (void)::close(Out);
+  (void)::close(Err);
+  int Status = 0;
+  const pid_t Reaped = ::waitpid(Child, &Status, 0);
+
+  EXPECT_GT(Child, 0);
+  EXPECT_EQ(ProcessGroup, Child);
+  EXPECT_NE(InFlags & FD_CLOEXEC, 0);
+  EXPECT_NE(OutFlags & FD_CLOEXEC, 0);
+  EXPECT_NE(ErrFlags & FD_CLOEXEC, 0);
+  EXPECT_EQ(Reaped, Child);
+}
+
+TEST(FormatterLifecycle, OwnedDescriptorCloseIsNeverRetriedAfterEINTR) {
+  util::AutoCloseFD FD(12345);
+  unsigned Calls = 0;
+  bool ReleasedBeforeClose = false;
+
+  detail::closeOwnedWith(FD, [&](int RawFD) {
+    ++Calls;
+    EXPECT_EQ(RawFD, 12345);
+    ReleasedBeforeClose = FD.isReleased();
+    if (Calls == 1) {
+      errno = EINTR;
+      return -1;
+    }
+    return 0;
+  });
+
+  EXPECT_EQ(Calls, 1U);
+  EXPECT_TRUE(ReleasedBeforeClose);
+  EXPECT_TRUE(FD.isReleased());
+}
+
+TEST(FormatterLifecycle, ConcurrentFormatterExecDoesNotHoldEarlierStdinEOF) {
+  TemporaryPIDFile FirstReady;
+  FormatterProcessRegistry FirstRegistry;
+  const std::string Input(2 * 1024 * 1024, 'x');
+  auto First = std::async(std::launch::async, [&] {
+    return runFormatter(
+        FirstRegistry,
+        {"sh", "-c",
+         "printf '%s' \"$$\" > " + FirstReady.path() + "; sleep 0.2; exec cat"},
+        std::filesystem::current_path(), Input);
+  });
+  ExactProcessCleanup FirstCleanup;
+  const pid_t FirstPID = waitForLeader(FirstRegistry);
+  FirstCleanup.setLeader(FirstPID);
+  if (FirstPID <= 0) {
+    FirstRegistry.cancelAll();
+    (void)First.get();
+    FAIL() << "first formatter leader was never registered";
+  }
+  EXPECT_EQ(waitForPIDFile(FirstReady), FirstPID);
+
+  FormatterProcessRegistry SecondRegistry;
+  auto Second = std::async(std::launch::async, [&] {
+    return runFormatter(SecondRegistry,
+                        {"sh", "-c", "trap '' TERM; exec tail -f /dev/null"},
+                        std::filesystem::current_path(), "");
+  });
+  ExactProcessCleanup SecondCleanup;
+  const pid_t SecondPID = waitForLeader(SecondRegistry);
+  SecondCleanup.setLeader(SecondPID);
+  if (SecondPID <= 0) {
+    SecondRegistry.cancelAll();
+    FirstRegistry.cancelAll();
+    (void)Second.get();
+    (void)First.get();
+    FAIL() << "second formatter leader was never registered";
+  }
+
+  const auto FirstStatus = First.wait_for(1500ms);
+  SecondRegistry.cancelAll();
+  if (FirstStatus != std::future_status::ready)
+    FirstRegistry.cancelAll();
+  const FormatterRunResult SecondResult = Second.get();
+  const FormatterRunResult FirstResult = First.get();
+
+  EXPECT_EQ(FirstStatus, std::future_status::ready);
+  EXPECT_TRUE(SecondResult.Cancelled);
+  if (FirstStatus == std::future_status::ready) {
+    EXPECT_FALSE(FirstResult.Cancelled);
+    EXPECT_EQ(FirstResult.Stdout, Input);
+  }
+  expectReaped(FirstPID);
+  expectReaped(SecondPID);
+}
+
+TEST(FormatterLifecycle, NonExecEvaluatorChildDoesNotHoldFormatterStdinEOF) {
+  TemporaryPIDFile FormatterReady;
+  FormatterProcessRegistry Registry;
+  const std::string Input(2 * 1024 * 1024, 'x');
+  auto Formatter = std::async(std::launch::async, [&] {
+    return runFormatter(Registry,
+                        {"sh", "-c",
+                         "printf '%s' \"$$\" > " + FormatterReady.path() +
+                             "; sleep 0.2; exec cat"},
+                        std::filesystem::current_path(), Input);
+  });
+  ExactProcessCleanup FormatterCleanup;
+  const pid_t FormatterPID = waitForLeader(Registry);
+  FormatterCleanup.setLeader(FormatterPID);
+  if (FormatterPID <= 0) {
+    Registry.cancelAll();
+    (void)Formatter.get();
+    FAIL() << "formatter leader was never registered";
+  }
+  EXPECT_EQ(waitForPIDFile(FormatterReady), FormatterPID);
+
+  int Ready[2];
+  ASSERT_EQ(::pipe(Ready), 0);
+  const std::array ChildFDs{Ready[1]};
+  AttrSetClientProc Evaluator(
+      [ReadFD = Ready[0], WriteFD = Ready[1]] {
+        (void)::close(ReadFD);
+        (void)::signal(SIGTERM, SIG_IGN);
+        const char Byte = 'R';
+        ssize_t Written;
+        do {
+          Written = ::write(WriteFD, &Byte, 1);
+        } while (Written < 0 && errno == EINTR);
+        (void)::close(WriteFD);
+        for (;;)
+          ::pause();
+        return 0;
+      },
+      {}, ChildFDs);
+  (void)::close(Ready[1]);
+  ExactProcessCleanup EvaluatorCleanup;
+  EvaluatorCleanup.setLeader(Evaluator.pid());
+  char Byte = 0;
+  ssize_t Read;
+  do {
+    Read = ::read(Ready[0], &Byte, 1);
+  } while (Read < 0 && errno == EINTR);
+  (void)::close(Ready[0]);
+  EXPECT_EQ(Read, 1);
+  EXPECT_EQ(Byte, 'R');
+
+  const auto FormatterStatus = Formatter.wait_for(1500ms);
+  if (FormatterStatus != std::future_status::ready)
+    Registry.cancelAll();
+  EXPECT_TRUE(Evaluator.stop());
+  const FormatterRunResult Result = Formatter.get();
+
+  EXPECT_EQ(FormatterStatus, std::future_status::ready);
+  if (FormatterStatus == std::future_status::ready) {
+    EXPECT_FALSE(Result.Cancelled);
+    EXPECT_EQ(Result.Stdout, Input);
+  }
+  expectReaped(FormatterPID);
+  expectReaped(Evaluator.pid());
 }
 
 TEST(FormatterLifecycle, CancelsPoolSaturatingFormattersAsOneBatch) {
@@ -496,11 +710,45 @@ TEST(FormatterLifecycle, FakeBackendEndsSharedGraceWhenEveryTreeExits) {
 }
 
 TEST(FormatterLifecycle,
+     CancellationKeepsSharedGraceForOwnedGroupAfterLeaderExit) {
+  bool GroupAlive = true;
+  std::chrono::milliseconds GraceTotal(0);
+  std::vector<int> Signals;
+  ProcessTreeBackend Backend{
+      .Kill =
+          [&](pid_t Target, int Signal) {
+            EXPECT_EQ(Target, -5201);
+            if (Signal == 0) {
+              if (GroupAlive)
+                return 0;
+              errno = ESRCH;
+              return -1;
+            }
+            Signals.push_back(Signal);
+            if (Signal == SIGKILL)
+              GroupAlive = false;
+            return 0;
+          },
+      .WaitForGrace =
+          [&](std::chrono::milliseconds Delay) { GraceTotal += Delay; },
+      .ObserveLeader = [](pid_t) { return 1; },
+  };
+  auto Identity = std::make_shared<ProcessTreeIdentity>(5201, 5201);
+  const std::array Trees{Identity};
+
+  cancelProcessTrees(Trees, Backend);
+
+  EXPECT_EQ(GraceTotal, 500ms);
+  EXPECT_EQ(Signals, (std::vector<int>{SIGTERM, SIGKILL}));
+  EXPECT_TRUE(Identity->markReaped());
+}
+
+TEST(FormatterLifecycle,
      ControllerCancelsPoolSaturationBeforeProviderStrandRetirement) {
   Controller C(std::make_unique<lspserver::InboundPort>(-1),
                std::make_unique<lspserver::OutboundPort>());
-  const std::filesystem::path File =
-      "/private/tmp/codex-nixd-controller-formatter.nix";
+  TemporaryPIDFile TemporaryFile;
+  const std::filesystem::path File = TemporaryFile.path();
   ControllerTestPeer::prepareFormatting(C, File, std::string(1024 * 1024, 'x'));
 
   std::atomic<bool> CancelObservedBeforeRetirement = false;
@@ -513,8 +761,8 @@ TEST(FormatterLifecycle,
   });
   Configuration Config = defaultConfiguration();
   Config.nixpkgs.expr = "{ }";
-  Config.formatting.command = {"/bin/sh", "-c",
-                               "trap '' TERM; exec /usr/bin/tail -f /dev/null"};
+  Config.formatting.command = {"sh", "-c",
+                               "trap '' TERM; exec tail -f /dev/null"};
   std::binary_semaphore Applied(0);
   ControllerTestPeer::apply(C, std::move(Config),
                             [&](ProviderApplyResult Result) {
@@ -562,7 +810,7 @@ TEST(FormatterLifecycle,
     expectReaped(PID);
 }
 
-TEST(FormatterLifecycle, FakeBackendUsesOneGraceThenKillAndOneOwnerReap) {
+TEST(FormatterLifecycle, FakeBackendUsesOneGraceThenKill) {
   bool Alive = true;
   std::chrono::milliseconds GraceTotal(0);
   std::vector<int> Signals;
@@ -590,6 +838,49 @@ TEST(FormatterLifecycle, FakeBackendUsesOneGraceThenKillAndOneOwnerReap) {
   EXPECT_TRUE(Identity->markReaped());
   EXPECT_FALSE(Identity->markReaped());
   EXPECT_FALSE(Identity->signalIfAlive(SIGKILL, Backend));
+}
+
+TEST(FormatterLifecycle, RegistryReapInvokesWaitPIDExactlyOnce) {
+  bool Alive = true;
+  unsigned WaitCalls = 0;
+  ProcessTreeBackend Backend{
+      .Kill =
+          [&](pid_t Target, int Signal) {
+            EXPECT_EQ(Target, -6101);
+            if (Signal == 0) {
+              if (Alive)
+                return 0;
+              errno = ESRCH;
+              return -1;
+            }
+            if (Signal == SIGKILL)
+              Alive = false;
+            return 0;
+          },
+      .WaitForGrace = [](std::chrono::milliseconds) {},
+      .WaitPID =
+          [&](pid_t PID, int *Status, int Options) {
+            ++WaitCalls;
+            EXPECT_EQ(PID, 6101);
+            EXPECT_EQ(Options, 0);
+            *Status = 42;
+            return PID;
+          },
+  };
+  FormatterProcessRegistry Registry(Backend);
+  auto Process =
+      Registry.launch([] { return util::PipedProc(6101, 6101, -1, -1, -1); });
+  ASSERT_TRUE(Process);
+  Registry.cancel(Process->Identity);
+  int Status = 0;
+
+  EXPECT_EQ(Registry.reap(Process->Identity, Status, 0), 6101);
+  errno = 0;
+  EXPECT_EQ(Registry.reap(Process->Identity, Status, 0), -1);
+  EXPECT_EQ(errno, ECHILD);
+  EXPECT_EQ(WaitCalls, 1U);
+  EXPECT_EQ(Status, 42);
+  Registry.deregister(Process->Identity);
 }
 
 } // namespace

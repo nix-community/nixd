@@ -43,12 +43,15 @@ struct ProviderRegistryState {
   ProviderRegistry::Executor Strand;
   ProviderRegistry::WorkerFactory Factory;
   std::filesystem::path StartupCWD;
+  ProcessTreeBackend CancellationBackend;
 
   ProviderRegistryState(ProviderRegistry::Executor Strand,
                         ProviderRegistry::WorkerFactory Factory,
-                        std::filesystem::path StartupCWD)
+                        std::filesystem::path StartupCWD,
+                        ProcessTreeBackend CancellationBackend)
       : Strand(std::move(Strand)), Factory(std::move(Factory)),
-        StartupCWD(std::move(StartupCWD)) {}
+        StartupCWD(std::move(StartupCWD)),
+        CancellationBackend(std::move(CancellationBackend)) {}
 };
 
 namespace {
@@ -450,9 +453,11 @@ void postDeath(const std::shared_ptr<ProviderRegistryState> &Shared,
 } // namespace
 
 ProviderRegistry::ProviderRegistry(Executor Post, WorkerFactory Factory,
-                                   std::filesystem::path StartupCWD)
-    : Shared(std::make_shared<ProviderRegistryState>(std::move(Post), Factory,
-                                                     std::move(StartupCWD))) {
+                                   std::filesystem::path StartupCWD,
+                                   ProcessTreeBackend CancellationBackend)
+    : Shared(std::make_shared<ProviderRegistryState>(
+          std::move(Post), Factory, std::move(StartupCWD),
+          std::move(CancellationBackend))) {
   assert(Factory);
 }
 
@@ -642,9 +647,28 @@ void ProviderRegistry::shutdown(std::function<void()> OnRetired) {
     return;
 
   // Cancel before waiting for the executor so pending worker RPC callbacks
-  // are released and cannot keep pool work blocked.
-  for (auto &Worker : Workers)
-    cancelNoThrow(Worker);
+  // are released and cannot keep pool work blocked. Real evaluator workers
+  // split stop into prepare/finish so every process tree shares this one grace
+  // deadline; the default hook still calls fake workers synchronously once.
+  std::vector<std::shared_ptr<ProviderWorker>> CoordinatedWorkers;
+  std::vector<std::shared_ptr<ProcessTreeIdentity>> ProcessTrees;
+  CoordinatedWorkers.reserve(Workers.size());
+  ProcessTrees.reserve(Workers.size());
+  for (auto &Worker : Workers) {
+    if (!Worker)
+      continue;
+    try {
+      if (auto Identity = Worker->prepareCancellation()) {
+        CoordinatedWorkers.push_back(Worker);
+        ProcessTrees.push_back(std::move(Identity));
+      }
+    } catch (...) {
+      // Shutdown is no-throw and continues retiring independent providers.
+    }
+  }
+  cancelProcessTrees(ProcessTrees, Shared->CancellationBackend);
+  for (auto &Worker : CoordinatedWorkers)
+    Worker->finishCancellation();
 
   auto State = Shared;
   postDeferred(Shared, [State = std::move(State)]() mutable {

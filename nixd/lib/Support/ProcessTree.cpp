@@ -30,6 +30,8 @@ ProcessTreeBackend ProcessTreeBackend::system() {
             return Result < 0 && errno == ECHILD ? -1 : 0;
           },
       .Now = [] { return std::chrono::steady_clock::now(); },
+      .WaitPID = [](pid_t PID, int *Status,
+                    int Options) { return ::waitpid(PID, Status, Options); },
   };
 }
 
@@ -48,9 +50,12 @@ pid_t ProcessTreeIdentity::pid() const {
 }
 
 pid_t ProcessTreeIdentity::signalTargetLocked() const {
-  const bool DedicatedGroup =
-      ProcessGroup > 0 && ProcessGroup == PID && ProcessGroup != ::getpgrp();
-  return DedicatedGroup ? -ProcessGroup : PID;
+  return ownsDedicatedGroupLocked() ? -ProcessGroup : PID;
+}
+
+bool ProcessTreeIdentity::ownsDedicatedGroupLocked() const {
+  return !Reaped && PID > 0 && ProcessGroup == PID &&
+         ProcessGroup != ::getpgrp();
 }
 
 bool ProcessTreeIdentity::cancellationRequested() const {
@@ -61,6 +66,11 @@ bool ProcessTreeIdentity::cancellationRequested() const {
 bool ProcessTreeIdentity::ownsIdentity() const {
   std::lock_guard Guard(Mutex);
   return !Reaped;
+}
+
+bool ProcessTreeIdentity::ownsDedicatedGroup() const {
+  std::lock_guard Guard(Mutex);
+  return ownsDedicatedGroupLocked();
 }
 
 bool ProcessTreeIdentity::beginCancellation() {
@@ -103,6 +113,11 @@ bool ProcessTreeIdentity::signalIfAlive(
 bool ProcessTreeIdentity::isAliveLocked(
     const ProcessTreeBackend &Backend) const noexcept {
   if (Reaped || PID <= 0)
+    return false;
+  // Once a direct-PID fallback leader exits, it owns no durable descendant
+  // identity. A dedicated PGID remains safe to signal because the unreaped
+  // group leader pins that identity until the sole owner reaps it.
+  if (LeaderExited && !ownsDedicatedGroupLocked())
     return false;
   try {
     errno = 0;
@@ -164,7 +179,21 @@ bool ProcessTreeIdentity::observeLeaderExit(
   return false;
 }
 
-pid_t ProcessTreeIdentity::reapChild(int &Status, int Options) noexcept {
+void ProcessTreeIdentity::terminateCompletedOwnedGroup(
+    const ProcessTreeBackend &Backend) noexcept {
+  std::lock_guard Guard(Mutex);
+  if (!ownsDedicatedGroupLocked())
+    return;
+  try {
+    (void)Backend.Kill(-ProcessGroup, SIGTERM);
+    (void)Backend.Kill(-ProcessGroup, SIGKILL);
+  } catch (...) {
+    // Successful-job cleanup is best effort; sole-owner reap still follows.
+  }
+}
+
+pid_t ProcessTreeIdentity::reapChild(
+    int &Status, int Options, const ProcessTreeBackend &Backend) noexcept {
   std::lock_guard Guard(Mutex);
   if (Reaped) {
     errno = ECHILD;
@@ -172,7 +201,13 @@ pid_t ProcessTreeIdentity::reapChild(int &Status, int Options) noexcept {
   }
   pid_t Result;
   do {
-    Result = ::waitpid(PID, &Status, Options);
+    try {
+      Result = Backend.WaitPID ? Backend.WaitPID(PID, &Status, Options)
+                               : ::waitpid(PID, &Status, Options);
+    } catch (...) {
+      errno = EIO;
+      Result = -1;
+    }
   } while (Result < 0 && errno == EINTR);
   if (Result == PID || (Result < 0 && errno == ECHILD)) {
     LeaderExited = true;
@@ -222,8 +257,15 @@ void nixd::cancelProcessTrees(
       while (Remaining > std::chrono::milliseconds::zero()) {
         bool AnyAlive = false;
         for (const auto &Tree : Coordinated) {
-          if (Tree->observeLeaderExit(Backend))
+          if (Tree->observeLeaderExit(Backend)) {
+            // Cancellation gives a validated owned group the full shared TERM
+            // grace even after its leader exits. The unreaped leader pins PGID
+            // against reuse. Direct-PID fallback cannot own descendants and
+            // exits early. Successful formatter completion uses the separate
+            // immediate owned-group cleanup policy instead.
+            AnyAlive = Tree->ownsDedicatedGroup() || AnyAlive;
             continue;
+          }
           AnyAlive = Tree->isAlive(Backend) || AnyAlive;
         }
         if (!AnyAlive)

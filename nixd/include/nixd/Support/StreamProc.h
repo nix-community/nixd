@@ -5,6 +5,8 @@
 #include <llvm/Support/raw_ostream.h>
 #include <lspserver/Connection.h>
 
+#include <span>
+
 namespace nixd {
 
 struct StreamProc {
@@ -17,7 +19,8 @@ public:
   ///
   /// The value returned by \p Action will be interpreted as process's exit
   /// value.
-  StreamProc(const std::function<int()> &Action);
+  StreamProc(const std::function<int()> &Action,
+             std::span<const int> ChildFDs = {});
 
   [[nodiscard]] llvm::raw_fd_ostream &stream() const {
     assert(Stream);

@@ -31,9 +31,10 @@ const char *AttrSetClient::getExe() {
 }
 
 AttrSetClientProc::AttrSetClientProc(const std::function<int()> &Action,
-                                     std::function<void()> OnDeath)
-    : Proc(Action), Identity(std::make_shared<ProcessTreeIdentity>(
-                        Proc.proc().PID, Proc.proc().ProcessGroup)),
+                                     std::function<void()> OnDeath,
+                                     std::span<const int> ChildFDs)
+    : Proc(Action, ChildFDs), Identity(std::make_shared<ProcessTreeIdentity>(
+                                  Proc.proc().PID, Proc.proc().ProcessGroup)),
       Client(Proc.mkIn(), Proc.mkOut()), OnDeath(std::move(OnDeath)),
       Input([this]() {
         Client.run();
@@ -91,6 +92,50 @@ bool AttrSetClientProc::alive() const {
   return TransportAlive;
 }
 
+std::shared_ptr<ProcessTreeIdentity> AttrSetClientProc::prepareStop() noexcept {
+  if (Input.get_id() == std::this_thread::get_id()) {
+    try {
+      Client.closeInbound();
+    } catch (...) {
+    }
+    return {};
+  }
+
+  {
+    std::unique_lock Lock(StopMutex);
+    if (Phase == StopPhase::Stopped)
+      return {};
+    if (Phase == StopPhase::Stopping) {
+      StopChanged.wait(Lock, [this] { return Phase == StopPhase::Stopped; });
+      return {};
+    }
+    Phase = StopPhase::Stopping;
+  }
+
+  try {
+    Client.closeInbound();
+  } catch (...) {
+    // Cancellation and destruction are no-throw paths. The transition owner
+    // must still terminate, join, and reap the process.
+  }
+  return Identity;
+}
+
+void AttrSetClientProc::finishStop() noexcept {
+  bool Reaped = reapChild();
+  if (Input.joinable())
+    Input.join();
+  if (!Reaped)
+    (void)reapChild();
+  TransportAlive = false;
+
+  {
+    std::lock_guard Guard(StopMutex);
+    Phase = StopPhase::Stopped;
+  }
+  StopChanged.notify_all();
+}
+
 bool AttrSetClientProc::stop() noexcept {
   if (Input.get_id() == std::this_thread::get_id()) {
     try {
@@ -100,38 +145,11 @@ bool AttrSetClientProc::stop() noexcept {
     return false;
   }
 
-  {
-    std::unique_lock Lock(StopMutex);
-    if (Phase == StopPhase::Stopped)
-      return true;
-    if (Phase == StopPhase::Stopping) {
-      StopChanged.wait(Lock, [this] { return Phase == StopPhase::Stopped; });
-      return true;
-    }
-    Phase = StopPhase::Stopping;
-  }
-
-  try {
-    Client.closeInbound();
-  } catch (...) {
-    // Cancellation and destruction are no-throw paths. Continue terminating,
-    // joining, and reaping even if a client callback misbehaves.
-  }
-  bool Reaped = false;
-  const std::array Trees{Identity};
+  auto StopIdentity = prepareStop();
+  if (!StopIdentity)
+    return true;
+  const std::array Trees{StopIdentity};
   cancelProcessTrees(Trees);
-  Reaped = reapChild();
-
-  if (Input.joinable())
-    Input.join();
-  if (!Reaped)
-    reapChild();
-  TransportAlive = false;
-
-  {
-    std::lock_guard Guard(StopMutex);
-    Phase = StopPhase::Stopped;
-  }
-  StopChanged.notify_all();
+  finishStop();
   return true;
 }

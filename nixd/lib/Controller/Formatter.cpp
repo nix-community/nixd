@@ -1,4 +1,5 @@
 #include "nixd/Controller/Formatter.h"
+#include "FormatterInternal.h"
 #include "nixd/Support/ForkPiped.h"
 
 #include <algorithm>
@@ -17,15 +18,26 @@
 
 using namespace nixd;
 
-namespace {
-
-void closeOwned(util::AutoCloseFD &FD) noexcept {
+void nixd::detail::closeOwnedWith(
+    util::AutoCloseFD &FD, const std::function<int(int)> &Close) noexcept {
   if (FD.isReleased())
     return;
   const int RawFD = FD.get();
-  while (::close(RawFD) < 0 && errno == EINTR) {
-  }
+  // POSIX permits close to release the descriptor even when reporting EINTR.
+  // Drop ownership before the one syscall so neither this path nor the RAII
+  // destructor can close a subsequently reused descriptor number.
   FD.release();
+  try {
+    (void)Close(RawFD);
+  } catch (...) {
+    // Descriptor cleanup is no-throw and never retries an indeterminate close.
+  }
+}
+
+namespace {
+
+void closeOwned(util::AutoCloseFD &FD) noexcept {
+  detail::closeOwnedWith(FD, [](int RawFD) { return ::close(RawFD); });
 }
 
 void makeNonBlocking(const util::AutoCloseFD &FD) {
@@ -93,7 +105,7 @@ public:
     if (Process.Identity->ownsIdentity()) {
       Registry.cancel(Process.Identity);
       int Status = 0;
-      (void)Process.Identity->reapChild(Status, 0);
+      (void)Registry.reap(Process.Identity, Status, 0);
     }
     Registry.deregister(Process.Identity);
   }
@@ -110,7 +122,7 @@ public:
     closeDescriptors();
     Registry.cancel(Process.Identity);
     int Status = 0;
-    const pid_t Reaped = Process.Identity->reapChild(Status, 0);
+    const pid_t Reaped = Registry.reap(Process.Identity, Status, 0);
     return Reaped == Process.Identity->pid() ? Status : -1;
   }
 };
@@ -175,6 +187,22 @@ void FormatterProcessRegistry::cancel(
     const std::shared_ptr<ProcessTreeIdentity> &Identity) noexcept {
   const std::array Trees{Identity};
   cancelProcessTrees(Trees, Backend);
+}
+
+void FormatterProcessRegistry::terminateCompletedOwnedGroup(
+    const std::shared_ptr<ProcessTreeIdentity> &Identity) noexcept {
+  if (Identity)
+    Identity->terminateCompletedOwnedGroup(Backend);
+}
+
+pid_t FormatterProcessRegistry::reap(
+    const std::shared_ptr<ProcessTreeIdentity> &Identity, int &Status,
+    int Options) noexcept {
+  if (!Identity) {
+    errno = ECHILD;
+    return -1;
+  }
+  return Identity->reapChild(Status, Options, Backend);
 }
 
 void FormatterProcessRegistry::cancelAll() noexcept {
@@ -312,14 +340,17 @@ FormatterRunResult nixd::runFormatter(FormatterProcessRegistry &Registry,
       Result.ExitStatus = Owner.cancelAndReap();
       return Result;
     }
-    int Status = 0;
-    const pid_t Reaped = Process.Identity->reapChild(Status, WNOHANG);
-    if (Reaped == Process.Identity->pid() || (Reaped < 0 && errno == ECHILD)) {
+    if (Process.Identity->observeLeaderExit()) {
+      // Normal formatter completion is not a shutdown grace path: forcefully
+      // clean background members while the unreaped leader still pins PGID.
+      Registry.terminateCompletedOwnedGroup(Process.Identity);
+      int Status = 0;
+      const pid_t Reaped = Registry.reap(Process.Identity, Status, 0);
+      if (Reaped != Process.Identity->pid() && !(Reaped < 0 && errno == ECHILD))
+        throw std::system_error(errno, std::generic_category());
       Result.ExitStatus = Status;
       return Result;
     }
-    if (Reaped < 0)
-      throw std::system_error(errno, std::generic_category());
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }

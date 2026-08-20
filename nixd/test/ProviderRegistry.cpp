@@ -1,6 +1,8 @@
 #include "nixd/Controller/ProviderRegistry.h"
 #include "nixd/Controller/Configuration.h"
 #include "nixd/Controller/ProviderQuery.h"
+#include "nixd/Eval/AttrSetClient.h"
+#include "nixd/Support/ProcessTree.h"
 
 #include <gtest/gtest.h>
 
@@ -8,6 +10,7 @@
 
 #include <llvm/Support/Error.h>
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -15,8 +18,12 @@
 #include <mutex>
 #include <optional>
 #include <semaphore>
+#include <set>
+#include <signal.h>
 #include <stdexcept>
+#include <sys/wait.h>
 #include <thread>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -144,6 +151,166 @@ public:
   }
 
   std::shared_ptr<WorkerTrace> trace() { return Trace; }
+};
+
+class CoordinatedFakeWorker final : public ProviderWorker {
+  std::shared_ptr<ProcessTreeIdentity> Identity;
+  const ProcessTreeBackend &Backend;
+
+public:
+  unsigned CancelCount = 0;
+  unsigned PrepareCount = 0;
+  unsigned FinishCount = 0;
+
+  CoordinatedFakeWorker(pid_t PID, const ProcessTreeBackend &Backend)
+      : Identity(std::make_shared<ProcessTreeIdentity>(PID, PID)),
+        Backend(Backend) {}
+
+  void evaluate(std::string, EvaluationCallback Reply) override { Reply(true); }
+
+  void cancel() override {
+    ++CancelCount;
+    const std::array Trees{Identity};
+    cancelProcessTrees(Trees, Backend);
+    finishCancellation();
+  }
+
+  std::shared_ptr<ProcessTreeIdentity> prepareCancellation() override {
+    ++PrepareCount;
+    return Identity;
+  }
+
+  void finishCancellation() noexcept override {
+    ++FinishCount;
+    (void)Identity->markReaped();
+  }
+
+  [[nodiscard]] bool alive() const override { return Identity->ownsIdentity(); }
+};
+
+class TermIgnoringEvaluatorWorker final : public ProviderWorker {
+  std::unique_ptr<AttrSetClientProc> Process;
+  bool ChildReady = false;
+
+public:
+  explicit TermIgnoringEvaluatorWorker(DeathCallback OnDeath) {
+    int Ready[2];
+    if (::pipe(Ready) != 0)
+      return;
+    const std::array ChildFDs{Ready[1]};
+    try {
+      Process = std::make_unique<AttrSetClientProc>(
+          [ReadFD = Ready[0], WriteFD = Ready[1]] {
+            (void)::close(ReadFD);
+            (void)::signal(SIGTERM, SIG_IGN);
+            const char Byte = 'R';
+            ssize_t Written;
+            do {
+              Written = ::write(WriteFD, &Byte, 1);
+            } while (Written < 0 && errno == EINTR);
+            (void)::close(WriteFD);
+            for (;;)
+              ::pause();
+            return 0;
+          },
+          std::move(OnDeath), ChildFDs);
+    } catch (...) {
+      (void)::close(Ready[0]);
+      (void)::close(Ready[1]);
+      throw;
+    }
+    (void)::close(Ready[1]);
+    char Byte = 0;
+    ssize_t Read;
+    do {
+      Read = ::read(Ready[0], &Byte, 1);
+    } while (Read < 0 && errno == EINTR);
+    (void)::close(Ready[0]);
+    ChildReady = Read == 1 && Byte == 'R';
+  }
+
+  void evaluate(std::string, EvaluationCallback Reply) override { Reply(true); }
+
+  void cancel() override {
+    if (Process)
+      (void)Process->stop();
+  }
+
+  std::shared_ptr<ProcessTreeIdentity> prepareCancellation() override {
+    return Process ? Process->prepareStop() : nullptr;
+  }
+
+  void finishCancellation() noexcept override {
+    if (Process)
+      Process->finishStop();
+  }
+
+  [[nodiscard]] bool alive() const override {
+    return Process && Process->alive();
+  }
+
+  [[nodiscard]] pid_t pid() const { return Process ? Process->pid() : -1; }
+  [[nodiscard]] bool ready() const { return ChildReady; }
+};
+
+class ExactEvaluatorCleanup {
+  pid_t PID;
+
+public:
+  explicit ExactEvaluatorCleanup(pid_t PID) : PID(PID) {}
+
+  ~ExactEvaluatorCleanup() {
+    if (PID <= 0)
+      return;
+    siginfo_t Info{};
+    errno = 0;
+    if (::waitid(P_PID, PID, &Info, WEXITED | WNOHANG | WNOWAIT) < 0 &&
+        errno == ECHILD)
+      return;
+    (void)::kill(-PID, SIGKILL);
+    (void)::kill(PID, SIGKILL);
+    int Status = 0;
+    while (::waitpid(PID, &Status, 0) < 0 && errno == EINTR) {
+    }
+  }
+};
+
+class ExactEvaluatorWatchdog {
+  std::vector<pid_t> PIDs;
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  bool Completed = false;
+  std::atomic<bool> Fired = false;
+  std::thread Thread;
+
+public:
+  explicit ExactEvaluatorWatchdog(std::vector<pid_t> PIDs)
+      : PIDs(std::move(PIDs)), Thread([this] {
+          std::unique_lock Lock(Mutex);
+          if (Changed.wait_for(Lock, std::chrono::seconds(5),
+                               [this] { return Completed; }))
+            return;
+          Fired = true;
+          for (pid_t PID : this->PIDs) {
+            (void)::kill(-PID, SIGKILL);
+            (void)::kill(PID, SIGKILL);
+          }
+        }) {}
+
+  void complete() {
+    {
+      std::lock_guard Guard(Mutex);
+      Completed = true;
+    }
+    Changed.notify_all();
+  }
+
+  [[nodiscard]] bool fired() const { return Fired; }
+
+  ~ExactEvaluatorWatchdog() {
+    complete();
+    Thread.join();
+  }
 };
 
 ProviderSpec nixpkgs(std::string Expression) {
@@ -548,6 +715,106 @@ TEST(ProviderRegistry, ShutdownGatesCancelsAndRetiresPendingProviders) {
   StaleOptionsReply(true);
   Executor.runAll();
   EXPECT_EQ(Registry.size(), 0);
+}
+
+TEST(ProviderRegistry, ShutdownUsesOneSharedGraceForCoordinatedWorkers) {
+  ManualExecutor Executor;
+  std::set<pid_t> Alive{7001, 7002, 7003};
+  std::chrono::milliseconds GraceTotal(0);
+  ProcessTreeBackend Backend{
+      .Kill =
+          [&](pid_t Target, int Signal) {
+            const pid_t PID = Target < 0 ? -Target : Target;
+            if (Signal == 0) {
+              if (Alive.contains(PID))
+                return 0;
+              errno = ESRCH;
+              return -1;
+            }
+            if (Signal == SIGKILL)
+              Alive.erase(PID);
+            return 0;
+          },
+      .WaitForGrace =
+          [&](std::chrono::milliseconds Delay) { GraceTotal += Delay; },
+  };
+  std::vector<std::shared_ptr<CoordinatedFakeWorker>> Workers;
+  pid_t NextPID = 7001;
+  ProviderRegistry Registry(
+      Executor.executor(),
+      [&](const ProviderKey &, const std::filesystem::path &,
+          ProviderWorker::DeathCallback) {
+        auto Worker =
+            std::make_shared<CoordinatedFakeWorker>(NextPID++, Backend);
+        Workers.push_back(Worker);
+        return Worker;
+      },
+      "/startup/cwd", Backend);
+  ProviderSpec Spec = nixpkgs("nixpkgs");
+  Spec.Options.emplace("one", "options");
+  Spec.Options.emplace("two", "options");
+  Registry.apply(std::move(Spec));
+  Executor.runAll();
+
+  Registry.shutdown();
+
+  EXPECT_EQ(GraceTotal, std::chrono::milliseconds(500));
+  ASSERT_EQ(Workers.size(), 3U);
+  for (const auto &Worker : Workers) {
+    EXPECT_EQ(Worker->PrepareCount, 1U);
+    EXPECT_EQ(Worker->CancelCount, 0U);
+    EXPECT_EQ(Worker->FinishCount, 1U);
+  }
+}
+
+TEST(ProviderRegistry, ShutdownUsesOneGraceForRealTermIgnoringEvaluators) {
+  ManualExecutor Executor;
+  std::vector<std::shared_ptr<TermIgnoringEvaluatorWorker>> Workers;
+  ProviderRegistry Registry(
+      Executor.executor(),
+      [&](const ProviderKey &, const std::filesystem::path &,
+          ProviderWorker::DeathCallback OnDeath) {
+        auto Worker =
+            std::make_shared<TermIgnoringEvaluatorWorker>(std::move(OnDeath));
+        Workers.push_back(Worker);
+        return Worker;
+      },
+      std::filesystem::current_path());
+  ProviderSpec Spec = nixpkgs("nixpkgs");
+  Spec.Options.emplace("one", "options");
+  Spec.Options.emplace("two", "options");
+  Registry.apply(std::move(Spec));
+  Executor.runAll();
+
+  std::vector<std::unique_ptr<ExactEvaluatorCleanup>> Cleanups;
+  std::vector<pid_t> PIDs;
+  for (const auto &Worker : Workers) {
+    PIDs.push_back(Worker->pid());
+    Cleanups.push_back(std::make_unique<ExactEvaluatorCleanup>(Worker->pid()));
+  }
+  EXPECT_EQ(Workers.size(), 3U);
+  if (Workers.size() != 3U)
+    return;
+  for (const auto &Worker : Workers) {
+    ASSERT_TRUE(Worker->ready());
+    ASSERT_GT(Worker->pid(), 0);
+  }
+  ExactEvaluatorWatchdog Watchdog(PIDs);
+
+  const auto Start = std::chrono::steady_clock::now();
+  Registry.shutdown();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+  Watchdog.complete();
+
+  EXPECT_GE(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(1200));
+  EXPECT_FALSE(Watchdog.fired());
+  for (pid_t PID : PIDs) {
+    siginfo_t Info{};
+    errno = 0;
+    EXPECT_EQ(::waitid(P_PID, PID, &Info, WEXITED | WNOHANG | WNOWAIT), -1);
+    EXPECT_EQ(errno, ECHILD);
+  }
 }
 
 TEST(ProviderRegistry, ConcurrentShutdownWaitersRunAfterSingleRetirement) {

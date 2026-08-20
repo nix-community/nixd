@@ -14,13 +14,14 @@ std::unique_ptr<OutboundPort> StreamProc::mkOut() const {
   return std::make_unique<OutboundPort>(*Stream);
 }
 
-StreamProc::StreamProc(const std::function<int()> &Action) {
+StreamProc::StreamProc(const std::function<int()> &Action,
+                       std::span<const int> ChildFDs) {
   int In;
   int Out;
   int Err;
   pid_t ProcessGroup = -1;
 
-  pid_t Child = forkPiped(In, Out, Err, &ProcessGroup);
+  pid_t Child = forkPiped(In, Out, Err, &ProcessGroup, ChildFDs);
   if (Child == 0)
     exit(Action());
 

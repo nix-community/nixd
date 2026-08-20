@@ -9,6 +9,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <span>
 #include <thread>
 
 namespace nixd {
@@ -96,6 +97,10 @@ public:
   AttrSetClient *client();
   [[nodiscard]] bool alive() const;
   [[nodiscard]] pid_t pid() const { return Proc.proc().PID; }
+  /// Split stop used by coordinated provider shutdown. Only the caller that
+  /// receives an identity owns the matching finishStop call.
+  std::shared_ptr<ProcessTreeIdentity> prepareStop() noexcept;
+  void finishStop() noexcept;
   /// Stop, join, and reap the worker. Concurrent owning-thread callers wait
   /// for the single Running -> Stopping -> Stopped transition. Returns false
   /// on the input thread, where joining or final destruction is forbidden.
@@ -106,7 +111,8 @@ public:
   /// OnDeath runs on the input thread and must retain only weak ownership. It
   /// must never release the final AttrSetClientProc owner on that thread.
   AttrSetClientProc(const std::function<int()> &Action,
-                    std::function<void()> OnDeath = {});
+                    std::function<void()> OnDeath = {},
+                    std::span<const int> ChildFDs = {});
 };
 
 } // namespace nixd

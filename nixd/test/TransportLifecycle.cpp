@@ -696,14 +696,17 @@ TEST(TransportLifecycle, StopEscalatesAndReapsChildIgnoringTermination) {
   pid_t PID = -1;
   const auto Start = std::chrono::steady_clock::now();
   {
-    AttrSetClientProc Process([&] {
-      ::signal(SIGTERM, SIG_IGN);
-      const char Byte = 'x';
-      if (::write(Ready[1], &Byte, 1) != 1)
-        return 2;
-      for (;;)
-        ::pause();
-    });
+    const std::array ChildFDs{Ready[1]};
+    AttrSetClientProc Process(
+        [&] {
+          ::signal(SIGTERM, SIG_IGN);
+          const char Byte = 'x';
+          if (::write(Ready[1], &Byte, 1) != 1)
+            return 2;
+          for (;;)
+            ::pause();
+        },
+        {}, ChildFDs);
     PID = Process.pid();
     ASSERT_EQ(::close(Ready[1]), 0);
     char Byte = 0;
@@ -721,7 +724,7 @@ TEST(TransportLifecycle, StopEscalatesAndReapsChildIgnoringTermination) {
   EXPECT_EQ(errno, ECHILD);
 }
 
-TEST(TransportLifecycle, CooperativeStopReturnsBeforeTheFullGraceInterval) {
+TEST(TransportLifecycle, CooperativeDedicatedGroupUsesSharedGraceBeforeReap) {
   AttrSetClientProc Process([] {
     ::signal(SIGTERM, SIG_DFL);
     for (;;)
@@ -738,7 +741,8 @@ TEST(TransportLifecycle, CooperativeStopReturnsBeforeTheFullGraceInterval) {
   Watchdog.complete();
 
   EXPECT_FALSE(Watchdog.fired());
-  EXPECT_LT(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_GE(Elapsed, std::chrono::milliseconds(450));
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(900));
   int Status = 0;
   errno = 0;
   EXPECT_EQ(::waitpid(PID, &Status, WNOHANG), -1);
@@ -752,6 +756,7 @@ TEST(TransportLifecycle, ConcurrentStopWaitsForSingleCompletedStop) {
   std::condition_variable Changed;
   bool PendingFailed = false;
   bool SawDeath = false;
+  const std::array ChildFDs{Ready[1]};
 
   AttrSetClientProc Process(
       [&] {
@@ -768,7 +773,8 @@ TEST(TransportLifecycle, ConcurrentStopWaitsForSingleCompletedStop) {
           SawDeath = true;
         }
         Changed.notify_all();
-      });
+      },
+      ChildFDs);
   ASSERT_EQ(::close(Ready[1]), 0);
   char Byte = 0;
   ASSERT_EQ(::read(Ready[0], &Byte, 1), 1);
@@ -810,6 +816,7 @@ TEST(TransportLifecycle, InputThreadStopDefersJoinToOwningThread) {
   bool SawDeath = false;
   bool InputStopCompleted = true;
   std::unique_ptr<AttrSetClientProc> Process;
+  const std::array ChildFDs{Go[0]};
 
   Process = std::make_unique<AttrSetClientProc>(
       [&] {
@@ -825,7 +832,8 @@ TEST(TransportLifecycle, InputThreadStopDefersJoinToOwningThread) {
           SawDeath = true;
         }
         Died.notify_one();
-      });
+      },
+      ChildFDs);
   ASSERT_EQ(::close(Go[0]), 0);
   const char Byte = 'x';
   ASSERT_EQ(::write(Go[1], &Byte, 1), 1);
@@ -895,21 +903,25 @@ TEST(TransportLifecycle, StopBoundsHostileProcessTreeAndKillsInheritedWriter) {
   const pid_t ParentGroup = ::getpgrp();
   const auto Start = std::chrono::steady_clock::now();
   {
-    AttrSetClientProc Process([&] {
-      ::signal(SIGTERM, SIG_IGN);
-      const pid_t Child = ::fork();
-      if (Child < 0)
-        return 2;
-      if (Child == 0) {
-        ::signal(SIGTERM, SIG_IGN);
-        for (;;)
-          ::pause();
-      }
-      if (::write(DescendantPipe[1], &Child, sizeof(Child)) != sizeof(Child))
-        return 3;
-      for (;;)
-        ::pause();
-    });
+    const std::array ChildFDs{DescendantPipe[1]};
+    AttrSetClientProc Process(
+        [&] {
+          ::signal(SIGTERM, SIG_IGN);
+          const pid_t Child = ::fork();
+          if (Child < 0)
+            return 2;
+          if (Child == 0) {
+            ::signal(SIGTERM, SIG_IGN);
+            for (;;)
+              ::pause();
+          }
+          if (::write(DescendantPipe[1], &Child, sizeof(Child)) !=
+              sizeof(Child))
+            return 3;
+          for (;;)
+            ::pause();
+        },
+        {}, ChildFDs);
     ASSERT_EQ(::close(DescendantPipe[1]), 0);
     ASSERT_EQ(::read(DescendantPipe[0], &Descendant, sizeof(Descendant)),
               sizeof(Descendant));
@@ -947,18 +959,22 @@ TEST(TransportLifecycle, AliveObservationLeavesExitedLeaderWaitableUntilStop) {
   pid_t Descendant = -1;
   pid_t Leader = -1;
   {
-    AttrSetClientProc Process([&] {
-      const pid_t Child = ::fork();
-      if (Child < 0)
-        return 2;
-      if (Child == 0) {
-        for (;;)
-          ::pause();
-      }
-      if (::write(DescendantPipe[1], &Child, sizeof(Child)) != sizeof(Child))
-        return 3;
-      return 0;
-    });
+    const std::array ChildFDs{DescendantPipe[1]};
+    AttrSetClientProc Process(
+        [&] {
+          const pid_t Child = ::fork();
+          if (Child < 0)
+            return 2;
+          if (Child == 0) {
+            for (;;)
+              ::pause();
+          }
+          if (::write(DescendantPipe[1], &Child, sizeof(Child)) !=
+              sizeof(Child))
+            return 3;
+          return 0;
+        },
+        {}, ChildFDs);
     ASSERT_EQ(::close(DescendantPipe[1]), 0);
     ASSERT_EQ(::read(DescendantPipe[0], &Descendant, sizeof(Descendant)),
               sizeof(Descendant));
@@ -992,19 +1008,23 @@ TEST(TransportLifecycle,
   ASSERT_EQ(::pipe(DescendantPipe), 0);
   pid_t Descendant = -1;
   {
-    AttrSetClientProc Process([&] {
-      const pid_t Child = ::fork();
-      if (Child < 0)
-        return 2;
-      if (Child == 0) {
-        ::signal(SIGTERM, SIG_IGN);
-        for (;;)
-          ::pause();
-      }
-      if (::write(DescendantPipe[1], &Child, sizeof(Child)) != sizeof(Child))
-        return 3;
-      return 0;
-    });
+    const std::array ChildFDs{DescendantPipe[1]};
+    AttrSetClientProc Process(
+        [&] {
+          const pid_t Child = ::fork();
+          if (Child < 0)
+            return 2;
+          if (Child == 0) {
+            ::signal(SIGTERM, SIG_IGN);
+            for (;;)
+              ::pause();
+          }
+          if (::write(DescendantPipe[1], &Child, sizeof(Child)) !=
+              sizeof(Child))
+            return 3;
+          return 0;
+        },
+        {}, ChildFDs);
     ASSERT_EQ(::close(DescendantPipe[1]), 0);
     ASSERT_EQ(::read(DescendantPipe[0], &Descendant, sizeof(Descendant)),
               sizeof(Descendant));

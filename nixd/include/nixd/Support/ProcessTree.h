@@ -17,6 +17,7 @@ struct ProcessTreeBackend {
   /// after an external reap. Tests may omit this system-only observation.
   std::function<int(pid_t)> ObserveLeader;
   std::function<std::chrono::steady_clock::time_point()> Now;
+  std::function<pid_t(pid_t, int *, int)> WaitPID;
 
   static ProcessTreeBackend system();
 };
@@ -34,6 +35,7 @@ class ProcessTreeIdentity {
   bool CancellationFinished = false;
 
   [[nodiscard]] pid_t signalTargetLocked() const;
+  [[nodiscard]] bool ownsDedicatedGroupLocked() const;
   [[nodiscard]] bool
   isAliveLocked(const ProcessTreeBackend &Backend) const noexcept;
 
@@ -45,6 +47,7 @@ public:
   [[nodiscard]] pid_t pid() const;
   [[nodiscard]] bool cancellationRequested() const;
   [[nodiscard]] bool ownsIdentity() const;
+  [[nodiscard]] bool ownsDedicatedGroup() const;
 
   /// Returns true only to the caller responsible for TERM/grace/KILL.
   bool beginCancellation();
@@ -60,10 +63,19 @@ public:
   bool observeLeaderExit() noexcept;
   bool observeLeaderExit(const ProcessTreeBackend &Backend) noexcept;
 
+  /// A successfully completed direct child no longer needs graceful shutdown.
+  /// While its unreaped PID still pins a validated dedicated PGID, send TERM
+  /// and immediately KILL any background members. Direct-PID fallback owns no
+  /// descendant identity and is left for the sole reap owner.
+  void terminateCompletedOwnedGroup(const ProcessTreeBackend &Backend =
+                                        ProcessTreeBackend::system()) noexcept;
+
   /// The sole owner calls this instead of waitpid so group signaling and reap
   /// cannot cross. After KILL, only an uninterruptible kernel D-state can keep
   /// a blocking owner reap from completing. Returns waitpid's result.
-  pid_t reapChild(int &Status, int Options) noexcept;
+  pid_t reapChild(int &Status, int Options,
+                  const ProcessTreeBackend &Backend =
+                      ProcessTreeBackend::system()) noexcept;
 
   /// Deterministic test seam for fake process backends.
   bool markReaped();
