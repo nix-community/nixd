@@ -3,6 +3,7 @@
 #include "nixd/Support/PipedProc.h"
 #include "nixd/Support/ProcessTree.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -29,6 +30,7 @@ struct FormatterProcess {
 class FormatterProcessRegistry {
   mutable std::mutex Mutex;
   bool Accepting = true;
+  size_t LaunchAttempts = 0;
   std::vector<std::shared_ptr<ProcessTreeIdentity>> Active;
   ProcessTreeBackend Backend;
 
@@ -51,6 +53,7 @@ public:
 
   [[nodiscard]] std::vector<pid_t> activePIDs() const;
   [[nodiscard]] bool allActiveCancellationRequested() const;
+  [[nodiscard]] size_t launchAttempts() const;
 };
 
 struct FormatterRunResult {

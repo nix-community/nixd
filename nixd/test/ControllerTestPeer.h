@@ -51,6 +51,16 @@ struct ControllerTestPeer {
     return C.Formatters.activePIDs();
   }
 
+  static size_t formattingLaunchAttempts(Controller &C) {
+    return C.Formatters.launchAttempts();
+  }
+
+  static void setFormattingCommand(Controller &C,
+                                   std::vector<std::string> Command) {
+    std::lock_guard Guard(C.ConfigLock);
+    C.Config.formatting.command = std::move(Command);
+  }
+
   static bool allFormattersCancelled(Controller &C) {
     return C.Formatters.allActiveCancellationRequested();
   }

@@ -162,6 +162,7 @@ FormatterProcessRegistry::FormatterProcessRegistry(ProcessTreeBackend Backend)
 std::optional<FormatterProcess>
 FormatterProcessRegistry::launch(const Launcher &Launcher) {
   std::lock_guard Guard(Mutex);
+  ++LaunchAttempts;
   if (!Accepting)
     return std::nullopt;
 
@@ -230,6 +231,11 @@ bool FormatterProcessRegistry::allActiveCancellationRequested() const {
   return std::ranges::all_of(Active, [](const auto &Identity) {
     return Identity->cancellationRequested();
   });
+}
+
+size_t FormatterProcessRegistry::launchAttempts() const {
+  std::lock_guard Guard(Mutex);
+  return LaunchAttempts;
 }
 
 FormatterRunResult nixd::runFormatter(FormatterProcessRegistry &Registry,

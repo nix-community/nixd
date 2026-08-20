@@ -958,6 +958,31 @@ TEST(FormatterLifecycle,
     expectReaped(PID);
 }
 
+TEST(FormatterLifecycle, EmptyCommandRepliesNoEditsWithoutLaunchAttempt) {
+  Controller C(std::make_unique<lspserver::InboundPort>(-1),
+               std::make_unique<lspserver::OutboundPort>());
+  TemporaryPIDFile TemporaryFile;
+  const std::filesystem::path File = TemporaryFile.path();
+  ControllerTestPeer::prepareFormatting(C, File, "{ value = 1; }\n");
+  ControllerTestPeer::setFormattingCommand(C, {});
+  const size_t Attempts = ControllerTestPeer::formattingLaunchAttempts(C);
+  std::promise<llvm::Expected<std::vector<lspserver::TextEdit>>> Reply;
+  auto Result = Reply.get_future();
+
+  ControllerTestPeer::format(
+      C, File,
+      [&](llvm::Expected<std::vector<lspserver::TextEdit>> Edits) mutable {
+        Reply.set_value(std::move(Edits));
+      });
+
+  ASSERT_EQ(Result.wait_for(2s), std::future_status::ready);
+  auto Edits = Result.get();
+  if (!Edits)
+    FAIL() << llvm::toString(Edits.takeError());
+  EXPECT_TRUE(Edits->empty());
+  EXPECT_EQ(ControllerTestPeer::formattingLaunchAttempts(C), Attempts);
+}
+
 TEST(FormatterLifecycle, FakeBackendUsesOneGraceThenKill) {
   bool Alive = true;
   std::chrono::milliseconds GraceTotal(0);

@@ -20,6 +20,15 @@ class Client:
         executable = shutil.which("nixd", path=(env or os.environ).get("PATH"))
         if executable is None:
             raise RuntimeError("nixd is not available on PATH")
+        self.received = []
+        self._stdout = bytearray()
+        self._stderr = bytearray()
+        self._stderr_lock = threading.Lock()
+        self._stderr_done = threading.Event()
+        self._stderr_thread = None
+        self._stderr_thread_started = False
+        self._close_lock = threading.Lock()
+        self._closed = False
         self.proc = subprocess.Popen(
             [executable, *args],
             cwd=cwd,
@@ -30,15 +39,17 @@ class Client:
             bufsize=0,
             start_new_session=(os.name == "posix"),
         )
-        self.received = []
-        self._stdout = bytearray()
-        self._stderr = bytearray()
-        self._stderr_lock = threading.Lock()
-        self._stderr_done = threading.Event()
-        self._stderr_thread = threading.Thread(
-            target=self._drain_stderr, name="nixd-test-stderr", daemon=True
-        )
-        self._stderr_thread.start()
+        try:
+            os.set_blocking(self.proc.stdin.fileno(), False)
+            self._stderr_thread = threading.Thread(
+                target=self._drain_stderr, name="nixd-test-stderr", daemon=True
+            )
+            self._stderr_thread.start()
+            self._stderr_thread_started = True
+        except BaseException:
+            self._cleanup_process(send_exit=False)
+            self._closed = True
+            raise
 
     def _drain_stderr(self):
         try:
@@ -56,7 +67,7 @@ class Client:
         with self._stderr_lock:
             return self._stderr.decode(errors="replace")
 
-    def send(self, message):
+    def send(self, message, timeout=TIMEOUT_SECONDS):
         if self.proc.stdin is None or self.proc.stdin.closed:
             raise BrokenPipeError("nixd protocol input is closed")
         payload = json.dumps(message, separators=(",", ":")).encode()
@@ -64,8 +75,20 @@ class Client:
             f"Content-Length: {len(payload)}\r\n\r\n".encode() + payload
         )
         descriptor = self.proc.stdin.fileno()
+        deadline = time.monotonic() + timeout
         while frame:
-            written = os.write(descriptor, frame)
+            try:
+                written = os.write(descriptor, frame)
+            except InterruptedError:
+                continue
+            except BlockingIOError:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("timed out writing an LSP message")
+                _, writable, _ = select.select([], [descriptor], [], remaining)
+                if not writable:
+                    raise TimeoutError("timed out writing an LSP message")
+                continue
             if written == 0:
                 raise BrokenPipeError("nixd closed its protocol input")
             frame = frame[written:]
@@ -109,6 +132,19 @@ class Client:
         self.received.append(message)
         return message
 
+    def _has_complete_message(self):
+        separator = b"\r\n\r\n"
+        if separator not in self._stdout:
+            return False
+        header_end = self._stdout.index(separator)
+        headers = {}
+        for line in self._stdout[:header_end].split(b"\r\n"):
+            key, value = line.decode().split(":", 1)
+            headers[key.lower()] = value.strip()
+        return len(self._stdout) >= (
+            header_end + len(separator) + int(headers["content-length"])
+        )
+
     def wait_for(self, predicate, timeout=TIMEOUT_SECONDS):
         deadline = time.monotonic() + timeout
         while True:
@@ -119,7 +155,10 @@ class Client:
             if predicate(message):
                 return message
             if "id" in message and "method" in message:
-                self.reply(message, result=None)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("timed out replying to an LSP request")
+                self.reply(message, result=None, timeout=remaining)
 
     def assert_no_message(self, predicate, timeout=0.25):
         deadline = time.monotonic() + timeout
@@ -127,14 +166,20 @@ class Client:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return
-            readable, _, _ = select.select([self.proc.stdout], [], [], remaining)
-            if not readable:
-                return
+            if not self._has_complete_message():
+                readable, _, _ = select.select(
+                    [self.proc.stdout], [], [], remaining
+                )
+                if not readable:
+                    return
             message = self.receive(remaining)
             if predicate(message):
                 raise AssertionError(f"unexpected LSP message: {message}")
             if "id" in message and "method" in message:
-                self.reply(message, result=None)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return
+                self.reply(message, result=None, timeout=remaining)
 
     def read_stderr_until(self, predicate, timeout=TIMEOUT_SECONDS):
         deadline = time.monotonic() + timeout
@@ -148,20 +193,22 @@ class Client:
                 raise TimeoutError(f"stderr predicate not met: {text!r}")
             self._stderr_done.wait(0.01)
 
-    def notify(self, method, params=None):
+    def notify(self, method, params=None, timeout=TIMEOUT_SECONDS):
         self.send({
             "jsonrpc": "2.0",
             "method": method,
             "params": {} if params is None else params,
-        })
+        }, timeout=timeout)
 
-    def reply(self, request, *, result=None, error=None):
+    def reply(
+        self, request, *, result=None, error=None, timeout=TIMEOUT_SECONDS
+    ):
         response = {"jsonrpc": "2.0", "id": request["id"]}
         if error is None:
             response["result"] = result
         else:
             response["error"] = error
-        self.send(response)
+        self.send(response, timeout=timeout)
 
     def initialize(
         self,
@@ -170,7 +217,9 @@ class Client:
         root_path=None,
         workspace_folders=None,
         capabilities=None,
+        timeout=TIMEOUT_SECONDS,
     ):
+        deadline = time.monotonic() + timeout
         params = {"processId": os.getpid(), "capabilities": capabilities or {}}
         if root_uri is not None:
             params["rootUri"] = root_uri
@@ -183,8 +232,15 @@ class Client:
             "id": 0,
             "method": "initialize",
             "params": params,
-        })
-        return self.wait_for(lambda message: message.get("id") == 0)
+        }, timeout=timeout)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("timed out waiting for initialize response")
+        return self.wait_for(
+            lambda message: message.get("id") == 0
+            and "method" not in message,
+            timeout=remaining,
+        )
 
     def initialized(self):
         self.notify("initialized")
@@ -200,14 +256,20 @@ class Client:
         })
 
     def request(self, request_id, method, params, timeout=TIMEOUT_SECONDS):
+        deadline = time.monotonic() + timeout
         self.send({
             "jsonrpc": "2.0",
             "id": request_id,
             "method": method,
             "params": params,
-        })
+        }, timeout=timeout)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("timed out waiting for an LSP response")
         return self.wait_for(
-            lambda message: message.get("id") == request_id, timeout=timeout
+            lambda message: message.get("id") == request_id
+            and "method" not in message,
+            timeout=remaining,
         )
 
     def formatting(self, request_id, uri, timeout=TIMEOUT_SECONDS):
@@ -222,52 +284,100 @@ class Client:
             timeout=timeout,
         )
 
-    def _group_exists(self):
-        if os.name != "posix":
-            return False
+    def _unreaped_leader_state(self):
         try:
-            os.killpg(self.proc.pid, 0)
-            return True
-        except ProcessLookupError:
-            return False
+            result = os.waitid(
+                os.P_PID,
+                self.proc.pid,
+                os.WEXITED | os.WNOHANG | os.WNOWAIT,
+            )
+        except ChildProcessError:
+            return "reaped"
+        return "exited" if result is not None else "running"
 
-    def _terminate_process_group(self):
-        if not self._group_exists():
+    def _wait_for_unreaped_leader(self, deadline):
+        state = self._unreaped_leader_state()
+        while state == "running":
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return state
+            self._stderr_done.wait(min(0.01, remaining))
+            state = self._unreaped_leader_state()
+        return state
+
+    def _signal_process_group(self, signum):
+        try:
+            os.killpg(self.proc.pid, signum)
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    def _cleanup_posix(self, deadline):
+        started = time.monotonic()
+        duration = max(0.0, deadline - started)
+        graceful_deadline = started + duration / 2
+        terminate_deadline = started + duration * 3 / 4
+        state = self._wait_for_unreaped_leader(graceful_deadline)
+        if state == "running":
+            self._signal_process_group(signal.SIGTERM)
+            state = self._wait_for_unreaped_leader(terminate_deadline)
+        if state != "reaped":
+            # The leader remains an unreaped child here, so its process-group
+            # identity cannot be recycled before this final descendant cleanup.
+            self._signal_process_group(signal.SIGKILL)
+            if state == "running":
+                self._wait_for_unreaped_leader(deadline)
+        self.proc.wait(timeout=max(0.01, deadline - time.monotonic()))
+
+    def _cleanup_non_posix(self, deadline):
+        try:
+            self.proc.wait(timeout=max(0.01, deadline - time.monotonic()))
             return
-        os.killpg(self.proc.pid, signal.SIGTERM)
-        deadline = time.monotonic() + SHUTDOWN_SECONDS
-        while self._group_exists() and time.monotonic() < deadline:
-            time.sleep(0.01)
-        if self._group_exists():
-            os.killpg(self.proc.pid, signal.SIGKILL)
+        except subprocess.TimeoutExpired:
+            self.proc.terminate()
+        try:
+            self.proc.wait(timeout=max(0.01, deadline - time.monotonic()))
+            return
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        self.proc.wait(timeout=max(0.01, deadline - time.monotonic()))
 
-    def close(self):
-        if self.proc.poll() is None:
+    def _cleanup_process(self, *, send_exit):
+        deadline = time.monotonic() + SHUTDOWN_SECONDS
+        if send_exit:
             try:
-                self.notify("exit")
-            except (BrokenPipeError, OSError):
+                self.notify(
+                    "exit",
+                    timeout=min(
+                        SHUTDOWN_SECONDS / 4,
+                        max(0.0, deadline - time.monotonic()),
+                    ),
+                )
+            except (BrokenPipeError, OSError, TimeoutError):
                 pass
         if self.proc.stdin is not None and not self.proc.stdin.closed:
             self.proc.stdin.close()
-        try:
-            self.proc.wait(timeout=SHUTDOWN_SECONDS)
-        except subprocess.TimeoutExpired:
-            if os.name == "posix":
-                self._terminate_process_group()
-            else:
-                self.proc.terminate()
-            try:
-                self.proc.wait(timeout=SHUTDOWN_SECONDS)
-            except subprocess.TimeoutExpired:
-                if os.name == "posix":
-                    os.killpg(self.proc.pid, signal.SIGKILL)
-                else:
-                    self.proc.kill()
-                self.proc.wait(timeout=SHUTDOWN_SECONDS)
-        self._terminate_process_group()
-        self._stderr_done.wait(SHUTDOWN_SECONDS)
-        self._stderr_thread.join(timeout=SHUTDOWN_SECONDS)
-        return self.stderr
+        if os.name == "posix":
+            self._cleanup_posix(deadline)
+        else:
+            self._cleanup_non_posix(deadline)
+
+        if self._stderr_thread_started:
+            self._stderr_done.wait(max(0.0, deadline - time.monotonic()))
+            self._stderr_thread.join(
+                timeout=max(0.0, deadline - time.monotonic())
+            )
+        for stream in (self.proc.stdout, self.proc.stderr):
+            if stream is not None and not stream.closed:
+                stream.close()
+
+    def close(self):
+        with self._close_lock:
+            if not self._closed:
+                try:
+                    self._cleanup_process(send_exit=True)
+                finally:
+                    self._closed = True
+            return self.stderr
 
     def __enter__(self):
         return self
