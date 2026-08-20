@@ -36,14 +36,18 @@ AttrSetClientProc::AttrSetClientProc(const std::function<int()> &Action,
     : Proc(Action, ChildFDs), Identity(std::make_shared<ProcessTreeIdentity>(
                                   Proc.proc().PID, Proc.proc().ProcessGroup)),
       Client(Proc.mkIn(), Proc.mkOut()), OnDeath(std::move(OnDeath)),
-      Input([this] { runInput(); }) {}
+      Input([this] { runInput(); }) {
+  Proc.claimProcess();
+}
 
 AttrSetClientProc::AttrSetClientProc(const ExecSpec &Spec,
                                      std::function<void()> OnDeath)
     : Proc(Spec), Identity(std::make_shared<ProcessTreeIdentity>(
                       Proc.proc().PID, Proc.proc().ProcessGroup)),
       Client(Proc.mkIn(), Proc.mkOut()), OnDeath(std::move(OnDeath)),
-      Input([this] { runInput(); }) {}
+      Input([this] { runInput(); }) {
+  Proc.claimProcess();
+}
 
 void AttrSetClientProc::runInput() {
   Client.run();

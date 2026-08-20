@@ -1,6 +1,7 @@
 #include "../lib/Support/ForkPipedInternal.h"
 #include "lspserver/LSPServer.h"
 #include "nixd/Eval/AttrSetClient.h"
+#include "nixd/Eval/Launch.h"
 #include "nixd/Support/ForkPiped.h"
 
 #include <gtest/gtest.h>
@@ -13,7 +14,9 @@
 #include <condition_variable>
 #include <fcntl.h>
 #include <filesystem>
+#include <fstream>
 #include <mutex>
+#include <optional>
 #include <signal.h>
 #include <string>
 #include <sys/wait.h>
@@ -70,6 +73,49 @@ public:
   }
 
   [[nodiscard]] const std::string &path() const { return Path; }
+};
+
+class TemporaryDirectory {
+  std::filesystem::path Path;
+
+public:
+  TemporaryDirectory() {
+    std::string Pattern =
+        (std::filesystem::temp_directory_path() / "codex-nixd-exec.XXXXXX")
+            .string();
+    const char *Created = ::mkdtemp(Pattern.data());
+    if (!Created)
+      throw std::system_error(errno, std::generic_category(), "mkdtemp");
+    Path = Created;
+  }
+
+  ~TemporaryDirectory() {
+    std::error_code EC;
+    std::filesystem::remove_all(Path, EC);
+  }
+
+  [[nodiscard]] const std::filesystem::path &path() const { return Path; }
+};
+
+class ScopedEnvironment {
+  std::string Name;
+  std::optional<std::string> Previous;
+
+public:
+  ScopedEnvironment(std::string Name, const std::string &Value)
+      : Name(std::move(Name)) {
+    if (const char *Current = ::getenv(this->Name.c_str()))
+      Previous = Current;
+    if (::setenv(this->Name.c_str(), Value.c_str(), 1) != 0)
+      throw std::system_error(errno, std::generic_category(), "setenv");
+  }
+
+  ~ScopedEnvironment() {
+    if (Previous)
+      (void)::setenv(Name.c_str(), Previous->c_str(), 1);
+    else
+      (void)::unsetenv(Name.c_str());
+  }
 };
 
 std::filesystem::path findTestExecutable(llvm::StringRef Name) {
@@ -1241,6 +1287,7 @@ TEST(TransportLifecycle, StreamProcExecRoutesPipesAndRedirectsStderr) {
   });
   ExactChildCleanup Cleanup(Process.proc().PID);
   const pid_t PID = Process.proc().PID;
+  Process.claimProcess();
 
   ASSERT_GT(PID, 0);
   EXPECT_EQ(Process.proc().ProcessGroup, PID);
@@ -1265,20 +1312,137 @@ TEST(TransportLifecycle, StreamProcExecRoutesPipesAndRedirectsStderr) {
   EXPECT_EQ(Error, "stderr:input");
 }
 
-TEST(TransportLifecycle, StreamProcExecOpenFailureDoesNotLeakDescriptors) {
-  const size_t Before = countOpenDescriptors();
+TEST(TransportLifecycle,
+     StreamProcExecOpensRelativeStderrBeforeEnteringWorkingDirectory) {
+  TemporaryDirectory Temp;
+  const auto Selected = Temp.path() / "selected";
+  ASSERT_TRUE(std::filesystem::create_directory(Selected));
+  const auto Stderr = Temp.path() / "stderr";
+  std::error_code EC;
+  const auto RelativeStderr =
+      std::filesystem::relative(Stderr, std::filesystem::current_path(), EC);
+  ASSERT_FALSE(EC) << EC.message();
   const auto Shell = findTestExecutable("sh");
   ASSERT_FALSE(Shell.empty());
+  StreamProc Process(ExecSpec{
+      .Executable = Shell,
+      .Arguments = {"nixd-test", "-c",
+                    "printf 'relative-stderr' >&2; read ignored || :"},
+      .Stderr = RelativeStderr,
+      .WorkingDirectory = Selected,
+  });
+  const pid_t Child = Process.proc().PID;
+  ExactChildCleanup Cleanup(Child);
+  Process.claimProcess();
+  ASSERT_EQ(::close(Process.proc().Stdin.get()), 0);
+  Process.proc().Stdin.release();
+  (void)readAll(Process.proc().Stdout.get());
+  int Status = 0;
+  ASSERT_EQ(::waitpid(Child, &Status, 0), Child);
+  Cleanup.release();
 
-  EXPECT_THROW(
-      {
-        StreamProc Process(ExecSpec{
-            .Executable = Shell,
-            .Arguments = {"nixd-test"},
-            .Stderr = "/does-not-exist/codex-nixd-exec-stderr",
-        });
-      },
-      std::system_error);
+  ASSERT_TRUE(WIFEXITED(Status));
+  EXPECT_EQ(WEXITSTATUS(Status), 0);
+  std::ifstream Input(Stderr);
+  std::string Error;
+  ASSERT_TRUE(static_cast<bool>(std::getline(Input, Error)));
+  EXPECT_EQ(Error, "relative-stderr");
+}
+
+TEST(TransportLifecycle,
+     StartAttrSetEvalRunsUnmodifiedArgvInSelectedWorkingDirectory) {
+  TemporaryDirectory Temp;
+  const auto Selected = Temp.path() / "selected";
+  ASSERT_TRUE(std::filesystem::create_directory(Selected));
+  const auto Wrapper = Selected / "relative-evaluator";
+  const auto Report = Temp.path() / "report";
+  {
+    std::ofstream Output(Wrapper);
+    ASSERT_TRUE(Output.good());
+    Output << "#!/bin/sh\n"
+              "if [ \"$#\" -ne 0 ]; then\n"
+              "  printf 'args:%s\\n' \"$#\" > \"$NIXD_TEST_EVAL_REPORT\"\n"
+              "  exit 97\n"
+              "fi\n"
+              "pwd > \"$NIXD_TEST_EVAL_REPORT\"\n"
+              "while :; do sleep 1; done\n";
+  }
+  ASSERT_EQ(::chmod(Wrapper.c_str(), 0700), 0);
+  ScopedEnvironment Evaluator("NIXD_ATTRSET_EVAL", "relative-evaluator");
+  ScopedEnvironment ReportPath("NIXD_TEST_EVAL_REPORT", Report.string());
+  TemporaryOutputFile Stderr;
+  ASSERT_FALSE(Stderr.path().empty());
+  std::error_code RelativeEC;
+  const auto RelativeSelected = std::filesystem::relative(
+      Selected, std::filesystem::current_path(), RelativeEC);
+  ASSERT_FALSE(RelativeEC) << RelativeEC.message();
+  ASSERT_FALSE(RelativeSelected.is_absolute());
+
+  std::unique_ptr<AttrSetClientProc> Worker;
+  startAttrSetEval(Stderr.path(), Worker, RelativeSelected);
+  ASSERT_TRUE(Worker);
+
+  const auto Deadline =
+      std::chrono::steady_clock::now() + std::chrono::seconds(2);
+  std::string Actual;
+  while (std::chrono::steady_clock::now() < Deadline) {
+    std::ifstream Input(Report);
+    if (std::getline(Input, Actual))
+      break;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  ASSERT_FALSE(Actual.empty());
+  std::error_code EquivalentEC;
+  EXPECT_TRUE(std::filesystem::equivalent(Actual, Selected, EquivalentEC));
+  EXPECT_FALSE(EquivalentEC) << EquivalentEC.message();
+}
+
+TEST(TransportLifecycle, UnclaimedStreamProcDestructionKillsAndReapsChild) {
+  TemporaryOutputFile Stderr;
+  ASSERT_FALSE(Stderr.path().empty());
+  const auto Shell = findTestExecutable("sh");
+  ASSERT_FALSE(Shell.empty());
+  pid_t Child = -1;
+  std::unique_ptr<ExactChildCleanup> Cleanup;
+  {
+    StreamProc Process(ExecSpec{
+        .Executable = Shell,
+        .Arguments = {"nixd-test", "-c",
+                      "trap '' TERM HUP; while :; do sleep 1; done"},
+        .Stderr = Stderr.path(),
+    });
+    Child = Process.proc().PID;
+    ASSERT_GT(Child, 0);
+    Cleanup = std::make_unique<ExactChildCleanup>(Child);
+  }
+
+  int Status = 0;
+  errno = 0;
+  EXPECT_EQ(::waitpid(Child, &Status, WNOHANG), -1);
+  EXPECT_EQ(errno, ECHILD);
+  if (errno == ECHILD)
+    Cleanup->release();
+}
+
+TEST(TransportLifecycle, StreamProcExecOpenFailureDoesNotLeakDescriptors) {
+  const auto Shell = findTestExecutable("sh");
+  ASSERT_FALSE(Shell.empty());
+  TemporaryOutputFile BlockingParent;
+  ASSERT_FALSE(BlockingParent.path().empty());
+  const auto InvalidStderr =
+      std::filesystem::path(BlockingParent.path()) / "child";
+  const size_t Before = countOpenDescriptors();
+
+  try {
+    StreamProc Process(ExecSpec{
+        .Executable = Shell,
+        .Arguments = {"nixd-test"},
+        .Stderr = InvalidStderr,
+    });
+    FAIL() << "launch unexpectedly accepted a regular file as a directory";
+  } catch (const std::system_error &Error) {
+    EXPECT_EQ(Error.code(), std::error_code(ENOTDIR, std::generic_category()));
+  }
 
   EXPECT_EQ(countOpenDescriptors(), Before);
 }
@@ -1312,7 +1476,8 @@ TEST(TransportLifecycle, StreamProcExecRoutesPipesWhenParentStdioIsClosed) {
       });
       const pid_t Child = Process.proc().PID;
       if (!writeExact(Report[1], &Child, sizeof(Child)))
-        _exit(2);
+        throw std::system_error(EPIPE, std::generic_category());
+      Process.claimProcess();
       const bool Wrote = writeExact(Process.proc().Stdin.get(), "input\n", 6);
       (void)::close(Process.proc().Stdin.get());
       Process.proc().Stdin.release();
