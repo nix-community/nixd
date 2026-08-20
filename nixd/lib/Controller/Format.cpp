@@ -7,12 +7,9 @@
 /// external command and then let that process do formatting.
 
 #include "nixd/Controller/Controller.h"
-#include "nixd/Support/ForkPiped.h"
 
 #include <boost/asio/post.hpp>
-#include <cstdio>
-#include <sys/wait.h>
-#include <unistd.h>
+#include <exception>
 
 using namespace nixd;
 using namespace lspserver;
@@ -23,88 +20,50 @@ void Controller::onFormat(const DocumentFormattingParams &Params,
   const std::filesystem::path ExecutionCWD = Startup->executionCWD;
   auto Action = [this, Params, ExecutionCWD,
                  Reply = std::move(Reply)]() mutable {
-    lspserver::PathRef File = Params.textDocument.uri.file();
-    const std::string &Code = *Store.getDraft(File)->Contents;
-    // Invokes another process and then read it's stdout.
-    std::vector<std::string> FormatCommand;
-    {
-      // Read from config, get format options.
-      std::lock_guard G(ConfigLock);
-      FormatCommand = Config.formatting.command;
-    }
-
-    if (FormatCommand.empty()) {
-      Reply(error("formating command is empty, please set external formatter"));
-      return;
-    }
-
-    // Convert vectors to syscall form. This should be cheap.
-    std::vector<char *> Syscall;
-    Syscall.reserve(FormatCommand.size());
-    for (const auto &Str : FormatCommand) {
-      // For compatibility with existing C code.
-      Syscall.emplace_back(const_cast<char *>(Str.c_str()));
-    }
-
-    // Null terminator.
-    Syscall.emplace_back(nullptr);
-
-    int In;
-    int Out;
-    int Err;
-
-    pid_t Child = forkPiped(In, Out, Err);
-    if (Child == 0) {
-      if (chdir(ExecutionCWD.c_str()) != 0) {
-        perror("failed to change formatter working directory");
-        _exit(127);
+    try {
+      lspserver::PathRef File = Params.textDocument.uri.file();
+      auto Draft = Store.getDraft(File);
+      if (!Draft) {
+        Reply(error("cannot format an unopened document"));
+        return;
       }
-      execvp(Syscall[0], Syscall.data());
-      _exit(127);
-    }
-    // Firstly, send the document to the process stdin.
-    // Invoke POSIX write(2) to do such thing.
-    const char *Start = Code.c_str();
-    const char *End = Code.c_str() + Code.size();
-    while (Start != End) {
-      if (long Writen = write(In, Start, End - Start); Writen != -1) {
-        Start += Writen;
-      } else {
-        throw std::system_error(errno, std::generic_category());
+      const std::string Code = *Draft->Contents;
+      std::vector<std::string> FormatCommand;
+      {
+        std::lock_guard G(ConfigLock);
+        FormatCommand = Config.formatting.command;
       }
+
+      if (FormatCommand.empty()) {
+        Reply(
+            error("formating command is empty, please set external formatter"));
+        return;
+      }
+
+      FormatterRunResult Result =
+          runFormatter(Formatters, FormatCommand, ExecutionCWD, Code);
+      if (Result.Cancelled) {
+        Reply(error("formatting cancelled because nixd is shutting down"));
+        return;
+      }
+      if (Result.ExitStatus != 0) {
+        Reply(error("formatting {0} command exited with {1}", FormatCommand[0],
+                    Result.ExitStatus));
+        return;
+      }
+
+      if (Result.Stdout == Code) {
+        Reply(std::vector<TextEdit>{});
+        return;
+      }
+
+      TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, std::move(Result.Stdout)};
+      Reply(std::vector{std::move(E)});
+    } catch (const std::exception &Err) {
+      Reply(error("formatting command failed: {0}", Err.what()));
+    } catch (...) {
+      Reply(error("formatting command failed with an unknown exception"));
     }
-    close(In);
-
-    // And, wait for the process.
-    int Exit = 0;
-    waitpid(Child, &Exit, 0);
-
-    if (Exit != 0) {
-      Reply(error("formatting {0} command exited with {1}", FormatCommand[0],
-                  Exit));
-      return;
-    }
-
-    // Okay, read stdout from it.
-    std::string Response;
-    while (true) {
-      char Buf[1024];
-      auto Read = read(Out, Buf, sizeof(Buf));
-      if (Read == 0)
-        break;
-      if (Read < 0)
-        throw std::system_error(errno, std::generic_category());
-      // Otherwise, append it to "response"
-      Response.append(Buf, Read);
-    }
-
-    if (Response == Code) {
-      Reply(std::vector<TextEdit>{});
-      return;
-    }
-
-    TextEdit E{{{0, 0}, {INT_MAX, INT_MAX}}, Response};
-    Reply(std::vector{E});
   };
 
   boost::asio::post(Pool, std::move(Action));

@@ -33,8 +33,8 @@ Result queryProvider(ProviderRegistry &Registry,
                      ProviderRegistry::QueryToken Token, Result Fallback,
                      Query &&Action) {
   Result InvalidFallback = Fallback;
-  Result Response = queryProviderStaged(
-      Registry, Token, std::move(Fallback), std::forward<Query>(Action));
+  Result Response = queryProviderStaged(Registry, Token, std::move(Fallback),
+                                        std::forward<Query>(Action));
   if (!Registry.validate(Token))
     return InvalidFallback;
   return Response;

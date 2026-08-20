@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <barrier>
 #include <cerrno>
 #include <chrono>
@@ -20,6 +21,70 @@
 
 namespace nixd {
 namespace {
+
+class ExactChildCleanup {
+  pid_t PID;
+
+public:
+  explicit ExactChildCleanup(pid_t PID) : PID(PID) {}
+
+  ~ExactChildCleanup() {
+    if (PID <= 0)
+      return;
+    siginfo_t Info{};
+    errno = 0;
+    if (::waitid(P_PID, PID, &Info, WEXITED | WNOHANG | WNOWAIT) < 0 &&
+        errno == ECHILD)
+      return;
+    (void)::kill(-PID, SIGKILL);
+    (void)::kill(PID, SIGKILL);
+    int Status = 0;
+    while (::waitpid(PID, &Status, 0) < 0 && errno == EINTR) {
+    }
+  }
+};
+
+class ExactChildWatchdog {
+  pid_t PID;
+  std::mutex Mutex;
+  std::condition_variable Changed;
+  bool Completed = false;
+  std::atomic<bool> Fired = false;
+  std::thread Thread;
+
+public:
+  explicit ExactChildWatchdog(pid_t PID)
+      : PID(PID), Thread([this] {
+          std::unique_lock Lock(Mutex);
+          if (Changed.wait_for(Lock, std::chrono::seconds(2),
+                               [this] { return Completed; }))
+            return;
+          Fired = true;
+          siginfo_t Info{};
+          errno = 0;
+          if (::waitid(P_PID, this->PID, &Info, WEXITED | WNOHANG | WNOWAIT) <
+                  0 &&
+              errno == ECHILD)
+            return;
+          (void)::kill(-this->PID, SIGKILL);
+          (void)::kill(this->PID, SIGKILL);
+        }) {}
+
+  void complete() {
+    {
+      std::lock_guard Guard(Mutex);
+      Completed = true;
+    }
+    Changed.notify_all();
+  }
+
+  ~ExactChildWatchdog() {
+    complete();
+    Thread.join();
+  }
+
+  [[nodiscard]] bool fired() const { return Fired; }
+};
 
 size_t countOpenDescriptors() {
   size_t Count = 0;
@@ -129,9 +194,7 @@ class BlockingOutputStream final : public llvm::raw_ostream {
     Buffer.append(Ptr, Size);
   }
 
-  [[nodiscard]] uint64_t current_pos() const override {
-    return Buffer.size();
-  }
+  [[nodiscard]] uint64_t current_pos() const override { return Buffer.size(); }
 
 public:
   bool waitUntilEntered() {
@@ -259,11 +322,10 @@ TEST(TransportLifecycle,
      ConcurrentDuplicateRepliesKeepImmutableIDAndFinishExactlyOnce) {
   int Input[2];
   ASSERT_EQ(::pipe(Input), 0);
-  writeStandardMessage(Input[1],
-                       llvm::json::Object{{"jsonrpc", "2.0"},
-                                          {"id", "duplicate-id"},
-                                          {"method", "test/inbound"},
-                                          {"params", nullptr}});
+  writeStandardMessage(Input[1], llvm::json::Object{{"jsonrpc", "2.0"},
+                                                    {"id", "duplicate-id"},
+                                                    {"method", "test/inbound"},
+                                                    {"params", nullptr}});
   writeInputExit(Input[1]);
 
   BlockingOutputStream Output;
@@ -316,8 +378,9 @@ TEST(TransportLifecycle,
 
   EXPECT_EQ(ReturnedReplies.load(), 2U);
   EXPECT_EQ(countOccurrences(Output.str(), "\"result\":"), 1U);
-  EXPECT_NE(Logs.find("ignored duplicate reply for test/inbound(\"duplicate-id\")"),
-            std::string::npos)
+  EXPECT_NE(
+      Logs.find("ignored duplicate reply for test/inbound(\"duplicate-id\")"),
+      std::string::npos)
       << Logs;
   EXPECT_EQ(::close(Input[1]), 0);
   EXPECT_EQ(::close(Input[0]), 0);
@@ -652,6 +715,30 @@ TEST(TransportLifecycle, StopEscalatesAndReapsChildIgnoringTermination) {
   EXPECT_LT(Elapsed, std::chrono::seconds(3));
   ASSERT_EQ(::close(Ready[0]), 0);
 
+  int Status = 0;
+  errno = 0;
+  EXPECT_EQ(::waitpid(PID, &Status, WNOHANG), -1);
+  EXPECT_EQ(errno, ECHILD);
+}
+
+TEST(TransportLifecycle, CooperativeStopReturnsBeforeTheFullGraceInterval) {
+  AttrSetClientProc Process([] {
+    ::signal(SIGTERM, SIG_DFL);
+    for (;;)
+      ::pause();
+    return 0;
+  });
+  const pid_t PID = Process.pid();
+  ExactChildCleanup Cleanup(PID);
+  ExactChildWatchdog Watchdog(PID);
+
+  const auto Start = std::chrono::steady_clock::now();
+  EXPECT_TRUE(Process.stop());
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+  Watchdog.complete();
+
+  EXPECT_FALSE(Watchdog.fired());
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(400));
   int Status = 0;
   errno = 0;
   EXPECT_EQ(::waitpid(PID, &Status, WNOHANG), -1);

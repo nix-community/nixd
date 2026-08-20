@@ -199,9 +199,9 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
     ++InboundReplies->Active;
   }
   std::string DisplayID = llvm::formatv("{0}", ID).str();
-  auto Lease = std::make_shared<ReplyLease>(InboundReplies, Out, std::move(ID),
-                                            std::string(Method),
-                                            std::move(DisplayID));
+  auto Lease =
+      std::make_shared<ReplyLease>(InboundReplies, Out, std::move(ID),
+                                   std::string(Method), std::move(DisplayID));
   Handler->second(std::move(Params),
                   [Lease = std::move(Lease)](
                       llvm::Expected<llvm::json::Value> Response) mutable {

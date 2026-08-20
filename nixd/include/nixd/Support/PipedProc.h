@@ -19,6 +19,8 @@ struct PipedProc {
   PipedProc(pid_t PID, pid_t ProcessGroup, int In, int Out, int Err)
       : PID(PID), ProcessGroup(ProcessGroup), Stdin(In), Stdout(Out),
         Stderr(Err) {}
+  PipedProc(PipedProc &&) noexcept = default;
+  PipedProc(const PipedProc &) = delete;
 };
 
 } // namespace nixd::util

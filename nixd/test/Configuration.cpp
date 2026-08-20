@@ -2,6 +2,8 @@
 #include "nixd/Controller/Controller.h"
 #include "nixd/Support/JSON.h"
 
+#include "ControllerTestPeer.h"
+
 #include <gtest/gtest.h>
 
 #include <atomic>
@@ -9,31 +11,6 @@
 #include <thread>
 
 using namespace nixd;
-
-namespace nixd {
-
-struct ControllerTestPeer {
-  static void installProviders(Controller &C,
-                               ProviderRegistry::WorkerFactory Factory) {
-    C.Providers = std::make_unique<ProviderRegistry>(
-        C.ConfigStrand, std::move(Factory), std::filesystem::current_path());
-  }
-
-  static void apply(Controller &C, Configuration Config,
-                    ProviderRegistry::ApplyCallback OnApplied = {}) {
-    C.applyConfig(std::move(Config), std::move(OnApplied));
-  }
-
-  static bool configHasNixpkgsExpression(Controller &C,
-                                         std::string_view Expression) {
-    std::lock_guard Guard(C.ConfigLock);
-    return C.Config.nixpkgs.expr == Expression;
-  }
-
-  static ProviderRegistry &providers(Controller &C) { return *C.Providers; }
-};
-
-} // namespace nixd
 
 namespace {
 
@@ -182,11 +159,11 @@ TEST(ConfigurationPublication,
      VisibleConfigurationNeverPrecedesProviderTokenInvalidation) {
   Controller C(std::make_unique<lspserver::InboundPort>(-1),
                std::make_unique<lspserver::OutboundPort>());
-  ControllerTestPeer::installProviders(
-      C, [](const ProviderKey &, const std::filesystem::path &,
-            ProviderWorker::DeathCallback) {
-        return std::make_shared<ImmediateWorker>();
-      });
+  ControllerTestPeer::installProviders(C, [](const ProviderKey &,
+                                             const std::filesystem::path &,
+                                             ProviderWorker::DeathCallback) {
+    return std::make_shared<ImmediateWorker>();
+  });
 
   Configuration Initial = defaultConfiguration();
   Initial.nixpkgs.expr = "old-visible";
@@ -206,9 +183,8 @@ TEST(ConfigurationPublication,
   for (unsigned I = 0; I < 20000; ++I)
     Replacement.options.emplace("option-" + std::to_string(I),
                                 Configuration::OptionProvider{.expr = "value"});
-  Replacement.options.emplace("zzzz-target",
-                              Configuration::OptionProvider{
-                                  .expr = "new-target"});
+  Replacement.options.emplace(
+      "zzzz-target", Configuration::OptionProvider{.expr = "new-target"});
 
   std::atomic<bool> ObserverReady = false;
   std::atomic<bool> ObservedOldTokenAfterPublication = false;

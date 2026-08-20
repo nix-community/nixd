@@ -3,6 +3,7 @@
 #include "Configuration.h"
 #include "EditorConfig.h"
 #include "EvalClient.h"
+#include "Formatter.h"
 #include "NixTU.h"
 #include "ProviderRegistry.h"
 #include "Startup.h"
@@ -34,6 +35,7 @@ private:
   boost::asio::thread_pool Pool{};
 #endif
   ProviderRegistry::Executor ConfigStrand{Pool.get_executor()};
+  FormatterProcessRegistry Formatters;
 
   std::unique_ptr<OwnedEvalClient> Eval;
   std::unique_ptr<ProviderRegistry> Providers;

@@ -2,10 +2,8 @@
 
 #include "nixd/Eval/AttrSetClient.h"
 
+#include <array>
 #include <cerrno>
-#include <chrono>
-#include <signal.h> // NOLINT(modernize-deprecated-headers)
-#include <sys/wait.h>
 
 using namespace nixd;
 using namespace lspserver;
@@ -34,8 +32,10 @@ const char *AttrSetClient::getExe() {
 
 AttrSetClientProc::AttrSetClientProc(const std::function<int()> &Action,
                                      std::function<void()> OnDeath)
-    : Proc(Action), Client(Proc.mkIn(), Proc.mkOut()),
-      OnDeath(std::move(OnDeath)), Input([this]() {
+    : Proc(Action), Identity(std::make_shared<ProcessTreeIdentity>(
+                        Proc.proc().PID, Proc.proc().ProcessGroup)),
+      Client(Proc.mkIn(), Proc.mkOut()), OnDeath(std::move(OnDeath)),
+      Input([this]() {
         Client.run();
         TransportAlive = false;
         if (this->OnDeath) {
@@ -62,19 +62,13 @@ AttrSetClient *AttrSetClientProc::client() {
 }
 
 bool AttrSetClientProc::reapChild() const {
-  std::lock_guard Guard(ReapMutex);
-  if (ChildReaped)
+  if (!Identity->ownsIdentity())
     return true;
 
   int Status = 0;
-  pid_t Result;
-  do {
-    Result = ::waitpid(Proc.proc().PID, &Status, 0);
-  } while (Result < 0 && errno == EINTR);
+  const pid_t Result = Identity->reapChild(Status, 0);
 
   if (Result == Proc.proc().PID || (Result < 0 && errno == ECHILD)) {
-    LeaderExited = true;
-    ChildReaped = true;
     TransportAlive = false;
     return true;
   }
@@ -82,34 +76,11 @@ bool AttrSetClientProc::reapChild() const {
 }
 
 bool AttrSetClientProc::observeChildExit() const {
-  std::lock_guard Guard(ReapMutex);
-  if (LeaderExited || ChildReaped)
-    return true;
-
-  siginfo_t Info{};
-  int Result;
-  do {
-    Result =
-        ::waitid(P_PID, Proc.proc().PID, &Info, WEXITED | WNOHANG | WNOWAIT);
-  } while (Result < 0 && errno == EINTR);
-
-  if (Result == 0 && Info.si_pid == Proc.proc().PID) {
-    LeaderExited = true;
-    TransportAlive = false;
-    return true;
-  }
-  if (Result < 0 && errno == ECHILD) {
-    LeaderExited = true;
-    ChildReaped = true;
+  if (Identity->observeLeaderExit()) {
     TransportAlive = false;
     return true;
   }
   return false;
-}
-
-bool AttrSetClientProc::ownsChildIdentity() const {
-  std::lock_guard Guard(ReapMutex);
-  return !ChildReaped;
 }
 
 bool AttrSetClientProc::alive() const {
@@ -146,41 +117,9 @@ bool AttrSetClientProc::stop() noexcept {
     // Cancellation and destruction are no-throw paths. Continue terminating,
     // joining, and reaping even if a client callback misbehaves.
   }
-  bool LeaderStopped = observeChildExit();
   bool Reaped = false;
-  const pid_t PID = Proc.proc().PID;
-  const pid_t ProcessGroup = Proc.proc().ProcessGroup;
-  const bool HasDedicatedGroup =
-      ProcessGroup > 0 && ProcessGroup == PID && ProcessGroup != ::getpgrp();
-  auto signalWorkerTree = [&](int Signal) {
-    if (!ownsChildIdentity())
-      return;
-    if (HasDedicatedGroup && ::kill(-ProcessGroup, Signal) == 0)
-      return;
-    (void)::kill(PID, Signal);
-  };
-  auto workerTreeAlive = [&] {
-    if (!ownsChildIdentity())
-      return false;
-    const pid_t Target = HasDedicatedGroup ? -ProcessGroup : PID;
-    errno = 0;
-    return ::kill(Target, 0) == 0 || errno == EPERM;
-  };
-
-  if (!LeaderStopped || workerTreeAlive()) {
-    signalWorkerTree(SIGTERM);
-    const auto Deadline =
-        std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
-    do {
-      if (!LeaderStopped)
-        LeaderStopped = observeChildExit();
-      if (!workerTreeAlive())
-        break;
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    } while (std::chrono::steady_clock::now() < Deadline);
-  }
-  if (workerTreeAlive())
-    signalWorkerTree(SIGKILL);
+  const std::array Trees{Identity};
+  cancelProcessTrees(Trees);
   Reaped = reapChild();
 
   if (Input.joinable())

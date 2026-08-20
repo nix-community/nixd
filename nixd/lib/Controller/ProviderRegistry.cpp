@@ -500,8 +500,7 @@ ProviderRegistry::acquire(const ProviderKey &Key) const {
                     ProcessSerial, Epoch);
 }
 
-ProviderRegistry::OptionsSnapshot
-ProviderRegistry::acquireOptions() const {
+ProviderRegistry::OptionsSnapshot ProviderRegistry::acquireOptions() const {
   OptionsSnapshot Snapshot;
   {
     std::lock_guard Guard(Shared->Mutex);
@@ -552,8 +551,7 @@ bool ProviderRegistry::validate(const QueryToken &Token) const {
 bool ProviderRegistry::validate(const OptionsSnapshot &Snapshot) const {
   {
     std::lock_guard Guard(Shared->Mutex);
-    if (!isAccepting(*Shared) ||
-        Shared->EpochValues.Options != Snapshot.Epoch)
+    if (!isAccepting(*Shared) || Shared->EpochValues.Options != Snapshot.Epoch)
       return false;
 
     size_t ActiveOptions = 0;
@@ -562,14 +560,15 @@ bool ProviderRegistry::validate(const OptionsSnapshot &Snapshot) const {
           Record->State != ProviderState::Active || !Record->Worker)
         continue;
       ++ActiveOptions;
-      const auto It = std::find_if(
-          Snapshot.Tokens.begin(), Snapshot.Tokens.end(),
-          [&](const QueryToken &Token) {
-            return Token.Record == Record && Token.Worker == Record->Worker &&
-                   Token.Revision == Record->Revision &&
-                   Token.ProcessSerial == Record->ProcessSerial &&
-                   Token.Epoch == Snapshot.Epoch;
-          });
+      const auto It =
+          std::find_if(Snapshot.Tokens.begin(), Snapshot.Tokens.end(),
+                       [&](const QueryToken &Token) {
+                         return Token.Record == Record &&
+                                Token.Worker == Record->Worker &&
+                                Token.Revision == Record->Revision &&
+                                Token.ProcessSerial == Record->ProcessSerial &&
+                                Token.Epoch == Snapshot.Epoch;
+                       });
       if (It == Snapshot.Tokens.end())
         return false;
     }

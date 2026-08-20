@@ -268,9 +268,10 @@ void Controller::shutdownController() {
   }
 
   Accepting = false;
+  closeRequestGate("nixd is shutting down");
+  Formatters.cancelAll();
   if (EditorConfig)
     EditorConfig->stop();
-  closeRequestGate("nixd is shutting down");
 
   if (Providers) {
     std::binary_semaphore Retired(0);
@@ -279,7 +280,7 @@ void Controller::shutdownController() {
   }
 
   // shutdownController is called only by the LSP input/owner thread, never by
-  // a Pool task. The registry waiter above runs on ConfigStrand and only
+  // a Pool task. The provider-registry waiter above runs on ConfigStrand and
   // releases the semaphore; joining here drains query tokens before output
   // state can be destroyed.
   Pool.join();

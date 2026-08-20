@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nixd/Protocol/AttrSet.h"
+#include "nixd/Support/ProcessTree.h"
 #include "nixd/Support/StreamProc.h"
 
 #include <lspserver/LSPServer.h>
@@ -77,6 +78,7 @@ public:
 
 class AttrSetClientProc {
   StreamProc Proc;
+  std::shared_ptr<ProcessTreeIdentity> Identity;
   AttrSetClient Client;
   std::function<void()> OnDeath;
   std::thread Input;
@@ -85,12 +87,7 @@ class AttrSetClientProc {
   std::mutex StopMutex;
   std::condition_variable StopChanged;
   StopPhase Phase = StopPhase::Running;
-  mutable std::mutex ReapMutex;
-  mutable bool LeaderExited = false;
-  mutable bool ChildReaped = false;
-
   bool observeChildExit() const;
-  bool ownsChildIdentity() const;
   bool reapChild() const;
 
 public:

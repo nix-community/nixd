@@ -396,7 +396,8 @@ TEST(ProviderRegistry,
   EXPECT_FALSE(Registry.validate(Snapshot));
 }
 
-TEST(ProviderRegistry, WholeOptionsSnapshotRejectsReconfigureBeforeHoverCommit) {
+TEST(ProviderRegistry,
+     WholeOptionsSnapshotRejectsReconfigureBeforeHoverCommit) {
   ManualExecutor Executor;
   FakeFactory Factory;
   ProviderRegistry Registry(Executor.executor(), Factory.factory(),
