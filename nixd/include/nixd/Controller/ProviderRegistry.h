@@ -11,9 +11,11 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace nixd {
 
+class AttrSetClient;
 struct ProviderRecord;
 struct ProviderRegistryState;
 
@@ -33,6 +35,8 @@ struct ProviderKey {
 
 enum class ProviderState { Pending, Active, Failed, Retired };
 
+enum class ProviderApplyResult { Ready, Empty, Failed, Superseded, Stopped };
+
 struct ProviderSpec {
   std::optional<std::string> Nixpkgs;
   std::map<std::string, std::string> Options;
@@ -47,6 +51,7 @@ public:
   virtual void evaluate(std::string Expression, EvaluationCallback Reply) = 0;
   virtual void cancel() = 0;
   [[nodiscard]] virtual bool alive() const = 0;
+  [[nodiscard]] virtual AttrSetClient *attrSetClient() { return nullptr; }
 };
 
 class ProviderRegistry {
@@ -57,6 +62,7 @@ public:
   using WorkerFactory = std::function<std::shared_ptr<ProviderWorker>(
       const ProviderKey &, const std::filesystem::path &,
       ProviderWorker::DeathCallback)>;
+  using ApplyCallback = std::function<void(ProviderApplyResult)>;
 
   struct Epochs {
     uint64_t Nixpkgs = 0;
@@ -82,6 +88,8 @@ public:
 
   public:
     [[nodiscard]] ProviderState observedState() const;
+    [[nodiscard]] ProviderKey key() const;
+    [[nodiscard]] AttrSetClient *client() const;
     [[nodiscard]] const std::shared_ptr<ProviderWorker> &worker() const {
       return Worker;
     }
@@ -94,8 +102,12 @@ public:
   ProviderRegistry(Executor Post, WorkerFactory Factory,
                    std::filesystem::path StartupCWD);
 
-  void apply(ProviderSpec Spec);
+  /// Publish Spec synchronously so existing query tokens are invalidated before
+  /// this call returns. OnApplied is always invoked later on the registry
+  /// strand and describes only the exact revisions published by this call.
+  void apply(ProviderSpec Spec, ApplyCallback OnApplied = {});
   [[nodiscard]] std::optional<QueryToken> acquire(const ProviderKey &Key) const;
+  [[nodiscard]] std::vector<QueryToken> acquireOptions() const;
   [[nodiscard]] bool validate(const QueryToken &Token) const;
   void queryFailed(const QueryToken &Token) const;
   [[nodiscard]] Epochs epochs() const;

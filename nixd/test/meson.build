@@ -3,6 +3,7 @@ test(
     executable(
         'unit-nixd-configuration',
         'Configuration.cpp',
+        'EditorConfig.cpp',
         'ProviderRegistry.cpp',
         'Startup.cpp',
         'TransportLifecycle.cpp',

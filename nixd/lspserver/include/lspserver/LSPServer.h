@@ -8,6 +8,8 @@
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 
+#include <atomic>
+#include <condition_variable>
 #include <memory>
 
 namespace lspserver {
@@ -17,7 +19,15 @@ namespace lspserver {
 class LSPServer : public MessageHandler {
 private:
   std::unique_ptr<InboundPort> In;
-  std::unique_ptr<OutboundPort> Out;
+  std::shared_ptr<OutboundPort> Out;
+
+  struct InboundReplyState {
+    std::mutex Mutex;
+    std::condition_variable Changed;
+    size_t Active = 0;
+  };
+  std::shared_ptr<InboundReplyState> InboundReplies =
+      std::make_shared<InboundReplyState>();
 
   bool onNotify(llvm::StringRef Method, llvm::json::Value) override;
   bool onCall(llvm::StringRef Method, llvm::json::Value Params,
@@ -43,6 +53,7 @@ private:
   static constexpr int MaxPendingCalls = 100;
 
   int TopID = 1;
+  std::atomic<bool> RequestsAccepted{true};
 
   /// Fail and remove every outstanding call without invoking callbacks while
   /// PendingCallsLock is held.
@@ -53,6 +64,14 @@ private:
 
 protected:
   HandlerRegistry Registry;
+
+  /// Stop accepting new requests/notifications while leaving the input open
+  /// for the protocol's final exit notification. Outstanding outbound calls
+  /// are failed before the caller drains its worker pool.
+  void closeRequestGate(std::string Reason) {
+    RequestsAccepted = false;
+    failPendingCalls(std::move(Reason));
+  }
   template <class T>
   llvm::unique_function<void(const T &)>
   mkOutNotifiction(llvm::StringRef Method, OutboundPort *O = nullptr) {
@@ -89,7 +108,7 @@ public:
 
   /// \brief Close the inbound port.
   void closeInbound() {
-    failPendingCalls("LSP input closed");
+    closeRequestGate("LSP input closed");
     In->close();
   }
   void run();

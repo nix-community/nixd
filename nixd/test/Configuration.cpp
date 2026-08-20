@@ -33,9 +33,8 @@ TEST(ConfigurationPatch, ReplacesOptionsInsteadOfMergingThem) {
   Configuration Base = defaultConfiguration();
   Base.options["extra"] = {.expr = "extraOptions"};
 
-  auto Config = overlay(
-      std::move(Base),
-      fromJSON<ConfigurationPatch>(parse(R"json({
+  auto Config =
+      overlay(std::move(Base), fromJSON<ConfigurationPatch>(parse(R"json({
         "options": { "home-manager": { "expr": "hmOptions" } }
       })json")));
 
@@ -55,9 +54,8 @@ TEST(ConfigurationPatch, EmptyNestedObjectsAreNoOps) {
   Base.nixpkgs.expr = "myNixpkgs";
   Base.diagnostic.suppress = {"unused"};
 
-  auto Config = overlay(
-      std::move(Base),
-      fromJSON<ConfigurationPatch>(parse(R"json({
+  auto Config =
+      overlay(std::move(Base), fromJSON<ConfigurationPatch>(parse(R"json({
         "formatting": {}, "nixpkgs": {}, "diagnostic": {}
       })json")));
 
@@ -116,6 +114,31 @@ TEST(ConfigurationPatch, RejectsNullUnknownAndInvalidOptionEntries) {
     EXPECT_THROW((void)fromJSON<ConfigurationPatch>(parse(Invalid)),
                  JSONSchemaException)
         << Invalid;
+}
+
+TEST(ConfigurationPatch, ConvertsOnlyEvaluatorFieldsToProviderSpec) {
+  Configuration First = defaultConfiguration();
+  First.nixpkgs.expr = "nixpkgs-a";
+  First.options = {{"nixos", {.expr = "options-a"}}};
+  First.formatting.command = {"alejandra"};
+  First.diagnostic.suppress = {"unused"};
+
+  const ProviderSpec Spec = providerSpec(First);
+  ASSERT_TRUE(Spec.Nixpkgs);
+  EXPECT_EQ(*Spec.Nixpkgs, "nixpkgs-a");
+  EXPECT_EQ(Spec.Options.at("nixos"), "options-a");
+
+  Configuration NonProviderEdit = First;
+  NonProviderEdit.formatting.command = {"nixfmt"};
+  NonProviderEdit.diagnostic.suppress.clear();
+  EXPECT_EQ(providerSpec(NonProviderEdit).Nixpkgs, Spec.Nixpkgs);
+  EXPECT_EQ(providerSpec(NonProviderEdit).Options, Spec.Options);
+
+  First.nixpkgs.expr.clear();
+  First.options.clear();
+  const ProviderSpec Removed = providerSpec(First);
+  EXPECT_FALSE(Removed.Nixpkgs);
+  EXPECT_TRUE(Removed.Options.empty());
 }
 
 } // namespace

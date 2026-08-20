@@ -66,6 +66,318 @@ public:
   }
 };
 
+enum class InboundReplyBehavior {
+  Delayed,
+  Double,
+  Never,
+  Abandon,
+  ExplicitShutdown
+};
+
+class InboundReplyServer final : public lspserver::LSPServer {
+  InboundReplyBehavior Behavior;
+
+public:
+  std::mutex Mutex;
+  std::condition_variable Captured;
+  std::shared_ptr<lspserver::Callback<llvm::json::Value>> SavedReply;
+  std::vector<std::shared_ptr<lspserver::Callback<llvm::json::Value>>>
+      SavedReplies;
+
+  InboundReplyServer(std::unique_ptr<lspserver::InboundPort> In,
+                     std::unique_ptr<lspserver::OutboundPort> Out,
+                     InboundReplyBehavior Behavior)
+      : LSPServer(std::move(In), std::move(Out)), Behavior(Behavior) {
+    Registry.MethodHandlers["test/inbound"] =
+        [this](llvm::json::Value,
+               lspserver::Callback<llvm::json::Value> Reply) mutable {
+          if (this->Behavior == InboundReplyBehavior::Double) {
+            Reply(1);
+            Reply(2);
+            return;
+          }
+          if (this->Behavior == InboundReplyBehavior::Abandon)
+            return;
+          if (this->Behavior == InboundReplyBehavior::ExplicitShutdown)
+            closeRequestGate("explicit test shutdown");
+          {
+            std::lock_guard Guard(Mutex);
+            SavedReply =
+                std::make_shared<lspserver::Callback<llvm::json::Value>>(
+                    std::move(Reply));
+            SavedReplies.push_back(SavedReply);
+          }
+          Captured.notify_one();
+        };
+  }
+
+  void beginShutdown() { closeRequestGate("explicit test shutdown"); }
+};
+
+void writeAll(int FD, std::string_view Data) {
+  while (!Data.empty()) {
+    const ssize_t Written = ::write(FD, Data.data(), Data.size());
+    ASSERT_GT(Written, 0);
+    if (Written <= 0)
+      return;
+    Data.remove_prefix(static_cast<size_t>(Written));
+  }
+}
+
+void writeStandardMessage(int FD, llvm::json::Value Message) {
+  std::string Body;
+  llvm::raw_string_ostream BodyStream(Body);
+  BodyStream << Message;
+  BodyStream.flush();
+  writeAll(FD, "Content-Length: " + std::to_string(Body.size()) + "\r\n\r\n" +
+                   Body);
+}
+
+void writeInboundCall(int FD, int ID) {
+  writeStandardMessage(FD, llvm::json::Object{{"jsonrpc", "2.0"},
+                                              {"id", ID},
+                                              {"method", "test/inbound"},
+                                              {"params", nullptr}});
+}
+
+void writeInputExit(int FD) {
+  writeStandardMessage(FD, llvm::json::Object{{"jsonrpc", "2.0"},
+                                              {"method", "exit"},
+                                              {"params", nullptr}});
+}
+
+void writeInboundCallAndTerminate(int FD, bool Exit) {
+  writeInboundCall(FD, 1);
+  if (Exit) {
+    writeInputExit(FD);
+  }
+}
+
+size_t countOccurrences(std::string_view Text, std::string_view Pattern) {
+  size_t Count = 0;
+  for (size_t Pos = 0;
+       (Pos = Text.find(Pattern, Pos)) != std::string_view::npos;
+       Pos += Pattern.size())
+    ++Count;
+  return Count;
+}
+
+TEST(TransportLifecycle, BareExitDrainsAlreadyDispatchedInboundReply) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCallAndTerminate(Input[1], true);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Delayed);
+  std::atomic<bool> RunReturned = false;
+  std::thread Replier([&] {
+    std::shared_ptr<lspserver::Callback<llvm::json::Value>> Reply;
+    {
+      std::unique_lock Lock(Server.Mutex);
+      ASSERT_TRUE(Server.Captured.wait_for(Lock, std::chrono::seconds(1), [&] {
+        return static_cast<bool>(Server.SavedReply);
+      }));
+      Reply = Server.SavedReply;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_FALSE(RunReturned);
+    (*Reply)(42);
+  });
+
+  Server.run();
+  RunReturned = true;
+  Replier.join();
+  Stream.flush();
+
+  EXPECT_EQ(countOccurrences(Output, "\"result\":42"), 1U);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, InboundReplyCompletionIsOneShotAndReentrantSafe) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCallAndTerminate(Input[1], true);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Double);
+  Server.run();
+  Stream.flush();
+
+  EXPECT_EQ(countOccurrences(Output, "\"result\":"), 1U);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, InboundDrainTimeoutBoundsNeverReplyHandler) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCallAndTerminate(Input[1], true);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Never);
+  const auto Start = std::chrono::steady_clock::now();
+  Server.run();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+
+  EXPECT_GE(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_LT(Elapsed, std::chrono::seconds(2));
+  ASSERT_TRUE(Server.SavedReply);
+  (*Server.SavedReply)(42);
+  Stream.flush();
+  EXPECT_EQ(countOccurrences(Output, "\"result\":42"), 1U);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, InboundDrainTracksMultipleDispatchedCalls) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCall(Input[1], 1);
+  writeInboundCall(Input[1], 2);
+  writeInputExit(Input[1]);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Delayed);
+  std::thread Replier([&] {
+    std::vector<std::shared_ptr<lspserver::Callback<llvm::json::Value>>>
+        Replies;
+    {
+      std::unique_lock Lock(Server.Mutex);
+      ASSERT_TRUE(Server.Captured.wait_for(Lock, std::chrono::seconds(1), [&] {
+        return Server.SavedReplies.size() == 2;
+      }));
+      Replies = Server.SavedReplies;
+    }
+    (*Replies[0])(41);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    (*Replies[1])(42);
+  });
+
+  Server.run();
+  Replier.join();
+  Stream.flush();
+
+  EXPECT_EQ(countOccurrences(Output, "\"result\":"), 2U);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, AbandonedInboundReplyReleasesDrainAccounting) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCallAndTerminate(Input[1], true);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Abandon);
+  const auto Start = std::chrono::steady_clock::now();
+  Server.run();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_TRUE(Output.empty());
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, ExplicitShutdownAndRejectedCallsSkipInputGrace) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCallAndTerminate(Input[1], true);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Never);
+  Server.beginShutdown();
+  const auto Start = std::chrono::steady_clock::now();
+  Server.run();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+  Stream.flush();
+
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_FALSE(Server.SavedReply);
+  EXPECT_NE(Output.find("server is shutting down"), std::string::npos);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, CountedExplicitShutdownHandlerDoesNotSelfWait) {
+  int Input[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  writeInboundCallAndTerminate(Input[1], true);
+
+  std::string Output;
+  llvm::raw_string_ostream Stream(Output);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::ExplicitShutdown);
+  const auto Start = std::chrono::steady_clock::now();
+  Server.run();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_TRUE(Server.SavedReply);
+  EXPECT_EQ(::close(Input[1]), 0);
+  EXPECT_EQ(::close(Input[0]), 0);
+}
+
+TEST(TransportLifecycle, EOFAndBrokenOutputStillReleaseInboundDrain) {
+  const auto PreviousSIGPIPE = ::signal(SIGPIPE, SIG_IGN);
+  ASSERT_NE(PreviousSIGPIPE, SIG_ERR);
+  int Input[2];
+  int Output[2];
+  ASSERT_EQ(::pipe(Input), 0);
+  ASSERT_EQ(::pipe(Output), 0);
+  writeInboundCallAndTerminate(Input[1], false);
+  ASSERT_EQ(::close(Output[0]), 0);
+
+  llvm::raw_fd_ostream Stream(Output[1], false);
+  InboundReplyServer Server(std::make_unique<lspserver::InboundPort>(Input[0]),
+                            std::make_unique<lspserver::OutboundPort>(Stream),
+                            InboundReplyBehavior::Delayed);
+  std::thread Replier([&] {
+    std::shared_ptr<lspserver::Callback<llvm::json::Value>> Reply;
+    {
+      std::unique_lock Lock(Server.Mutex);
+      ASSERT_TRUE(Server.Captured.wait_for(Lock, std::chrono::seconds(1), [&] {
+        return static_cast<bool>(Server.SavedReply);
+      }));
+      Reply = Server.SavedReply;
+    }
+    EXPECT_EQ(::close(Input[1]), 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    (*Reply)(42);
+  });
+
+  const auto Start = std::chrono::steady_clock::now();
+  Server.run();
+  const auto Elapsed = std::chrono::steady_clock::now() - Start;
+  Replier.join();
+
+  EXPECT_LT(Elapsed, std::chrono::milliseconds(400));
+  EXPECT_EQ(::close(Input[0]), 0);
+  Stream.clear_error();
+  EXPECT_EQ(::close(Output[1]), 0);
+  EXPECT_NE(::signal(SIGPIPE, PreviousSIGPIPE), SIG_ERR);
+}
+
 TEST(TransportLifecycle, ExplicitCloseFailsPendingCallsExactlyOnce) {
   std::string Output;
   llvm::raw_string_ostream Stream(Output);

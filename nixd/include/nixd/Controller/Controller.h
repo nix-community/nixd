@@ -1,8 +1,10 @@
 #pragma once
 
 #include "Configuration.h"
+#include "EditorConfig.h"
 #include "EvalClient.h"
 #include "NixTU.h"
+#include "ProviderRegistry.h"
 #include "Startup.h"
 
 #include "lspserver/DraftStore.h"
@@ -13,36 +15,34 @@
 
 #include <boost/asio/thread_pool.hpp>
 
+#include <atomic>
+#include <condition_variable>
 #include <set>
 
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
-public:
-  using OptionMapTy = std::map<std::string, std::unique_ptr<AttrSetClientProc>>;
-
 private:
+#if BOOST_VERSION < 108800
+  // Default constructor is broken in Boost 1.87, fixed in 1.88:
+  // https://github.com/boostorg/asio/commit/30b5974ed34bfa321d268b3135ffaffcb261461a
+  boost::asio::thread_pool Pool{
+      static_cast<size_t>(boost::asio::detail::default_thread_pool_size())};
+#else
+  boost::asio::thread_pool Pool{};
+#endif
+  ProviderRegistry::Executor ConfigStrand{Pool.get_executor()};
+
   std::unique_ptr<OwnedEvalClient> Eval;
+  std::unique_ptr<ProviderRegistry> Providers;
+  std::optional<EditorConfigState> EditorConfig;
+  std::atomic<bool> Accepting{true};
+  enum class ShutdownPhase { Running, Stopping, Stopped };
+  std::mutex ShutdownMutex;
+  std::condition_variable ShutdownChanged;
+  ShutdownPhase ShutdownState = ShutdownPhase::Running;
 
-  // Use this worker for evaluating nixpkgs.
-  std::unique_ptr<AttrSetClientProc> NixpkgsEval;
-
-  std::mutex OptionsLock;
-  // Map of option providers.
-  //
-  // e.g. "nixos" -> nixos worker
-  //      "home-manager" -> home-manager worker
-  OptionMapTy Options; // GUARDED_BY(OptionsLock)
-
-  AttrSetClientProc &nixpkgsEval() {
-    assert(NixpkgsEval);
-    return *NixpkgsEval;
-  }
-
-  AttrSetClient *nixpkgsClient() { return nixpkgsEval().client(); }
-
-  void evalExprWithProgress(AttrSetClient &Client, const EvalExprParams &Params,
-                            std::string_view Description);
+  void shutdownController();
 
   lspserver::DraftStore Store;
 
@@ -63,7 +63,12 @@ private:
   /// \brief Update the configuration, do necessary adjusting for updates.
   ///
   /// \example If asked to change eval settings, send eval requests to workers.
-  void updateConfig(Configuration NewConfig);
+  void updateConfig(Configuration NewConfig,
+                    ProviderRegistry::ApplyCallback OnApplied = {});
+
+  /// Apply one configuration while running on ConfigStrand.
+  void applyConfig(Configuration NewConfig,
+                   ProviderRegistry::ApplyCallback OnApplied = {});
 
   /// \brief Get configuration from LSP client. Update the config.
   void fetchConfig();
@@ -144,15 +149,6 @@ private:
     return TU ? getAST(*TU) : nullptr;
   }
 
-#if BOOST_VERSION < 108800
-  // Default constructor is broken in Boost 1.87, fixed in 1.88:
-  // https://github.com/boostorg/asio/commit/30b5974ed34bfa321d268b3135ffaffcb261461a
-  boost::asio::thread_pool Pool{
-      static_cast<size_t>(boost::asio::detail::default_thread_pool_size())};
-#else
-  boost::asio::thread_pool Pool{};
-#endif
-
   /// Action right after a document is added (including updates).
   void actOnDocumentAdd(lspserver::PathRef File,
                         std::optional<int64_t> Version);
@@ -163,8 +159,6 @@ private:
                     lspserver::Callback<llvm::json::Value> Reply);
 
   void onInitialized(const lspserver::InitializedParams &Params);
-
-  bool ReceivedShutdown = false;
 
   void onShutdown(const lspserver::NoParams &,
                   lspserver::Callback<std::nullptr_t> Reply);
@@ -258,7 +252,7 @@ public:
   Controller(std::unique_ptr<lspserver::InboundPort> In,
              std::unique_ptr<lspserver::OutboundPort> Out);
 
-  ~Controller() override { Pool.join(); }
+  ~Controller() override;
 
   bool isReadyToEval() { return Eval && Eval->ready(); }
 };

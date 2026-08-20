@@ -2,6 +2,8 @@
 /// \brief Declares workspace configuration schema
 #pragma once
 
+#include "ProviderRegistry.h"
+
 #include <llvm/Support/JSON.h>
 
 #include <map>
@@ -60,8 +62,11 @@ Configuration defaultConfiguration();
 /// \brief Apply a partial configuration over an existing configuration.
 Configuration overlay(Configuration Base, const ConfigurationPatch &Patch);
 
-bool fromJSON(const llvm::json::Value &Params,
-              Configuration::OptionProvider &R, llvm::json::Path P);
+/// \brief Select only evaluator-backed fields from a full configuration.
+ProviderSpec providerSpec(const Configuration &Config);
+
+bool fromJSON(const llvm::json::Value &Params, Configuration::OptionProvider &R,
+              llvm::json::Path P);
 
 bool fromJSON(const llvm::json::Value &Params,
               ConfigurationPatch::Formatting &R, llvm::json::Path P);

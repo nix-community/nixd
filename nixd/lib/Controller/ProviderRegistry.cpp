@@ -18,6 +18,17 @@ struct ProviderRecord {
   std::atomic<ProviderState> State{ProviderState::Pending};
 };
 
+struct ProviderApplyTicket {
+  struct ExactRevision {
+    std::shared_ptr<ProviderRecord> Record;
+    uint64_t Revision = 0;
+  };
+
+  std::vector<ExactRevision> Revisions;
+  std::optional<ProviderApplyResult> ForcedResult;
+  ProviderRegistry::ApplyCallback Reply;
+};
+
 struct ProviderRegistryState {
   enum class ShutdownPhase { Accepting, Stopping, Retired };
 
@@ -26,6 +37,7 @@ struct ProviderRegistryState {
   ProviderRegistry::Epochs EpochValues;
   uint64_t NextProcessSerial = 1;
   std::atomic<ShutdownPhase> Phase{ShutdownPhase::Accepting};
+  std::vector<std::shared_ptr<ProviderApplyTicket>> ApplyTickets;
   std::vector<std::function<void()>> ShutdownWaiters;
   ProviderRegistry::Executor Strand;
   ProviderRegistry::WorkerFactory Factory;
@@ -61,6 +73,61 @@ bool isCurrent(const ProviderRegistryState &Shared,
   return It != Shared.Records.end() && It->second == Record;
 }
 
+void runApplyTickets(const std::shared_ptr<ProviderRegistryState> &Shared) {
+  std::vector<std::pair<ProviderRegistry::ApplyCallback, ProviderApplyResult>>
+      Replies;
+  {
+    std::lock_guard Guard(Shared->Mutex);
+    // Stopping tickets retire with the records in the single shutdown strand
+    // closure. This keeps their callbacks ordered before shutdown waiters, but
+    // never before retirement has actually happened.
+    if (Shared->Phase == ProviderRegistryState::ShutdownPhase::Stopping)
+      return;
+
+    for (auto It = Shared->ApplyTickets.begin();
+         It != Shared->ApplyTickets.end();) {
+      const auto &Ticket = *It;
+      std::optional<ProviderApplyResult> Result = Ticket->ForcedResult;
+      if (!Result &&
+          Shared->Phase == ProviderRegistryState::ShutdownPhase::Retired) {
+        Result = ProviderApplyResult::Stopped;
+      }
+      if (!Result && Ticket->Revisions.empty())
+        Result = ProviderApplyResult::Empty;
+
+      bool AllActive = true;
+      bool AnyFailed = false;
+      for (const auto &Exact : Ticket->Revisions) {
+        if (Result)
+          break;
+        if (!Exact.Record || !isCurrent(*Shared, Exact.Record) ||
+            Exact.Record->Revision != Exact.Revision) {
+          Result = ProviderApplyResult::Superseded;
+          break;
+        }
+        if (Exact.Record->State == ProviderState::Failed)
+          AnyFailed = true;
+        if (Exact.Record->State != ProviderState::Active)
+          AllActive = false;
+      }
+      if (!Result)
+        Result = AnyFailed
+                     ? std::optional(ProviderApplyResult::Failed)
+                     : (AllActive ? std::optional(ProviderApplyResult::Ready)
+                                  : std::nullopt);
+
+      if (!Result) {
+        ++It;
+        continue;
+      }
+      Replies.emplace_back(std::move(Ticket->Reply), *Result);
+      It = Shared->ApplyTickets.erase(It);
+    }
+  }
+  for (auto &[Reply, Result] : Replies)
+    Reply(Result);
+}
+
 void cancelNoThrow(const std::shared_ptr<ProviderWorker> &Worker) noexcept {
   if (!Worker)
     return;
@@ -75,11 +142,19 @@ void cancelNoThrow(const std::shared_ptr<ProviderWorker> &Worker) noexcept {
 void failMatchingPending(const std::shared_ptr<ProviderRegistryState> &Shared,
                          const std::shared_ptr<ProviderRecord> &Record,
                          uint64_t Revision, uint64_t ProcessSerial) {
-  std::lock_guard Guard(Shared->Mutex);
-  if (isAccepting(*Shared) && isCurrent(*Shared, Record) &&
-      Record->State == ProviderState::Pending && Record->Revision == Revision &&
-      Record->ProcessSerial == ProcessSerial)
-    Record->State = ProviderState::Failed;
+  bool Failed = false;
+  {
+    std::lock_guard Guard(Shared->Mutex);
+    if (isAccepting(*Shared) && isCurrent(*Shared, Record) &&
+        Record->State == ProviderState::Pending &&
+        Record->Revision == Revision &&
+        Record->ProcessSerial == ProcessSerial) {
+      Record->State = ProviderState::Failed;
+      Failed = true;
+    }
+  }
+  if (Failed)
+    runApplyTickets(Shared);
 }
 
 void postDeath(const std::shared_ptr<ProviderRegistryState> &Shared,
@@ -123,19 +198,22 @@ void dispatchEvaluation(const std::shared_ptr<ProviderRegistryState> &Shared,
             if (!Shared || !Record)
               return;
 
-            std::lock_guard Guard(Shared->Mutex);
-            if (!isAccepting(*Shared) || !isCurrent(*Shared, Record) ||
-                Record->State != ProviderState::Pending ||
-                Record->Revision != Revision ||
-                Record->ProcessSerial != ProcessSerial)
-              return;
+            {
+              std::lock_guard Guard(Shared->Mutex);
+              if (!isAccepting(*Shared) || !isCurrent(*Shared, Record) ||
+                  Record->State != ProviderState::Pending ||
+                  Record->Revision != Revision ||
+                  Record->ProcessSerial != ProcessSerial)
+                return;
 
-            if (!Success) {
-              Record->State = ProviderState::Failed;
-              return;
+              if (!Success) {
+                Record->State = ProviderState::Failed;
+              } else {
+                Record->State = ProviderState::Active;
+                ++epochFor(*Shared, Record->Key.Kind);
+              }
             }
-            Record->State = ProviderState::Active;
-            ++epochFor(*Shared, Record->Key.Kind);
+            runApplyTickets(Shared);
           });
         });
   } catch (...) {
@@ -182,6 +260,7 @@ void createWorkerAndEvaluate(
     return;
   }
   std::shared_ptr<ProviderWorker> StaleWorker;
+  bool Failed = false;
   {
     std::lock_guard Guard(Shared->Mutex);
     if (!isAccepting(*Shared) || !isCurrent(*Shared, Record) ||
@@ -191,6 +270,7 @@ void createWorkerAndEvaluate(
       StaleWorker = std::move(Worker);
     } else if (!Worker) {
       Record->State = ProviderState::Failed;
+      Failed = true;
     } else {
       Record->Worker = Worker;
     }
@@ -199,17 +279,20 @@ void createWorkerAndEvaluate(
     cancelNoThrow(StaleWorker);
     return;
   }
+  if (Failed)
+    runApplyTickets(Shared);
   if (Worker)
     dispatchEvaluation(Shared, Record);
 }
 
 void evaluatePending(const std::shared_ptr<ProviderRegistryState> &Shared,
-                     const std::shared_ptr<ProviderRecord> &Record) {
+                     const std::shared_ptr<ProviderRecord> &Record,
+                     uint64_t Revision) {
   std::shared_ptr<ProviderWorker> Existing;
   {
     std::lock_guard Guard(Shared->Mutex);
     if (!isAccepting(*Shared) || !isCurrent(*Shared, Record) ||
-        Record->State != ProviderState::Pending)
+        Record->State != ProviderState::Pending || Record->Revision != Revision)
       return;
     Existing = Record->Worker;
   }
@@ -230,8 +313,14 @@ void evaluatePending(const std::shared_ptr<ProviderRegistryState> &Shared,
   createWorkerAndEvaluate(Shared, Record);
 }
 
-void applySpec(const std::shared_ptr<ProviderRegistryState> &Shared,
-               ProviderSpec Spec) {
+struct ApplyWork {
+  std::vector<std::pair<std::shared_ptr<ProviderRecord>, uint64_t>> Evaluate;
+  std::vector<std::shared_ptr<ProviderWorker>> Cancel;
+};
+
+ApplyWork publishSpec(const std::shared_ptr<ProviderRegistryState> &Shared,
+                      ProviderSpec Spec,
+                      ProviderRegistry::ApplyCallback OnApplied) {
   std::map<ProviderKey, std::string> Desired;
   if (Spec.Nixpkgs && !Spec.Nixpkgs->empty())
     Desired.emplace(ProviderKey::nixpkgs(), std::move(*Spec.Nixpkgs));
@@ -241,12 +330,18 @@ void applySpec(const std::shared_ptr<ProviderRegistryState> &Shared,
                       std::move(Expression));
   }
 
-  std::vector<std::shared_ptr<ProviderRecord>> Evaluate;
-  std::vector<std::shared_ptr<ProviderWorker>> Cancel;
+  ApplyWork Work;
   {
     std::lock_guard Guard(Shared->Mutex);
-    if (!isAccepting(*Shared))
-      return;
+    if (!isAccepting(*Shared)) {
+      if (OnApplied) {
+        auto Ticket = std::make_shared<ProviderApplyTicket>();
+        Ticket->Reply = std::move(OnApplied);
+        Ticket->ForcedResult = ProviderApplyResult::Stopped;
+        Shared->ApplyTickets.push_back(std::move(Ticket));
+      }
+      return Work;
+    }
 
     for (auto It = Shared->Records.begin(); It != Shared->Records.end();) {
       if (Desired.contains(It->first)) {
@@ -258,7 +353,7 @@ void applySpec(const std::shared_ptr<ProviderRegistryState> &Shared,
       ++Record->Revision;
       ++epochFor(*Shared, Record->Key.Kind);
       if (Record->Worker)
-        Cancel.push_back(std::move(Record->Worker));
+        Work.Cancel.push_back(std::move(Record->Worker));
       It = Shared->Records.erase(It);
     }
 
@@ -272,7 +367,7 @@ void applySpec(const std::shared_ptr<ProviderRegistryState> &Shared,
         Record->State = ProviderState::Pending;
         Shared->Records.emplace(Key, Record);
         ++epochFor(*Shared, Key.Kind);
-        Evaluate.push_back(std::move(Record));
+        Work.Evaluate.emplace_back(Record, Record->Revision);
         continue;
       }
 
@@ -286,14 +381,32 @@ void applySpec(const std::shared_ptr<ProviderRegistryState> &Shared,
       ++Record->Revision;
       if (Changed)
         ++epochFor(*Shared, Key.Kind);
-      Evaluate.push_back(Record);
+      Work.Evaluate.emplace_back(Record, Record->Revision);
+    }
+
+    if (OnApplied) {
+      auto Ticket = std::make_shared<ProviderApplyTicket>();
+      Ticket->Reply = std::move(OnApplied);
+      Ticket->Revisions.reserve(Desired.size());
+      for (const auto &[Key, _] : Desired) {
+        const auto It = Shared->Records.find(Key);
+        assert(It != Shared->Records.end());
+        Ticket->Revisions.push_back({It->second, It->second->Revision});
+      }
+      Shared->ApplyTickets.push_back(std::move(Ticket));
     }
   }
 
-  for (auto &Worker : Cancel)
+  return Work;
+}
+
+void runApplyWork(const std::shared_ptr<ProviderRegistryState> &Shared,
+                  ApplyWork Work) {
+  for (auto &Worker : Work.Cancel)
     cancelNoThrow(Worker);
-  for (auto &Record : Evaluate)
-    evaluatePending(Shared, Record);
+  for (auto &[Record, Revision] : Work.Evaluate)
+    evaluatePending(Shared, Record, Revision);
+  runApplyTickets(Shared);
 }
 
 void recoverDead(const std::shared_ptr<ProviderRegistryState> &Shared,
@@ -305,6 +418,16 @@ void recoverDead(const std::shared_ptr<ProviderRegistryState> &Shared,
     if (!isAccepting(*Shared) || !isCurrent(*Shared, Record) ||
         Record->ProcessSerial != ProcessSerial)
       return;
+    if (Record->State == ProviderState::Pending) {
+      for (const auto &Ticket : Shared->ApplyTickets) {
+        for (const auto &Exact : Ticket->Revisions) {
+          if (Exact.Record == Record && Exact.Revision == Record->Revision) {
+            Ticket->ForcedResult = ProviderApplyResult::Failed;
+            break;
+          }
+        }
+      }
+    }
     Record->State = ProviderState::Pending;
     ++Record->Revision;
     ++epochFor(*Shared, Record->Key.Kind);
@@ -312,6 +435,7 @@ void recoverDead(const std::shared_ptr<ProviderRegistryState> &Shared,
   }
   if (DeadWorker)
     cancelNoThrow(DeadWorker);
+  runApplyTickets(Shared);
   createWorkerAndEvaluate(Shared, Record);
 }
 
@@ -331,13 +455,15 @@ ProviderRegistry::ProviderRegistry(Executor Post, WorkerFactory Factory,
   assert(Factory);
 }
 
-void ProviderRegistry::apply(ProviderSpec Spec) {
-  if (!isAccepting(*Shared))
+void ProviderRegistry::apply(ProviderSpec Spec, ApplyCallback OnApplied) {
+  const bool HasCallback = static_cast<bool>(OnApplied);
+  auto Work = publishSpec(Shared, std::move(Spec), std::move(OnApplied));
+  if (Work.Cancel.empty() && Work.Evaluate.empty() && !HasCallback)
     return;
   auto State = Shared;
   postDeferred(Shared,
-               [State = std::move(State), Spec = std::move(Spec)]() mutable {
-                 applySpec(State, std::move(Spec));
+               [State = std::move(State), Work = std::move(Work)]() mutable {
+                 runApplyWork(State, std::move(Work));
                });
 }
 
@@ -371,6 +497,34 @@ ProviderRegistry::acquire(const ProviderKey &Key) const {
   }
   return QueryToken(std::move(Record), std::move(Worker), Revision,
                     ProcessSerial, Epoch);
+}
+
+std::vector<ProviderRegistry::QueryToken>
+ProviderRegistry::acquireOptions() const {
+  std::vector<QueryToken> Tokens;
+  {
+    std::lock_guard Guard(Shared->Mutex);
+    if (!isAccepting(*Shared))
+      return Tokens;
+    const auto Epoch = Shared->EpochValues.Options;
+    for (const auto &[Key, Record] : Shared->Records) {
+      if (Key.Kind != ProviderKind::Option ||
+          Record->State != ProviderState::Active || !Record->Worker)
+        continue;
+      Tokens.push_back(QueryToken(Record, Record->Worker, Record->Revision,
+                                  Record->ProcessSerial, Epoch));
+    }
+  }
+
+  for (auto It = Tokens.begin(); It != Tokens.end();) {
+    if (It->Worker->alive()) {
+      ++It;
+      continue;
+    }
+    queryFailed(*It);
+    It = Tokens.erase(It);
+  }
+  return Tokens;
 }
 
 bool ProviderRegistry::validate(const QueryToken &Token) const {
@@ -471,6 +625,7 @@ void ProviderRegistry::shutdown(std::function<void()> OnRetired) {
       Waiters.swap(State->ShutdownWaiters);
     }
     Release.clear();
+    runApplyTickets(State);
     for (auto &Waiter : Waiters)
       Waiter();
   });
@@ -479,6 +634,15 @@ void ProviderRegistry::shutdown(std::function<void()> OnRetired) {
 ProviderState ProviderRegistry::QueryToken::observedState() const {
   assert(Record);
   return Record->State;
+}
+
+ProviderKey ProviderRegistry::QueryToken::key() const {
+  assert(Record);
+  return Record->Key;
+}
+
+AttrSetClient *ProviderRegistry::QueryToken::client() const {
+  return Worker ? Worker->attrSetClient() : nullptr;
 }
 
 } // namespace nixd

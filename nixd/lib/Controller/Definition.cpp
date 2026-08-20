@@ -10,6 +10,7 @@
 #include "PathResolve.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixd/Controller/ProviderQuery.h"
 #include "nixd/Protocol/AttrSet.h"
 
 #include "lspserver/Protocol.h"
@@ -257,20 +258,25 @@ std::optional<Location> definePath(const ExprPath &Path,
 ///
 /// Usually this function will return a list of option declarations via RPC
 Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
-                         std::mutex &OptionsLock,
-                         Controller::OptionMapTy &Options) {
+                         ProviderRegistry *Registry) {
   using PathResult = FindAttrPathResult;
   std::vector<std::string> Scope;
   auto R = findAttrPathForOptions(N, PM, Scope);
   Locations Locs;
-  if (R == PathResult::OK) {
-    std::lock_guard _(OptionsLock);
-    // For each option worker, try to get it's decl position.
-    for (const auto &[_, Client] : Options) {
-      if (AttrSetClient *C = Client->client()) {
-        OptionsDefinitionProvider ODP(*C);
-        ODP.resolveLocations(Scope, Locs);
-      }
+  if (R == PathResult::OK && Registry) {
+    for (auto Token : Registry->acquireOptions()) {
+      auto ProviderLocs = queryProvider<Locations>(
+          *Registry, std::move(Token), {},
+          [&](ProviderWorker &Worker) -> llvm::Expected<Locations> {
+            auto *Client = Worker.attrSetClient();
+            if (!Client)
+              return lspserver::error("option provider is unavailable");
+            Locations Result;
+            OptionsDefinitionProvider ODP(*Client);
+            ODP.resolveLocations(Scope, Result);
+            return Result;
+          });
+      Locs.insert(Locs.end(), ProviderLocs.begin(), ProviderLocs.end());
     }
   }
   return Locs;
@@ -319,15 +325,24 @@ std::vector<T> mergeVec(std::vector<T> A, const std::vector<T> &B) {
 
 llvm::Expected<Locations>
 defineVar(const ExprVar &Var, const VariableLookupAnalysis &VLA,
-          const ParentMapAnalysis &PM, AttrSetClient &NixpkgsClient,
+          const ParentMapAnalysis &PM, ProviderRegistry *Registry,
           const URIForFile &URI, llvm::StringRef Src) {
   try {
     Locations StaticLocs = defineVarStatic(Var, VLA, URI, Src);
+    if (!Registry)
+      return StaticLocs;
 
     // Nixpkgs locations.
     try {
       Selector Sel = mkVarSelector(Var, VLA, PM);
-      Locations NixpkgsLocs = defineNixpkgsSelector(Sel, NixpkgsClient);
+      Locations NixpkgsLocs = queryProvider<Locations>(
+          *Registry, ProviderKey::nixpkgs(), {},
+          [&](ProviderWorker &Worker) -> llvm::Expected<Locations> {
+            auto *Client = Worker.attrSetClient();
+            if (!Client)
+              return lspserver::error("nixpkgs provider is unavailable");
+            return defineNixpkgsSelector(Sel, *Client);
+          });
       return mergeVec(std::move(StaticLocs), NixpkgsLocs);
     } catch (std::exception &E) {
       elog("definition/idiom/selector: {0}", E.what());
@@ -392,19 +407,28 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
 
       // Special case for inherited names.
       if (const ExprVar *Var = findInheritVar(N, PM, VLA))
-        return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
+        return defineVar(*Var, VLA, PM, Providers.get(), URI, TU->src());
 
       switch (UpExpr.kind()) {
       case Node::NK_ExprVar: {
         const auto &Var = static_cast<const ExprVar &>(UpExpr);
-        return defineVar(Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
+        return defineVar(Var, VLA, PM, Providers.get(), URI, TU->src());
       }
       case Node::NK_ExprSelect: {
         const auto &Sel = static_cast<const ExprSelect &>(UpExpr);
-        return defineSelect(Sel, VLA, PM, *nixpkgsClient());
+        if (!Providers)
+          return Locations{};
+        return queryProvider<Locations>(
+            *Providers, ProviderKey::nixpkgs(), {},
+            [&](ProviderWorker &Worker) -> llvm::Expected<Locations> {
+              auto *Client = Worker.attrSetClient();
+              if (!Client)
+                return lspserver::error("nixpkgs provider is unavailable");
+              return defineSelect(Sel, VLA, PM, *Client);
+            });
       }
       case Node::NK_ExprAttrs:
-        return defineAttrPath(N, PM, OptionsLock, Options);
+        return defineAttrPath(N, PM, Providers.get());
       case Node::NK_ExprPath: {
         const auto &Path = static_cast<const ExprPath &>(UpExpr);
         if (auto Loc = definePath(Path, File))

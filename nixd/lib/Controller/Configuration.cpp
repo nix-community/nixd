@@ -44,20 +44,17 @@ bool nixd::fromJSON(const Value &Params, ConfigurationPatch::Formatting &R,
     return true;
   }
 
-  if (!checkObject(Params, P, [](llvm::StringRef Key) {
-        return Key == "command";
-      }))
+  if (!checkObject(Params, P,
+                   [](llvm::StringRef Key) { return Key == "command"; }))
     return false;
   ObjectMapper Mapper(Params, P);
   return Mapper && Mapper.mapOptional("command", R.command);
 }
 
-bool nixd::fromJSON(const Value &Params,
-                    ConfigurationPatch::NixpkgsProvider &R,
+bool nixd::fromJSON(const Value &Params, ConfigurationPatch::NixpkgsProvider &R,
                     llvm::json::Path P) {
-  if (!checkObject(Params, P, [](llvm::StringRef Key) {
-        return Key == "expr";
-      }))
+  if (!checkObject(Params, P,
+                   [](llvm::StringRef Key) { return Key == "expr"; }))
     return false;
   ObjectMapper Mapper(Params, P);
   return Mapper && Mapper.mapOptional("expr", R.expr);
@@ -65,9 +62,8 @@ bool nixd::fromJSON(const Value &Params,
 
 bool nixd::fromJSON(const Value &Params, ConfigurationPatch::Diagnostic &R,
                     llvm::json::Path P) {
-  if (!checkObject(Params, P, [](llvm::StringRef Key) {
-        return Key == "suppress";
-      }))
+  if (!checkObject(Params, P,
+                   [](llvm::StringRef Key) { return Key == "suppress"; }))
     return false;
   ObjectMapper Mapper(Params, P);
   return Mapper && Mapper.mapOptional("suppress", R.suppress);
@@ -95,11 +91,12 @@ Configuration nixd::defaultConfiguration() {
   Configuration Config;
   Config.nixpkgs.expr = "import <nixpkgs> { }";
   Config.options.emplace(
-      "nixos", Configuration::OptionProvider{
-                   "(let pkgs = import <nixpkgs> { }; in (pkgs.lib.evalModules "
-                   "{ modules =  (import <nixpkgs/nixos/modules/module-list.nix>) "
-                   "++ [ ({...}: { nixpkgs.hostPlatform = "
-                   "builtins.currentSystem;} ) ] ; })).options"});
+      "nixos",
+      Configuration::OptionProvider{
+          "(let pkgs = import <nixpkgs> { }; in (pkgs.lib.evalModules "
+          "{ modules =  (import <nixpkgs/nixos/modules/module-list.nix>) "
+          "++ [ ({...}: { nixpkgs.hostPlatform = "
+          "builtins.currentSystem;} ) ] ; })).options"});
   return Config;
 }
 
@@ -114,6 +111,17 @@ Configuration nixd::overlay(Configuration Base,
   if (Patch.diagnostic && Patch.diagnostic->suppress)
     Base.diagnostic.suppress = *Patch.diagnostic->suppress;
   return Base;
+}
+
+ProviderSpec nixd::providerSpec(const Configuration &Config) {
+  ProviderSpec Spec;
+  if (!Config.nixpkgs.expr.empty())
+    Spec.Nixpkgs = Config.nixpkgs.expr;
+  for (const auto &[Name, Option] : Config.options) {
+    if (!Option.expr.empty())
+      Spec.Options.emplace(Name, Option.expr);
+  }
+  return Spec;
 }
 
 bool nixd::fromJSON(const Value &Params, ConfigurationPatch &R,
@@ -135,38 +143,41 @@ bool nixd::fromJSON(const Value &Params, ConfigurationPatch &R,
 
 void Controller::onDidChangeConfiguration(
     const DidChangeConfigurationParams &Params) {
-  // FIXME: incrementally change?
   fetchConfig();
 }
 
-void Controller::updateConfig(Configuration NewConfig) {
-  std::lock_guard G(ConfigLock);
-  Config = std::move(NewConfig);
+void Controller::updateConfig(Configuration NewConfig,
+                              ProviderRegistry::ApplyCallback OnApplied) {
+  if (!Accepting)
+    return;
+  boost::asio::post(ConfigStrand, [this, NewConfig = std::move(NewConfig),
+                                   OnApplied = std::move(OnApplied)]() mutable {
+    applyConfig(std::move(NewConfig), std::move(OnApplied));
+  });
+}
 
-  if (!Config.nixpkgs.expr.empty()) {
-    /// Evaluate nixpkgs and options, using user-provided config.
-    if (nixpkgsClient()) {
-      evalExprWithProgress(*nixpkgsClient(), Config.nixpkgs.expr,
-                           "nixpkgs entries");
-    }
+void Controller::applyConfig(Configuration NewConfig,
+                             ProviderRegistry::ApplyCallback OnApplied) {
+  if (!Accepting || !Providers) {
+    if (OnApplied)
+      OnApplied(Accepting ? ProviderApplyResult::Failed
+                          : ProviderApplyResult::Stopped);
+    return;
   }
-  if (!Config.options.empty()) {
-    std::lock_guard _(OptionsLock);
-    // For each option configuration, update the worker.
-    for (const auto &[Name, Opt] : Config.options) {
-      auto &Client = Options[Name];
-      if (!Client) {
-        // If it does not exist. Launch a new client.
-        assert(Startup);
-        startOption(Name, Client, Startup->executionCWD);
-      }
-      assert(Client);
-      evalExprWithProgress(*Client->client(), Opt.expr, Name);
-    }
+
+  const ProviderSpec Spec = providerSpec(NewConfig);
+  const auto Suppressed = NewConfig.diagnostic.suppress;
+  {
+    std::lock_guard Guard(ConfigLock);
+    Config = std::move(NewConfig);
   }
+
+  // ProviderRegistry publishes Pending/Retired revisions synchronously, so
+  // queries cannot acquire an old provider after this configuration commits.
+  Providers->apply(Spec, std::move(OnApplied));
 
   // Update the diagnostic part.
-  updateSuppressed(Config.diagnostic.suppress);
+  updateSuppressed(Suppressed);
 
   // After all, notify all AST modules the diagnostic set has been updated.
   std::lock_guard TUsGuard(TUsLock);
@@ -176,38 +187,18 @@ void Controller::updateConfig(Configuration NewConfig) {
 }
 
 void Controller::fetchConfig() {
-  auto Action = [this](llvm::Expected<llvm::json::Value> Resp) mutable {
-    if (!Resp) {
-      elog("workspace/configuration: {0}", Resp.takeError());
-      return;
-    }
+  if (!Accepting || !EditorConfig)
+    return;
+  auto Generation = EditorConfig->issue();
+  if (!Generation)
+    return;
 
-    // LSP response is a json array, just take the first.
-    if (Resp->kind() != llvm::json::Value::Array) {
-      lspserver::elog("workspace/configuration response is not an array: {0}",
-                      *Resp);
-      return;
-    }
-    const Value &FirstConfig = Resp->getAsArray()->front();
-
-    // Run this job in the thread pool. Don't block input thread.
-    auto ConfigAction = [this, FirstConfig]() mutable {
-      // Parse and apply the editor patch over the current configuration.
-      ConfigurationPatch Patch;
-      llvm::json::Path::Root P;
-      if (!fromJSON(FirstConfig, Patch, P)) {
-        elog("workspace/configuration: parse error {0}", P.getError());
-        return;
-      }
-
-      assert(Startup);
-      Configuration Base = Startup->baseConfiguration;
-
-      // OK, update the config
-      updateConfig(overlay(std::move(Base), Patch));
-    };
-
-    boost::asio::post(Pool, std::move(ConfigAction));
+  // The callback retains only the editor's shared strand state. The complete
+  // Expected<Value> is moved off the LSP input callback before it is parsed.
+  auto Editor = *EditorConfig;
+  auto Action = [Editor = std::move(Editor), Generation = *Generation](
+                    llvm::Expected<llvm::json::Value> Response) mutable {
+    Editor.submit(Generation, std::move(Response));
   };
   workspaceConfiguration({.items = {ConfigurationItem{.section = "nixd"}}},
                          std::move(Action));

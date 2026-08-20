@@ -15,7 +15,9 @@
 
 #include <llvm/Support/CommandLine.h>
 
+#include <chrono>
 #include <filesystem>
+#include <semaphore>
 
 using namespace nixd;
 using namespace util;
@@ -59,33 +61,51 @@ ConfigurationPatch litTestDefaults() {
   return Patch;
 }
 
-} // namespace
+class AttrSetProviderWorker final : public ProviderWorker {
+  std::unique_ptr<AttrSetClientProc> Process;
 
-void Controller::evalExprWithProgress(AttrSetClient &Client,
-                                      const EvalExprParams &Params,
-                                      std::string_view Description) {
-  auto Token = rand();
-  auto Action = [Token, Description = std::string(Description),
-                 this](llvm::Expected<EvalExprResponse> Resp) {
-    endWorkDoneProgress({
-        .token = Token,
-        .value = WorkDoneProgressEnd{.message = "evaluated " +
-                                                std::string(Description)},
-    });
-    if (!Resp) {
-      lspserver::elog("{0} eval expr: {1}", Description, Resp.takeError());
+public:
+  AttrSetProviderWorker(const ProviderKey &Key,
+                        const std::filesystem::path &CWD,
+                        DeathCallback OnDeath) {
+    if (Key.Kind == ProviderKind::Nixpkgs)
+      startNixpkgs(Process, CWD, std::move(OnDeath));
+    else
+      startOption(Key.Name, Process, CWD, std::move(OnDeath));
+  }
+
+  void evaluate(std::string Expression, EvaluationCallback Reply) override {
+    auto *Client = attrSetClient();
+    if (!Client) {
+      Reply(false);
       return;
     }
-  };
-  createWorkDoneProgress({Token});
-  beginWorkDoneProgress({.token = Token,
-                         .value = WorkDoneProgressBegin{
-                             .title = "evaluating " + std::string(Description),
-                             .cancellable = false,
-                             .percentage = false,
-                         }});
-  Client.evalExpr(Params, std::move(Action));
-}
+    Client->evalExpr(Expression,
+                     [Reply = std::move(Reply)](
+                         llvm::Expected<EvalExprResponse> Response) mutable {
+                       const bool Success = static_cast<bool>(Response);
+                       if (!Response)
+                         lspserver::elog("provider evaluation failed: {0}",
+                                         Response.takeError());
+                       Reply(Success);
+                     });
+  }
+
+  void cancel() override {
+    if (Process)
+      Process->stop();
+  }
+
+  [[nodiscard]] bool alive() const override {
+    return Process && Process->alive();
+  }
+
+  [[nodiscard]] AttrSetClient *attrSetClient() override {
+    return Process ? Process->client() : nullptr;
+  }
+};
+
+} // namespace
 
 void Controller::
     onInitialize( // NOLINT(readability-convert-member-functions-to-static)
@@ -171,8 +191,6 @@ void Controller::
       {"capabilities", std::move(ServerCaps)},
   }};
 
-  Reply(std::move(Result));
-
   ClientCaps = Params.capabilities;
 
   CommandLineConfiguration CLI;
@@ -189,8 +207,33 @@ void Controller::
   if (Startup->warning)
     lspserver::elog("{0}", *Startup->warning);
 
-  startNixpkgs(NixpkgsEval, Startup->executionCWD);
-  updateConfig(Startup->baseConfiguration);
+  Providers = std::make_unique<ProviderRegistry>(
+      ConfigStrand,
+      [](const ProviderKey &Key, const std::filesystem::path &CWD,
+         ProviderWorker::DeathCallback OnDeath) {
+        return std::make_shared<AttrSetProviderWorker>(Key, CWD,
+                                                       std::move(OnDeath));
+      },
+      Startup->executionCWD);
+  EditorConfig.emplace(
+      ConfigStrand, Startup->baseConfiguration,
+      [this](Configuration Config) { applyConfig(std::move(Config)); },
+      [](std::string Error) { lspserver::elog("{0}", Error); });
+  // Startup queries historically become usable as soon as initialize
+  // returns. Keep Active-only query tokens by waiting here, on the LSP input
+  // thread, while ConfigStrand and worker input threads continue to run. A
+  // provider error settles as Failed. A hung evaluator is bounded: initialize
+  // proceeds after the timeout and that provider remains unavailable until it
+  // later settles.
+  auto Configured = std::make_shared<std::binary_semaphore>(0);
+  updateConfig(Startup->baseConfiguration,
+               [Configured](ProviderApplyResult) { Configured->release(); });
+  if (!Configured->try_acquire_for(std::chrono::seconds(5)))
+    lspserver::elog("initial provider evaluation did not settle within 5s");
+
+  Reply(std::move(Result));
+  // workspace/configuration is requested only after initialize has replied;
+  // some clients do not service server requests before that point.
   fetchConfig();
 }
 
@@ -207,6 +250,45 @@ void Controller::onInitialized(const lspserver::InitializedParams &Params) {
 
 void Controller::onShutdown(const lspserver::NoParams &,
                             lspserver::Callback<std::nullptr_t> Reply) {
-  ReceivedShutdown = true;
+  shutdownController();
   Reply(nullptr);
 }
+
+void Controller::shutdownController() {
+  {
+    std::unique_lock Lock(ShutdownMutex);
+    if (ShutdownState == ShutdownPhase::Stopped)
+      return;
+    if (ShutdownState == ShutdownPhase::Stopping) {
+      ShutdownChanged.wait(
+          Lock, [this] { return ShutdownState == ShutdownPhase::Stopped; });
+      return;
+    }
+    ShutdownState = ShutdownPhase::Stopping;
+  }
+
+  Accepting = false;
+  if (EditorConfig)
+    EditorConfig->stop();
+  closeRequestGate("nixd is shutting down");
+
+  if (Providers) {
+    std::binary_semaphore Retired(0);
+    Providers->shutdown([&Retired] { Retired.release(); });
+    Retired.acquire();
+  }
+
+  // shutdownController is called only by the LSP input/owner thread, never by
+  // a Pool task. The registry waiter above runs on ConfigStrand and only
+  // releases the semaphore; joining here drains query tokens before output
+  // state can be destroyed.
+  Pool.join();
+
+  {
+    std::lock_guard Lock(ShutdownMutex);
+    ShutdownState = ShutdownPhase::Stopped;
+  }
+  ShutdownChanged.notify_all();
+}
+
+Controller::~Controller() { shutdownController(); }

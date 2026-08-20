@@ -26,6 +26,7 @@ libnixd_lib = library(
     'Controller/Convert.cpp',
     'Controller/Definition.cpp',
     'Controller/Diagnostics.cpp',
+    'Controller/EditorConfig.cpp',
     'Controller/DocumentHighlight.cpp',
     'Controller/DocumentLink.cpp',
     'Controller/DocumentSymbol.cpp',

@@ -26,27 +26,32 @@ opt<std::string> NixpkgsWorkerStderr{
 
 void nixd::startAttrSetEval(const std::string &Name,
                             std::unique_ptr<AttrSetClientProc> &Worker,
-                            const std::filesystem::path &CWD) {
-  Worker = std::make_unique<AttrSetClientProc>([Name, CWD]() {
-    freopen(Name.c_str(), "w", stderr);
-    if (chdir(CWD.c_str()) != 0) {
-      perror("failed to change evaluator working directory");
-      return -1;
-    }
-    return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
-  });
+                            const std::filesystem::path &CWD,
+                            std::function<void()> OnDeath) {
+  Worker = std::make_unique<AttrSetClientProc>(
+      [Name, CWD]() {
+        freopen(Name.c_str(), "w", stderr);
+        if (chdir(CWD.c_str()) != 0) {
+          perror("failed to change evaluator working directory");
+          return -1;
+        }
+        return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
+      },
+      std::move(OnDeath));
 }
 
 void nixd::startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval,
-                        const std::filesystem::path &CWD) {
-  startAttrSetEval(NixpkgsWorkerStderr, NixpkgsEval, CWD);
+                        const std::filesystem::path &CWD,
+                        std::function<void()> OnDeath) {
+  startAttrSetEval(NixpkgsWorkerStderr, NixpkgsEval, CWD, std::move(OnDeath));
 }
 
 void nixd::startOption(const std::string &Name,
                        std::unique_ptr<AttrSetClientProc> &Worker,
-                       const std::filesystem::path &CWD) {
+                       const std::filesystem::path &CWD,
+                       std::function<void()> OnDeath) {
   std::string NewName = NULL_DEVICE;
   if (OptionWorkerStderr.getNumOccurrences())
     NewName = OptionWorkerStderr.getValue() + "/" + Name;
-  startAttrSetEval(NewName, Worker, CWD);
+  startAttrSetEval(NewName, Worker, CWD, std::move(OnDeath));
 }

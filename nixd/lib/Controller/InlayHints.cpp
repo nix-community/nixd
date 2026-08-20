@@ -19,6 +19,7 @@
 
 #include "nixd/CommandLine/Options.h"
 #include "nixd/Controller/Controller.h"
+#include "nixd/Controller/ProviderQuery.h"
 
 #include <boost/asio/post.hpp>
 
@@ -128,12 +129,21 @@ void Controller::onInlayHint(const InlayHintsParams &Params,
       const auto TU = CheckDefault(getTU(File));
       const auto AST = CheckDefault(getAST(*TU));
       // Perform inlay hints computation on the range.
-      std::vector<InlayHint> Response;
-      NixpkgsInlayHintsProvider NP(*nixpkgsClient(), *TU->variableLookup(),
-                                   *TU->parentMap(), Range, Response,
-                                   TU->src());
-      NP.dfs(AST.get());
-      return Response;
+      if (!Providers)
+        return CheckTy{};
+      return queryProvider<CheckTy>(
+          *Providers, ProviderKey::nixpkgs(), {},
+          [&](ProviderWorker &Worker) -> llvm::Expected<CheckTy> {
+            auto *Client = Worker.attrSetClient();
+            if (!Client)
+              return lspserver::error("nixpkgs provider is unavailable");
+            CheckTy Response;
+            NixpkgsInlayHintsProvider NP(*Client, *TU->variableLookup(),
+                                         *TU->parentMap(), Range, Response,
+                                         TU->src());
+            NP.dfs(AST.get());
+            return Response;
+          });
     }());
   };
   boost::asio::post(Pool, std::move(Action));

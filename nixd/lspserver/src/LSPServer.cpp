@@ -7,14 +7,38 @@
 #include <llvm/Support/Error.h>
 #include <llvm/Support/JSON.h>
 
+#include <chrono>
 #include <mutex>
 #include <stdexcept>
 
 namespace lspserver {
 
+namespace {
+
+constexpr auto InputEndReplyGrace = std::chrono::milliseconds(500);
+
+} // namespace
+
 void LSPServer::run() {
   In->loop(*this);
+  // A bare exit/EOF can follow an asynchronous request immediately (notably in
+  // lit tests). Stop accepting new input and fail outbound calls first, then
+  // give only already-dispatched inbound replies one bounded opportunity to
+  // finish while the derived Controller and its providers are still alive.
+  // Explicit shutdown has already closed RequestsAccepted and skips this
+  // compatibility grace, avoiding a wait on the shutdown request itself.
+  const bool GracefulInputEnd = RequestsAccepted.exchange(false);
   failPendingCalls("LSP input ended");
+  if (!GracefulInputEnd)
+    return;
+
+  const auto Deadline = std::chrono::steady_clock::now() + InputEndReplyGrace;
+  std::unique_lock Lock(InboundReplies->Mutex);
+  if (!InboundReplies->Changed.wait_until(
+          Lock, Deadline, [this] { return InboundReplies->Active == 0; })) {
+    elog("timed out waiting for {0} dispatched LSP request replies",
+         InboundReplies->Active);
+  }
 }
 
 void LSPServer::failPendingCalls(std::string Reason) {
@@ -103,6 +127,8 @@ bool LSPServer::onNotify(llvm::StringRef Method, llvm::json::Value Params) {
   log("<-- {0}", Method);
   if (Method == "exit")
     return false;
+  if (!RequestsAccepted)
+    return true;
   auto Handler = Registry.NotificationHandlers.find(Method);
   if (Handler != Registry.NotificationHandlers.end()) {
     Handler->second(std::move(Params));
@@ -115,23 +141,69 @@ bool LSPServer::onNotify(llvm::StringRef Method, llvm::json::Value Params) {
 bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
                        llvm::json::Value ID) {
   log("<-- {0}({1})", Method, ID);
+  if (!RequestsAccepted) {
+    Out->reply(std::move(ID), error("server is shutting down"));
+    return true;
+  }
   auto Handler = Registry.MethodHandlers.find(Method);
-  if (Handler != Registry.MethodHandlers.end())
-    Handler->second(std::move(Params),
-                    [=, Method = std::string(Method),
-                     this](llvm::Expected<llvm::json::Value> Response) mutable {
-                      if (Response) {
-                        log("--> reply:{0}({1})", Method, ID);
-                        Out->reply(std::move(ID), std::move(Response));
-                      } else {
-                        llvm::Error Err = Response.takeError();
-                        log("--> reply:{0}({1}) {2:ms}, error: {3}", Method, ID,
-                            Err);
-                        Out->reply(std::move(ID), std::move(Err));
-                      }
-                    });
-  else
+  if (Handler == Registry.MethodHandlers.end())
     return false;
+
+  struct ReplyLease {
+    std::shared_ptr<InboundReplyState> State;
+    std::shared_ptr<OutboundPort> Output;
+    llvm::json::Value ID;
+    std::string Method;
+    std::atomic<bool> Completed = false;
+
+    void finish() {
+      {
+        std::lock_guard Guard(State->Mutex);
+        assert(State->Active > 0);
+        --State->Active;
+      }
+      State->Changed.notify_all();
+    }
+
+    void reply(llvm::Expected<llvm::json::Value> Response) {
+      if (Completed.exchange(true)) {
+        if (!Response)
+          llvm::consumeError(Response.takeError());
+        elog("ignored duplicate reply for {0}({1})", Method, ID);
+        return;
+      }
+      if (Response) {
+        log("--> reply:{0}({1})", Method, ID);
+        Output->reply(std::move(ID), std::move(Response));
+      } else {
+        llvm::Error Err = Response.takeError();
+        log("--> reply:{0}({1}) {2:ms}, error: {3}", Method, ID, Err);
+        Output->reply(std::move(ID), std::move(Err));
+      }
+      // The output attempt is part of the inbound call's lifetime. Only make
+      // the drain waiter observable after it has completed.
+      finish();
+    }
+
+    ~ReplyLease() {
+      if (Completed.exchange(true))
+        return;
+      elog("handler abandoned reply for {0}({1})", Method, ID);
+      finish();
+    }
+  };
+
+  {
+    std::lock_guard Guard(InboundReplies->Mutex);
+    ++InboundReplies->Active;
+  }
+  auto Lease = std::make_shared<ReplyLease>(InboundReplies, Out, std::move(ID),
+                                            std::string(Method));
+  Handler->second(std::move(Params),
+                  [Lease = std::move(Lease)](
+                      llvm::Expected<llvm::json::Value> Response) mutable {
+                    Lease->reply(std::move(Response));
+                  });
   return true;
 }
 
