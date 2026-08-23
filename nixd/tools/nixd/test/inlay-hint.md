@@ -1,5 +1,5 @@
 # RUN: nixd --lit-test \
-# RUN: --nixpkgs-expr="{ hello.version = \"0.3.12\";  }" \
+# RUN: --nixpkgs-expr="{ hello.version = \"0.3.12\"; vimPlugins.nvim-lspconfig.version = \"2.5.0\"; vimPlugins.blink-cmp.version = \"1.7.0\"; }" \
 # RUN: < %s | FileCheck %s
 
 <-- initialize(0)
@@ -20,7 +20,11 @@
 ```
 
 ```nix file:///basic.nix
-with pkgs; [ hello  ]
+[
+  (with pkgs; [ hello ])
+  pkgs.vimPlugins.nvim-lspconfig
+  (with pkgs.vimPlugins; [ blink-cmp ])
+]
 ```
 
 
@@ -40,8 +44,8 @@ with pkgs; [ hello  ]
             "character":0
           },
           "end":{
-            "line":0,
-            "character":20
+            "line":4,
+            "character":1
           }
         }
     }
@@ -57,8 +61,26 @@ CHECK-NEXT:      "label": ": 0.3.12",
 CHECK-NEXT:      "paddingLeft": false,
 CHECK-NEXT:      "paddingRight": false,
 CHECK-NEXT:      "position": {
-CHECK-NEXT:        "character": 18,
-CHECK-NEXT:        "line": 0
+CHECK-NEXT:        "character": 21,
+CHECK-NEXT:        "line": 1
+CHECK-NEXT:      }
+CHECK-NEXT:    },
+CHECK-NEXT:    {
+CHECK-NEXT:      "label": ": 2.5.0",
+CHECK-NEXT:      "paddingLeft": false,
+CHECK-NEXT:      "paddingRight": false,
+CHECK-NEXT:      "position": {
+CHECK-NEXT:        "character": 32,
+CHECK-NEXT:        "line": 2
+CHECK-NEXT:      }
+CHECK-NEXT:    },
+CHECK-NEXT:    {
+CHECK-NEXT:      "label": ": 1.7.0",
+CHECK-NEXT:      "paddingLeft": false,
+CHECK-NEXT:      "paddingRight": false,
+CHECK-NEXT:      "position": {
+CHECK-NEXT:        "character": 36,
+CHECK-NEXT:        "line": 3
 CHECK-NEXT:      }
 CHECK-NEXT:    }
 ```

@@ -56,6 +56,32 @@ class NixpkgsInlayHintsProvider {
 
   llvm::StringRef Src;
 
+  void addHint(const Node &N, Selector Selector) {
+    if (!rangeOK(N.positionRange()))
+      return;
+
+    // Ask nixpkgs eval to provide its information. This is relatively slow.
+    // Maybe better query a set of packages in the future?
+    std::binary_semaphore Ready(0);
+    AttrPathInfoResponse R;
+    auto OnReply = [&Ready, &R](llvm::Expected<AttrPathInfoResponse> Resp) {
+      if (Resp)
+        R = *Resp;
+      Ready.release();
+    };
+    NixpkgsProvider.attrpathInfo(Selector, std::move(OnReply));
+    Ready.acquire();
+
+    if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
+      Hints.emplace_back(InlayHint{
+          .position = toLSPPosition(Src, N.rCur()),
+          .label = ": " + *Version,
+          .kind = InlayHintKind::Designator,
+          .range = toLSPRange(Src, N.range()),
+      });
+    }
+  }
+
 public:
   NixpkgsInlayHintsProvider(AttrSetClient &NixpkgsProvider,
                             const VariableLookupAnalysis &VLA,
@@ -72,39 +98,15 @@ public:
     if (!N)
       return;
     if (N->kind() == Node::NK_ExprVar) {
-      if (havePackageScope(*N, VLA, PMA)) {
-        if (!rangeOK(N->positionRange()))
-          return;
-        // Ask nixpkgs eval to provide it's information.
-        // This is relatively slow. Maybe better query a set of packages in the
-        // future?
-        std::binary_semaphore Ready(0);
-        const std::string &Name = static_cast<const ExprVar &>(*N).id().name();
-        AttrPathInfoResponse R;
-        auto OnReply = [&Ready, &R](llvm::Expected<AttrPathInfoResponse> Resp) {
-          if (!Resp) {
-            Ready.release();
-            return;
-          }
-          R = *Resp;
-          Ready.release();
-        };
-        NixpkgsProvider.attrpathInfo({Name}, std::move(OnReply));
-        Ready.acquire();
-
-        if (const std::optional<std::string> &Version = R.PackageDesc.Version) {
-          // Construct inlay hints.
-          InlayHint H{
-              .position = toLSPPosition(Src, N->rCur()),
-              .label = ": " + *Version,
-              .kind = InlayHintKind::Designator,
-              .range = toLSPRange(Src, N->range()),
-          };
-          Hints.emplace_back(std::move(H));
-        }
-      }
+      addHint(*N, idioms::mkVarSelector(static_cast<const ExprVar &>(*N), VLA,
+                                        PMA));
+    } else if (N->kind() == Node::NK_ExprSelect) {
+      addHint(*N, idioms::mkSelector(static_cast<const ExprSelect &>(*N), VLA,
+                                     PMA));
+      // The complete selection has been queried; do not also query its base.
+      return;
     }
-    // FIXME: process other node kinds. e.g. ExprSelect.
+
     for (const Node *Ch : N->children())
       dfs(Ch);
   }
