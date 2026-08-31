@@ -5,10 +5,28 @@
 #include <llvm/Support/raw_ostream.h>
 #include <lspserver/Connection.h>
 
+#include <filesystem>
+#include <span>
+#include <string>
+#include <vector>
+
 namespace nixd {
+
+namespace detail {
+class ProcessLaunchGuard;
+}
+
+struct ExecSpec {
+  std::filesystem::path Executable;
+  /// Complete argv, including argv[0].
+  std::vector<std::string> Arguments;
+  std::filesystem::path Stderr;
+  std::filesystem::path WorkingDirectory;
+};
 
 struct StreamProc {
 private:
+  std::unique_ptr<detail::ProcessLaunchGuard> ConstructionGuard;
   std::unique_ptr<util::PipedProc> Proc;
   std::unique_ptr<llvm::raw_fd_ostream> Stream;
 
@@ -17,7 +35,15 @@ public:
   ///
   /// The value returned by \p Action will be interpreted as process's exit
   /// value.
-  StreamProc(const std::function<int()> &Action);
+  StreamProc(const std::function<int()> &Action,
+             std::span<const int> ChildFDs = {});
+
+  /// Launch an executable without running application code after fork.
+  explicit StreamProc(const ExecSpec &Spec);
+  ~StreamProc();
+
+  /// Transfer sole signal/reap ownership after another guard is armed.
+  void claimProcess() noexcept;
 
   [[nodiscard]] llvm::raw_fd_ostream &stream() const {
     assert(Stream);

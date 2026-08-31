@@ -7,8 +7,6 @@
 #include <lspserver/Connection.h>
 #include <nixt/InitEval.h>
 
-#include <unistd.h>
-
 using namespace llvm::cl;
 using namespace lspserver;
 using namespace nixd;

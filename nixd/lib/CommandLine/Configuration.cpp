@@ -20,11 +20,29 @@ opt<std::string> DefaultConfigJSON{"config",
                                    desc("JSON-encoded initial configuration"),
                                    init(""), cat(NixdCategory)};
 
+opt<bool> EnableProjectConfig{
+    "enable-project-config",
+    desc("Load trusted .nixd.json from the initialized workspace root; trusted "
+         "project configuration may evaluate Nix and execute formatter "
+         "commands"),
+    init(false), cat(NixdCategory)};
+
 } // namespace
 
-Configuration nixd::parseCLIConfig() {
-  if (DefaultConfigJSON.empty())
-    return {};
+CommandLineConfiguration nixd::parseCLIConfig(ConfigurationPatch DefaultPatch,
+                                              ConfigurationPatch LegacyPatch) {
+  CommandLineConfiguration Result{
+      .baseConfiguration = overlay(defaultConfiguration(), DefaultPatch),
+      .configSpecified = DefaultConfigJSON.getNumOccurrences() != 0,
+      .enableProjectConfig = EnableProjectConfig,
+  };
+  Result.baseConfiguration =
+      overlay(std::move(Result.baseConfiguration), LegacyPatch);
+  if (!Result.configSpecified)
+    return Result;
 
-  return nixd::fromJSON<Configuration>(nixd::parse(DefaultConfigJSON));
+  Result.baseConfiguration = overlay(
+      std::move(Result.baseConfiguration),
+      nixd::fromJSON<ConfigurationPatch>(nixd::parse(DefaultConfigJSON)));
+  return Result;
 }

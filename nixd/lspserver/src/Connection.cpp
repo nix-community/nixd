@@ -6,6 +6,8 @@
 #include <llvm/Support/CommandLine.h>
 
 #include <poll.h>
+#include <pthread.h>
+#include <signal.h>
 #include <sys/poll.h>
 #include <sys/stat.h>
 
@@ -17,6 +19,43 @@
 #include <system_error>
 
 namespace {
+
+class ScopedSIGPIPEBlock {
+  sigset_t Set{};
+  sigset_t OldSet{};
+  bool Active = false;
+  bool WasPending = false;
+
+public:
+  explicit ScopedSIGPIPEBlock(bool Enable) {
+    if (!Enable)
+      return;
+    sigemptyset(&Set);
+    sigaddset(&Set, SIGPIPE);
+    if (pthread_sigmask(SIG_BLOCK, &Set, &OldSet) != 0)
+      return;
+    Active = true;
+    sigset_t Pending{};
+    if (sigpending(&Pending) == 0)
+      WasPending = sigismember(&Pending, SIGPIPE) == 1;
+  }
+
+  void consumeGeneratedSignal() {
+    if (!Active || WasPending)
+      return;
+    sigset_t Pending{};
+    if (sigpending(&Pending) != 0 || sigismember(&Pending, SIGPIPE) != 1)
+      return;
+    int Signal = 0;
+    while (sigwait(&Set, &Signal) == EINTR) {
+    }
+  }
+
+  ~ScopedSIGPIPEBlock() {
+    if (Active)
+      pthread_sigmask(SIG_SETMASK, &OldSet, nullptr);
+  }
+};
 
 llvm::cl::opt<int> ClientProcessID{
     "clientProcessId",
@@ -78,15 +117,16 @@ llvm::Error decodeError(const llvm::json::Object &O) {
 }
 
 void OutboundPort::notify(llvm::StringRef Method, llvm::json::Value Params) {
-  sendMessage(llvm::json::Object{
+  (void)sendMessage(llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"method", Method},
       {"params", std::move(Params)},
   });
 }
-void OutboundPort::call(llvm::StringRef Method, llvm::json::Value Params,
-                        llvm::json::Value ID) {
-  sendMessage(llvm::json::Object{
+std::error_code OutboundPort::call(llvm::StringRef Method,
+                                   llvm::json::Value Params,
+                                   llvm::json::Value ID) {
+  return sendMessage(llvm::json::Object{
       {"jsonrpc", "2.0"},
       {"id", std::move(ID)},
       {"method", Method},
@@ -96,13 +136,13 @@ void OutboundPort::call(llvm::StringRef Method, llvm::json::Value Params,
 void OutboundPort::reply(llvm::json::Value ID,
                          llvm::Expected<llvm::json::Value> Result) {
   if (Result) {
-    sendMessage(llvm::json::Object{
+    (void)sendMessage(llvm::json::Object{
         {"jsonrpc", "2.0"},
         {"id", std::move(ID)},
         {"result", std::move(*Result)},
     });
   } else {
-    sendMessage(llvm::json::Object{
+    (void)sendMessage(llvm::json::Object{
         {"jsonrpc", "2.0"},
         {"id", std::move(ID)},
         {"error", encodeError(Result.takeError())},
@@ -110,7 +150,7 @@ void OutboundPort::reply(llvm::json::Value ID,
   }
 }
 
-void OutboundPort::sendMessage(llvm::json::Value Message) {
+std::error_code OutboundPort::sendMessage(llvm::json::Value Message) {
   // Make sure our outputs are not interleaving between messages (json)
   vlog(">>> {0}", Message);
   std::lock_guard<std::mutex> Guard(Mutex);
@@ -118,9 +158,17 @@ void OutboundPort::sendMessage(llvm::json::Value Message) {
   llvm::raw_svector_ostream SVecOS(OutputBuffer);
   SVecOS << (Pretty ? llvm::formatv("{0:2}", Message)
                     : llvm::formatv("{0}", Message));
+  ScopedSIGPIPEBlock BlockSIGPIPE(FDOut != nullptr);
   Outs << "Content-Length: " << OutputBuffer.size() << "\r\n\r\n"
        << OutputBuffer;
   Outs.flush();
+  if (!FDOut || !FDOut->has_error())
+    return {};
+  std::error_code Failure = FDOut->error();
+  FDOut->clear_error();
+  if (Failure == std::errc::broken_pipe)
+    BlockSIGPIPE.consumeGeneratedSignal();
+  return Failure;
 }
 
 bool InboundPort::dispatch(llvm::json::Value Message, MessageHandler &Handler) {

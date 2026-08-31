@@ -10,6 +10,7 @@
 #include "lspserver/Protocol.h"
 
 #include "nixd/Controller/Controller.h"
+#include "nixd/Controller/ProviderQuery.h"
 #include "nixd/Protocol/AttrSet.h"
 
 #include <nixf/Sema/VariableLookup.h>
@@ -118,18 +119,26 @@ public:
   NixpkgsCompletionProvider(AttrSetClient &NixpkgsClient)
       : NixpkgsClient(NixpkgsClient) {}
 
-  void resolvePackage(std::vector<std::string> Scope, std::string Name,
+  bool resolvePackage(std::vector<std::string> Scope, std::string Name,
                       CompletionItem &Item) {
     std::binary_semaphore Ready(0);
     AttrPathInfoResponse Desc;
-    auto OnReply = [&Ready, &Desc](llvm::Expected<AttrPathInfoResponse> Resp) {
-      if (Resp)
+    bool Success = false;
+    auto OnReply = [&Ready, &Desc,
+                    &Success](llvm::Expected<AttrPathInfoResponse> Resp) {
+      if (Resp) {
         Desc = *Resp;
+        Success = true;
+      } else {
+        lspserver::elog("nixpkgs evaluator reported: {0}", Resp.takeError());
+      }
       Ready.release();
     };
     Scope.emplace_back(std::move(Name));
     NixpkgsClient.attrpathInfo(Scope, std::move(OnReply));
     Ready.acquire();
+    if (!Success)
+      return false;
     // Format "detail" and document.
     const PackageDescription &PD = Desc.PackageDesc;
     Item.documentation = MarkupContent{
@@ -138,6 +147,7 @@ public:
                  PD.LongDescription.value_or(""),
     };
     Item.detail = PD.Version.value_or("?");
+    return true;
   }
 
   /// \brief Ask nixpkgs provider, give us a list of names. (thunks)
@@ -339,35 +349,46 @@ public:
 
 void completeAttrName(const lspserver::Range EditRange,
                       const std::vector<std::string> &Scope,
-                      const std::string &Prefix,
-                      Controller::OptionMapTy &Options, bool CompletionSnippets,
+                      const std::string &Prefix, ProviderRegistry &Registry,
+                      bool CompletionSnippets,
                       std::vector<CompletionItem> &List) {
-  for (const auto &[Name, Provider] : Options) {
-    AttrSetClient *Client = Options.at(Name)->client();
-    if (!Client) [[unlikely]] {
-      elog("skipped client {0} as it is dead", Name);
-      continue;
-    }
-    OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
-    OCP.completeOptions(EditRange, Scope, Prefix, List);
+  auto Snapshot = Registry.acquireOptions();
+  std::vector<std::vector<CompletionItem>> Staged;
+  Staged.reserve(Snapshot.size());
+  for (const auto &Token : Snapshot) {
+    const std::string Name = Token.key().Name;
+    Staged.push_back(queryProviderStaged<std::vector<CompletionItem>>(
+        Registry, Token, {},
+        [&](ProviderWorker &Worker)
+            -> llvm::Expected<std::vector<CompletionItem>> {
+          auto *Client = Worker.attrSetClient();
+          if (!Client)
+            return lspserver::error("option provider is unavailable");
+          std::vector<CompletionItem> Items;
+          OptionCompletionProvider OCP(*Client, Name, CompletionSnippets);
+          OCP.completeOptions(EditRange, Scope, Prefix, Items);
+          return Items;
+        }));
   }
+  if (!Registry.validate(Snapshot))
+    return;
+  for (auto &ProviderItems : Staged)
+    for (auto &Item : ProviderItems)
+      addItem(List, std::move(Item));
 }
 
 void completeAttrPath(const lspserver::Range EditRange, const Node &N,
-                      const ParentMapAnalysis &PM, std::mutex &OptionsLock,
-                      Controller::OptionMapTy &Options, bool Snippets,
+                      const ParentMapAnalysis &PM, ProviderRegistry *Registry,
+                      bool Snippets,
                       std::vector<lspserver::CompletionItem> &Items) {
   std::vector<std::string> Scope;
   using PathResult = FindAttrPathResult;
   auto R = findAttrPathForOptions(N, PM, Scope);
-  if (R == PathResult::OK) {
+  if (R == PathResult::OK && Registry) {
     // Construct request.
     std::string Prefix = Scope.back();
     Scope.pop_back();
-    {
-      std::lock_guard _(OptionsLock);
-      completeAttrName(EditRange, Scope, Prefix, Options, Snippets, Items);
-    }
+    completeAttrName(EditRange, Scope, Prefix, *Registry, Snippets, Items);
   }
 }
 
@@ -388,14 +409,12 @@ AttrPathCompleteParams mkParams(nixd::Selector Sel, bool IsComplete) {
 
 #define DBG DBGPREFIX ": "
 
-void completeVarName(const lspserver::Range EditRange,
-                     const VariableLookupAnalysis &VLA,
-                     const ParentMapAnalysis &PM, const nixf::ExprVar &N,
-                     AttrSetClient &Client, std::vector<CompletionItem> &List) {
+void completeVarNameFromNixpkgs(const lspserver::Range EditRange,
+                                const VariableLookupAnalysis &VLA,
+                                const ParentMapAnalysis &PM,
+                                const nixf::ExprVar &N, AttrSetClient &Client,
+                                std::vector<CompletionItem> &List) {
 #define DBGPREFIX "completion/var"
-
-  VLACompletionProvider VLAP(VLA);
-  VLAP.complete(N, List, PM);
 
   // Try to complete the name by known idioms.
   try {
@@ -491,9 +510,24 @@ void Controller::onCompletion(const CompletionParams &Params,
           switch (UpExpr.kind()) {
           // In these cases, assume the cursor have "variable" scoping.
           case Node::NK_ExprVar: {
-            completeVarName(EditRange, VLA, PM,
-                            static_cast<const nixf::ExprVar &>(UpExpr),
-                            *nixpkgsClient(), List.items);
+            const auto &Var = static_cast<const nixf::ExprVar &>(UpExpr);
+            VLACompletionProvider(VLA).complete(Var, List.items, PM);
+            if (!Providers)
+              return List;
+            auto ProviderItems = queryProvider<std::vector<CompletionItem>>(
+                *Providers, ProviderKey::nixpkgs(), {},
+                [&](ProviderWorker &Worker)
+                    -> llvm::Expected<std::vector<CompletionItem>> {
+                  auto *Client = Worker.attrSetClient();
+                  if (!Client)
+                    return lspserver::error("nixpkgs provider is unavailable");
+                  std::vector<CompletionItem> Items;
+                  completeVarNameFromNixpkgs(EditRange, VLA, PM, Var, *Client,
+                                             Items);
+                  return Items;
+                });
+            for (auto &Item : ProviderItems)
+              addItem(List.items, std::move(Item));
             return List;
           }
           // A "select" expression. e.g.
@@ -502,12 +536,26 @@ void Controller::onCompletion(const CompletionParams &Params,
           // foo.a.bar|
           case Node::NK_ExprSelect: {
             const auto &Select = static_cast<const nixf::ExprSelect &>(UpExpr);
-            completeSelect(EditRange, Select, *nixpkgsClient(), VLA, PM,
-                           N.kind() == Node::NK_Dot, List.items);
+            if (!Providers)
+              return List;
+            auto ProviderItems = queryProvider<std::vector<CompletionItem>>(
+                *Providers, ProviderKey::nixpkgs(), {},
+                [&](ProviderWorker &Worker)
+                    -> llvm::Expected<std::vector<CompletionItem>> {
+                  auto *Client = Worker.attrSetClient();
+                  if (!Client)
+                    return lspserver::error("nixpkgs provider is unavailable");
+                  std::vector<CompletionItem> Items;
+                  completeSelect(EditRange, Select, *Client, VLA, PM,
+                                 N.kind() == Node::NK_Dot, Items);
+                  return Items;
+                });
+            for (auto &Item : ProviderItems)
+              addItem(List.items, std::move(Item));
             return List;
           }
           case Node::NK_ExprAttrs: {
-            completeAttrPath(EditRange, N, PM, OptionsLock, Options,
+            completeAttrPath(EditRange, N, PM, Providers.get(),
                              ClientCaps.CompletionSnippets, List.items);
             return List;
           }
@@ -543,11 +591,20 @@ void Controller::onCompletionItemResolve(const CompletionItem &Params,
     llvm::json::Path::Root Root;
     fromJSON(*EV, Req, Root);
 
-    // FIXME: handle null nixpkgsClient()
-    NixpkgsCompletionProvider NCP(*nixpkgsClient());
-    CompletionItem Resp = Params;
-    NCP.resolvePackage(Req.Scope, Params.label, Resp);
-
+    if (!Providers)
+      return Reply(Params);
+    auto Resp = queryProvider<CompletionItem>(
+        *Providers, ProviderKey::nixpkgs(), Params,
+        [&](ProviderWorker &Worker) -> llvm::Expected<CompletionItem> {
+          auto *Client = Worker.attrSetClient();
+          if (!Client)
+            return lspserver::error("nixpkgs provider is unavailable");
+          CompletionItem Resolved = Params;
+          NixpkgsCompletionProvider NCP(*Client);
+          if (!NCP.resolvePackage(Req.Scope, Params.label, Resolved))
+            return lspserver::error("nixpkgs resolve failed");
+          return Resolved;
+        });
     Reply(std::move(Resp));
   };
   boost::asio::post(Pool, std::move(Action));

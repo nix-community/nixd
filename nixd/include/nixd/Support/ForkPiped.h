@@ -1,5 +1,8 @@
 #pragma once
 
+#include <span>
+#include <sys/types.h>
+
 namespace nixd {
 
 /// \brief fork this process and create some pipes connected to the new process.
@@ -9,6 +12,7 @@ namespace nixd {
 ///
 /// \returns pid of child process, in parent.
 /// \returns 0 in child.
-int forkPiped(int &In, int &Out, int &Err);
+int forkPiped(int &In, int &Out, int &Err, pid_t *ProcessGroup = nullptr,
+              std::span<const int> ChildFDs = {});
 
 } // namespace nixd

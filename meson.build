@@ -83,7 +83,7 @@ subdir('libnixt/test')
 
 subdir('nixd/lspserver')
 subdir('nixd/lib')
+subdir('nixd/test')
 subdir('nixd/tools')
-
 
 

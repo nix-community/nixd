@@ -22,21 +22,37 @@ opt<std::string> NixpkgsWorkerStderr{
 } // namespace
 
 void nixd::startAttrSetEval(const std::string &Name,
-                            std::unique_ptr<AttrSetClientProc> &Worker) {
-  Worker = std::make_unique<AttrSetClientProc>([&Name]() {
-    freopen(Name.c_str(), "w", stderr);
-    return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
-  });
+                            std::unique_ptr<AttrSetClientProc> &Worker,
+                            const std::filesystem::path &CWD,
+                            std::function<void()> OnDeath) {
+  const std::filesystem::path ConfiguredExecutable = AttrSetClient::getExe();
+  const std::filesystem::path WorkingDirectory = std::filesystem::absolute(CWD);
+  const std::filesystem::path Executable =
+      ConfiguredExecutable.is_absolute()
+          ? ConfiguredExecutable
+          : WorkingDirectory / ConfiguredExecutable;
+  Worker = std::make_unique<AttrSetClientProc>(
+      ExecSpec{
+          .Executable = Executable,
+          .Arguments = {"nixd-attrset-eval"},
+          .Stderr = Name,
+          .WorkingDirectory = WorkingDirectory,
+      },
+      std::move(OnDeath));
 }
 
-void nixd::startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {
-  startAttrSetEval(NixpkgsWorkerStderr, NixpkgsEval);
+void nixd::startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval,
+                        const std::filesystem::path &CWD,
+                        std::function<void()> OnDeath) {
+  startAttrSetEval(NixpkgsWorkerStderr, NixpkgsEval, CWD, std::move(OnDeath));
 }
 
 void nixd::startOption(const std::string &Name,
-                       std::unique_ptr<AttrSetClientProc> &Worker) {
+                       std::unique_ptr<AttrSetClientProc> &Worker,
+                       const std::filesystem::path &CWD,
+                       std::function<void()> OnDeath) {
   std::string NewName = NULL_DEVICE;
   if (OptionWorkerStderr.getNumOccurrences())
     NewName = OptionWorkerStderr.getValue() + "/" + Name;
-  startAttrSetEval(NewName, Worker);
+  startAttrSetEval(NewName, Worker, CWD, std::move(OnDeath));
 }
