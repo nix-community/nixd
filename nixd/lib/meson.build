@@ -2,8 +2,7 @@ libnixd_include = include_directories('../include')
 
 libnixd_deps = [ nixd_lsp_server, nixf, llvm, nixt ]
 
-libnixd_lib = library(
-    'nixd',
+libnixd_sources = [
     'CommandLine/Configuration.cpp',
     'CommandLine/Options.cpp',
     'Controller/AST.cpp',
@@ -49,13 +48,43 @@ libnixd_lib = library(
     'Support/ForkPiped.cpp',
     'Support/JSON.cpp',
     'Support/StreamProc.cpp',
-    dependencies: libnixd_deps,
-    include_directories: libnixd_include,
-    install: true
-)
+]
 
-libnixd = declare_dependency(
-    include_directories: libnixd_include,
-    link_with: libnixd_lib,
-    dependencies: libnixd_deps
-)
+if llvm_static
+  libnixd_lib = static_library(
+      'nixd',
+      libnixd_sources,
+      dependencies: libnixd_deps,
+      include_directories: libnixd_include,
+  )
+
+  libnixd = declare_dependency(
+      include_directories: libnixd_include,
+      link_with: libnixd_lib,
+      dependencies: libnixd_deps,
+  )
+
+  # Keep every translation unit that can register a command-line option in
+  # the nixd executable, including units whose only effect is initialization.
+  libnixd_whole = declare_dependency(
+      include_directories: libnixd_include,
+      link_whole: libnixd_lib,
+      dependencies: libnixd_deps,
+  )
+else
+  libnixd_lib = shared_library(
+      'nixd',
+      libnixd_sources,
+      dependencies: libnixd_deps,
+      include_directories: libnixd_include,
+      install: true,
+  )
+
+  libnixd = declare_dependency(
+      include_directories: libnixd_include,
+      link_with: libnixd_lib,
+      dependencies: libnixd_deps,
+  )
+
+  libnixd_whole = libnixd
+endif

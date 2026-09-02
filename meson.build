@@ -56,7 +56,8 @@ endif
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
 
-llvm = dependency('llvm', modules: ['support'], static: get_option('llvm_static'))
+llvm_static = get_option('llvm_static')
+llvm = dependency('llvm', modules: ['support'], static: llvm_static)
 boost = dependency('boost')
 nlohmann_json = dependency('nlohmann_json')
 
@@ -84,6 +85,5 @@ subdir('libnixt/test')
 subdir('nixd/lspserver')
 subdir('nixd/lib')
 subdir('nixd/tools')
-
 
 

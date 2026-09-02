@@ -24,3 +24,5 @@ jobs:
     - uses: actions/checkout@v6
     - name: Build flake
       run: nix build -L .#${{ matrix.package }}
+    - name: Check library command-line options
+      run: bash nixd/tools/nixd/test/cli-options.sh ./result/bin/nixd
