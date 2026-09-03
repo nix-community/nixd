@@ -405,8 +405,9 @@ void AttrSetProvider::onOptionComplete(
           NewField.Description = std::move(Desc);
         }
         Response.emplace_back(std::move(NewField));
-        // We set this a very limited number as to speedup
-        if (Response.size() >= MaxItems)
+        // Keep one extra item as a truncation sentinel. The controller drops
+        // it at its matching limit and marks the LSP result as incomplete.
+        if (Response.size() > MaxItems)
           break;
       }
     }
