@@ -62,6 +62,22 @@ bool canCompleteAt(const Node &N) {
   return N.kind() == Node::NK_Binds || N.kind() == Node::NK_ExprAttrs;
 }
 
+bool isKnownSelector(const Node &N, const VariableLookupAnalysis &VLA,
+                     const ParentMapAnalysis &PM) {
+  const Node *Expr = PM.upExpr(N);
+  if (!Expr || Expr->kind() != Node::NK_ExprSelect)
+    return false;
+
+  try {
+    idioms::mkSelector(static_cast<const nixf::ExprSelect &>(*Expr), VLA, PM);
+    return true;
+  } catch (const idioms::IdiomSelectorException &) {
+    return false;
+  } catch (const idioms::VLAException &) {
+    return false;
+  }
+}
+
 class VLACompletionProvider {
   const VariableLookupAnalysis &VLA;
 
@@ -474,17 +490,22 @@ void Controller::onCompletion(const CompletionParams &Params,
                               Callback<CompletionList> Reply) {
   using CheckTy = CompletionList;
   auto Action = [Reply = std::move(Reply), URI = Params.textDocument.uri,
-                 Pos = toNixfPosition(Params.position), this]() mutable {
+                 Pos = toNixfPosition(Params.position),
+                 Context = Params.context, this]() mutable {
     const auto File = URI.file().str();
-    return Reply([&]() -> llvm::Expected<CompletionList> {
+    bool KnownSelector = false;
+    auto Result = [&]() -> llvm::Expected<CompletionList> {
       const auto TU = CheckDefault(getTU(File));
       const auto AST = CheckDefault(getAST(*TU));
+      const auto &PM = *TU->parentMap();
+      const VariableLookupAnalysis &VLA = *TU->variableLookup();
 
       const auto *Desc = AST->descend({Pos, Pos});
+      if (Desc)
+        KnownSelector = isKnownSelector(*Desc, VLA, PM);
       CheckDefault(Desc && canCompleteAt(*Desc));
 
       const auto &N = *Desc;
-      const auto &PM = *TU->parentMap();
       const auto &UpExpr = *CheckDefault(PM.upExpr(N));
 
       lspserver::Range EditRange = toLSPRange(TU->src(), N.range());
@@ -494,7 +515,6 @@ void Controller::onCompletion(const CompletionParams &Params,
       }
 
       CompletionList List;
-      const VariableLookupAnalysis &VLA = *TU->variableLookup();
       bool ProviderIncomplete = false;
       try {
         switch (UpExpr.kind()) {
@@ -531,7 +551,17 @@ void Controller::onCompletion(const CompletionParams &Params,
       }
       List.isIncomplete |= ProviderIncomplete;
       return List;
-    }());
+    }();
+
+    // A recognized selector may have no candidates for the empty prefix. Keep
+    // that trigger-character result retriggerable so a more specific prefix
+    // can be requested as the user continues typing.
+    if (Result &&
+        Context.triggerKind == CompletionTriggerKind::TriggerCharacter &&
+        Context.triggerCharacter == "." && KnownSelector &&
+        Result->items.empty())
+      Result->isIncomplete = true;
+    return Reply(std::move(Result));
   };
   boost::asio::post(Pool, std::move(Action));
 }

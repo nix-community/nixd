@@ -41,7 +41,7 @@
             "character": 24
         },
         "context": {
-            "triggerKind": 1,
+            "triggerKind": 2,
             "triggerCharacter": "."
         }
     }
