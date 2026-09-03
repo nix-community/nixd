@@ -11,6 +11,8 @@
   pkg-config,
   nlohmann_json,
   python312,
+  libxml2,
+  zlib,
 }:
 
 stdenv.mkDerivation {
@@ -20,6 +22,9 @@ stdenv.mkDerivation {
   src = ./.;
 
   mesonBuildType = "release";
+
+  # Fail the build if the libLLVM dylib ever sneaks back into the closure.
+  disallowedRequisites = [ (lib.getLib llvmPackages.llvm) ];
 
   nativeBuildInputs = [
     meson
@@ -39,6 +44,8 @@ stdenv.mkDerivation {
     boost
     llvmPackages.llvm
     nlohmann_json
+    libxml2
+    zlib
   ];
 
   doCheck = !stdenv.isDarwin;

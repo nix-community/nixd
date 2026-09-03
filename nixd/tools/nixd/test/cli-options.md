@@ -1,1 +1,1 @@
-# RUN: bash %S/cli-options.sh nixd
+# RUN: python3 %S/cli-options.py nixd
