@@ -26,12 +26,15 @@
 ```
      CHECK:   "id": 1,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+CHECK-NEXT:   "result": {
+CHECK-NEXT:     "IsIncomplete": false,
+CHECK-NEXT:     "Items": [
 CHECK-NEXT:     "clang",
 CHECK-NEXT:     "clang-manpages"
+CHECK-NEXT:     ]
+CHECK-NEXT:   }
 ```
 
 ```json
 {"jsonrpc":"2.0","method":"exit"}
 ```
-

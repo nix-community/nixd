@@ -26,14 +26,16 @@
 ```
      CHECK:   "id": 1,
 CHECK-NEXT:   "jsonrpc": "2.0",
-CHECK-NEXT:   "result": [
+CHECK-NEXT:   "result": {
+CHECK-NEXT:     "IsIncomplete": false,
+CHECK-NEXT:     "Items": [
 CHECK-NEXT:     "py1",
 CHECK-NEXT:     "py2",
 CHECK-NEXT:     "py3"
-CHECK-NEXT:   ]
+CHECK-NEXT:     ]
+CHECK-NEXT:   }
 ```
 
 ```json
 {"jsonrpc":"2.0","method":"exit"}
 ```
-
