@@ -11,7 +11,6 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest ]
-        package: [ nixd, nixd-llvm-static ]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: cachix/install-nix-action@v31
@@ -23,4 +22,6 @@ jobs:
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - uses: actions/checkout@v6
     - name: Build flake
-      run: nix build -L .#${{ matrix.package }}
+      run: nix build -L .#nixd
+    - name: Check library command-line options
+      run: python3 nixd/tools/nixd/test/cli-options.py ./result/bin/nixd
