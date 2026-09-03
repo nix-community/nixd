@@ -56,7 +56,12 @@ endif
 gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
 
-llvm = dependency('llvm', modules: ['support'], static: true)
+llvm = dependency(
+  'llvm',
+  method: 'config-tool',
+  modules: ['support'],
+  static: true,
+)
 boost = dependency('boost')
 nlohmann_json = dependency('nlohmann_json')
 

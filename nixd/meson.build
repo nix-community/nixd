@@ -31,7 +31,12 @@ gtest = dependency('gtest')
 gtest_main = dependency('gtest_main')
 nixf = dependency('nixf')
 nixt = dependency('nixt')
-llvm = dependency('llvm', modules: ['support'], static: true)
+llvm = dependency(
+  'llvm',
+  method: 'config-tool',
+  modules: ['support'],
+  static: true,
+)
 
 pkgconfig = import('pkgconfig')
 
