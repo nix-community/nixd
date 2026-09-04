@@ -12,13 +12,23 @@
 
 #include <boost/asio/thread_pool.hpp>
 
+#include <filesystem>
+#include <map>
 #include <set>
 
 namespace nixd {
 
 class Controller : public lspserver::LSPServer {
 public:
-  using OptionMapTy = std::map<std::string, std::unique_ptr<AttrSetClientProc>>;
+  using OptionMapTy = std::map<std::string, std::shared_ptr<AttrSetClientProc>>;
+
+  /// \brief The option providers that apply to one document, detached from the
+  /// map they came from.
+  ///
+  /// Holding the worker keeps it alive for the whole request, so a document
+  /// closing mid-completion cannot pull the client out from under us.
+  using OptionProviders =
+      std::vector<std::pair<std::string, std::shared_ptr<AttrSetClientProc>>>;
 
 private:
   std::unique_ptr<OwnedEvalClient> Eval;
@@ -32,6 +42,44 @@ private:
   // e.g. "nixos" -> nixos worker
   //      "home-manager" -> home-manager worker
   OptionMapTy Options; // GUARDED_BY(OptionsLock)
+
+  std::mutex DocOptionsLock;
+  /// Resolved module path -> worker evaluating that module's `.options`.
+  /// Keyed by path so documents sharing a module share one worker.
+  OptionMapTy DocOptions; // GUARDED_BY(DocOptionsLock)
+  /// Document file -> the module path its `#:schema` directive resolved to.
+  llvm::StringMap<std::string> DocSchema; // GUARDED_BY(DocOptionsLock)
+  /// Resolved module path -> its mtime when last evaluated. Modules are often
+  /// generated, and rewritten underneath an open config.
+  std::map<std::string, std::filesystem::file_time_type>
+      DocOptionsStamp; // GUARDED_BY(DocOptionsLock)
+
+  /// \brief The option providers for \p File.
+  ///
+  /// The module named by the document's own `#:schema` directive, if it has
+  /// one, and the workspace-configured option sets otherwise. Naming a module
+  /// replaces rather than extends: a config that says which options it accepts
+  /// does not also want every unrelated NixOS option.
+  OptionProviders optionProviders(lspserver::PathRef File);
+
+  /// \brief Re-resolve \p File's `#:schema` directive, launching, retiring or
+  /// re-evaluating workers as the resolution or the module on disk changes.
+  void updateSchemaDirective(lspserver::PathRef File, std::string_view Src);
+
+  /// \brief Drop \p File's claim on its schema worker, retiring the worker if
+  /// it was the last claim.
+  void releaseSchemaDirective(lspserver::PathRef File);
+
+  /// \brief Retire schema workers no document refers to any more.
+  void retireUnclaimedSchemaWorkers(); // REQUIRES(DocOptionsLock)
+
+  /// Root reported at `initialize`; the outer bound on what a `#:schema`
+  /// directive may point at.
+  std::string WorkspaceRoot;
+
+  /// The expression `lib` is taken from when evaluating a `#:schema` module.
+  /// Follows `nixpkgs.expr` so flake users get their own nixpkgs.
+  std::string NixpkgsExpr; // GUARDED_BY(ConfigLock)
 
   AttrSetClientProc &nixpkgsEval() {
     assert(NixpkgsEval);

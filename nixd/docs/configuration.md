@@ -194,6 +194,10 @@ You can also set the `eglot-workspace-configuration` variable globally (by using
     "suppress": [
       "sema-extra-with"
     ]
+  },
+  // Honour a `#:schema <module>` line at the top of a document. Off by default.
+  "schemaDirective": {
+    "enable": false
   }
 }
 ```
@@ -289,6 +293,56 @@ If you aren't a flakes user with standalone home-manager with a vanilla install 
   }
 }
 ```
+
+#### Schema directive ("schemaDirective")
+
+The `options` above are a property of the *workspace*: every configured option
+set is offered in every attrset of every file. A document can instead name the
+module that declares its own options, in its leading comment block:
+
+```nix
+#:schema ./my-app.module.nix
+{
+  outputs = {
+    buffer = 16;
+  };
+}
+```
+
+The path is resolved relative to the document's own directory, and evaluated as
+
+```
+let pkgs = <nixpkgs.expr>; in
+(pkgs.lib.evalModules {
+  modules = [ <path> { _module.args.pkgs = pkgs.lib.mkDefault pkgs; } ];
+}).options
+```
+
+so a module may take `{ lib, pkgs, ... }:` as it would under NixOS. It is
+re-evaluated when its file changes on disk, which matters for generated modules
+that an application rewrites underneath an open config.
+
+For a document that carries the directive, that module *replaces* the
+workspace-configured option sets rather than adding to them — a config that
+says which options it accepts does not also want every unrelated NixOS option.
+Documents without a directive are unaffected.
+
+The spelling is [taplo]'s, so a generator that emits a JSON Schema for a TOML
+config and a module for a Nix config can write the same line into both.
+
+The feature is off by default, because it makes nixd evaluate Nix code named by
+a file you merely opened, rather than by your editor settings: opening a
+repository you do not trust could evaluate code from it. Enable it with
+
+```jsonc
+{ "schemaDirective": { "enable": true } }
+```
+
+Even then, the path must resolve inside the document's own directory or the
+workspace root, and be spellable as a Nix path literal; anything else is refused
+and logged.
+
+[taplo]: https://taplo.tamasfe.dev/configuration/directives.html
 
 ## Q & A
 

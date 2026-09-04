@@ -242,9 +242,8 @@ void Controller::onHover(const TextDocumentPositionParams &Params,
           auto Scope = std::vector<std::string>();
           const auto R = findAttrPathForOptions(N, PM, Scope);
           if (R == FindAttrPathResult::OK) {
-            std::lock_guard _(OptionsLock);
-            for (const auto &[_, Client] : Options) {
-              if (AttrSetClient *C = Client->client()) {
+            for (const auto &[_, Provider] : optionProviders(File)) {
+              if (AttrSetClient *C = Provider->client()) {
                 OptionsHoverProvider OHP(*C);
                 std::optional<OptionDescription> Desc = OHP.resolveHover(Scope);
                 std::string Docs;

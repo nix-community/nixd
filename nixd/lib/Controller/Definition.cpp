@@ -257,17 +257,15 @@ std::optional<Location> definePath(const ExprPath &Path,
 ///
 /// Usually this function will return a list of option declarations via RPC
 Locations defineAttrPath(const Node &N, const ParentMapAnalysis &PM,
-                         std::mutex &OptionsLock,
-                         Controller::OptionMapTy &Options) {
+                         const Controller::OptionProviders &Providers) {
   using PathResult = FindAttrPathResult;
   std::vector<std::string> Scope;
   auto R = findAttrPathForOptions(N, PM, Scope);
   Locations Locs;
   if (R == PathResult::OK) {
-    std::lock_guard _(OptionsLock);
     // For each option worker, try to get it's decl position.
-    for (const auto &[_, Client] : Options) {
-      if (AttrSetClient *C = Client->client()) {
+    for (const auto &[_, Provider] : Providers) {
+      if (AttrSetClient *C = Provider->client()) {
         OptionsDefinitionProvider ODP(*C);
         ODP.resolveLocations(Scope, Locs);
       }
@@ -404,7 +402,7 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
         return defineSelect(Sel, VLA, PM, *nixpkgsClient());
       }
       case Node::NK_ExprAttrs:
-        return defineAttrPath(N, PM, OptionsLock, Options);
+        return defineAttrPath(N, PM, optionProviders(File));
       case Node::NK_ExprPath: {
         const auto &Path = static_cast<const ExprPath &>(UpExpr);
         if (auto Loc = definePath(Path, File))
