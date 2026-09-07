@@ -1,0 +1,9 @@
+<map id="nixd::LLVMErrorException" name="nixd::LLVMErrorException">
+<area shape="rect" id="Node000001" title=" " alt="" coords="117,81,303,109"/>
+<area shape="rect" id="Node000003" href="$classnixd_1_1JSONParseException.html" title=" " alt="" coords="5,157,194,184"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="181,117,120,159,118,154,175,118"/>
+<area shape="rect" id="Node000004" href="$classnixd_1_1JSONSchemaException.html" title=" " alt="" coords="218,157,424,184"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="243,115,304,156,299,156,241,120"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="154,5,267,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="212,47,213,82,208,79,209,51"/>
+</map>
