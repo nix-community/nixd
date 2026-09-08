@@ -24,6 +24,8 @@ private:
               llvm::json::Value ID) override;
   bool onReply(llvm::json::Value ID,
                llvm::Expected<llvm::json::Value> Result) override;
+  void onExecuteCommand(const lspserver::ExecuteCommandParams &Params,
+                        lspserver::Callback<llvm::json::Value> Reply);
 
   std::mutex PendingCallsLock;
 
@@ -85,7 +87,10 @@ protected:
 
 public:
   LSPServer(std::unique_ptr<InboundPort> In, std::unique_ptr<OutboundPort> Out)
-      : In(std::move(In)), Out(std::move(Out)) {};
+      : In(std::move(In)), Out(std::move(Out)) {
+    Registry.addMethod("workspace/executeCommand", this,
+                       &LSPServer::onExecuteCommand);
+  };
 
   /// \brief Close the inbound port.
   void closeInbound() { In->close(); }
