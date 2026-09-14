@@ -1,0 +1,9 @@
+<map id="nixd::OwnedEvalClient" name="nixd::OwnedEvalClient">
+<area shape="rect" id="Node000001" title=" " alt="" coords="20,232,189,260"/>
+<area shape="rect" id="Node000002" href="$classnixd_1_1EvalClient.html" title=" " alt="" coords="43,157,166,184"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="106,198,107,233,102,231,103,202"/>
+<area shape="rect" id="Node000003" href="$classlspserver_1_1LSPServer.html" title=" " alt="" coords="27,81,182,109"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="106,122,107,157,102,156,103,127"/>
+<area shape="rect" id="Node000004" href="$classlspserver_1_1MessageHandler.html" title=" " alt="" coords="5,5,204,33"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="105,46,107,81,102,80,104,51"/>
+</map>
