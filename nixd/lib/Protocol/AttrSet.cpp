@@ -53,6 +53,23 @@ bool nixd::fromJSON(const Value &Params, OptionField &R, Path P) {
       ;
 }
 
+Value nixd::toJSON(const OptionCompleteResponse &Params) {
+  return Object{
+      {"Items", Params.Items},
+      {"IsIncomplete", Params.IsIncomplete},
+  };
+}
+
+bool nixd::fromJSON(const Value &Params, OptionCompleteResponse &R, Path P) {
+  // Accept responses from workers predating the completion metadata envelope.
+  if (Params.getAsArray())
+    return llvm::json::fromJSON(Params, R.Items, P);
+
+  ObjectMapper O(Params, P);
+  return O && O.map("Items", R.Items) &&
+         O.mapOptional("IsIncomplete", R.IsIncomplete);
+}
+
 Value nixd::toJSON(const PackageDescription &Params) {
   return Object{
       {"Name", Params.Name},
@@ -123,6 +140,23 @@ bool nixd::fromJSON(const llvm::json::Value &Params, AttrPathCompleteParams &R,
          && O.map("Scope", R.Scope)   //
          && O.map("Prefix", R.Prefix) //
       ;
+}
+
+Value nixd::toJSON(const AttrPathCompleteResponse &Params) {
+  return Object{
+      {"Items", Params.Items},
+      {"IsIncomplete", Params.IsIncomplete},
+  };
+}
+
+bool nixd::fromJSON(const Value &Params, AttrPathCompleteResponse &R, Path P) {
+  // Accept responses from workers predating the completion metadata envelope.
+  if (Params.getAsArray())
+    return llvm::json::fromJSON(Params, R.Items, P);
+
+  ObjectMapper O(Params, P);
+  return O && O.map("Items", R.Items) &&
+         O.mapOptional("IsIncomplete", R.IsIncomplete);
 }
 
 llvm::json::Value nixd::toJSON(const ValueDescription &Params) {

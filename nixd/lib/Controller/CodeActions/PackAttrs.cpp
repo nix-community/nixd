@@ -8,7 +8,7 @@
 
 #include <nixf/Basic/Nodes/Attrs.h>
 
-#include <optional>
+#include <vector>
 
 namespace nixd {
 
@@ -152,14 +152,12 @@ void generateShallowNestedText(const nixf::Binds &Binds,
   Out += " }";
 }
 
-/// \brief Find all sibling bindings that share the same first path segment.
-/// Returns the range covering all such bindings, or nullopt if not applicable.
-std::optional<nixf::LexerCursorRange>
-findSiblingBindingsRange(const nixf::Binding &Bind, const nixf::Binds &Binds,
-                         const std::string &FirstSeg) {
-  nixf::LexerCursor Start = Bind.range().lCur();
-  nixf::LexerCursor End = Bind.range().rCur();
-
+/// \brief Find all sibling bindings whose first path segment matches FirstSeg.
+/// Returns pointers in source order. Caller must ensure the vector is non-empty
+/// before use.
+std::vector<const nixf::Binding *>
+collectSiblingBindings(const nixf::Binds &Binds, const std::string &FirstSeg) {
+  std::vector<const nixf::Binding *> Result;
   for (const auto &Sibling : Binds.bindings()) {
     if (Sibling->kind() != nixf::Node::NK_Binding)
       continue;
@@ -170,16 +168,10 @@ findSiblingBindingsRange(const nixf::Binding &Bind, const nixf::Binds &Binds,
     if (SibNames.empty() || !SibNames[0]->isStatic())
       continue;
 
-    if (SibNames[0]->staticName() == FirstSeg) {
-      // Expand range to include this sibling
-      if (SibBind.range().lCur().offset() < Start.offset())
-        Start = SibBind.range().lCur();
-      if (SibBind.range().rCur().offset() > End.offset())
-        End = SibBind.range().rCur();
-    }
+    if (SibNames[0]->staticName() == FirstSeg)
+      Result.push_back(&SibBind);
   }
-
-  return nixf::LexerCursorRange{Start, End};
+  return Result;
 }
 
 } // namespace
@@ -279,10 +271,12 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     const auto &NestedAttrs =
         static_cast<const nixf::ExprAttrs &>(*Attr.value());
 
-    // Find the range covering all sibling bindings (needed for bulk actions)
+    // Collect all matching sibling bindings in source order. Bulk actions
+    // emit one TextEdit per binding so intermediate non-matching bindings
+    // (e.g. `b.y = 2` in `{ a.x = 1; b.y = 2; a.z = 3; }`) are preserved.
     const auto &ParentBinds = static_cast<const nixf::Binds &>(*BindsNode);
-    auto BulkRange = findSiblingBindingsRange(Bind, ParentBinds, FirstSeg);
-    if (!BulkRange)
+    auto Matches = collectSiblingBindings(ParentBinds, FirstSeg);
+    if (Matches.empty())
       return;
 
     // Action 1: Pack One - pack only the current binding
@@ -294,6 +288,25 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
           toLSPRange(Src, Bind.range()), std::move(PackOneText)));
     }
 
+    // Build a vector of TextEdits that replaces the first matching binding
+    // with `PackedText` and deletes every other matching binding in place.
+    auto BuildBulkEdits =
+        [&](std::string PackedText) -> std::vector<lspserver::TextEdit> {
+      std::vector<lspserver::TextEdit> Edits;
+      Edits.reserve(Matches.size());
+      Edits.emplace_back(lspserver::TextEdit{
+          .range = toLSPRange(Src, Matches.front()->range()),
+          .newText = std::move(PackedText),
+      });
+      for (size_t I = 1; I < Matches.size(); ++I) {
+        Edits.emplace_back(lspserver::TextEdit{
+            .range = toLSPRange(Src, Matches[I]->range()),
+            .newText = "",
+        });
+      }
+      return Edits;
+    };
+
     // Action 2: Shallow Pack All - pack all siblings but only one level deep
     std::string ShallowText;
     ShallowText += quoteNixAttrKey(FirstSeg);
@@ -301,10 +314,10 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     generateShallowNestedText(ParentBinds, FirstSeg, Src, ShallowText);
     ShallowText += ";";
 
-    Actions.emplace_back(createSingleEditAction(
+    Actions.emplace_back(createMultiEditAction(
         "Pack all '" + FirstSeg + "' bindings to nested set",
         lspserver::CodeAction::REFACTOR_REWRITE_KIND, FileURI,
-        toLSPRange(Src, *BulkRange), std::move(ShallowText)));
+        BuildBulkEdits(std::move(ShallowText))));
 
     // Action 3: Recursive Pack All - fully nest all sibling bindings
     std::string RecursiveText;
@@ -313,10 +326,10 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
     generateNestedText(NestedAttrs.sema(), Src, RecursiveText);
     RecursiveText += ";";
 
-    Actions.emplace_back(createSingleEditAction(
+    Actions.emplace_back(createMultiEditAction(
         "Recursively pack all '" + FirstSeg + "' bindings to nested set",
         lspserver::CodeAction::REFACTOR_REWRITE_KIND, FileURI,
-        toLSPRange(Src, *BulkRange), std::move(RecursiveText)));
+        BuildBulkEdits(std::move(RecursiveText))));
   }
 }
 

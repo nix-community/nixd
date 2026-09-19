@@ -73,19 +73,27 @@ CHECK-NEXT:     },
 CHECK-NEXT:     {
 ```
 
-Action 2: Shallow Pack All - preserves bar.x as dotted path
+Action 2: Shallow Pack All - preserves bar.x as dotted path. The bulk action
+emits two edits: one that replaces the first `foo.*` binding with the packed
+text, and one that deletes the subsequent `foo.*` binding.
 
 ```
      CHECK:       "newText": "foo = { bar.x = 1; baz = 2; };"
+CHECK-NEXT:       "range": {
+     CHECK:       "newText": ""
+CHECK-NEXT:       "range": {
      CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
 ```
 
-Action 3: Recursive Pack All - fully nests bar = { x = 1; }
+Action 3: Recursive Pack All - fully nests bar = { x = 1; }, again as two edits.
 
 ```
      CHECK:       "newText": "foo = { bar = { x = 1; }; baz = 2; };"
+CHECK-NEXT:       "range": {
+     CHECK:       "newText": ""
+CHECK-NEXT:       "range": {
      CHECK:       "title": "Recursively pack all 'foo' bindings to nested set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]

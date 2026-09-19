@@ -61,34 +61,55 @@ Three Pack actions should be offered:
 2. Shallow Pack All - all 'foo' bindings (foo.a and foo.b), even though they are separated by 'bar'
 3. Recursive Pack All - all 'foo' bindings, fully nested
 
+For the bulk actions, the WorkspaceEdit must contain two TextEdits: one that
+replaces the first `foo.*` binding with the packed result, and one that deletes
+the second `foo.*` binding in place. The intermediate `bar = 2;` binding is
+left untouched in the source.
+
 ```
      CHECK:   "id": 2,
      CHECK:   "result": [
 CHECK-NEXT:     {
 ```
 
-Action 1: Pack One - only foo.a
+Action 1: Pack One - only foo.a, single edit replacing offset 2..12.
 
 ```
      CHECK:       "newText": "foo = { a = 1; };"
+CHECK-NEXT:       "range": {
+CHECK-NEXT:         "end": {
+CHECK-NEXT:           "character": 12,
      CHECK:       "title": "Pack dotted path to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
 ```
 
-Action 2: Shallow Pack All - groups non-contiguous foo.a and foo.b bindings
+Action 2: Shallow Pack All - replaces foo.a with the packed text, then deletes foo.b. `bar = 2;` is preserved.
 
 ```
      CHECK:       "newText": "foo = { a = 1; b = 3; };"
+CHECK-NEXT:       "range": {
+CHECK-NEXT:         "end": {
+CHECK-NEXT:           "character": 12,
+     CHECK:       "newText": ""
+CHECK-NEXT:       "range": {
+CHECK-NEXT:         "end": {
+CHECK-NEXT:           "character": 32,
+     CHECK:           "character": 22,
      CHECK:       "title": "Pack all 'foo' bindings to nested set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
 ```
 
-Action 3: Recursive Pack All - same as shallow for single-level paths
+Action 3: Recursive Pack All - same shape (single-level path), two edits.
 
 ```
      CHECK:       "newText": "foo = { a = 1; b = 3; };"
+CHECK-NEXT:       "range": {
+     CHECK:       "newText": ""
+CHECK-NEXT:       "range": {
+CHECK-NEXT:         "end": {
+CHECK-NEXT:           "character": 32,
      CHECK:       "title": "Recursively pack all 'foo' bindings to nested set"
 CHECK-NEXT:     }
 CHECK-NEXT:   ]

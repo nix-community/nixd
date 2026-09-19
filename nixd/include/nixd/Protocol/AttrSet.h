@@ -114,7 +114,14 @@ llvm::json::Value toJSON(const AttrPathCompleteParams &Params);
 bool fromJSON(const llvm::json::Value &Params, AttrPathCompleteParams &R,
               llvm::json::Path P);
 
-using AttrPathCompleteResponse = std::vector<std::string>;
+struct AttrPathCompleteResponse {
+  std::vector<std::string> Items;
+  bool IsIncomplete = false;
+};
+
+llvm::json::Value toJSON(const AttrPathCompleteResponse &Params);
+bool fromJSON(const llvm::json::Value &Params, AttrPathCompleteResponse &R,
+              llvm::json::Path P);
 
 struct OptionType {
   std::optional<std::string> Description;
@@ -149,6 +156,13 @@ bool fromJSON(const llvm::json::Value &Params, OptionField &R,
 
 using OptionInfoResponse = OptionDescription;
 
-using OptionCompleteResponse = std::vector<OptionField>;
+struct OptionCompleteResponse {
+  std::vector<OptionField> Items;
+  bool IsIncomplete = false;
+};
+
+llvm::json::Value toJSON(const OptionCompleteResponse &Params);
+bool fromJSON(const llvm::json::Value &Params, OptionCompleteResponse &R,
+              llvm::json::Path P);
 
 } // namespace nixd

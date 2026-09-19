@@ -202,11 +202,10 @@ void fillOptionDescription(nix::EvalState &State, nix::Value &V,
   }
 }
 
-std::vector<std::string> completeNames(nix::Value &Scope,
+AttrPathCompleteResponse completeNames(nix::Value &Scope,
                                        const nix::EvalState &State,
                                        std::string_view Prefix) {
-  int Num = 0;
-  std::vector<std::string> Names;
+  AttrPathCompleteResponse Result;
 
   // FIXME: we may want to use "Trie" to speedup the string searching.
   // However as my (roughtly) profiling the critical in this loop is
@@ -216,14 +215,14 @@ std::vector<std::string> completeNames(nix::Value &Scope,
     const nix::Attr &Attr = *AttrPtr;
     const std::string_view Name = State.symbols[Attr.name];
     if (Name.starts_with(Prefix)) {
-      ++Num;
-      Names.emplace_back(Name);
-      // We set this a very limited number as to speedup
-      if (Num > MaxItems)
+      if (Result.Items.size() >= MaxItems) {
+        Result.IsIncomplete = true;
         break;
+      }
+      Result.Items.emplace_back(Name);
     }
   }
-  return Names;
+  return Result;
 }
 
 std::optional<ValueDescription> describeValue(nix::EvalState &State,
@@ -384,7 +383,7 @@ void AttrSetProvider::onOptionComplete(
       return;
     }
 
-    std::vector<OptionField> Response;
+    OptionCompleteResponse Response;
 
     // FIXME: we may want to use "Trie" to speedup the string searching.
     // However as my (roughtly) profiling the critical in this loop is
@@ -395,6 +394,11 @@ void AttrSetProvider::onOptionComplete(
       const nix::Attr &Attr = *AttrPtr;
       std::string_view Name = state().symbols[Attr.name];
       if (Name.starts_with(Params.Prefix)) {
+        if (Response.Items.size() >= MaxItems) {
+          Response.IsIncomplete = true;
+          break;
+        }
+
         // Add a new "OptionField", see it's type.
         assert(Attr.value);
         OptionField NewField;
@@ -404,10 +408,7 @@ void AttrSetProvider::onOptionComplete(
           fillOptionDescription(state(), *Attr.value, Desc);
           NewField.Description = std::move(Desc);
         }
-        Response.emplace_back(std::move(NewField));
-        // We set this a very limited number as to speedup
-        if (Response.size() >= MaxItems)
-          break;
+        Response.Items.emplace_back(std::move(NewField));
       }
     }
     Reply(std::move(Response));

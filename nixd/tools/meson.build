@@ -2,7 +2,7 @@ nixd = executable(
     'nixd',
     'nixd.cpp',
     install: true,
-    dependencies: libnixd
+    dependencies: libnixd_whole
 )
 
 lit = find_program('lit', required: false)

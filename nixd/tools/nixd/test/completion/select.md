@@ -42,7 +42,7 @@ pkgs.hel
             "character": 7
         },
         "context": {
-            "triggerKind": 1
+            "triggerKind": 3
         }
     }
 }
