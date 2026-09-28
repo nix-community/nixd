@@ -57,6 +57,7 @@ public:
 class Fix {
   std::vector<TextEdit> Edits;
   std::string Message;
+  bool Preferred = false;
 
 public:
   Fix(std::vector<TextEdit> Edits, std::string Message)
@@ -69,6 +70,11 @@ public:
 
   [[nodiscard]] const std::vector<TextEdit> &edits() const { return Edits; }
   [[nodiscard]] const std::string &message() const { return Message; }
+  Fix &prefer() {
+    Preferred = true;
+    return *this;
+  }
+  [[nodiscard]] bool isPreferred() const { return Preferred; }
 };
 
 enum class DiagnosticTag {
