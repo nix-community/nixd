@@ -230,9 +230,12 @@ private:
 
   /// Determine whether or not this diagnostic is suppressed.
   bool isSuppressed(nixf::Diagnostic::DiagnosticKind Kind);
-  void publishDiagnostics(lspserver::PathRef File,
-                          std::optional<int64_t> Version, std::string_view Src,
-                          const std::vector<nixf::Diagnostic> &Diagnostics);
+  std::vector<NixdDiagnostic> collectOptionDiagnostics(const NixTU &TU);
+  void
+  publishDiagnostics(lspserver::PathRef File, std::optional<int64_t> Version,
+                     std::string_view Src,
+                     const std::vector<nixf::Diagnostic> &Diagnostics,
+                     const std::vector<NixdDiagnostic> &NixdDiagnostics = {});
 
   void onRename(const lspserver::RenameParams &Params,
                 lspserver::Callback<lspserver::WorkspaceEdit> Reply);
