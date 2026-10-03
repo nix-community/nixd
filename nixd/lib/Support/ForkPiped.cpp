@@ -8,13 +8,23 @@
 int nixd::forkPiped(int &In, int &Out, int &Err) {
   static constexpr int READ = 0;
   static constexpr int WRITE = 1;
-  int PipeIn[2];
-  int PipeOut[2];
-  int PipeErr[2];
+  int PipeIn[2] = {-1, -1};
+  int PipeOut[2] = {-1, -1};
+  int PipeErr[2] = {-1, -1};
+  auto Fail = [&] {
+    const int Error = errno;
+    for (const auto *Pipe : {PipeIn, PipeOut, PipeErr})
+      for (int I = 0; I < 2; ++I)
+        if (Pipe[I] != -1)
+          close(Pipe[I]);
+    throw std::system_error(Error, std::generic_category());
+  };
   if (pipe(PipeIn) == -1 || pipe(PipeOut) == -1 || pipe(PipeErr) == -1)
-    throw std::system_error(errno, std::generic_category());
+    Fail();
 
   pid_t Child = fork();
+  if (Child == -1)
+    Fail();
 
   if (Child == 0) {
     // Redirect stdin, stdout, stderr.
@@ -34,9 +44,6 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
   close(PipeIn[READ]);
   close(PipeOut[WRITE]);
   close(PipeErr[WRITE]);
-
-  if (Child == -1)
-    throw std::system_error(errno, std::generic_category());
 
   In = PipeIn[WRITE];
   Out = PipeOut[READ];
