@@ -1,39 +1,15 @@
 #include "nixd/Support/ForkPiped.h"
 
+#include "ForkPipedPlatform.h"
+
 #include <cerrno>
 #include <fcntl.h>
-#if !defined(__linux__)
-#include <mutex>
-#endif
 
 #include <system_error>
 #include <unistd.h>
 
-namespace {
-
-int pipeCloexec(int Pipe[2]) {
-#if defined(__linux__)
-  return pipe2(Pipe, O_CLOEXEC);
-#else
-  if (pipe(Pipe) == -1)
-    return -1;
-  for (int I = 0; I < 2; ++I)
-    if (fcntl(Pipe[I], F_SETFD, FD_CLOEXEC) == -1)
-      return -1;
-  return 0;
-#endif
-}
-
-} // namespace
-
 int nixd::forkPiped(int &In, int &Out, int &Err) {
-#if !defined(__linux__)
-  // macOS has no pipe2: prevent another forkPiped call from forking between
-  // pipe() and fcntl(). All process creation must use this helper for this
-  // guarantee to hold.
-  static std::mutex ForkMutex;
-  std::unique_lock ForkLock(ForkMutex);
-#endif
+  detail::PipeForkScope Platform;
   static constexpr int READ = 0;
   static constexpr int WRITE = 1;
   int PipeIn[2] = {-1, -1};
@@ -47,8 +23,8 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
           close(Pipe[I]);
     throw std::system_error(Error, std::generic_category());
   };
-  if (pipeCloexec(PipeIn) == -1 || pipeCloexec(PipeOut) == -1 ||
-      pipeCloexec(PipeErr) == -1)
+  if (Platform.createPipe(PipeIn) == -1 || Platform.createPipe(PipeOut) == -1 ||
+      Platform.createPipe(PipeErr) == -1)
     Fail();
 
   // Keep the sources away from stdio, even if the caller closed fd 0, 1 or 2.
@@ -63,16 +39,11 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
         Pipe[I] = FD;
       }
 
-  pid_t Child = fork();
+  pid_t Child = Platform.forkProcess();
   if (Child == -1)
     Fail();
 
   if (Child == 0) {
-#if !defined(__linux__)
-    // The inherited mutex belongs to the parent. Do not unlock it in the
-    // child; callers must exec or _exit without using this helper again.
-    ForkLock.release();
-#endif
     // Redirect stdin, stdout, stderr.
     close(PipeIn[WRITE]);
     close(PipeOut[READ]);
