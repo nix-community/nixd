@@ -16,12 +16,20 @@ Regression tests for #848: preserve comments around values and between bindings.
 }
 ```
 
-```nix file:///flatten-attrs-comments-2.nix
+```nix file:///flatten-attrs-comments-3.nix
 {
   a = {
-    b =
+    b.c =
       # IMPORTANT COMMENT
       2;
+    # AND COMMENT HERE
+    d =
+      # ANOTHER COMMENT
+      {
+        # NESTED COMMENT TOO
+        e = 1;
+      } # WHAT ABOUT HERE
+    ; # AND HERE
   };
 }
 ```
@@ -29,11 +37,11 @@ Regression tests for #848: preserve comments around values and between bindings.
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 2,
+  "id": 3,
   "method": "textDocument/codeAction",
   "params": {
     "textDocument": {
-      "uri": "file:///flatten-attrs-comments-2.nix"
+      "uri": "file:///flatten-attrs-comments-3.nix"
     },
     "range": {
       "start": {
@@ -54,12 +62,12 @@ Regression tests for #848: preserve comments around values and between bindings.
 ```
 
 ```
-CHECK: "id": 2,
-CHECK: "newText": "  \n    a.b =\n      # IMPORTANT COMMENT\n      2;\n  ",
+CHECK: "id": 3,
+CHECK: "newText": "  \n    a.b.c =\n      # IMPORTANT COMMENT\n      2;\n    # AND COMMENT HERE\n    a.d =\n      # ANOTHER COMMENT\n      {\n        # NESTED COMMENT TOO\n        e = 1;\n      } # WHAT ABOUT HERE\n    ; # AND HERE\n  ",
 CHECK-NEXT: "range": {
 CHECK-NEXT: "end": {
 CHECK-NEXT: "character": 4,
-CHECK-NEXT: "line": 5
+CHECK-NEXT: "line": 13
 CHECK-NEXT: },
 CHECK-NEXT: "start": {
 CHECK-NEXT: "character": 2,

@@ -1,4 +1,7 @@
-# RUN: nixd --lit-test < %s | FileCheck %s
+# RUN: nixd --lit-test < %s | FileCheck %s --implicit-check-not="Flatten nested attribute set"
+
+Responses may arrive out of order; check every response ID without imposing an
+order, and reject Flatten anywhere in the output.
 
 Do not offer Flatten when the outer or inner binding lacks a required delimiter or value.
 
@@ -48,8 +51,7 @@ Do not offer Flatten when the outer or inner binding lacks a required delimiter 
 ```
 
 ```
-CHECK: "id": 2,
-CHECK-NOT: "Flatten nested attribute set"
+CHECK-DAG: "id": 2,
 ```
 
 ```nix file:///flatten-attrs-incomplete-3.nix
@@ -84,8 +86,7 @@ CHECK-NOT: "Flatten nested attribute set"
 ```
 
 ```
-CHECK: "id": 3,
-CHECK-NOT: "Flatten nested attribute set"
+CHECK-DAG: "id": 3,
 ```
 
 ```nix file:///flatten-attrs-incomplete-4.nix
@@ -120,8 +121,7 @@ CHECK-NOT: "Flatten nested attribute set"
 ```
 
 ```
-CHECK: "id": 4,
-CHECK-NOT: "Flatten nested attribute set"
+CHECK-DAG: "id": 4,
 ```
 
 ```nix file:///flatten-attrs-incomplete-5.nix
@@ -156,8 +156,7 @@ CHECK-NOT: "Flatten nested attribute set"
 ```
 
 ```
-CHECK: "id": 5,
-CHECK-NOT: "Flatten nested attribute set"
+CHECK-DAG: "id": 5,
 ```
 
 ```nix file:///flatten-attrs-incomplete-6.nix
@@ -192,8 +191,7 @@ CHECK-NOT: "Flatten nested attribute set"
 ```
 
 ```
-CHECK: "id": 6,
-CHECK-NOT: "Flatten nested attribute set"
+CHECK-DAG: "id": 6,
 ```
 
 ```nix file:///flatten-attrs-incomplete-7.nix
@@ -228,8 +226,7 @@ CHECK-NOT: "Flatten nested attribute set"
 ```
 
 ```
-CHECK: "id": 7,
-CHECK-NOT: "Flatten nested attribute set"
+CHECK-DAG: "id": 7,
 ```
 
 ```json
