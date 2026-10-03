@@ -5,7 +5,7 @@ test(
         'ForkPiped.cpp',
         '../lib/Support/ForkPiped.cpp',
         include_directories: libnixd_include,
-        dependencies: [ gtest, dependency('threads') ],
+        dependencies: [ gtest, nix_util, dependency('threads') ],
     ),
     timeout: 30,
 )
