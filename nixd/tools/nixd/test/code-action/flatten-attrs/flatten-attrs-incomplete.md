@@ -1,4 +1,8 @@
-# RUN: nixd --lit-test < %s | FileCheck %s --implicit-check-not="Flatten nested attribute set"
+# RUN: nixd --lit-test < %s > %t
+# RUN: FileCheck %s < %t
+# RUN: FileCheck %s --check-prefix=ABSENT < %t
+
+ABSENT-NOT: Flatten nested attribute set
 
 Responses may arrive out of order; check every response ID without imposing an
 order, and reject Flatten anywhere in the output.
