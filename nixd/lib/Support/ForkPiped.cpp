@@ -40,6 +40,6 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
 
   In = PipeIn[WRITE];
   Out = PipeOut[READ];
-  Err = PipeOut[READ];
+  Err = PipeErr[READ];
   return Child;
 }
