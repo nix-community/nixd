@@ -103,8 +103,43 @@ public:
           Hints.emplace_back(std::move(H));
         }
       }
+    } else if (N->kind() == Node::NK_ExprSelect) {
+      const auto &Sel = static_cast<const ExprSelect &>(*N);
+      try {
+        Selector S = idioms::mkSelector(Sel, VLA, PMA);
+        if (rangeOK(N->positionRange())) {
+          std::binary_semaphore Ready(0);
+          AttrPathInfoResponse R;
+          auto OnReply = [&Ready,
+                          &R](llvm::Expected<AttrPathInfoResponse> Resp) {
+            if (Resp)
+              R = *Resp;
+            Ready.release();
+          };
+          NixpkgsProvider.attrpathInfo(S, std::move(OnReply));
+          Ready.acquire();
+
+          if (const std::optional<std::string> &Version =
+                  R.PackageDesc.Version) {
+            InlayHint H{
+                .position = toLSPPosition(Src, N->rCur()),
+                .label = ": " + *Version,
+                .kind = InlayHintKind::Designator,
+                .range = toLSPRange(Src, N->range()),
+            };
+            Hints.emplace_back(std::move(H));
+            // Traversed the select expression successfully as a package
+            // selector. Do not recurse into its base expression to avoid
+            // duplicate/redundant checks on 'pkgs'.
+            if (Sel.defaultExpr()) {
+              dfs(Sel.defaultExpr());
+            }
+            return;
+          }
+        }
+      } catch (std::exception &) {
+      }
     }
-    // FIXME: process other node kinds. e.g. ExprSelect.
     for (const Node *Ch : N->children())
       dfs(Ch);
   }
