@@ -4,13 +4,13 @@ namespace nixd {
 
 /// \brief fork this process and create some pipes connected to the new process.
 ///
-/// The child's stdin, stdout and stderr are connected to pipes. In the parent,
-/// In is the writable stdin end, and Out and Err are the readable output ends.
-/// The returned descriptors close on exec; the child's stdio survives exec.
+/// Connect the child's standard streams to parent-owned descriptors: In for
+/// writing input, Out and Err for reading output. Executed programs inherit the
+/// child's standard streams, but not the parent endpoints.
 ///
-/// The child must exec or _exit and must not call forkPiped again. On platforms
-/// without pipe2, concurrent process creation must use this helper to avoid
-/// inheriting descriptors before their close-on-exec flags have been set.
+/// The child must execute a new program or terminate without normal cleanup,
+/// and must not call this helper again. Use this helper consistently for
+/// concurrent process creation to ensure descriptor isolation across platforms.
 ///
 /// \returns pid of child process, in parent.
 /// \returns 0 in child.
