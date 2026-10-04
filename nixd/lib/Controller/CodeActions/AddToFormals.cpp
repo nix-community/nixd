@@ -108,13 +108,7 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
       }
     } else {
       // Case 2: Normal `{ a }:` without ellipsis
-      // Insert `, varName` after the last *real* formal (one with an
-      // identifier). `Members.back()` can instead be a dangling-comma
-      // placeholder node (id() == nullptr, isEllipsis() == false),
-      // synthesized when the source has a trailing comma before `}`,
-      // e.g. `{ a, b, }:`. Anchoring on that placeholder's range would
-      // insert right after the existing trailing comma, producing a
-      // double comma.
+      // Insert `, varName` after the last formal with an identifier.
       const nixf::Formal *LastReal = nullptr;
       for (const auto &Member : Members | std::views::reverse) {
         if (Member && Member->id()) {
