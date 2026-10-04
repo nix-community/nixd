@@ -15,6 +15,8 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <ranges>
+
 namespace nixd {
 
 void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
@@ -114,9 +116,9 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
       // insert right after the existing trailing comma, producing a
       // double comma.
       const nixf::Formal *LastReal = nullptr;
-      for (auto It = Members.rbegin(); It != Members.rend(); ++It) {
-        if ((*It) && (*It)->id()) {
-          LastReal = (*It).get();
+      for (const auto &Member : Members | std::views::reverse) {
+        if (Member && Member->id()) {
+          LastReal = Member.get();
           break;
         }
       }
