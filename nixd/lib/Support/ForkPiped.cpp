@@ -71,8 +71,6 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
       if (Result == -1)
         _exit(127);
     }
-    // The descriptor owner closes all original endpoints on return, leaving
-    // only the stdio duplicates open in the child.
     return 0;
   }
 
