@@ -15,17 +15,17 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
   int PipeIn[2] = {-1, -1};
   int PipeOut[2] = {-1, -1};
   int PipeErr[2] = {-1, -1};
-  auto Fail = [&] {
+  auto CleanupAndMakeError = [&] {
     const int Error = errno;
     for (const auto *Pipe : {PipeIn, PipeOut, PipeErr})
       for (int I = 0; I < 2; ++I)
         if (Pipe[I] != -1)
           close(Pipe[I]);
-    throw std::system_error(Error, std::generic_category());
+    return std::system_error(Error, std::generic_category());
   };
   if (Platform.createPipe(PipeIn) == -1 || Platform.createPipe(PipeOut) == -1 ||
       Platform.createPipe(PipeErr) == -1)
-    Fail();
+    throw CleanupAndMakeError();
 
   // Keep the sources away from stdio, even if the caller closed fd 0, 1 or 2.
   // This also ensures dup2 clears CLOEXEC rather than becoming a no-op.
@@ -34,14 +34,14 @@ int nixd::forkPiped(int &In, int &Out, int &Err) {
       if (Pipe[I] <= STDERR_FILENO) {
         int FD = fcntl(Pipe[I], F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
         if (FD == -1)
-          Fail();
+          throw CleanupAndMakeError();
         close(Pipe[I]);
         Pipe[I] = FD;
       }
 
   pid_t Child = Platform.forkProcess();
   if (Child == -1)
-    Fail();
+    throw CleanupAndMakeError();
 
   if (Child == 0) {
     // Redirect stdin, stdout, stderr.
