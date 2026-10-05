@@ -1,0 +1,7 @@
+<map id="nixf::PartialDiagnostic" name="nixf::PartialDiagnostic">
+<area shape="rect" id="Node000001" title=" " alt="" coords="49,5,212,33"/>
+<area shape="rect" id="Node000002" href="$classnixf_1_1Diagnostic.html" title=" " alt="" coords="5,81,128,109"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="112,44,80,83,76,79,106,46"/>
+<area shape="rect" id="Node000003" href="$classnixf_1_1Note.html" title=" " alt="" coords="152,81,237,109"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="153,43,186,81,180,80,151,47"/>
+</map>
