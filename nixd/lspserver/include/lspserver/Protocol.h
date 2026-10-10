@@ -1156,6 +1156,9 @@ struct CodeAction {
 llvm::json::Value toJSON(const CodeAction &);
 bool fromJSON(const llvm::json::Value &, CodeAction &, llvm::json::Path);
 
+using CodeActionItem = std::variant<CodeAction, Command>;
+llvm::json::Value toJSON(const CodeActionItem &);
+
 /// Represents programming constructs like variables, classes, interfaces etc.
 /// that appear in a document. Document symbols can be hierarchical and they
 /// have two ranges: one that encloses its definition and one that points to its

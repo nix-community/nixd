@@ -35,6 +35,6 @@ namespace nixd {
 ///   - lib.${x} (dynamic attribute)
 ///   - pkgs.hello (not lib.*)
 void addNoogleDocAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
-                        std::vector<lspserver::CodeAction> &Actions);
+                        std::vector<lspserver::CodeActionItem> &Actions);
 
 } // namespace nixd

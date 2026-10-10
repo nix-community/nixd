@@ -28,7 +28,7 @@ std::string buildNoogleUrl(const std::vector<std::string> &Path) {
 } // namespace
 
 void addNoogleDocAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
-                        std::vector<lspserver::CodeAction> &Actions) {
+                        std::vector<lspserver::CodeActionItem> &Actions) {
   // Find if we're inside an ExprSelect
   const nixf::Node *SelectNode = PM.upTo(N, nixf::Node::NK_ExprSelect);
   if (!SelectNode)
@@ -69,10 +69,9 @@ void addNoogleDocAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   // Create a code action that will open the URL
   // Note: The actual URL opening is handled by the client via
   // window/showDocument
-  Actions.emplace_back(lspserver::CodeAction{
-      .title = "Open Noogle documentation for " + FunctionPath.back(),
-      .kind = std::string(lspserver::CodeAction::REFACTOR_KIND),
-      .data = llvm::json::Object{{"noogleUrl", NoogleUrl}},
+  Actions.emplace_back(lspserver::Command{
+      {.command = "openNoogleDoc", .argument = NoogleUrl},
+      /*title=*/"Open Noogle documentation for " + FunctionPath.back(),
   });
 }
 
