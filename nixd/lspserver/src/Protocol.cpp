@@ -941,9 +941,11 @@ bool fromJSON(const llvm::json::Value &Params, CodeAction &CA,
     return false;
   O.map("kind", CA.kind);
   O.map("diagnostics", CA.diagnostics);
-  O.map("isPreferred", CA.isPreferred);
-  O.map("edit", CA.edit);
-  O.map("command", CA.command);
+  O.mapOptional("isPreferred", CA.isPreferred);
+  if (!O.map("edit", CA.edit))
+    return false;
+  if (!O.map("command", CA.command))
+    return false;
   // Handle data field - it's an arbitrary JSON value
   if (const auto *Obj = Params.getAsObject()) {
     if (const auto *Data = Obj->get("data"))
