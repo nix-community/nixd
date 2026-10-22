@@ -117,6 +117,7 @@ bool Lexer::consumeWhitespaces() {
 bool Lexer::consumeComments() {
   if (eof())
     return false;
+  LexerCursor Begin = cur();
   if (std::optional<LexerCursorRange> BeginRange = consumePrefix("/*")) {
     // Consume block comments until we meet '*/'
     while (true) {
@@ -126,17 +127,30 @@ bool Lexer::consumeComments() {
                                               LexerCursorRange{cur()});
         Diag.note(NK::NK_BCommentBegin, *BeginRange);
         Diag.fix("insert */").edit(TextEdit::mkInsertion(cur(), "*/"));
+        LexerCursorRange Range{Begin, cur()};
+        auto Text = Src.substr(Begin.Offset, cur().Offset - Begin.Offset);
+        Comments.push_back(
+            std::make_shared<Comment>(Comment::CK_BlockComment, Range, Text));
         return true;
       }
-      if (consumePrefix("*/"))
+      if (consumePrefix("*/")) {
         // We found the ending '*/'
+        LexerCursorRange Range{Begin, cur()};
+        auto Text = Src.substr(Begin.Offset, cur().Offset - Begin.Offset);
+        Comments.push_back(
+            std::make_shared<Comment>(Comment::CK_BlockComment, Range, Text));
         return true;
+      }
       consume(); // Consume a character (block comment body).
     }
   } else if (consumePrefix("#")) {
     // Single line comments, consume blocks until we meet EOF or '\n' or '\r'
     while (true) {
       if (eof() || consumeEOL()) {
+        LexerCursorRange Range{Begin, cur()};
+        auto Text = Src.substr(Begin.Offset, cur().Offset - Begin.Offset);
+        Comments.push_back(
+            std::make_shared<Comment>(Comment::CK_LineComment, Range, Text));
         return true;
       }
       consume(); // Consume a character (single line comment body).
