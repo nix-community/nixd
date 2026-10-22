@@ -55,8 +55,6 @@ TEST_F(SemaActionTest, selectOrCreate) {
   ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
             Node::NK_ExprAttrs);
 
-  ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
-            Node::NK_ExprAttrs);
   InnerAttr =
       &static_cast<ExprAttrs *>(InnerAttr->staticAttrs().at("b").value())
            ->sema();
@@ -207,7 +205,7 @@ TEST_F(SemaActionTest, inheritNameDuplicated) {
   ASSERT_EQ(Diags.size(), 1);
 }
 
-TEST_F(SemaActionTest, mergeAttrSets) {
+TEST_F(SemaActionTest, mergeAttrSetsDuplicatedAttr) {
   std::shared_ptr<AttrName> XName =
       getStaticName("a", {LexerCursor::unsafeCreate(1, 1, 1),
                           LexerCursor::unsafeCreate(1, 1, 1)});
@@ -242,6 +240,42 @@ TEST_F(SemaActionTest, mergeAttrSets) {
   // Check that the diagnostic is pointed on the second name.
   LexerCursorRange Range = Diags[0].range();
   ASSERT_EQ(Range.lCur().line(), 2);
+}
+
+TEST_F(SemaActionTest, mergeAttrSetsRecursive) {
+  SemaAttrs XA(nullptr);
+  {
+    std::vector<std::shared_ptr<AttrName>> Names;
+    Names.emplace_back(getStaticName("a"));
+    Names.emplace_back(getStaticName("b"));
+    AttrPath Path{{}, Names, {}};
+    L.addAttr(XA, Path, std::make_shared<ExprInt>(LexerCursorRange{}, 0));
+  }
+
+  SemaAttrs YA(nullptr);
+  {
+    std::vector<std::shared_ptr<AttrName>> Names;
+    Names.emplace_back(getStaticName("a"));
+    Names.emplace_back(getStaticName("c"));
+    AttrPath Path{{}, Names, {}};
+    L.addAttr(XA, Path, std::make_shared<ExprInt>(LexerCursorRange{}, 1));
+  }
+
+  L.mergeAttrSets(XA, YA);
+
+  ASSERT_EQ(Diags.size(), 0);
+
+  ASSERT_EQ(XA.staticAttrs().size(), 1);
+  ASSERT_EQ(XA.staticAttrs().count("a"), 1);
+  ASSERT_EQ(XA.staticAttrs().at("a").value()->kind(), Node::NK_ExprAttrs);
+
+  const auto &Inner = XA.staticAttrs().at("a");
+  ASSERT_EQ(Inner.value()->kind(), Node::NK_ExprAttrs);
+
+  const auto *InnerAttr = &static_cast<ExprAttrs *>(Inner.value())->sema();
+  ASSERT_EQ(InnerAttr->staticAttrs().size(), 2);
+  ASSERT_EQ(InnerAttr->staticAttrs().count("b"), 1);
+  ASSERT_EQ(InnerAttr->staticAttrs().count("c"), 1);
 }
 
 TEST_F(SemaActionTest, lastComma) {

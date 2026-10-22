@@ -41,23 +41,20 @@ void Sema::checkAttrRecursiveForMerge(const ExprAttrs &XAttrs,
 
 void Sema::mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs) {
   for (const auto &[K, V] : YAttrs.Static) {
-    if (XAttrs.Static.contains(K)) {
-      // Don't perform recursively merging
-      // e.g.
-      /*
-
-      {
-        p = { x = { y = 1; }; };
-              ^<----------------------  this is duplicated!
-        p = { x = { z = 1; }; };
-                  ^~~~~~~~<-----------  don't merge nested attrs recursively.
+    auto [It, inserted] = XAttrs.Static.insert({K, V});
+    auto &Vp = It->second;
+    if (!inserted) {
+      if (V.value() && V.value()->kind() == Node::NK_ExprAttrs && Vp.value() &&
+          Vp.value()->kind() == Node::NK_ExprAttrs) {
+        // If this is also an attrset, we want to merge them.
+        auto *XAttrSet = static_cast<ExprAttrs *>(V.value());
+        auto *YAttrSet = static_cast<ExprAttrs *>(Vp.value());
+        checkAttrRecursiveForMerge(*XAttrSet, *YAttrSet);
+        mergeAttrSets(XAttrSet->SA, YAttrSet->SA);
+      } else {
+        dupAttr(K, V.key().range(), Vp.key().range());
       }
-
-      */
-      dupAttr(K, V.key().range(), XAttrs.Static.at(K).key().range());
-      continue;
     }
-    XAttrs.Static.insert({K, V});
   }
   for (const auto &DAttr : YAttrs.Dynamic) {
     XAttrs.Dynamic.emplace_back(DAttr);
