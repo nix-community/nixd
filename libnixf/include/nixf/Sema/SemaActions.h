@@ -17,6 +17,9 @@ class Sema {
   std::string_view Src;
   std::vector<Diagnostic> &Diags;
 
+  /// Merge Y into X if both expressions are attrsets.
+  bool tryMergeAttrs(Expr *X, Expr *Y);
+
 public:
   Sema(std::string_view Src, std::vector<Diagnostic> &Diags)
       : Src(Src), Diags(Diags) {}

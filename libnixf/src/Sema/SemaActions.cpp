@@ -39,22 +39,27 @@ void Sema::checkAttrRecursiveForMerge(const ExprAttrs &XAttrs,
       << /* Considered as ?recursive */ (XAttrsRec ? "" : "non-");
 }
 
+bool Sema::tryMergeAttrs(Expr *X, Expr *Y) {
+  if (!X || X->kind() != Node::NK_ExprAttrs || !Y ||
+      Y->kind() != Node::NK_ExprAttrs)
+    return false;
+
+  auto *XAttrs = static_cast<ExprAttrs *>(X);
+  auto *YAttrs = static_cast<ExprAttrs *>(Y);
+  checkAttrRecursiveForMerge(*XAttrs, *YAttrs);
+  mergeAttrSets(XAttrs->SA, YAttrs->SA);
+  return true;
+}
+
 void Sema::mergeAttrSets(SemaAttrs &XAttrs, const SemaAttrs &YAttrs) {
-  for (const auto &[K, V] : YAttrs.Static) {
-    auto [It, inserted] = XAttrs.Static.insert({K, V});
-    auto &Vp = It->second;
-    if (!inserted) {
-      if (V.value() && V.value()->kind() == Node::NK_ExprAttrs && Vp.value() &&
-          Vp.value()->kind() == Node::NK_ExprAttrs) {
-        // If this is also an attrset, we want to merge them.
-        auto *XAttrSet = static_cast<ExprAttrs *>(V.value());
-        auto *YAttrSet = static_cast<ExprAttrs *>(Vp.value());
-        checkAttrRecursiveForMerge(*XAttrSet, *YAttrSet);
-        mergeAttrSets(XAttrSet->SA, YAttrSet->SA);
-      } else {
-        dupAttr(K, V.key().range(), Vp.key().range());
-      }
-    }
+  for (const auto &[K, Y] : YAttrs.Static) {
+    auto [It, Inserted] = XAttrs.Static.insert({K, Y});
+    if (Inserted)
+      continue;
+
+    const auto &[_, X] = *It;
+    if (!tryMergeAttrs(X.value(), Y.value()))
+      dupAttr(K, Y.key().range(), X.key().range());
   }
   for (const auto &DAttr : YAttrs.Dynamic) {
     XAttrs.Dynamic.emplace_back(DAttr);
@@ -80,16 +85,8 @@ void Sema::insertAttr(SemaAttrs &SA, std::shared_ptr<AttrName> Name,
   std::string StaticName = Name->staticName();
   if (auto Nested = Attrs.find(StaticName); Nested != Attrs.end()) {
     const auto &[K, V] = *Nested;
-    if (V.value() && V.value()->kind() == Node::NK_ExprAttrs && E &&
-        E->kind() == Node::NK_ExprAttrs) {
-      // If this is also an attrset, we want to merge them.
-      auto *XAttrSet = static_cast<ExprAttrs *>(V.value());
-      auto *YAttrSet = static_cast<ExprAttrs *>(E.get());
-      checkAttrRecursiveForMerge(*XAttrSet, *YAttrSet);
-      mergeAttrSets(XAttrSet->SA, YAttrSet->SA);
-      return;
-    }
-    dupAttr(StaticName, Name->range(), V.key().range());
+    if (!tryMergeAttrs(V.value(), E.get()))
+      dupAttr(StaticName, Name->range(), V.key().range());
     return;
   }
   if (!E)
