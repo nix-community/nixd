@@ -1,0 +1,29 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" title=" " alt="" coords="5,153,119,181"/>
+<area shape="rect" id="Node000001" href="$structnixd_1_1CannotFindVarException.html" title=" " alt="" coords="167,11,382,38"/>
+<area shape="poly" id="edge55_Node000000_Node000001" title=" " alt="" coords="78,139,114,92,138,69,165,49,195,37,191,41,168,53,142,73,118,96,82,142"/>
+<area shape="rect" id="Node000002" href="$classnixd_1_1LLVMErrorException.html" title=" " alt="" coords="181,63,368,90"/>
+<area shape="poly" id="edge56_Node000000_Node000002" title=" " alt="" coords="98,143,166,109,224,89,221,93,168,114,102,147"/>
+<area shape="rect" id="Node000005" href="$structnixd_1_1idioms_1_1IdiomException.html" title=" " alt="" coords="169,123,380,150"/>
+<area shape="poly" id="edge59_Node000000_Node000005" title=" " alt="" coords="132,155,176,149,172,153,135,159"/>
+<area shape="rect" id="Node000006" href="$structnixd_1_1idioms_1_1IdiomSelectorException.html" title="Exceptions scoped in nixd::mkIdiomSelector." alt="" coords="175,174,374,219"/>
+<area shape="poly" id="edge60_Node000000_Node000006" title=" " alt="" coords="133,175,176,181,172,184,135,180"/>
+<area shape="rect" id="Node000010" href="$structnixd_1_1idioms_1_1NoLocationForBuiltinVariable.html" title=" " alt="" coords="183,244,366,288"/>
+<area shape="poly" id="edge64_Node000000_Node000010" title=" " alt="" coords="96,187,168,229,198,242,193,244,165,234,96,193"/>
+<area shape="rect" id="Node000011" href="$structnixd_1_1idioms_1_1VLAException.html" title=" " alt="" coords="175,316,374,344"/>
+<area shape="poly" id="edge65_Node000000_Node000011" title=" " alt="" coords="78,192,115,247,140,275,168,298,200,315,194,316,165,303,136,279,111,250,77,197"/>
+<area shape="rect" id="Node000003" href="$classnixd_1_1JSONParseException.html" title=" " alt="" coords="458,5,646,33"/>
+<area shape="poly" id="edge57_Node000002_Node000003" title=" " alt="" coords="358,57,483,32,479,35,361,61"/>
+<area shape="rect" id="Node000004" href="$classnixd_1_1JSONSchemaException.html" title=" " alt="" coords="449,57,654,85"/>
+<area shape="poly" id="edge58_Node000002_Node000004" title=" " alt="" coords="382,72,451,72,446,74,383,77"/>
+<area shape="rect" id="Node000007" href="$structnixd_1_1idioms_1_1DynamicNameException.html" title="The attrpath has a dynamic name, thus it cannot be trivially transformed to &quot;static&quot; selector." alt="" coords="448,109,655,154"/>
+<area shape="poly" id="edge61_Node000006_Node000007" title=" " alt="" coords="386,168,456,153,451,155,387,173"/>
+<area shape="rect" id="Node000008" href="$structnixd_1_1idioms_1_1NotAnIdiomException.html" title="The pattern of this variable cannot be recognized by known idioms." alt="" coords="458,178,645,223"/>
+<area shape="poly" id="edge62_Node000006_Node000008" title=" " alt="" coords="389,196,460,198,455,200,390,201"/>
+<area shape="rect" id="Node000009" href="$structnixd_1_1idioms_1_1NotVariableSelect.html" title=" " alt="" coords="459,248,644,292"/>
+<area shape="poly" id="edge63_Node000006_Node000009" title=" " alt="" coords="376,221,467,246,462,247,376,226"/>
+<area shape="rect" id="Node000012" href="$structnixd_1_1idioms_1_1NoSuchVarException.html" title="No such variable." alt="" coords="430,316,673,344"/>
+<area shape="poly" id="edge66_Node000011_Node000012" title=" " alt="" coords="389,327,432,330,427,330,390,332"/>
+<area shape="rect" id="Node000013" href="$structnixd_1_1idioms_1_1UndefinedVarException.html" title=" " alt="" coords="454,368,650,412"/>
+<area shape="poly" id="edge67_Node000011_Node000013" title=" " alt="" coords="357,345,456,368,450,369,356,350"/>
+</map>

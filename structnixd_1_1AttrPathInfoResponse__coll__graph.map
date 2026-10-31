@@ -1,0 +1,7 @@
+<map id="nixd::AttrPathInfoResponse" name="nixd::AttrPathInfoResponse">
+<area shape="rect" id="Node000001" title=" " alt="" coords="59,106,256,134"/>
+<area shape="rect" id="Node000002" href="$structnixd_1_1ValueMeta.html" title="General metadata of all nix::Values." alt="" coords="5,5,132,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="91,42,148,105,143,106,89,47"/>
+<area shape="rect" id="Node000003" href="$structnixd_1_1PackageDescription.html" title=" " alt="" coords="156,5,341,33"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="229,43,172,107,168,103,224,45"/>
+</map>
