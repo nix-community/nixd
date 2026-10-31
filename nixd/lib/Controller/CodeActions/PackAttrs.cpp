@@ -218,33 +218,32 @@ void addPackAttrsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
 
   // Helper lambda to generate Pack One action text
   auto GeneratePackOneText = [&]() -> std::string {
-    std::string NewText;
-    const std::string_view FirstName = Names[0]->src(Src);
-
-    size_t ValueSize = Bind.value() ? Bind.value()->src(Src).size() : 0;
-    NewText.reserve(FirstName.size() + Bind.path().src(Src).size() + ValueSize +
-                    15);
-    NewText += FirstName;
-    NewText += " = { ";
-
-    const nixf::LexerCursor RestStart = Names[1]->range().lCur();
-    const nixf::LexerCursor RestEnd = Bind.path().range().rCur();
-
-    // Safety check: ensure valid range to prevent integer underflow
-    if (RestEnd.offset() < RestStart.offset())
+    // Parser recovery can leave a missing value or delimiter. Only wrap a
+    // complete binding, including its own terminating semicolon.
+    if (!Bind.eq() || !Bind.value() ||
+        Bind.rCur().offset() <= Bind.value()->rCur().offset() ||
+        Bind.src(Src).back() != ';')
       return "";
 
-    std::string_view RestPath =
-        Src.substr(RestStart.offset(), RestEnd.offset() - RestStart.offset());
+    // Replace only the first dot and append the closing wrapper. Copy all
+    // other source text verbatim to preserve comments and multiline values.
+    for (const auto *Token : Bind.path().children()) {
+      if (Token->kind() != nixf::Node::NK_Dot ||
+          Token->lCur().offset() < Names[0]->rCur().offset() ||
+          Token->rCur().offset() > Names[1]->lCur().offset())
+        continue;
 
-    NewText += RestPath;
-    NewText += " = ";
-
-    if (Bind.value()) {
-      NewText += Bind.value()->src(Src);
+      std::string NewText =
+          Src.substr(Bind.lCur().offset(),
+                     Token->lCur().offset() - Bind.lCur().offset())
+              .str();
+      NewText += " = { ";
+      NewText += Src.substr(Token->rCur().offset(),
+                            Bind.rCur().offset() - Token->rCur().offset());
+      NewText += " };";
+      return NewText;
     }
-    NewText += "; };";
-    return NewText;
+    return "";
   };
 
   if (SiblingCount == 1) {
