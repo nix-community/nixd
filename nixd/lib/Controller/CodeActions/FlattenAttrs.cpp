@@ -8,6 +8,8 @@
 
 #include <nixf/Basic/Nodes/Attrs.h>
 
+#include <algorithm>
+
 namespace nixd {
 
 namespace {
@@ -69,37 +71,64 @@ void addFlattenAttrsAction(const nixf::Node &N,
       return;
   }
 
-  // Build the flattened text
-  std::string NewText;
-  const auto &NestedBindings = NestedBinds->bindings();
+  // Parser recovery can leave missing delimiters. Only rewrite complete
+  // bindings, so an inner delimiter cannot be mistaken for the outer one.
+  const auto CompleteBinding = [&](const nixf::Binding &B) {
+    return B.eq() && B.value() &&
+           B.rCur().offset() > B.value()->rCur().offset() &&
+           B.src(Src).back() == ';';
+  };
+  if (!CompleteBinding(Bind))
+    return;
 
-  // Pre-allocate to reduce reallocations. The +40 accounts for inner path,
-  // " = ", value text, and ";". May under-allocate for complex expressions
-  // but still reduces reallocations significantly.
-  const std::string_view OuterPath = Bind.path().src(Src);
-  size_t EstimatedSize = NestedBindings.size() * (OuterPath.size() + 40);
-  NewText.reserve(EstimatedSize);
+  const size_t Open = NestedAttrs.lCur().offset();
+  const size_t Close = NestedAttrs.rCur().offset() - 1;
+  if (Src[Open] != '{' || Src[Close] != '}')
+    return;
 
-  for (size_t I = 0; I < NestedBindings.size(); ++I) {
-    const auto &InnerBind =
-        static_cast<const nixf::Binding &>(*NestedBindings[I]);
-
-    // Build path: outer.inner
-    const std::string_view InnerPath = InnerBind.path().src(Src);
-
-    NewText += OuterPath;
-    NewText += ".";
-    NewText += InnerPath;
-    NewText += " = ";
-
-    if (InnerBind.value()) {
-      NewText += InnerBind.value()->src(Src);
-    }
-    NewText += ";";
-
-    if (I + 1 < NestedBindings.size())
-      NewText += " ";
+  for (const auto &Child : NestedBinds->bindings()) {
+    const auto &Inner = static_cast<const nixf::Binding &>(*Child);
+    if (!CompleteBinding(Inner) || Inner.rCur().offset() > Close)
+      return;
   }
+
+  // Copy names without the trivia between path segments. That trivia belongs
+  // to the outer binding and must survive once, not once per nested binding.
+  std::string Prefix;
+  for (const auto &Name : Bind.path().names()) {
+    Prefix += Name->src(Src);
+    Prefix += ".";
+  }
+
+  std::string NewText;
+  const auto AppendSource = [&](size_t Begin, size_t End) {
+    NewText += Src.substr(Begin, End - Begin);
+  };
+
+  // Remove only the outer path's tokens, retaining comments between them.
+  auto PathTokens = Bind.path().children();
+  std::sort(PathTokens.begin(), PathTokens.end(),
+            [](const nixf::Node *L, const nixf::Node *R) {
+              return L->lCur().offset() < R->lCur().offset();
+            });
+  size_t Pos = Bind.lCur().offset();
+  for (const auto *Token : PathTokens) {
+    AppendSource(Pos, Token->lCur().offset());
+    Pos = Token->rCur().offset();
+  }
+  AppendSource(Pos, Bind.eq()->lCur().offset());
+  AppendSource(Bind.eq()->rCur().offset(), Open);
+
+  // Preserve the entire body, including gaps between bindings and the original
+  // values. In particular, do not reindent multiline strings or line comments.
+  Pos = Open + 1;
+  for (const auto &Child : NestedBinds->bindings()) {
+    AppendSource(Pos, Child->lCur().offset());
+    NewText += Prefix;
+    Pos = Child->lCur().offset();
+  }
+  AppendSource(Pos, Close);
+  AppendSource(Close + 1, Bind.rCur().offset() - 1);
 
   Actions.emplace_back(createSingleEditAction(
       "Flatten nested attribute set",

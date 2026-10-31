@@ -55,8 +55,6 @@ TEST_F(SemaActionTest, selectOrCreate) {
   ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
             Node::NK_ExprAttrs);
 
-  ASSERT_EQ(InnerAttr->staticAttrs().at("b").value()->kind(),
-            Node::NK_ExprAttrs);
   InnerAttr =
       &static_cast<ExprAttrs *>(InnerAttr->staticAttrs().at("b").value())
            ->sema();
@@ -207,7 +205,7 @@ TEST_F(SemaActionTest, inheritNameDuplicated) {
   ASSERT_EQ(Diags.size(), 1);
 }
 
-TEST_F(SemaActionTest, mergeAttrSets) {
+TEST_F(SemaActionTest, mergeAttrSetsDuplicatedAttr) {
   std::shared_ptr<AttrName> XName =
       getStaticName("a", {LexerCursor::unsafeCreate(1, 1, 1),
                           LexerCursor::unsafeCreate(1, 1, 1)});
@@ -242,6 +240,57 @@ TEST_F(SemaActionTest, mergeAttrSets) {
   // Check that the diagnostic is pointed on the second name.
   LexerCursorRange Range = Diags[0].range();
   ASSERT_EQ(Range.lCur().line(), 2);
+}
+
+TEST_F(SemaActionTest, mergeAttrSetsRecursive) {
+  SemaAttrs XA(nullptr), YA(nullptr);
+  AttrPath XPath{{}, {getStaticName("a"), getStaticName("b")}, {}};
+  AttrPath YPath{{}, {getStaticName("a"), getStaticName("c")}, {}};
+  L.addAttr(XA, XPath, std::make_shared<ExprInt>(LexerCursorRange{}, 0));
+  L.addAttr(YA, YPath, std::make_shared<ExprInt>(LexerCursorRange{}, 1));
+
+  L.mergeAttrSets(XA, YA);
+
+  ASSERT_TRUE(Diags.empty());
+  ASSERT_EQ(XA.staticAttrs().size(), 1);
+  const auto *Inner = XA.staticAttrs().at("a").value();
+  ASSERT_EQ(Inner->kind(), Node::NK_ExprAttrs);
+  const auto &Attrs =
+      static_cast<const ExprAttrs *>(Inner)->sema().staticAttrs();
+  ASSERT_EQ(Attrs.size(), 2);
+  EXPECT_TRUE(Attrs.contains("b"));
+  EXPECT_TRUE(Attrs.contains("c"));
+
+  const auto *Source = YA.staticAttrs().at("a").value();
+  ASSERT_EQ(Source->kind(), Node::NK_ExprAttrs);
+  EXPECT_EQ(static_cast<const ExprAttrs *>(Source)->sema().staticAttrs().size(),
+            1);
+}
+
+TEST_F(SemaActionTest, mergeAttrSetsNestedShorthand) {
+  auto AST = nixf::parse("{ a.b.c = 0; a = { b.d = 1; }; }", Diags);
+  ASSERT_TRUE(Diags.empty());
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  const auto *Attrs = static_cast<const ExprAttrs *>(AST.get());
+  for (const auto *Name : {"a", "b"}) {
+    const auto *Value = Attrs->sema().staticAttrs().at(Name).value();
+    ASSERT_EQ(Value->kind(), Node::NK_ExprAttrs);
+    Attrs = static_cast<const ExprAttrs *>(Value);
+  }
+  EXPECT_EQ(Attrs->sema().staticAttrs().size(), 2);
+  EXPECT_TRUE(Attrs->sema().staticAttrs().contains("c"));
+  EXPECT_TRUE(Attrs->sema().staticAttrs().contains("d"));
+}
+
+TEST_F(SemaActionTest, mergeAttrSetsNestedDuplicate) {
+  nixf::parse("{ a.b.c = 0;\n a = { b.c = 1; }; }", Diags);
+  ASSERT_EQ(Diags.size(), 1);
+  const auto &D = Diags.front();
+  EXPECT_EQ(D.kind(), Diagnostic::DK_DuplicatedAttrName);
+  EXPECT_EQ(D.range().lCur().line(), 1);
+  ASSERT_EQ(D.notes().size(), 1);
+  EXPECT_EQ(D.notes().front().range().lCur().line(), 0);
 }
 
 TEST_F(SemaActionTest, lastComma) {

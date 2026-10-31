@@ -1,6 +1,6 @@
 libnixd_include = include_directories('../include')
 
-libnixd_deps = [ nixd_lsp_server, nixf, llvm, nixt ]
+libnixd_deps = [ nixd_lsp_server, nixf, llvm, nixt, dependency('threads') ]
 
 libnixd_sources = [
     'CommandLine/Configuration.cpp',

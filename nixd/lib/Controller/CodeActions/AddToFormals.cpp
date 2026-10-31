@@ -15,6 +15,8 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <ranges>
+
 namespace nixd {
 
 void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
@@ -106,8 +108,19 @@ void addToFormalsAction(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
       }
     } else {
       // Case 2: Normal `{ a }:` without ellipsis
-      // Insert `, varName` after the last formal
-      auto InsertPos = toLSPPosition(Src, LastMember->rCur());
+      // Insert `, varName` after the last formal with an identifier.
+      const nixf::Formal *LastReal = nullptr;
+      for (const auto &Member : Members | std::views::reverse) {
+        if (Member && Member->id()) {
+          LastReal = Member.get();
+          break;
+        }
+      }
+
+      if (!LastReal)
+        return;
+
+      auto InsertPos = toLSPPosition(Src, LastReal->rCur());
       InsertRange = lspserver::Range{InsertPos, InsertPos};
       NewText = ", " + quoteNixAttrKey(VarName);
     }

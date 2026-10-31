@@ -63,7 +63,7 @@ The Quote action appears first, then Flatten action second.
      CHECK:   "result": [
      CHECK:       "newText": "\"foo\""
      CHECK:       "title": "Quote attribute name"
-     CHECK:       "newText": "foo.bar = 1;"
+     CHECK:       "newText": "   foo.bar = 1; "
      CHECK:       "title": "Flatten nested attribute set"
 ```
 

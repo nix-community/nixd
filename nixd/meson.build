@@ -43,4 +43,5 @@ pkgconfig = import('pkgconfig')
 
 subdir('lspserver')
 subdir('lib')
+subdir('test')
 subdir('tools')

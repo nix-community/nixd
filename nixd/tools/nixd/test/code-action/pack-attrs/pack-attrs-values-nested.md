@@ -63,7 +63,7 @@ Pack transforms it to `nested = { value = { a = 1; b.c = 2; }; }`
 ```
      CHECK:   "id": 2,
      CHECK:   "result": [
-     CHECK:       "newText": "nested.value.a = 1; nested.value.b.c = 2;"
+     CHECK:       "newText": "   nested.value.a = 1; nested.value.b.c = 2; "
      CHECK:       "title": "Flatten nested attribute set"
 CHECK-NEXT:     },
 CHECK-NEXT:     {
