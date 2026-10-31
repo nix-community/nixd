@@ -283,6 +283,68 @@ TEST_F(VLATest, InheritRec) {
   ASSERT_EQ(Diags.size(), 0);
 }
 
+TEST_F(VLATest, InheritQuotedOuterVariable) {
+  for (const auto *Src : {
+           R"(let path = 1; in { inherit "path"; })",
+           R"(let "a b" = 1; in { inherit "a b"; })",
+           R"(let "a\nb" = 1; in { inherit "a\nb"; })",
+       }) {
+    SCOPED_TRACE(Src);
+    Diags.clear();
+    auto AST = parse(Src, Diags);
+    ASSERT_TRUE(AST);
+    VariableLookupAnalysis VLA(Diags);
+    VLA.runOnAST(*AST);
+    ASSERT_TRUE(Diags.empty());
+
+    const auto *Body = static_cast<const ExprLet &>(*AST).expr();
+    ASSERT_TRUE(Body);
+    ASSERT_EQ(Body->kind(), Node::NK_ExprAttrs);
+    const auto &Attrs =
+        static_cast<const ExprAttrs &>(*Body).sema().staticAttrs();
+    ASSERT_EQ(Attrs.size(), 1);
+    const auto *Value = Attrs.begin()->second.value();
+    ASSERT_TRUE(Value);
+    ASSERT_EQ(Value->kind(), Node::NK_ExprVar);
+    const auto Result = VLA.query(static_cast<const ExprVar &>(*Value));
+    ASSERT_EQ(Result.Kind, VLAResultKind::Defined);
+    ASSERT_TRUE(Result.Def);
+    ASSERT_TRUE(Result.Def->syntax());
+    EXPECT_EQ(Result.Def->syntax()->lCur().offset(), 4);
+    EXPECT_EQ(Result.Def->uses().size(), 1);
+  }
+}
+
+TEST_F(VLATest, InheritQuotedRecursiveAttrs) {
+  auto AST =
+      parse(R"(let path = 1; in rec { inherit "path"; copy = path; })", Diags);
+  ASSERT_TRUE(AST);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_TRUE(Diags.empty());
+
+  const auto *Body = static_cast<const ExprLet &>(*AST).expr();
+  ASSERT_TRUE(Body);
+  const auto &Attrs =
+      static_cast<const ExprAttrs &>(*Body).sema().staticAttrs();
+  const auto &Var = static_cast<const ExprVar &>(*Attrs.at("path").value());
+  const auto Result = VLA.query(Var);
+  ASSERT_EQ(Result.Kind, VLAResultKind::Defined);
+  ASSERT_TRUE(Result.Def);
+  EXPECT_EQ(Result.Def->syntax()->lCur().offset(), 4);
+}
+
+TEST_F(VLATest, InheritQuotedUndefinedVariable) {
+  auto AST = parse(R"({ inherit "missing"; })", Diags);
+  ASSERT_TRUE(AST);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+  ASSERT_EQ(Diags.size(), 1);
+  EXPECT_EQ(Diags.front().kind(), Diagnostic::DK_UndefinedVariable);
+  EXPECT_EQ(Diags.front().range().lCur().offset(), 10);
+  EXPECT_EQ(Diags.front().range().rCur().offset(), 19);
+}
+
 TEST_F(VLATest, EmptyLetIn) {
   // Test that emtpy let ... in ... expression is considered.
   // https://github.com/nix-community/nixd/issues/500

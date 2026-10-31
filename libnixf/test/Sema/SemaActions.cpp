@@ -205,6 +205,56 @@ TEST_F(SemaActionTest, inheritNameDuplicated) {
   ASSERT_EQ(Diags.size(), 1);
 }
 
+TEST_F(SemaActionTest, InheritQuotedNames) {
+  const auto Src = R"({ inherit path "other" "a b" "a\nb"; })"sv;
+  auto AST = parse(Src, Diags);
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+  ASSERT_TRUE(Diags.empty());
+
+  const auto &Attrs = static_cast<const ExprAttrs &>(*AST).sema().staticAttrs();
+  ASSERT_EQ(Attrs.size(), 4);
+  for (const auto &[Name, Attr] : Attrs) {
+    ASSERT_EQ(Attr.kind(), Attribute::AttributeKind::Inherit);
+    ASSERT_TRUE(Attr.value());
+    ASSERT_EQ(Attr.value()->kind(), Node::NK_ExprVar);
+    const auto &Var = static_cast<const ExprVar &>(*Attr.value());
+    EXPECT_EQ(Var.id().name(), Name);
+    EXPECT_EQ(Var.src(Src), Attr.key().src(Src));
+    const auto &Key = static_cast<const AttrName &>(Attr.key());
+    EXPECT_EQ(Key.kind(),
+              Name == "path" ? AttrName::ANK_ID : AttrName::ANK_String);
+  }
+  EXPECT_TRUE(Attrs.contains("a\nb"));
+}
+
+TEST_F(SemaActionTest, InheritQuotedDuplicate) {
+  auto AST = parse(R"({ inherit path "path"; })", Diags);
+  ASSERT_TRUE(AST);
+  ASSERT_EQ(Diags.size(), 1);
+  EXPECT_EQ(Diags.front().kind(), Diagnostic::DK_DuplicatedAttrName);
+}
+
+TEST_F(SemaActionTest, InheritDynamicNamesRecovery) {
+  for (const auto Src : {R"({ inherit before ${name} after; })"sv,
+                         R"({ inherit before "${name}" after; })"sv,
+                         R"({ inherit (source) before ${name} after; })"sv,
+                         R"({ inherit (source) before "${name}" after; })"sv}) {
+    SCOPED_TRACE(Src);
+    Diags.clear();
+    auto AST = parse(Src, Diags);
+    ASSERT_TRUE(AST);
+    ASSERT_EQ(AST->kind(), Node::NK_ExprAttrs);
+    ASSERT_EQ(Diags.size(), 1);
+    EXPECT_EQ(Diags.front().kind(), Diagnostic::DK_DynamicInherit);
+    const auto &Attrs = static_cast<const ExprAttrs &>(*AST).sema();
+    ASSERT_EQ(Attrs.staticAttrs().size(), 2);
+    EXPECT_TRUE(Attrs.staticAttrs().contains("before"));
+    EXPECT_TRUE(Attrs.staticAttrs().contains("after"));
+    EXPECT_TRUE(Attrs.dynamicAttrs().empty());
+  }
+}
+
 TEST_F(SemaActionTest, mergeAttrSetsDuplicatedAttr) {
   std::shared_ptr<AttrName> XName =
       getStaticName("a", {LexerCursor::unsafeCreate(1, 1, 1),

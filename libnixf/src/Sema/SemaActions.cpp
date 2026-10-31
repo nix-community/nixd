@@ -331,9 +331,16 @@ std::pair<std::shared_ptr<Expr>, Attribute::AttributeKind>
 Sema::desugarInheritExpr(std::shared_ptr<AttrName> Name,
                          std::shared_ptr<Expr> E) {
   auto Range = Name->range();
-  if (!E)
-    return {std::make_shared<ExprVar>(Range, Name->id()),
+  if (!E) {
+    // Leave dynamic names for lowerInheritName to diagnose.
+    if (!Name->isStatic())
+      return {nullptr, Attribute::AttributeKind::Inherit};
+    auto ID = Name->kind() == AttrName::ANK_ID
+                  ? Name->id()
+                  : std::make_shared<Identifier>(Range, Name->staticName());
+    return {std::make_shared<ExprVar>(Range, std::move(ID)),
             Attribute::AttributeKind::Inherit};
+  }
 
   auto Path = std::make_shared<AttrPath>(
       Range, std::vector<std::shared_ptr<AttrName>>{std::move(Name)},
