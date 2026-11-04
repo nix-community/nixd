@@ -12,6 +12,10 @@
 #include <boost/asio/post.hpp>
 #include <sys/wait.h>
 
+#include <cerrno>
+#include <csignal>
+#include <thread>
+
 using namespace nixd;
 using namespace lspserver;
 
@@ -51,22 +55,64 @@ void Controller::onFormat(const DocumentFormattingParams &Params,
     pid_t Child = forkPiped(In, Out, Err);
     if (Child == 0) {
       execvp(Syscall[0], Syscall.data());
-      exit(-1);
+      _exit(-1);
     }
-    // Firstly, send the document to the process stdin.
-    // Invoke POSIX write(2) to do such thing.
+
+    // Read the formatter's stdout on another thread while this one writes
+    // the document to its stdin. Writing everything, waiting for the
+    // process and only then reading deadlocks as soon as the formatted
+    // output fills the pipe (64 KiB on Linux): the formatter blocks in
+    // write(2) and nixd blocks in waitpid(2).
+    std::string Response;
+    std::thread Reader([&Response, Out]() {
+      char Buf[4096];
+      for (;;) {
+        ssize_t Read = read(Out, Buf, sizeof(Buf));
+        if (Read < 0 && errno == EINTR)
+          continue;
+        if (Read <= 0)
+          break;
+        Response.append(Buf, Read);
+      }
+    });
+
+    // Send the document to the formatter's stdin. A formatter may exit
+    // without reading all of it, and a write to a pipe nobody reads raises
+    // SIGPIPE, which would kill nixd. Block SIGPIPE in this thread so the
+    // write fails with EPIPE instead, then drop the pending signal.
+    sigset_t PipeSignal;
+    sigset_t OldMask;
+    sigemptyset(&PipeSignal);
+    sigaddset(&PipeSignal, SIGPIPE);
+    pthread_sigmask(SIG_BLOCK, &PipeSignal, &OldMask);
     const char *Start = Code.c_str();
     const char *End = Code.c_str() + Code.size();
     while (Start != End) {
-      if (long Writen = write(In, Start, End - Start); Writen != -1) {
-        Start += Writen;
-      } else {
-        throw std::system_error(errno, std::generic_category());
+      ssize_t Written = write(In, Start, End - Start);
+      if (Written >= 0) {
+        Start += Written;
+        continue;
       }
+      if (errno == EINTR)
+        continue;
+      // EPIPE: the formatter stopped reading. Its exit status decides.
+      break;
     }
     close(In);
+    // sigtimedwait(2) would do this in one call, but macOS lacks it. Only
+    // call sigwait(3) when SIGPIPE is pending so it never blocks.
+    sigset_t Pending;
+    sigpending(&Pending);
+    if (sigismember(&Pending, SIGPIPE)) {
+      int Signal;
+      sigwait(&PipeSignal, &Signal);
+    }
+    pthread_sigmask(SIG_SETMASK, &OldMask, nullptr);
 
-    // And, wait for the process.
+    // Wait for the output to end and for the process to exit.
+    Reader.join();
+    close(Out);
+    close(Err);
     int Exit = 0;
     waitpid(Child, &Exit, 0);
 
@@ -74,19 +120,6 @@ void Controller::onFormat(const DocumentFormattingParams &Params,
       Reply(error("formatting {0} command exited with {1}", FormatCommand[0],
                   Exit));
       return;
-    }
-
-    // Okay, read stdout from it.
-    std::string Response;
-    while (true) {
-      char Buf[1024];
-      auto Read = read(Out, Buf, sizeof(Buf));
-      if (Read == 0)
-        break;
-      if (Read < 0)
-        throw std::system_error(errno, std::generic_category());
-      // Otherwise, append it to "response"
-      Response.append(Buf, Read);
     }
 
     if (Response == Code) {
