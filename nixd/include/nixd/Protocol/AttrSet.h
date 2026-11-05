@@ -125,6 +125,7 @@ bool fromJSON(const llvm::json::Value &Params, AttrPathCompleteResponse &R,
 
 struct OptionType {
   std::optional<std::string> Description;
+  std::optional<std::vector<std::string>> EnumValues;
   std::optional<std::string> Name;
 };
 
