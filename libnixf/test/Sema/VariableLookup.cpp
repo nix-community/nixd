@@ -195,6 +195,63 @@ TEST_F(VLATest, LivenessFormalWithArg) {
   ASSERT_EQ(Diags[0].tags()[0], DiagnosticTag::Faded);
 }
 
+TEST_F(VLATest, UnusedFormalFix) {
+  std::shared_ptr<Node> AST = parse("{x, y}: x", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].message(), "remove unused formal `y`");
+  ASSERT_TRUE(Diags[0].fixes()[0].isPreferred());
+}
+
+TEST_F(VLATest, UnusedFormalFixSingle) {
+  std::shared_ptr<Node> AST = parse("{ x }: 1", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 1);
+  ASSERT_TRUE(Diags[0].fixes()[0].isPreferred());
+}
+
+TEST_F(VLATest, UnusedFormalFixFirst) {
+  std::shared_ptr<Node> AST = parse("{x, y}: y", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  ASSERT_EQ(Diags.size(), 1);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaNoArg_Formal);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].message(), "remove unused formal `x`");
+  // First formal removal needs 2 edits: remove formal + remove next comma
+  ASSERT_EQ(Diags[0].fixes()[0].edits().size(), 2);
+  ASSERT_TRUE(Diags[0].fixes()[0].isPreferred());
+}
+
+TEST_F(VLATest, UnusedFormalFixWithArg) {
+  // {x, y}@args: args — formals are DS_LambdaWithArg_Formal
+  std::shared_ptr<Node> AST = parse("{x, y}@args: args", Diags);
+  VariableLookupAnalysis VLA(Diags);
+  VLA.runOnAST(*AST);
+
+  // Both x and y are unused formals (args is used via @-pattern)
+  ASSERT_EQ(Diags.size(), 2);
+  ASSERT_EQ(Diags[0].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Formal);
+  ASSERT_EQ(Diags[0].fixes().size(), 1);
+  ASSERT_EQ(Diags[0].fixes()[0].message(), "remove unused formal `x`");
+  ASSERT_TRUE(Diags[0].fixes()[0].isPreferred());
+
+  ASSERT_EQ(Diags[1].kind(), Diagnostic::DK_UnusedDefLambdaWithArg_Formal);
+  ASSERT_EQ(Diags[1].fixes().size(), 1);
+  ASSERT_EQ(Diags[1].fixes()[0].message(), "remove unused formal `y`");
+  ASSERT_TRUE(Diags[1].fixes()[0].isPreferred());
+}
+
 TEST_F(VLATest, ToDefAttrs) {
   std::shared_ptr<Node> AST = parse("rec { x = 1; y = x; z = x; }", Diags);
   VariableLookupAnalysis VLA(Diags);
