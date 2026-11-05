@@ -31,8 +31,7 @@ CHECK-NEXT:         "codeActionKinds": [
 CHECK-NEXT:           "quickfix",
 CHECK-NEXT:           "refactor",
 CHECK-NEXT:           "refactor.rewrite"
-CHECK-NEXT:         ],
-CHECK-NEXT:         "resolveProvider": true
+CHECK-NEXT:         ]
 CHECK-NEXT:       },
 CHECK-NEXT:       "completionProvider": {
 CHECK-NEXT:         "resolveProvider": true,
@@ -45,6 +44,11 @@ CHECK-NEXT:       "documentFormattingProvider": true,
 CHECK-NEXT:       "documentHighlightProvider": true,
 CHECK-NEXT:       "documentLinkProvider": {},
 CHECK-NEXT:       "documentSymbolProvider": true,
+CHECK-NEXT:       "executeCommandProvider": {
+CHECK-NEXT:         "commands": [
+CHECK-NEXT:           "openNoogleDoc"
+CHECK-NEXT:         ]
+CHECK-NEXT:       },
 CHECK-NEXT:       "foldingRangeProvider": true,
 CHECK-NEXT:       "hoverProvider": true,
 CHECK-NEXT:       "inlayHintProvider": true,
