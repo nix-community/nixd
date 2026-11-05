@@ -1,11 +1,13 @@
 #pragma once
 
+#include "nixf/Basic/Nodes/Comment.h"
 #include "nixf/Basic/Range.h"
 
 #include <boost/container/small_vector.hpp>
 
 #include <cassert>
 #include <string>
+#include <vector>
 
 namespace nixf {
 
@@ -25,6 +27,8 @@ public:
 private:
   NodeKind Kind;
   LexerCursorRange Range;
+  std::vector<CommentPtr> LeadingComments;
+  std::vector<CommentPtr> TrailingComments;
 
 protected:
   explicit Node(NodeKind Kind, LexerCursorRange Range)
@@ -64,6 +68,22 @@ public:
     auto Begin = lCur().offset();
     auto Length = rCur().offset() - Begin;
     return Src.substr(Begin, Length);
+  }
+
+  void addLeadingComment(CommentPtr Comment) {
+    LeadingComments.push_back(std::move(Comment));
+  }
+
+  void addTrailingComment(CommentPtr Comment) {
+    TrailingComments.push_back(std::move(Comment));
+  }
+
+  [[nodiscard]] const std::vector<CommentPtr> &leadingComments() const {
+    return LeadingComments;
+  }
+
+  [[nodiscard]] const std::vector<CommentPtr> &trailingComments() const {
+    return TrailingComments;
   }
 };
 
