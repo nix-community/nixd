@@ -93,6 +93,68 @@ void getNestedAttrPath(const nixf::AttrName &N,
   getSelectAttrPath(N, PM, Path);
 }
 
+bool resolvesToPkgs(const Node *E, const VariableLookupAnalysis &VLA,
+                    const ParentMapAnalysis &PM, int Depth = 0) {
+  if (!E || Depth > 10)
+    return false;
+  if (E->kind() == Node::NK_ExprVar) {
+    const auto &Var = static_cast<const ExprVar &>(*E);
+    if (Var.id().name() == nixd::idioms::Pkgs)
+      return true;
+    auto Result = VLA.query(Var);
+    if (Result.Kind == VariableLookupAnalysis::LookupResultKind::Defined &&
+        Result.Def) {
+      const auto &Def = *Result.Def;
+      if (Def.source() == Definition::DS_Let ||
+          Def.source() == Definition::DS_Rec) {
+        if (Def.syntax()) {
+          const Node *Parent = PM.query(*Def.syntax());
+          while (Parent && Parent->kind() != Node::NK_Binding) {
+            Parent = PM.query(*Parent);
+          }
+          if (Parent) {
+            const auto &B = static_cast<const Binding &>(*Parent);
+            if (B.value())
+              return resolvesToPkgs(B.value().get(), VLA, PM, Depth + 1);
+          }
+        }
+      }
+    }
+  } else if (E->kind() == Node::NK_ExprCall) {
+    const auto &Call = static_cast<const ExprCall &>(*E);
+    if (resolvesToPkgs(&Call.fn(), VLA, PM, Depth + 1))
+      return true;
+    if (Call.fn().kind() == Node::NK_ExprVar) {
+      const auto &FnVar = static_cast<const ExprVar &>(Call.fn());
+      if (FnVar.id().name() == "import") {
+        for (const auto &Arg : Call.args()) {
+          if (Arg->kind() == Node::NK_ExprSPath) {
+            const auto &SPath = static_cast<const ExprSPath &>(*Arg);
+            if (SPath.text().find("nixpkgs") != std::string::npos)
+              return true;
+          } else if (Arg->kind() == Node::NK_ExprPath) {
+            const auto &Path = static_cast<const ExprPath &>(*Arg);
+            if (Path.parts().isLiteral() &&
+                Path.parts().literal().find("nixpkgs") != std::string::npos)
+              return true;
+          }
+        }
+      }
+    }
+  } else if (E->kind() == Node::NK_ExprSelect) {
+    const auto &Sel = static_cast<const ExprSelect &>(*E);
+    try {
+      nixd::Selector S = nixd::idioms::mkSelector(Sel, VLA, PM);
+      for (const auto &Part : S) {
+        if (Part == "nixpkgs" || Part == "legacyPackages")
+          return true;
+      }
+    } catch (std::exception &) {
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 [[nodiscard]] const EnvNode *nixd::upEnv(const nixf::Node &Desc,
@@ -123,12 +185,7 @@ bool nixd::havePackageScope(const Node &N, const VariableLookupAnalysis &VLA,
     if (!WithBody)
       continue; // skip incomplete with epxression.
 
-    // Se if it is "ExprVar“. Stupid.
-    if (WithBody->kind() != Node::NK_ExprVar)
-      continue;
-
-    // Hardcoded "pkgs", even more stupid.
-    if (static_cast<const ExprVar &>(*WithBody).id().name() == idioms::Pkgs)
+    if (resolvesToPkgs(WithBody, VLA, PM))
       return true;
   }
   return false;
@@ -199,6 +256,10 @@ nixd::Selector
 nixd::idioms::mkVarSelector(const nixf::ExprVar &Var,
                             const nixf::VariableLookupAnalysis &VLA,
                             const nixf::ParentMapAnalysis &PM) {
+  if (resolvesToPkgs(&Var, VLA, PM)) {
+    return {};
+  }
+
   // Only check if the variable can be recogonized by some idiom.
 
   using ResultKind = VariableLookupAnalysis::LookupResultKind;
