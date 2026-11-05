@@ -314,12 +314,13 @@ bool fromJSON(const llvm::json::Value &Params, DocumentChange &DC,
   const auto *O = Params.getAsObject();
   if (!O)
     return false;
+  llvm::json::ObjectMapper OM(Params, P);
 
   // Check for "kind" field to distinguish resource operations
   if (auto Kind = O->getString("kind")) {
     if (*Kind == "create") {
       CreateFile CF;
-      if (!fromJSON(Params, CF.uri, P.field("uri")))
+      if (!OM || !OM.map("uri", CF.uri))
         return false;
       // Options are optional, parse if present
       if (const auto *OptsObj = O->getObject("options")) {
@@ -336,8 +337,7 @@ bool fromJSON(const llvm::json::Value &Params, DocumentChange &DC,
     }
     if (*Kind == "rename") {
       RenameFile RF;
-      if (!fromJSON(Params, RF.oldUri, P.field("oldUri")) ||
-          !fromJSON(Params, RF.newUri, P.field("newUri")))
+      if (!OM || !OM.map("oldUri", RF.oldUri) || !OM.map("newUri", RF.newUri))
         return false;
       if (const auto *OptsObj = O->getObject("options")) {
         RF.options = RenameFileOptions{};
@@ -353,7 +353,7 @@ bool fromJSON(const llvm::json::Value &Params, DocumentChange &DC,
     }
     if (*Kind == "delete") {
       DeleteFile DF;
-      if (!fromJSON(Params, DF.uri, P.field("uri")))
+      if (!OM || !OM.map("uri", DF.uri))
         return false;
       if (const auto *OptsObj = O->getObject("options")) {
         DF.options = DeleteFileOptions{};
@@ -941,9 +941,11 @@ bool fromJSON(const llvm::json::Value &Params, CodeAction &CA,
     return false;
   O.map("kind", CA.kind);
   O.map("diagnostics", CA.diagnostics);
-  O.map("isPreferred", CA.isPreferred);
-  O.map("edit", CA.edit);
-  O.map("command", CA.command);
+  O.mapOptional("isPreferred", CA.isPreferred);
+  if (!O.map("edit", CA.edit))
+    return false;
+  if (!O.map("command", CA.command))
+    return false;
   // Handle data field - it's an arbitrary JSON value
   if (const auto *Obj = Params.getAsObject()) {
     if (const auto *Data = Obj->get("data"))
