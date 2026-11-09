@@ -103,6 +103,16 @@ void splitInherit(const Inherit &Inh, const Node &Name, std::string Binding,
   });
 }
 
+/// The name a definition binds: a quoted `inherit "x";` binds `x`.
+std::string definedName(const Node &Syntax, llvm::StringRef Src) {
+  if (Syntax.kind() == Node::NK_AttrName) {
+    const auto &Name = static_cast<const AttrName &>(Syntax);
+    if (Name.isStatic())
+      return Name.staticName();
+  }
+  return std::string(Syntax.src(Src));
+}
+
 bool contains(const Node &Outer, const Node &N) {
   return Outer.lCur().offset() <= N.lCur().offset() &&
          N.rCur().offset() <= Outer.rCur().offset();
@@ -148,6 +158,14 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
   if (Def.source() == Definition::DS_Rec)
     throw RenameRecException();
+
+  // Renaming to the current name changes nothing, but splitting `inherit x;`
+  // would write `x = x;`, which recurses.
+  if (definedName(*Def.syntax(), Src) == NewText) {
+    WorkspaceEdit WE;
+    WE.changes = std::map<std::string, std::vector<TextEdit>>{{URI.uri(), {}}};
+    return WE;
+  }
 
   std::vector<TextEdit> Edits;
 
