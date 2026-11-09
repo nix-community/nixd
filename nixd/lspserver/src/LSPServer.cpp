@@ -1,6 +1,7 @@
 #include "lspserver/LSPServer.h"
 #include "lspserver/Connection.h"
 #include "lspserver/Function.h"
+#include "lspserver/Protocol.h"
 
 #include <llvm/ADT/FunctionExtras.h>
 #include <llvm/Support/Compiler.h>
@@ -45,8 +46,14 @@ bool LSPServer::onCall(llvm::StringRef Method, llvm::json::Value Params,
                         Out->reply(std::move(ID), std::move(Err));
                       }
                     });
-  else
-    return false;
+  else {
+    // An unknown request must be answered, not end the session: clients probe
+    // optional methods such as `textDocument/implementation`.
+    log("--> reply:{0}({1}) method not found", Method, ID);
+    Out->reply(std::move(ID),
+               llvm::make_error<LSPError>("method not found: " + Method.str(),
+                                          ErrorCode::MethodNotFound));
+  }
   return true;
 }
 
