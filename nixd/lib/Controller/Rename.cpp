@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <set>
 
 using namespace lspserver;
 using namespace nixd;
@@ -33,6 +34,21 @@ struct RenameWithException : RenameException {
 struct RenameBuiltinException : RenameException {
   [[nodiscard]] const char *what() const noexcept override {
     return "cannot rename builtin variable";
+  }
+};
+
+struct RenameInheritCaptureException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename: `inherit` reads the variable from outside its "
+           "`rec` or `let`, but the binding that replaces it would read the "
+           "new name from that `rec` or `let`, which binds it";
+  }
+};
+
+struct RenameInheritNestedException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename: the variable is inherited inside the expression of "
+           "an `inherit (...)` that has to be rewritten";
   }
 };
 
@@ -83,14 +99,33 @@ void splitInherit(const Inherit &Inh, const Node &Name, std::string Binding,
   });
 }
 
-/// `inherit (E) name;` selects `name` from `E`.
-std::string selectFrom(const Expr &E, llvm::StringRef Name,
-                       llvm::StringRef Src) {
-  std::string From(E.src(Src));
+bool contains(const Node &Outer, const Node &N) {
+  return Outer.lCur().offset() <= N.lCur().offset() &&
+         N.rCur().offset() <= Outer.rCur().offset();
+}
+
+/// `inherit (E) name;` selects `name` from `E`, whose text is \p From: the
+/// source of `E` with the renamed uses inside it already replaced.
+std::string selectFrom(const Expr &E, const std::string &From,
+                       llvm::StringRef Name) {
   bool Bare = E.kind() == Node::NK_ExprVar ||
               (E.kind() == Node::NK_ExprSelect &&
                !static_cast<const ExprSelect &>(E).defaultExpr());
   return (Bare ? From : "(" + From + ")") + "." + Name.str();
+}
+
+/// The source of \p E, with each of \p Uses (all inside it) renamed.
+std::string renamedSource(const Expr &E, std::vector<const ExprVar *> Uses,
+                          const std::string &NewText, llvm::StringRef Src) {
+  std::string Text(E.src(Src));
+  std::sort(Uses.begin(), Uses.end(), [](const auto *A, const auto *B) {
+    return A->lCur().offset() > B->lCur().offset();
+  });
+  for (const ExprVar *Use : Uses) {
+    auto Begin = Use->lCur().offset() - E.lCur().offset();
+    Text.replace(Begin, Use->rCur().offset() - Use->lCur().offset(), NewText);
+  }
+  return Text;
 }
 
 WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
@@ -112,10 +147,35 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
   std::vector<TextEdit> Edits;
 
+  // A definition from `inherit (E) name;` is rewritten as a binding that
+  // copies `E`, so uses inside `E` are renamed in that copy.
+  const Inherit *DefInh = upInherit(*Def.syntax(), PMA);
+  const Expr *From = DefInh ? DefInh->expr().get() : nullptr;
+  std::vector<const ExprVar *> UsesInFrom;
+
+  // `inherit (E) a b;` desugars into one selection per name, all sharing `E`,
+  // so a use inside `E` is recorded once per name.
+  std::set<const ExprVar *> Seen;
   for (const auto *Use : Def.uses()) {
+    if (!Seen.insert(Use).second)
+      continue;
     // `inherit name;` desugars into a variable sharing the name's identifier.
     const Node *Name = PMA.query(Use->id());
-    if (const Inherit *Inh = Name ? upInherit(*Name, PMA) : nullptr) {
+    const Inherit *Inh = Name ? upInherit(*Name, PMA) : nullptr;
+    if (From && contains(*From, *Use)) {
+      if (Inh)
+        throw RenameInheritNestedException();
+      UsesInFrom.emplace_back(Use);
+      // A single-name inherit is replaced whole, `E` included.
+      if (DefInh->names().size() == 1)
+        continue;
+    } else if (Inh) {
+      const Node *Attrs = PMA.upTo(*Inh, Node::NK_ExprAttrs);
+      if (Attrs) {
+        const SemaAttrs &SA = static_cast<const ExprAttrs &>(*Attrs).sema();
+        if (SA.isRecursive() && SA.staticAttrs().contains(NewText))
+          throw RenameInheritCaptureException();
+      }
       splitInherit(*Inh, *Name,
                    std::string(Name->src(Src)) + " = " + NewText + ";", Src,
                    Edits);
@@ -127,11 +187,13 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
     });
   }
 
-  if (const Inherit *Inh = upInherit(*Def.syntax(), PMA)) {
+  if (DefInh) {
     std::string Name(Def.syntax()->src(Src));
     std::string Value =
-        Inh->expr() ? selectFrom(*Inh->expr(), Name, Src) : Name;
-    splitInherit(*Inh, *Def.syntax(), NewText + " = " + Value + ";", Src,
+        From ? selectFrom(*From, renamedSource(*From, UsesInFrom, NewText, Src),
+                          Name)
+             : Name;
+    splitInherit(*DefInh, *Def.syntax(), NewText + " = " + Value + ";", Src,
                  Edits);
   } else {
     Edits.emplace_back(TextEdit{
