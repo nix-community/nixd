@@ -61,7 +61,36 @@
      CHECK: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": [
- CHECK-NOT: "title": "Convert to explicit binding"
+     CHECK: "newText": "",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 12,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 10,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: },
+CHECK-NEXT: {
+CHECK-NEXT: "newText": " x = x;",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 14,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 14,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: ]
+CHECK-NEXT: }
+CHECK-NEXT: },
+CHECK-NEXT: "kind": "refactor.rewrite",
+CHECK-NEXT: "title": "Convert to explicit binding"
 ```
 
 ```json
