@@ -64,11 +64,11 @@ CHECK-NEXT: "result": [
      CHECK: "newText": "",
 CHECK-NEXT: "range": {
 CHECK-NEXT: "end": {
-CHECK-NEXT: "character": 12,
+CHECK-NEXT: "character": 11,
 CHECK-NEXT: "line": 0
 CHECK-NEXT: },
 CHECK-NEXT: "start": {
-CHECK-NEXT: "character": 10,
+CHECK-NEXT: "character": 9,
 CHECK-NEXT: "line": 0
 CHECK-NEXT: }
 CHECK-NEXT: }

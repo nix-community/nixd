@@ -9,8 +9,6 @@
 #include <nixf/Basic/Nodes/Attrs.h>
 #include <nixf/Basic/Nodes/Expr.h>
 
-#include <algorithm>
-
 namespace nixd {
 
 namespace {
@@ -42,6 +40,39 @@ std::string selectBase(const nixf::Expr &E, llvm::StringRef Src) {
     break;
   }
   return "(" + Text + ")";
+}
+
+/// Whether copying \p E refers to the value it denotes rather than a new one:
+/// a variable, or attributes selected from one.
+bool isShared(const nixf::Expr &E) {
+  switch (E.kind()) {
+  case nixf::Node::NK_ExprVar:
+    return true;
+  case nixf::Node::NK_ExprParen: {
+    const nixf::Expr *Inner = static_cast<const nixf::ExprParen &>(E).expr();
+    return Inner && isShared(*Inner);
+  }
+  case nixf::Node::NK_ExprSelect: {
+    const auto &Sel = static_cast<const nixf::ExprSelect &>(E);
+    return !Sel.defaultExpr() && isShared(Sel.expr());
+  }
+  default:
+    return false;
+  }
+}
+
+/// \p Name with the spaces and tabs before it on its line: removing that keeps
+/// comments and the other names.
+nixf::LexerCursorRange withLeadingSpaces(const nixf::Node &Name,
+                                         llvm::StringRef Src) {
+  nixf::LexerCursor L = Name.lCur();
+  std::size_t K = 0;
+  while (K < static_cast<std::size_t>(L.column()) &&
+         (Src[L.offset() - K - 1] == ' ' || Src[L.offset() - K - 1] == '\t'))
+    ++K;
+  return {
+      nixf::LexerCursor::unsafeCreate(L.line(), L.column() - K, L.offset() - K),
+      Name.rCur()};
 }
 
 } // namespace
@@ -96,16 +127,14 @@ void addInheritToBindingAction(const nixf::Node &N,
     return;
   }
 
-  // Remove the name with the space that separates it from its neighbour, and
-  // add the binding after the inherit.
-  auto It = std::find_if(Names.begin(), Names.end(),
-                         [&](const auto &Each) { return Each.get() == Name; });
-  nixf::LexerCursorRange Removal =
-      std::next(It) != Names.end()
-          ? nixf::LexerCursorRange{Name->lCur(), (*std::next(It))->lCur()}
-          : nixf::LexerCursorRange{(*std::prev(It))->rCur(), Name->rCur()};
+  // The other names keep reading the inherit's expression; a copy of it in the
+  // binding would be evaluated again, as a value of its own.
+  if (Inherit.expr() && !isShared(*Inherit.expr()))
+    return;
+
+  // Remove the name, and add the binding after the inherit.
   std::vector<lspserver::TextEdit> Edits{
-      {.range = toLSPRange(Src, Removal), .newText = ""},
+      {.range = toLSPRange(Src, withLeadingSpaces(*Name, Src)), .newText = ""},
       {.range = toLSPRange(Src, nixf::LexerCursorRange{Inherit.rCur()}),
        .newText = " " + std::move(Binding)},
   };
