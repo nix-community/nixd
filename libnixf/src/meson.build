@@ -2,7 +2,6 @@ libnixf_deps = [ boost, nlohmann_json ]
 
 libnixf_inc = include_directories('../include')
 
-python3 = find_program('python3')
 
 diagnostic_enum_h = custom_target(
     input: ['Basic/DiagnosticEnum.h.py', 'Basic/diagnostic.py', 'Basic/support.py'],
@@ -17,14 +16,6 @@ diagnostic_cpp = custom_target(
     input: ['Basic/Diagnostic.cpp.py', 'Basic/diagnostic.py', 'Basic/support.py'],
     output: 'Diagnostic.cpp',
     command: [python3, '@INPUT0@', '@OUTPUT@']
-)
-
-tokens_h = custom_target(
-    input: ['Parse/Tokens.h.py', 'Parse/tokens.py'],
-    output: 'Tokens.h',
-    command: [python3, '@INPUT0@', '@OUTPUT@'],
-    install: true,
-    install_dir: 'include/nixf/Parse/'
 )
 
 tokens_kinds_inc = custom_target(
@@ -93,4 +84,5 @@ nixf = declare_dependency(
 )
 
 
-install_subdir('../include/nixf', install_dir: 'include')
+install_subdir('../include/nixf', install_dir: 'include',
+               exclude_files: ['Parse/meson.build'])

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Tokens.h"
 #include "nixf/Basic/Range.h"
+#include "nixf/Parse/Tokens.h"
 
 #include <cassert>
 #include <string_view>
