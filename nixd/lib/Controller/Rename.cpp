@@ -226,6 +226,7 @@ const EnvNode *defEnv(const Definition &D, const std::string &Name,
   case Definition::DS_LambdaNoArg_Formal:
   case Definition::DS_LambdaWithArg_Arg:
   case Definition::DS_LambdaWithArg_Formal:
+  case Definition::DS_FlakeInjectedFormal:
     if (const Node *Lambda = PMA.upTo(*D.syntax(), Node::NK_ExprLambda))
       Body = static_cast<const ExprLambda &>(*Lambda).body();
     break;
@@ -261,6 +262,15 @@ void checkCapture(const Definition &D, const std::string &Old,
                   const VariableLookupAnalysis &VLA) {
   if (New.empty())
     return;
+  // A variable is named by an identifier: `"y"` would bind `y` but be written
+  // as a string where the variable is used.
+  if (!isValidNixIdentifier(New))
+    throw RenameCaptureException("cannot rename: `" + New +
+                                 "` is not a valid identifier");
+  // `__curPos` is the position it is written at, never a variable.
+  if (New == "__curPos")
+    throw RenameCaptureException(
+        "cannot rename: `__curPos` is the current position, not a variable");
   const EnvNode *DefE = defEnv(D, Old, PMA, VLA);
   if (DefE && binds(*DefE, New))
     throw RenameCaptureException(
