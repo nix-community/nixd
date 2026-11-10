@@ -122,8 +122,10 @@ void addInheritToBindingAction(const nixf::Node &N,
   } else {
     // inherit name; -> name = name; but in a `rec` or `let`, where `inherit`
     // reads `name` from outside, `name = name;` would read itself.
+    // `__curPos` as an expression is the position it is written at, not the
+    // variable `inherit __curPos;` reads.
     const nixf::Node *Attrs = PM.upTo(Inherit, nixf::Node::NK_ExprAttrs);
-    if (!Attrs || !isValidNixIdentifier(Static) ||
+    if (!Attrs || !isValidNixIdentifier(Static) || Static == "__curPos" ||
         static_cast<const nixf::ExprAttrs &>(*Attrs).sema().isRecursive())
       return;
     Value = Static;
