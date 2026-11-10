@@ -45,10 +45,10 @@ struct RenameInheritSharedException : RenameException {
   }
 };
 
-struct RenameInheritCurPosException : RenameException {
+struct RenameCurPosException : RenameException {
   [[nodiscard]] const char *what() const noexcept override {
-    return "cannot rename: the binding that replaces `inherit __curPos;` "
-           "would read the current position, not the variable `__curPos`";
+    return "cannot rename `__curPos`: written as an expression it is the "
+           "current position, not this binding";
   }
 };
 
@@ -223,6 +223,12 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
   if (Def.source() == Definition::DS_Rec)
     throw RenameRecException();
 
+  // The expression `__curPos` is the position it is written at, however a
+  // binding of that name is spelled (`inherit "__curPos";` too), so what
+  // looks like its uses are not, and a rename would change them.
+  if (definedName(*Def.syntax(), Src) == "__curPos")
+    throw RenameCurPosException();
+
   // Renaming to the current name changes nothing, but splitting `inherit x;`
   // would write `x = x;`, which recurses.
   if (definedName(*Def.syntax(), Src) == NewText) {
@@ -277,10 +283,6 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
   if (DefInh) {
     std::string Name(Def.syntax()->src(Src));
-    // `__curPos` as an expression is the position it is written at, not the
-    // variable `inherit __curPos;` reads.
-    if (!From && Name == "__curPos")
-      throw RenameInheritCurPosException();
     if (From && mentionsCurPos(*From))
       throw RenameInheritMovesCurPosException();
     std::string Value =

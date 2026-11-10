@@ -48,7 +48,7 @@ let __curPos = 1; in let inherit __curPos; in { inherit __curPos; }
 ```
      CHECK: "error": {
 CHECK-NEXT: "code": -32001,
-CHECK-NEXT: "message": "cannot rename: the binding that replaces `inherit __curPos;` would read the current position, not the variable `__curPos`"
+CHECK-NEXT: "message": "cannot rename `__curPos`: written as an expression it is the current position, not this binding"
 CHECK-NEXT: },
 CHECK-NEXT: "id": 1,
 CHECK-NEXT: "jsonrpc": "2.0"
