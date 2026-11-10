@@ -45,6 +45,13 @@ struct RenameInheritSharedException : RenameException {
   }
 };
 
+struct RenameInheritCurPosException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename: the binding that replaces `inherit __curPos;` "
+           "would read the current position, not the variable `__curPos`";
+  }
+};
+
 struct RenameInheritCaptureException : RenameException {
   [[nodiscard]] const char *what() const noexcept override {
     return "cannot rename: `inherit` reads the variable from outside its "
@@ -250,6 +257,10 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
   if (DefInh) {
     std::string Name(Def.syntax()->src(Src));
+    // `__curPos` as an expression is the position it is written at, not the
+    // variable `inherit __curPos;` reads.
+    if (!From && Name == "__curPos")
+      throw RenameInheritCurPosException();
     std::string Value =
         From ? selectFrom(*From, renamedSource(*From, UsesInFrom, NewText, Src),
                           Name)
