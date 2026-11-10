@@ -212,7 +212,7 @@ private:
                     lspserver::Callback<llvm::json::Value> Reply);
 
   void
-  onReferences(const lspserver::TextDocumentPositionParams &Params,
+  onReferences(const lspserver::ReferenceParams &Params,
                lspserver::Callback<std::vector<lspserver::Location>> Reply);
 
   void onDocumentHighlight(
