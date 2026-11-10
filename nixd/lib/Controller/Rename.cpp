@@ -5,6 +5,7 @@
 
 #include "AST.h"
 #include "CheckReturn.h"
+#include "CodeActions/Utils.h"
 #include "Convert.h"
 #include "Definition.h"
 
@@ -15,7 +16,9 @@
 
 #include <algorithm>
 #include <exception>
+#include <functional>
 #include <set>
+#include <string>
 
 using namespace lspserver;
 using namespace nixd;
@@ -163,13 +166,142 @@ std::string renamedSource(const Expr &E, std::vector<const ExprVar *> Uses,
   return Text;
 }
 
+struct RenameCaptureException : RenameException {
+  std::string Message;
+  explicit RenameCaptureException(std::string Message)
+      : Message(std::move(Message)) {}
+  [[nodiscard]] const char *what() const noexcept override {
+    return Message.c_str();
+  }
+};
+
+std::string at(const Node &N) {
+  return "line " + std::to_string(N.lCur().line() + 1) + ", column " +
+         std::to_string(N.lCur().column() + 1);
+}
+
+/// What the name \p Name, defined by \p D, is: for an error message.
+std::string describe(const Definition &D, const std::string &Name) {
+  if (D.isBuiltin())
+    return "the builtin `" + Name + "`";
+  if (D.source() == Definition::DS_With)
+    return "`" + Name + "` from the `with` at " + at(*D.syntax());
+  return "the `" + Name + "` bound at " + at(*D.syntax());
+}
+
+/// Whether \p E binds \p Name lexically. A `with` binds nothing lexically: a
+/// lexical binding outside it wins over its attributes.
+bool binds(const EnvNode &E, const std::string &Name) {
+  return !E.isWith() && E.defs().contains(Name);
+}
+
+bool defines(const EnvNode &E, const std::string &Name, const Definition &D) {
+  auto It = E.defs().find(Name);
+  return It != E.defs().end() && It->second.get() == &D;
+}
+
+/// The environment \p D, named \p Name, is defined in.
+const EnvNode *defEnv(const Definition &D, const std::string &Name,
+                      const ParentMapAnalysis &PMA,
+                      const VariableLookupAnalysis &VLA) {
+  auto Up = [&](const EnvNode *E) -> const EnvNode * {
+    for (; E; E = E->parent())
+      if (defines(*E, Name, D))
+        return E;
+    return nullptr;
+  };
+  for (const ExprVar *Use : D.uses())
+    if (const EnvNode *E = Up(VLA.env(Use)))
+      return E;
+  // Without uses, the environment of the scope's body.
+  const Node *Body = nullptr;
+  switch (D.source()) {
+  case Definition::DS_Let:
+    if (const Node *Attrs = PMA.upTo(*D.syntax(), Node::NK_ExprAttrs))
+      if (const Node *Let = PMA.query(*Attrs);
+          Let && Let->kind() == Node::NK_ExprLet)
+        Body = static_cast<const ExprLet &>(*Let).expr();
+    break;
+  case Definition::DS_LambdaArg:
+  case Definition::DS_LambdaNoArg_Formal:
+  case Definition::DS_LambdaWithArg_Arg:
+  case Definition::DS_LambdaWithArg_Formal:
+    if (const Node *Lambda = PMA.upTo(*D.syntax(), Node::NK_ExprLambda))
+      Body = static_cast<const ExprLambda &>(*Lambda).body();
+    break;
+  default:
+    break;
+  }
+  return Body ? Up(VLA.env(Body)) : nullptr;
+}
+
+/// Calls \p F on every variable, those that `inherit name;` desugars into
+/// included.
+void forEachVar(const Node &N, const std::function<void(const ExprVar &)> &F) {
+  if (N.kind() == Node::NK_ExprVar)
+    F(static_cast<const ExprVar &>(N));
+  if (N.kind() == Node::NK_ExprAttrs)
+    for (const auto &[_, Attr] :
+         static_cast<const ExprAttrs &>(N).sema().staticAttrs())
+      if (Attr.kind() == Attribute::AttributeKind::Inherit && Attr.value() &&
+          Attr.value()->kind() == Node::NK_ExprVar)
+        F(static_cast<const ExprVar &>(*Attr.value()));
+  for (const Node *Child : N.children())
+    if (Child)
+      forEachVar(*Child, F);
+}
+
+/// Refuses a rename of \p D from \p Old to \p New that would change what a
+/// variable reads: a binding of \p New between a use and \p D would capture
+/// the use, and the renamed binding would capture a use of \p New that reads
+/// something outside it.
+void checkCapture(const Definition &D, const std::string &Old,
+                  const std::string &New, const Node &Root,
+                  const ParentMapAnalysis &PMA,
+                  const VariableLookupAnalysis &VLA) {
+  if (New.empty())
+    return;
+  const EnvNode *DefE = defEnv(D, Old, PMA, VLA);
+  if (DefE && binds(*DefE, New))
+    throw RenameCaptureException(
+        "cannot rename: " + describe(*DefE->defs().at(New), New) +
+        " is in the same scope");
+
+  for (const ExprVar *Use : D.uses())
+    for (const EnvNode *E = VLA.env(Use); E && !defines(*E, Old, D);
+         E = E->parent())
+      if (binds(*E, New))
+        throw RenameCaptureException(
+            "cannot rename: the use of `" + Old + "` at " + at(*Use) +
+            " would read " + describe(*E->defs().at(New), New) + " instead");
+
+  if (!DefE)
+    return;
+  forEachVar(Root, [&](const ExprVar &Var) {
+    if (Var.id().name() != New)
+      return;
+    for (const EnvNode *E = VLA.env(&Var); E; E = E->parent()) {
+      if (binds(*E, New))
+        return;
+      if (E != DefE)
+        continue;
+      auto R = VLA.query(Var);
+      std::string Reads =
+          R.Def ? describe(*R.Def, New) : "`" + New + "`, which is undefined";
+      throw RenameCaptureException(
+          "cannot rename: the use of `" + New + "` at " + at(Var) + " reads " +
+          Reads + ", but would read the renamed `" + Old + "`");
+    }
+  });
+}
+
 WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
                      const ParentMapAnalysis &PMA,
                      const VariableLookupAnalysis &VLA, const URIForFile &URI,
                      llvm::StringRef Src) {
   using lspserver::TextEdit;
   // Find "definition"
-  auto Def = findDefinition(Desc, PMA, VLA);
+  const Definition &Def = findDefinition(Desc, PMA, VLA);
 
   if (Def.source() == Definition::DS_With)
     throw RenameWithException();
@@ -193,6 +325,12 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
     WE.changes = std::map<std::string, std::vector<TextEdit>>{{URI.uri(), {}}};
     return WE;
   }
+
+  const Node *Root = &Desc;
+  while (!PMA.isRoot(*Root) && PMA.query(*Root))
+    Root = PMA.query(*Root);
+
+  checkCapture(Def, definedName(*Def.syntax(), Src), NewText, *Root, PMA, VLA);
 
   std::vector<TextEdit> Edits;
 
