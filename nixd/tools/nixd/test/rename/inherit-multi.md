@@ -50,49 +50,49 @@ let a = 1; greet = 2; c = 3; in { inherit a greet c; }
      CHECK: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": {
-CHECK-NEXT:   "changes": {
-CHECK-NEXT:     "file:///basic.nix": [
-CHECK-NEXT:       {
-CHECK-NEXT:         "newText": "",
-CHECK-NEXT:         "range": {
-CHECK-NEXT:           "end": {
-CHECK-NEXT:             "character": 50,
-CHECK-NEXT:             "line": 0
-CHECK-NEXT:           },
-CHECK-NEXT:           "start": {
-CHECK-NEXT:             "character": 44,
-CHECK-NEXT:             "line": 0
-CHECK-NEXT:           }
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       {
-CHECK-NEXT:         "newText": " greet = welcome;",
-CHECK-NEXT:         "range": {
-CHECK-NEXT:           "end": {
-CHECK-NEXT:             "character": 52,
-CHECK-NEXT:             "line": 0
-CHECK-NEXT:           },
-CHECK-NEXT:           "start": {
-CHECK-NEXT:             "character": 52,
-CHECK-NEXT:             "line": 0
-CHECK-NEXT:           }
-CHECK-NEXT:         }
-CHECK-NEXT:       },
-CHECK-NEXT:       {
-CHECK-NEXT:         "newText": "welcome",
-CHECK-NEXT:         "range": {
-CHECK-NEXT:           "end": {
-CHECK-NEXT:             "character": 16,
-CHECK-NEXT:             "line": 0
-CHECK-NEXT:           },
-CHECK-NEXT:           "start": {
-CHECK-NEXT:             "character": 11,
-CHECK-NEXT:             "line": 0
-CHECK-NEXT:           }
-CHECK-NEXT:         }
-CHECK-NEXT:       }
-CHECK-NEXT:     ]
-CHECK-NEXT:   }
+CHECK-NEXT: "changes": {
+CHECK-NEXT: "file:///basic.nix": [
+CHECK-NEXT: {
+CHECK-NEXT: "newText": "",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 49,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 43,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: },
+CHECK-NEXT: {
+CHECK-NEXT: "newText": " greet = welcome;",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 52,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 52,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: },
+CHECK-NEXT: {
+CHECK-NEXT: "newText": "welcome",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 16,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 11,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: ]
+CHECK-NEXT: }
 CHECK-NEXT: }
 ```
 

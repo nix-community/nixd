@@ -37,6 +37,14 @@ struct RenameBuiltinException : RenameException {
   }
 };
 
+struct RenameInheritSharedException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename: the binding that replaces the name would copy the "
+           "expression of `inherit (...)`, which the other names keep "
+           "reading; the copy would be evaluated again, as a value of its own";
+  }
+};
+
 struct RenameInheritCaptureException : RenameException {
   [[nodiscard]] const char *what() const noexcept override {
     return "cannot rename: `inherit` reads the variable from outside its "
@@ -86,13 +94,15 @@ void splitInherit(const Inherit &Inh, const Node &Name, std::string Binding,
     });
     return;
   }
-  auto It = std::find_if(Names.begin(), Names.end(),
-                         [&](const auto &N) { return N.get() == &Name; });
-  assert(It != Names.end());
-  LexerCursorRange Removal =
-      std::next(It) != Names.end()
-          ? LexerCursorRange{Name.lCur(), (*std::next(It))->lCur()}
-          : LexerCursorRange{(*std::prev(It))->rCur(), Name.rCur()};
+  // The name and the spaces before it on its line: comments stay.
+  LexerCursor L = Name.lCur();
+  std::size_t K = 0;
+  while (K < static_cast<std::size_t>(L.column()) &&
+         (Src[L.offset() - K - 1] == ' ' || Src[L.offset() - K - 1] == '\t'))
+    ++K;
+  LexerCursorRange Removal{
+      LexerCursor::unsafeCreate(L.line(), L.column() - K, L.offset() - K),
+      Name.rCur()};
   Edits.emplace_back(lspserver::TextEdit{
       .range = toLSPRange(Src, Removal),
       .newText = "",
@@ -111,6 +121,25 @@ std::string definedName(const Node &Syntax, llvm::StringRef Src) {
       return Name.staticName();
   }
   return std::string(Syntax.src(Src));
+}
+
+/// Whether copying \p E refers to the value it denotes rather than a new one:
+/// a variable, or attributes selected from one.
+bool isShared(const Expr &E) {
+  switch (E.kind()) {
+  case Node::NK_ExprVar:
+    return true;
+  case Node::NK_ExprParen: {
+    const Expr *Inner = static_cast<const ExprParen &>(E).expr();
+    return Inner && isShared(*Inner);
+  }
+  case Node::NK_ExprSelect: {
+    const auto &Sel = static_cast<const ExprSelect &>(E);
+    return !Sel.defaultExpr() && isShared(Sel.expr());
+  }
+  default:
+    return false;
+  }
 }
 
 bool contains(const Node &Outer, const Node &N) {
@@ -173,6 +202,8 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
   // copies `E`, so uses inside `E` are renamed in that copy.
   const Inherit *DefInh = upInherit(*Def.syntax(), PMA);
   const Expr *From = DefInh ? DefInh->expr().get() : nullptr;
+  if (From && DefInh->names().size() > 1 && !isShared(*From))
+    throw RenameInheritSharedException();
   std::vector<const ExprVar *> UsesInFrom;
 
   // `inherit (E) a b;` desugars into one selection per name, all sharing `E`,

@@ -1,6 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-The same with another name kept in the `inherit`.
+With another name kept in the `inherit`, the split would copy `E`, an attribute set the other name keeps reading, so it would be evaluated twice: refused.
 
 <-- initialize(0)
 
@@ -46,66 +46,12 @@ let inherit ({ f = n: if n == 0 then h else f (n - 1); h = 0; }) f h; in f 2
 ```
 
 ```
-     CHECK: "id": 1,
-CHECK-NEXT: "jsonrpc": "2.0",
-CHECK-NEXT: "result": {
-CHECK-NEXT: "changes": {
-CHECK-NEXT: "file:///main.nix": [
-CHECK-NEXT: {
-CHECK-NEXT: "newText": "g",
-CHECK-NEXT: "range": {
-CHECK-NEXT: "end": {
-CHECK-NEXT: "character": 45,
-CHECK-NEXT: "line": 0
+     CHECK: "error": {
+CHECK-NEXT: "code": -32001,
+CHECK-NEXT: "message": "cannot rename: the binding that replaces the name would copy the expression of `inherit (...)`, which the other names keep reading; the copy would be evaluated again, as a value of its own"
 CHECK-NEXT: },
-CHECK-NEXT: "start": {
-CHECK-NEXT: "character": 44,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: }
-CHECK-NEXT: }
-CHECK-NEXT: },
-CHECK-NEXT: {
-CHECK-NEXT: "newText": "g",
-CHECK-NEXT: "range": {
-CHECK-NEXT: "end": {
-CHECK-NEXT: "character": 74,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: },
-CHECK-NEXT: "start": {
-CHECK-NEXT: "character": 73,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: }
-CHECK-NEXT: }
-CHECK-NEXT: },
-CHECK-NEXT: {
-CHECK-NEXT: "newText": "",
-CHECK-NEXT: "range": {
-CHECK-NEXT: "end": {
-CHECK-NEXT: "character": 67,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: },
-CHECK-NEXT: "start": {
-CHECK-NEXT: "character": 65,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: }
-CHECK-NEXT: }
-CHECK-NEXT: },
-CHECK-NEXT: {
-CHECK-NEXT: "newText": " g = ({ f = n: if n == 0 then h else g (n - 1); h = 0; }).f;",
-CHECK-NEXT: "range": {
-CHECK-NEXT: "end": {
-CHECK-NEXT: "character": 69,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: },
-CHECK-NEXT: "start": {
-CHECK-NEXT: "character": 69,
-CHECK-NEXT: "line": 0
-CHECK-NEXT: }
-CHECK-NEXT: }
-CHECK-NEXT: }
-CHECK-NEXT: ]
-CHECK-NEXT: }
-CHECK-NEXT: }
+CHECK-NEXT: "id": 1,
+CHECK-NEXT: "jsonrpc": "2.0"
 ```
 
 ```json
