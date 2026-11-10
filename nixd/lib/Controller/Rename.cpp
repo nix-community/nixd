@@ -52,6 +52,14 @@ struct RenameInheritCurPosException : RenameException {
   }
 };
 
+struct RenameInheritMovesCurPosException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename: the binding that replaces the name would copy the "
+           "expression of `inherit (...)`, and `__curPos` in it is the "
+           "position it is written at";
+  }
+};
+
 struct RenameInheritCaptureException : RenameException {
   [[nodiscard]] const char *what() const noexcept override {
     return "cannot rename: `inherit` reads the variable from outside its "
@@ -136,6 +144,18 @@ std::string definedName(const Node &Syntax, llvm::StringRef Src) {
       return Name.staticName();
   }
   return std::string(Syntax.src(Src));
+}
+
+/// Whether \p N mentions `__curPos`, whose value is the position it is
+/// written at.
+bool mentionsCurPos(const Node &N) {
+  if (N.kind() == Node::NK_ExprVar &&
+      static_cast<const ExprVar &>(N).id().name() == "__curPos")
+    return true;
+  for (const Node *Child : N.children())
+    if (Child && mentionsCurPos(*Child))
+      return true;
+  return false;
 }
 
 /// Whether copying \p E refers to the value it denotes rather than a new one:
@@ -261,6 +281,8 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
     // variable `inherit __curPos;` reads.
     if (!From && Name == "__curPos")
       throw RenameInheritCurPosException();
+    if (From && mentionsCurPos(*From))
+      throw RenameInheritMovesCurPosException();
     std::string Value =
         From ? selectFrom(*From, renamedSource(*From, UsesInFrom, NewText, Src),
                           Name)
