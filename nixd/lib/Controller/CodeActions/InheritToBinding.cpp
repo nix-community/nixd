@@ -42,6 +42,18 @@ std::string selectBase(const nixf::Expr &E, llvm::StringRef Src) {
   return "(" + Text + ")";
 }
 
+/// Whether \p N mentions `__curPos`, whose value is the position it is
+/// written at.
+bool mentionsCurPos(const nixf::Node &N) {
+  if (N.kind() == nixf::Node::NK_ExprVar &&
+      static_cast<const nixf::ExprVar &>(N).id().name() == "__curPos")
+    return true;
+  for (const nixf::Node *Child : N.children())
+    if (Child && mentionsCurPos(*Child))
+      return true;
+  return false;
+}
+
 /// Whether copying \p E refers to the value it denotes rather than a new one:
 /// a variable, or attributes selected from one.
 bool isShared(const nixf::Expr &E) {
@@ -115,10 +127,16 @@ void addInheritToBindingAction(const nixf::Node &N,
     return;
 
   const std::string &Static = Name->staticName();
+  // The name as written: Nix reads a quoted name's text its own way (a raw
+  // CRLF in it becomes LF), and the same text reads the same name.
+  const std::string Written(Name->src(Src));
   std::string Value;
   if (const nixf::Expr *E = Inherit.expr().get()) {
+    // The binding moves `E`, and `__curPos` in it is where it is written.
+    if (mentionsCurPos(*E))
+      return;
     // inherit (expr) name; -> name = expr.name;
-    Value = selectBase(*E, Src) + "." + quoteNixAttrKey(Static);
+    Value = selectBase(*E, Src) + "." + Written;
   } else {
     // inherit name; -> name = name; but in a `rec` or `let`, where `inherit`
     // reads `name` from outside, `name = name;` would read itself.
@@ -130,7 +148,7 @@ void addInheritToBindingAction(const nixf::Node &N,
       return;
     Value = Static;
   }
-  std::string Binding = quoteNixAttrKey(Static) + " = " + Value + ";";
+  std::string Binding = Written + " = " + Value + ";";
 
   if (Names.size() == 1) {
     Actions.emplace_back(createSingleEditAction(

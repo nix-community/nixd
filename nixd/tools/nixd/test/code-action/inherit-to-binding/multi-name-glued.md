@@ -71,7 +71,7 @@ CHECK-NEXT: }
 CHECK-NEXT: }
 CHECK-NEXT: },
 CHECK-NEXT: {
-CHECK-NEXT: "newText": " b = e.b;",
+CHECK-NEXT: "newText": " \"b\" = e.\"b\";",
 CHECK-NEXT: "range": {
 CHECK-NEXT: "end": {
 CHECK-NEXT: "character": 57,
