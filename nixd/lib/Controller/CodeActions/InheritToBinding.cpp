@@ -75,6 +75,17 @@ nixf::LexerCursorRange withLeadingSpaces(const nixf::Node &Name,
       Name.rCur()};
 }
 
+/// Whether removing \p R would join the text on either side of it into one
+/// token: `"b"` out of `a"b"c` leaves `ac`.
+bool gluesNeighbours(const nixf::LexerCursorRange &R, llvm::StringRef Src) {
+  std::size_t L = R.lCur().offset(), E = R.rCur().offset();
+  auto Space = [](char C) {
+    return C == ' ' || C == '\t' || C == '\n' || C == '\r';
+  };
+  return L > 0 && E < Src.size() && !Space(Src[L - 1]) && !Space(Src[E]) &&
+         Src[E] != ';';
+}
+
 } // namespace
 
 void addInheritToBindingAction(const nixf::Node &N,
@@ -133,8 +144,10 @@ void addInheritToBindingAction(const nixf::Node &N,
     return;
 
   // Remove the name, and add the binding after the inherit.
+  nixf::LexerCursorRange Removal = withLeadingSpaces(*Name, Src);
   std::vector<lspserver::TextEdit> Edits{
-      {.range = toLSPRange(Src, withLeadingSpaces(*Name, Src)), .newText = ""},
+      {.range = toLSPRange(Src, Removal),
+       .newText = gluesNeighbours(Removal, Src) ? " " : ""},
       {.range = toLSPRange(Src, nixf::LexerCursorRange{Inherit.rCur()}),
        .newText = " " + std::move(Binding)},
   };
