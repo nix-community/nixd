@@ -103,9 +103,17 @@ void splitInherit(const Inherit &Inh, const Node &Name, std::string Binding,
   LexerCursorRange Removal{
       LexerCursor::unsafeCreate(L.line(), L.column() - K, L.offset() - K),
       Name.rCur()};
+  // Names need no space between them when one is quoted: removing `"b"` from
+  // `a"b"c` must not join `a` and `c` into `ac`.
+  auto Space = [](char C) {
+    return C == ' ' || C == '\t' || C == '\n' || C == '\r';
+  };
+  std::size_t Begin = Removal.lCur().offset(), End = Removal.rCur().offset();
+  bool Glues = Begin > 0 && End < Src.size() && !Space(Src[Begin - 1]) &&
+               !Space(Src[End]) && Src[End] != ';';
   Edits.emplace_back(lspserver::TextEdit{
       .range = toLSPRange(Src, Removal),
-      .newText = "",
+      .newText = Glues ? " " : "",
   });
   Edits.emplace_back(lspserver::TextEdit{
       .range = toLSPRange(Src, LexerCursorRange{Inh.rCur()}),
