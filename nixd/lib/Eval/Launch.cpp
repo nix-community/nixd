@@ -3,6 +3,8 @@
 
 #include <llvm/Support/CommandLine.h>
 
+#include <algorithm>
+
 using namespace llvm::cl;
 using namespace nixd;
 
@@ -21,22 +23,25 @@ opt<std::string> NixpkgsWorkerStderr{
 
 } // namespace
 
-void nixd::startAttrSetEval(const std::string &Name,
-                            std::unique_ptr<AttrSetClientProc> &Worker) {
-  Worker = std::make_unique<AttrSetClientProc>([&Name]() {
+std::unique_ptr<AttrSetClientProc>
+nixd::startAttrSetEval(const std::string &Name) {
+  return std::make_unique<AttrSetClientProc>([&Name]() {
     freopen(Name.c_str(), "w", stderr);
     return execl(AttrSetClient::getExe(), "nixd-attrset-eval", nullptr);
   });
 }
 
-void nixd::startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval) {
-  startAttrSetEval(NixpkgsWorkerStderr, NixpkgsEval);
+std::unique_ptr<AttrSetClientProc> nixd::startNixpkgs() {
+  return startAttrSetEval(NixpkgsWorkerStderr);
 }
 
-void nixd::startOption(const std::string &Name,
-                       std::unique_ptr<AttrSetClientProc> &Worker) {
+std::unique_ptr<AttrSetClientProc> nixd::startOption(const std::string &Name) {
   std::string NewName = NULL_DEVICE;
-  if (OptionWorkerStderr.getNumOccurrences())
-    NewName = OptionWorkerStderr.getValue() + "/" + Name;
-  startAttrSetEval(NewName, Worker);
+  if (OptionWorkerStderr.getNumOccurrences()) {
+    // `#:schema` workers are named by module path; keep it one file name.
+    std::string File = Name;
+    std::replace(File.begin(), File.end(), '/', '%');
+    NewName = OptionWorkerStderr.getValue() + "/" + File;
+  }
+  return startAttrSetEval(NewName);
 }
