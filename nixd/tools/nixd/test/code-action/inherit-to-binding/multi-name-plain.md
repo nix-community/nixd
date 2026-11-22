@@ -1,7 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-## Test: Multiple names in inherit should NOT offer the inherit-to-binding action
-## (but may offer other actions like Quote attribute name)
+With several names and no source, the one under the cursor is converted; the others stay inherited.
 
 <-- initialize(0)
 
