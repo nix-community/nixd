@@ -343,3 +343,51 @@ nixd::findAttrPathForOptions(const nixf::Node &N,
   }
   return R;
 }
+
+bool nixd::mentionsCurPos(const nixf::Node &N) {
+  if (N.kind() == Node::NK_ExprVar &&
+      static_cast<const ExprVar &>(N).id().name() == "__curPos")
+    return true;
+  for (const Node *Child : N.children())
+    if (Child && mentionsCurPos(*Child))
+      return true;
+  return false;
+}
+
+bool nixd::isShared(const nixf::Expr &E) {
+  switch (E.kind()) {
+  case Node::NK_ExprVar:
+    return true;
+  case Node::NK_ExprParen: {
+    const Expr *Inner = static_cast<const ExprParen &>(E).expr();
+    return Inner && isShared(*Inner);
+  }
+  case Node::NK_ExprSelect: {
+    const auto &Sel = static_cast<const ExprSelect &>(E);
+    return !Sel.defaultExpr() && isShared(Sel.expr());
+  }
+  default:
+    return false;
+  }
+}
+
+nixf::LexerCursorRange nixd::withLeadingSpaces(const nixf::Node &Name,
+                                               llvm::StringRef Src) {
+  LexerCursor L = Name.lCur();
+  std::size_t K = 0;
+  while (K < static_cast<std::size_t>(L.column()) &&
+         (Src[L.offset() - K - 1] == ' ' || Src[L.offset() - K - 1] == '\t'))
+    ++K;
+  return {LexerCursor::unsafeCreate(L.line(), L.column() - K, L.offset() - K),
+          Name.rCur()};
+}
+
+bool nixd::gluesNeighbours(const nixf::LexerCursorRange &R,
+                           llvm::StringRef Src) {
+  std::size_t L = R.lCur().offset(), E = R.rCur().offset();
+  auto Space = [](char C) {
+    return C == ' ' || C == '\t' || C == '\n' || C == '\r';
+  };
+  return L > 0 && E < Src.size() && !Space(Src[L - 1]) && !Space(Src[E]) &&
+         Src[E] != ';';
+}

@@ -3,6 +3,7 @@
 /// [Rename]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_rename
 
+#include "AST.h"
 #include "CheckReturn.h"
 #include "Convert.h"
 #include "Definition.h"
@@ -110,25 +111,12 @@ void splitInherit(const Inherit &Inh, const Node &Name, std::string Binding,
     return;
   }
   // The name and the spaces before it on its line: comments stay.
-  LexerCursor L = Name.lCur();
-  std::size_t K = 0;
-  while (K < static_cast<std::size_t>(L.column()) &&
-         (Src[L.offset() - K - 1] == ' ' || Src[L.offset() - K - 1] == '\t'))
-    ++K;
-  LexerCursorRange Removal{
-      LexerCursor::unsafeCreate(L.line(), L.column() - K, L.offset() - K),
-      Name.rCur()};
+  LexerCursorRange Removal = withLeadingSpaces(Name, Src);
   // Names need no space between them when one is quoted: removing `"b"` from
   // `a"b"c` must not join `a` and `c` into `ac`.
-  auto Space = [](char C) {
-    return C == ' ' || C == '\t' || C == '\n' || C == '\r';
-  };
-  std::size_t Begin = Removal.lCur().offset(), End = Removal.rCur().offset();
-  bool Glues = Begin > 0 && End < Src.size() && !Space(Src[Begin - 1]) &&
-               !Space(Src[End]) && Src[End] != ';';
   Edits.emplace_back(lspserver::TextEdit{
       .range = toLSPRange(Src, Removal),
-      .newText = Glues ? " " : "",
+      .newText = gluesNeighbours(Removal, Src) ? " " : "",
   });
   Edits.emplace_back(lspserver::TextEdit{
       .range = toLSPRange(Src, LexerCursorRange{Inh.rCur()}),
@@ -144,37 +132,6 @@ std::string definedName(const Node &Syntax, llvm::StringRef Src) {
       return Name.staticName();
   }
   return std::string(Syntax.src(Src));
-}
-
-/// Whether \p N mentions `__curPos`, whose value is the position it is
-/// written at.
-bool mentionsCurPos(const Node &N) {
-  if (N.kind() == Node::NK_ExprVar &&
-      static_cast<const ExprVar &>(N).id().name() == "__curPos")
-    return true;
-  for (const Node *Child : N.children())
-    if (Child && mentionsCurPos(*Child))
-      return true;
-  return false;
-}
-
-/// Whether copying \p E refers to the value it denotes rather than a new one:
-/// a variable, or attributes selected from one.
-bool isShared(const Expr &E) {
-  switch (E.kind()) {
-  case Node::NK_ExprVar:
-    return true;
-  case Node::NK_ExprParen: {
-    const Expr *Inner = static_cast<const ExprParen &>(E).expr();
-    return Inner && isShared(*Inner);
-  }
-  case Node::NK_ExprSelect: {
-    const auto &Sel = static_cast<const ExprSelect &>(E);
-    return !Sel.defaultExpr() && isShared(Sel.expr());
-  }
-  default:
-    return false;
-  }
 }
 
 bool contains(const Node &Outer, const Node &N) {
