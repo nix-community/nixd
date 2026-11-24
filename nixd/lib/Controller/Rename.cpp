@@ -35,6 +35,14 @@ struct RenameBuiltinException : RenameException {
   }
 };
 
+struct RenameRecException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename `rec` attribute: renaming it renames the attribute "
+           "the set exports, which its users select by name; rename it by "
+           "hand";
+  }
+};
+
 WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
                      const ParentMapAnalysis &PMA,
                      const VariableLookupAnalysis &VLA, const URIForFile &URI,
@@ -48,6 +56,9 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
 
   if (Def.isBuiltin())
     throw RenameBuiltinException();
+
+  if (Def.source() == Definition::DS_Rec)
+    throw RenameRecException();
 
   std::vector<TextEdit> Edits;
 
