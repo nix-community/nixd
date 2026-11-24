@@ -7,10 +7,98 @@
 #include "../Convert.h"
 
 #include <nixf/Basic/Nodes/Attrs.h>
-
-#include <sstream>
+#include <nixf/Basic/Nodes/Expr.h>
 
 namespace nixd {
+
+namespace {
+
+/// The text of \p E as the base of a selection `E.name`. Selection binds
+/// tighter than everything but primary expressions, and a path or URI would
+/// take `.name` as part of itself, so anything else is parenthesised.
+std::string selectBase(const nixf::Expr &E, llvm::StringRef Src) {
+  std::string Text(E.src(Src));
+  switch (E.kind()) {
+  case nixf::Node::NK_ExprVar:
+  case nixf::Node::NK_ExprParen:
+  case nixf::Node::NK_ExprAttrs:
+  case nixf::Node::NK_ExprList:
+  case nixf::Node::NK_ExprSPath:
+    return Text;
+  case nixf::Node::NK_ExprSelect:
+    // `a.b or c.name` is `a.b or (c.name)`.
+    if (!static_cast<const nixf::ExprSelect &>(E).defaultExpr())
+      return Text;
+    break;
+  case nixf::Node::NK_ExprString:
+    // A URI is desugared into a string.
+    if (llvm::StringRef(Text).starts_with("\"") ||
+        llvm::StringRef(Text).starts_with("''"))
+      return Text;
+    break;
+  default:
+    break;
+  }
+  return "(" + Text + ")";
+}
+
+/// Whether \p N mentions `__curPos`, whose value is the position it is
+/// written at.
+bool mentionsCurPos(const nixf::Node &N) {
+  if (N.kind() == nixf::Node::NK_ExprVar &&
+      static_cast<const nixf::ExprVar &>(N).id().name() == "__curPos")
+    return true;
+  for (const nixf::Node *Child : N.children())
+    if (Child && mentionsCurPos(*Child))
+      return true;
+  return false;
+}
+
+/// Whether copying \p E refers to the value it denotes rather than a new one:
+/// a variable, or attributes selected from one.
+bool isShared(const nixf::Expr &E) {
+  switch (E.kind()) {
+  case nixf::Node::NK_ExprVar:
+    return true;
+  case nixf::Node::NK_ExprParen: {
+    const nixf::Expr *Inner = static_cast<const nixf::ExprParen &>(E).expr();
+    return Inner && isShared(*Inner);
+  }
+  case nixf::Node::NK_ExprSelect: {
+    const auto &Sel = static_cast<const nixf::ExprSelect &>(E);
+    return !Sel.defaultExpr() && isShared(Sel.expr());
+  }
+  default:
+    return false;
+  }
+}
+
+/// \p Name with the spaces and tabs before it on its line: removing that keeps
+/// comments and the other names.
+nixf::LexerCursorRange withLeadingSpaces(const nixf::Node &Name,
+                                         llvm::StringRef Src) {
+  nixf::LexerCursor L = Name.lCur();
+  std::size_t K = 0;
+  while (K < static_cast<std::size_t>(L.column()) &&
+         (Src[L.offset() - K - 1] == ' ' || Src[L.offset() - K - 1] == '\t'))
+    ++K;
+  return {
+      nixf::LexerCursor::unsafeCreate(L.line(), L.column() - K, L.offset() - K),
+      Name.rCur()};
+}
+
+/// Whether removing \p R would join the text on either side of it into one
+/// token: `"b"` out of `a"b"c` leaves `ac`.
+bool gluesNeighbours(const nixf::LexerCursorRange &R, llvm::StringRef Src) {
+  std::size_t L = R.lCur().offset(), E = R.rCur().offset();
+  auto Space = [](char C) {
+    return C == ' ' || C == '\t' || C == '\n' || C == '\r';
+  };
+  return L > 0 && E < Src.size() && !Space(Src[L - 1]) && !Space(Src[E]) &&
+         Src[E] != ';';
+}
+
+} // namespace
 
 void addInheritToBindingAction(const nixf::Node &N,
                                const nixf::ParentMapAnalysis &PM,
@@ -23,44 +111,69 @@ void addInheritToBindingAction(const nixf::Node &N,
 
   const auto &Inherit = static_cast<const nixf::Inherit &>(*InheritNode);
 
-  // Get the list of names in the inherit statement
   const auto &Names = Inherit.names();
 
-  // Only handle single-name inherit statements
-  // Multi-name inherits would require more complex handling
-  if (Names.size() != 1)
-    return;
-
-  const auto &Name = Names[0];
-
-  // Defensive null check
-  if (!Name)
-    return;
-
-  // Only handle static names (not interpolated)
-  if (!Name->isStatic())
-    return;
-
-  const std::string &AttrName = Name->staticName();
-
-  // Build the replacement text
-  std::ostringstream NewText;
-  NewText << AttrName << " = ";
-
-  if (Inherit.expr()) {
-    // inherit (expr) name; -> name = expr.name;
-    NewText << Inherit.expr()->src(Src) << "." << AttrName;
-  } else {
-    // inherit name; -> name = name;
-    NewText << AttrName;
+  // With several names, convert the one under the cursor: the others stay
+  // inherited, and the source expression is copied once, not once per name.
+  const nixf::AttrName *Name = nullptr;
+  if (Names.size() == 1) {
+    Name = Names[0].get();
+  } else if (const nixf::Node *Up = PM.upTo(N, nixf::Node::NK_AttrName)) {
+    for (const auto &Each : Names)
+      if (Each.get() == Up)
+        Name = Each.get();
   }
-  NewText << ";";
+  if (!Name || !Name->isStatic())
+    return;
 
-  // Create the code action
-  Actions.emplace_back(createSingleEditAction(
+  const std::string &Static = Name->staticName();
+  // The name as written: Nix reads a quoted name's text its own way (a raw
+  // CRLF in it becomes LF), and the same text reads the same name.
+  const std::string Written(Name->src(Src));
+  std::string Value;
+  if (const nixf::Expr *E = Inherit.expr().get()) {
+    // The binding moves `E`, and `__curPos` in it is where it is written.
+    if (mentionsCurPos(*E))
+      return;
+    // inherit (expr) name; -> name = expr.name;
+    Value = selectBase(*E, Src) + "." + Written;
+  } else {
+    // inherit name; -> name = name; but in a `rec` or `let`, where `inherit`
+    // reads `name` from outside, `name = name;` would read itself.
+    // `__curPos` as an expression is the position it is written at, not the
+    // variable `inherit __curPos;` reads.
+    const nixf::Node *Attrs = PM.upTo(Inherit, nixf::Node::NK_ExprAttrs);
+    if (!Attrs || !isValidNixIdentifier(Static) || Static == "__curPos" ||
+        static_cast<const nixf::ExprAttrs &>(*Attrs).sema().isRecursive())
+      return;
+    Value = Static;
+  }
+  std::string Binding = Written + " = " + Value + ";";
+
+  if (Names.size() == 1) {
+    Actions.emplace_back(createSingleEditAction(
+        "Convert to explicit binding",
+        lspserver::CodeAction::REFACTOR_REWRITE_KIND, FileURI,
+        toLSPRange(Src, Inherit.range()), std::move(Binding)));
+    return;
+  }
+
+  // The other names keep reading the inherit's expression; a copy of it in the
+  // binding would be evaluated again, as a value of its own.
+  if (Inherit.expr() && !isShared(*Inherit.expr()))
+    return;
+
+  // Remove the name, and add the binding after the inherit.
+  nixf::LexerCursorRange Removal = withLeadingSpaces(*Name, Src);
+  std::vector<lspserver::TextEdit> Edits{
+      {.range = toLSPRange(Src, Removal),
+       .newText = gluesNeighbours(Removal, Src) ? " " : ""},
+      {.range = toLSPRange(Src, nixf::LexerCursorRange{Inherit.rCur()}),
+       .newText = " " + std::move(Binding)},
+  };
+  Actions.emplace_back(createMultiEditAction(
       "Convert to explicit binding",
-      lspserver::CodeAction::REFACTOR_REWRITE_KIND, FileURI,
-      toLSPRange(Src, Inherit.range()), NewText.str()));
+      lspserver::CodeAction::REFACTOR_REWRITE_KIND, FileURI, std::move(Edits)));
 }
 
 } // namespace nixd

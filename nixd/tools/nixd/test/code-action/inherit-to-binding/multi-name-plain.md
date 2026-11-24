@@ -1,7 +1,6 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
-## Test: Multiple names in inherit should NOT offer the inherit-to-binding action
-## (but may offer other actions like Quote attribute name)
+With several names and no source, the one under the cursor is converted; the others stay inherited.
 
 <-- initialize(0)
 
@@ -61,7 +60,36 @@
      CHECK: "id": 2,
 CHECK-NEXT: "jsonrpc": "2.0",
 CHECK-NEXT: "result": [
- CHECK-NOT: "title": "Convert to explicit binding"
+     CHECK: "newText": "",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 11,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 9,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: },
+CHECK-NEXT: {
+CHECK-NEXT: "newText": " x = x;",
+CHECK-NEXT: "range": {
+CHECK-NEXT: "end": {
+CHECK-NEXT: "character": 14,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: },
+CHECK-NEXT: "start": {
+CHECK-NEXT: "character": 14,
+CHECK-NEXT: "line": 0
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: }
+CHECK-NEXT: ]
+CHECK-NEXT: }
+CHECK-NEXT: },
+CHECK-NEXT: "kind": "refactor.rewrite",
+CHECK-NEXT: "title": "Convert to explicit binding"
 ```
 
 ```json
