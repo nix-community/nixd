@@ -3,8 +3,8 @@
 
 #include "Parser.h"
 
-#include "Tokens.h"
 #include "nixf/Parse/Parser.h"
+#include "nixf/Parse/Tokens.h"
 
 using namespace nixf;
 

@@ -76,6 +76,7 @@ nix_cmd = dependency('nix-cmd')
 nix_flake = dependency('nix-flake')
 
 
+subdir('libnixf/include/nixf/Parse')
 subdir('libnixf/src')
 subdir('libnixf/tools')
 subdir('libnixf/test')

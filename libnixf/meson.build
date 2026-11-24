@@ -13,6 +13,7 @@ gtest_main = dependency('gtest_main')
 pkgconfig = import('pkgconfig')
 
 
+subdir('include/nixf/Parse')
 subdir('src')
 subdir('test')
 subdir('tools')
