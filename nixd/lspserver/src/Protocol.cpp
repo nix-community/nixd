@@ -952,6 +952,10 @@ bool fromJSON(const llvm::json::Value &Params, CodeAction &CA,
   return true;
 }
 
+llvm::json::Value toJSON(const CodeActionItem &CAI) {
+  return std::visit([](const auto &V) { return toJSON(V); }, CAI);
+}
+
 llvm::raw_ostream &operator<<(llvm::raw_ostream &O, const DocumentSymbol &S) {
   return O << S.name << " - " << toJSON(S);
 }
