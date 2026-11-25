@@ -15,6 +15,29 @@ struct AttrPathHasDynamicError : std::exception {
   }
 };
 
+/// \brief Is \p Call a call to `<x>.attrValues <arg>` (e.g. `lib.attrValues`,
+/// `builtins.attrValues`) with a single argument?
+///
+/// Purely syntactic: matches an ExprSelect callee whose last AttrPath name
+/// is `attrValues`. Doesn't resolve through identifier rebinding. False
+/// positives are bounded by the options-tree lookup downstream — a
+/// misrecognized call only causes the analyzer to construct a path that
+/// won't match any real option, producing no hover (same as today).
+bool isAttrValuesCall(const nixf::ExprCall &Call) {
+  if (Call.args().size() != 1)
+    return false;
+  const nixf::Expr &Fn = Call.fn();
+  if (Fn.kind() != Node::NK_ExprSelect)
+    return false;
+  const auto &Sel = static_cast<const nixf::ExprSelect &>(Fn);
+  const nixf::AttrPath *SelPath = Sel.path();
+  if (!SelPath || SelPath->names().empty())
+    return false;
+  const auto &LastName = SelPath->names().back();
+  return LastName && LastName->isStatic() &&
+         LastName->staticName() == "attrValues";
+}
+
 /// \brief Find nested attrpath.
 /// e.g.   a.b.c.d
 ///               ^<-  a.b.c.d
@@ -61,6 +84,22 @@ void getValueAttrPath(const nixf::Node &N, const nixf::ParentMapAnalysis &PM,
   // Only attrs can "nest something"
   if (Up->kind() != Node::NK_ExprAttrs)
     return;
+
+  // Transparency for `lib.attrValues <attrset>` / `builtins.attrValues
+  // <attrset>`. When the enclosing attrset is itself the sole argument of an
+  // attrValues call, the call discards the attribute names — the keys of
+  // `Up` are not option-path components. Recurse past the call as if
+  // `N` were a list-literal element of the surrounding context, without
+  // appending `N`'s key in `Up`.
+  if (const nixf::Node *UpUp = PM.query(*Up)) {
+    if (UpUp->kind() == Node::NK_ExprCall) {
+      const auto &Call = static_cast<const nixf::ExprCall &>(*UpUp);
+      if (isAttrValuesCall(Call) && Call.args()[0].get() == Up) {
+        getValueAttrPath(Call, PM, Path);
+        return;
+      }
+    }
+  }
 
   std::vector<std::string_view> Basic;
   // Recursively search up all nested entries
