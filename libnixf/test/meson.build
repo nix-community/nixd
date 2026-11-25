@@ -9,6 +9,7 @@ test('unit/libnixf/Basic',
 
 test('unit/libnixf/Parse',
     executable('unit-libnixf-parse',
+        'Parse/Comment.cpp',
         'Parse/Lexer.cpp',
         'Parse/ParseAttrs.cpp',
         'Parse/ParseExpr.cpp',
