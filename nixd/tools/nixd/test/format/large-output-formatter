@@ -1,0 +1,5 @@
+#!/bin/sh
+# Consume the document, then print more than a pipe buffer (64 KiB on
+# Linux) of output: the numbers 1 to 20000, one per line.
+cat > /dev/null
+seq 20000
