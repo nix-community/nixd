@@ -7,6 +7,8 @@
 #include <nixf/Sema/ParentMap.h>
 #include <nixf/Sema/VariableLookup.h>
 
+#include <llvm/ADT/StringRef.h>
+
 #include <exception>
 
 namespace nixd {
@@ -136,5 +138,22 @@ FindAttrPathResult findAttrPath(const nixf::Node &N,
 FindAttrPathResult findAttrPathForOptions(const nixf::Node &N,
                                           const nixf::ParentMapAnalysis &PM,
                                           std::vector<std::string> &Path);
+
+/// Whether \p N mentions `__curPos`, whose value is the position it is
+/// written at.
+bool mentionsCurPos(const nixf::Node &N);
+
+/// Whether copying \p E refers to the value it denotes rather than a new one:
+/// a variable, or attributes selected from one.
+bool isShared(const nixf::Expr &E);
+
+/// \p Name with the spaces and tabs before it on its line: removing that keeps
+/// comments and the other names.
+nixf::LexerCursorRange withLeadingSpaces(const nixf::Node &Name,
+                                         llvm::StringRef Src);
+
+/// Whether removing \p R would join the text on either side of it into one
+/// token: `"b"` out of `a"b"c` leaves `ac`.
+bool gluesNeighbours(const nixf::LexerCursorRange &R, llvm::StringRef Src);
 
 } // namespace nixd
