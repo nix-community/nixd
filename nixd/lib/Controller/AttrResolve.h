@@ -37,15 +37,26 @@ public:
     [[nodiscard]] const nixf::Node &key() const { return Attr->key(); }
   };
 
+  /// What the name under the cursor is.
+  enum class Role {
+    Key,       ///< `{ name = ...; }`, a definition.
+    Selection, ///< `e.name`, `e ? name`, `inherit (e) name`.
+    Variable,  ///< A variable bound by `rec`.
+  };
+
   /// Loads \p Path, which it may change to the path of the open document that
   /// is that file.
   using Loader = std::function<std::shared_ptr<const NixTU>(std::string &Path)>;
 
   AttrResolver(std::string Path, std::shared_ptr<const NixTU> TU, Loader Load);
 
-  /// The attribute that the name at \p N selects in the main file: `e.name`,
-  /// `e ? name` or `inherit (e) name`.
-  [[nodiscard]] std::optional<Found> attrAt(const nixf::Node &N);
+  /// The attribute named at \p N in the main file.
+  [[nodiscard]] std::optional<std::pair<Found, Role>>
+  attrAt(const nixf::Node &N);
+
+  /// Every name in the main file that refers to \p Target: selections that
+  /// resolve to it, and variable uses if it is a `rec` or `let` binding.
+  [[nodiscard]] std::vector<const nixf::Node *> references(const Found &Target);
 
   [[nodiscard]] const File &main() const { return *Main; }
 
@@ -74,6 +85,9 @@ private:
       const nixf::Expr *Base,
       const std::vector<std::shared_ptr<nixf::AttrName>> &Names, const File &F,
       const std::function<void(const nixf::AttrName &, const Found &)> &Step);
+
+  void collect(const nixf::Node *N, const Found &Target,
+               std::vector<const nixf::Node *> &Out);
 };
 
 } // namespace nixd

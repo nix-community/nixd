@@ -3,6 +3,7 @@
 /// [Find References]:
 /// https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocument_references
 
+#include "AttrResolve.h"
 #include "CheckReturn.h"
 #include "Convert.h"
 #include "Definition.h"
@@ -24,8 +25,17 @@ namespace {
 std::vector<Location> findReferences(const nixf::Node &Desc,
                                      const ParentMapAnalysis &PMA,
                                      const VariableLookupAnalysis &VLA,
-                                     const URIForFile &URI,
-                                     llvm::StringRef Src) {
+                                     const URIForFile &URI, llvm::StringRef Src,
+                                     AttrResolver &AR) {
+  if (auto Attr = AR.attrAt(Desc)) {
+    std::vector<Location> Locations;
+    for (const nixf::Node *Ref : AR.references(Attr->first))
+      Locations.emplace_back(Location{
+          .uri = URI,
+          .range = toLSPRange(Src, Ref->range()),
+      });
+    return Locations;
+  }
 
   // Two steps.
   //   1. Find some "definition" for this node.
@@ -60,7 +70,8 @@ void Controller::onReferences(const TextDocumentPositionParams &Params,
       const auto &PM = *TU->parentMap();
       const auto &VLA = *TU->variableLookup();
       try {
-        return findReferences(*Desc, PM, VLA, URI, TU->src());
+        AttrResolver AR(File, TU, [this](std::string &P) { return loadTU(P); });
+        return findReferences(*Desc, PM, VLA, URI, TU->src(), AR);
       } catch (std::exception &E) {
         return error("references: {0}", E.what());
       }

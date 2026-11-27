@@ -396,13 +396,14 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
         return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
 
       AttrResolver AR(File, TU, [this](std::string &P) { return loadTU(P); });
-      if (auto Attr = AR.attrAt(N)) {
-        const AttrResolver::File &In = *Attr->In;
+      if (auto Attr = AR.attrAt(N);
+          Attr && Attr->second == AttrResolver::Role::Selection) {
+        const AttrResolver::File &In = *Attr->first.In;
         return Locations{Location{
             .uri = &In == &AR.main()
                        ? URI
                        : URIForFile::canonicalize(In.Path, In.Path),
-            .range = toLSPRange(In.TU->src(), Attr->key().range()),
+            .range = toLSPRange(In.TU->src(), Attr->first.key().range()),
         }};
       }
 

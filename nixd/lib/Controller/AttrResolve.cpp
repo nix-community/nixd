@@ -229,8 +229,21 @@ std::optional<AttrResolver::Found> AttrResolver::keyAt(const AttrName &Name,
   return Cur;
 }
 
-std::optional<AttrResolver::Found> AttrResolver::attrAt(const Node &N) {
+std::optional<std::pair<AttrResolver::Found, AttrResolver::Role>>
+AttrResolver::attrAt(const Node &N) {
   const ParentMapAnalysis &PM = *Main->TU->parentMap();
+  const Node *UpExpr = PM.upExpr(N);
+  if (UpExpr && UpExpr->kind() == Node::NK_ExprVar) {
+    auto R = Main->TU->variableLookup()->query(
+        static_cast<const ExprVar &>(*UpExpr));
+    if (R.Kind != VariableLookupAnalysis::LookupResultKind::Defined || !R.Def ||
+        R.Def->source() != Definition::DS_Rec)
+      return std::nullopt;
+    if (auto B = bindingOf(*R.Def, *Main))
+      return std::pair{*B, Role::Variable};
+    return std::nullopt;
+  }
+
   const Node *Name = PM.upTo(N, Node::NK_AttrName);
   if (!Name)
     return std::nullopt;
@@ -246,7 +259,9 @@ std::optional<AttrResolver::Found> AttrResolver::attrAt(const Node &N) {
     auto S = resolveSet(Inh.expr().get(), *Main);
     if (!S)
       return std::nullopt;
-    return lookup(*S, &AN);
+    if (auto A = lookup(*S, &AN))
+      return std::pair{*A, Role::Selection};
+    return std::nullopt;
   }
 
   if (Up->kind() != Node::NK_AttrPath)
@@ -258,6 +273,10 @@ std::optional<AttrResolver::Found> AttrResolver::attrAt(const Node &N) {
 
   const Expr *Base = nullptr;
   switch (Owner->kind()) {
+  case Node::NK_Binding:
+    if (auto A = keyAt(AN, *Main))
+      return std::pair{*A, Role::Key};
+    return std::nullopt;
   case Node::NK_ExprSelect:
     Base = &static_cast<const ExprSelect &>(*Owner).expr();
     break;
@@ -274,5 +293,55 @@ std::optional<AttrResolver::Found> AttrResolver::attrAt(const Node &N) {
                if (&Sel == &AN)
                  Result = A;
              });
-  return Result;
+  if (Result)
+    return std::pair{*Result, Role::Selection};
+  return std::nullopt;
+}
+
+void AttrResolver::collect(const Node *N, const Found &Target,
+                           std::vector<const Node *> &Out) {
+  if (!N)
+    return;
+  auto Match = [&](const AttrName &Name, const Found &A) {
+    if (&A.key() == &Target.key())
+      Out.emplace_back(&Name);
+  };
+  switch (N->kind()) {
+  case Node::NK_ExprSelect: {
+    const auto &Sel = static_cast<const ExprSelect &>(*N);
+    if (Sel.path())
+      selectEach(&Sel.expr(), Sel.path()->names(), *Main, Match);
+    break;
+  }
+  case Node::NK_ExprOpHasAttr: {
+    const auto &Has = static_cast<const ExprOpHasAttr &>(*N);
+    if (Has.attrpath())
+      selectEach(Has.expr(), Has.attrpath()->names(), *Main, Match);
+    break;
+  }
+  case Node::NK_Inherit: {
+    const auto &Inh = static_cast<const Inherit &>(*N);
+    if (!Inh.expr())
+      break;
+    if (auto S = resolveSet(Inh.expr().get(), *Main))
+      for (const auto &Name : Inh.names())
+        if (auto A = lookup(*S, Name.get()))
+          Match(*Name, *A);
+    break;
+  }
+  default:
+    break;
+  }
+  for (const Node *Child : N->children())
+    collect(Child, Target, Out);
+}
+
+std::vector<const Node *> AttrResolver::references(const Found &Target) {
+  std::vector<const Node *> Out;
+  if (Target.In == Main)
+    if (const Definition *Def = Main->TU->variableLookup()->toDef(Target.key()))
+      for (const ExprVar *Use : Def->uses())
+        Out.emplace_back(Use);
+  collect(Main->TU->ast().get(), Target, Out);
+  return Out;
 }
