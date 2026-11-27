@@ -199,7 +199,7 @@ bool readLine(int fd, const std::atomic<bool> &Close,
       }
     }
 
-    if (kill(ClientProcessID, 0) < 0) {
+    if (kill(ClientProcessID, 0) < 0 && errno == ESRCH) {
       // Parent died.
       return false;
     }
