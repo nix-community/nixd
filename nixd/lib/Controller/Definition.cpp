@@ -5,6 +5,7 @@
 
 #include "Definition.h"
 #include "AST.h"
+#include "AttrResolve.h"
 #include "CheckReturn.h"
 #include "Convert.h"
 #include "PathResolve.h"
@@ -393,6 +394,17 @@ void Controller::onDefinition(const TextDocumentPositionParams &Params,
       // Special case for inherited names.
       if (const ExprVar *Var = findInheritVar(N, PM, VLA))
         return defineVar(*Var, VLA, PM, *nixpkgsClient(), URI, TU->src());
+
+      AttrResolver AR(File, TU, [this](std::string &P) { return loadTU(P); });
+      if (auto Attr = AR.attrAt(N)) {
+        const AttrResolver::File &In = *Attr->In;
+        return Locations{Location{
+            .uri = &In == &AR.main()
+                       ? URI
+                       : URIForFile::canonicalize(In.Path, In.Path),
+            .range = toLSPRange(In.TU->src(), Attr->key().range()),
+        }};
+      }
 
       switch (UpExpr.kind()) {
       case Node::NK_ExprVar: {

@@ -5,11 +5,45 @@
 #include <nixf/Sema/VariableLookup.h>
 
 #include <boost/asio/post.hpp>
+#include <llvm/Support/MemoryBuffer.h>
+#include <llvm/Support/Path.h>
 
+#include <filesystem>
 #include <mutex>
 
 using namespace lspserver;
 using namespace nixd;
+
+std::shared_ptr<const NixTU> Controller::loadTU(std::string &File) const {
+  {
+    std::lock_guard G(TUsLock);
+    if (auto It = TUs.find(File); It != TUs.end())
+      return It->second;
+    // \p File is canonical; the document may have been opened through a
+    // symlink.
+    for (const auto &Entry : TUs) {
+      std::error_code EC;
+      auto Canonical =
+          std::filesystem::weakly_canonical(Entry.getKey().str(), EC);
+      if (!EC && Canonical == File) {
+        File = Entry.getKey().str();
+        return Entry.getValue();
+      }
+    }
+  }
+  auto Buf = llvm::MemoryBuffer::getFile(File);
+  if (!Buf)
+    return nullptr;
+  auto Src = std::make_shared<const std::string>((*Buf)->getBuffer().str());
+  std::vector<nixf::Diagnostic> Diagnostics;
+  std::shared_ptr<nixf::Node> AST = nixf::parse(*Src, Diagnostics);
+  if (!AST)
+    return nullptr;
+  auto VLA = std::make_unique<nixf::VariableLookupAnalysis>(Diagnostics);
+  VLA->runOnAST(*AST, llvm::sys::path::filename(File) == "flake.nix");
+  return std::make_shared<NixTU>(std::move(Diagnostics), std::move(AST),
+                                 std::nullopt, std::move(VLA), Src);
+}
 
 void Controller::removeDocument(lspserver::PathRef File) {
   Store.removeDraft(File);

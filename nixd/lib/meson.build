@@ -6,6 +6,7 @@ libnixd_sources = [
     'CommandLine/Configuration.cpp',
     'CommandLine/Options.cpp',
     'Controller/AST.cpp',
+    'Controller/AttrResolve.cpp',
     'Controller/CodeAction.cpp',
     'Controller/CodeActions/AddToFormals.cpp',
     'Controller/CodeActions/AttrName.cpp',
