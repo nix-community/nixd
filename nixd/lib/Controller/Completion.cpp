@@ -358,11 +358,12 @@ public:
 bool completeAttrName(const lspserver::Range EditRange,
                       const std::vector<std::string> &Scope,
                       const std::string &Prefix,
-                      Controller::OptionMapTy &Options, bool CompletionSnippets,
+                      const Controller::OptionProviders &Providers,
+                      bool CompletionSnippets,
                       std::vector<CompletionItem> &List) {
   bool IsIncomplete = false;
-  for (const auto &[Name, Provider] : Options) {
-    AttrSetClient *Client = Options.at(Name)->client();
+  for (const auto &[Name, Provider] : Providers) {
+    AttrSetClient *Client = Provider->client();
     if (!Client) [[unlikely]] {
       elog("skipped client {0} as it is dead", Name);
       continue;
@@ -374,8 +375,9 @@ bool completeAttrName(const lspserver::Range EditRange,
 }
 
 bool completeAttrPath(const lspserver::Range EditRange, const Node &N,
-                      const ParentMapAnalysis &PM, std::mutex &OptionsLock,
-                      Controller::OptionMapTy &Options, bool Snippets,
+                      const ParentMapAnalysis &PM,
+                      const Controller::OptionProviders &Providers,
+                      bool Snippets,
                       std::vector<lspserver::CompletionItem> &Items) {
   std::vector<std::string> Scope;
   using PathResult = FindAttrPathResult;
@@ -384,11 +386,8 @@ bool completeAttrPath(const lspserver::Range EditRange, const Node &N,
     // Construct request.
     std::string Prefix = Scope.back();
     Scope.pop_back();
-    {
-      std::lock_guard _(OptionsLock);
-      return completeAttrName(EditRange, Scope, Prefix, Options, Snippets,
-                              Items);
-    }
+    return completeAttrName(EditRange, Scope, Prefix, Providers, Snippets,
+                            Items);
   }
   return false;
 }
@@ -538,7 +537,7 @@ void Controller::onCompletion(const CompletionParams &Params,
         }
         case Node::NK_ExprAttrs: {
           ProviderIncomplete =
-              completeAttrPath(EditRange, N, PM, OptionsLock, Options,
+              completeAttrPath(EditRange, N, PM, optionProviders(File),
                                ClientCaps.CompletionSnippets, List.items);
           break;
         }

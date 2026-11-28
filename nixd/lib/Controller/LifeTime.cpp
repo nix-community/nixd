@@ -85,8 +85,7 @@ void Controller::evalExprWithProgress(AttrSetClient &Client,
 
 void Controller::
     onInitialize( // NOLINT(readability-convert-member-functions-to-static)
-        [[maybe_unused]] const InitializeParams &Params,
-        Callback<Value> Reply) {
+        const InitializeParams &Params, Callback<Value> Reply) {
 
   Object ServerCaps{
       {{"textDocumentSync",
@@ -171,8 +170,18 @@ void Controller::
 
   ClientCaps = Params.capabilities;
 
+  if (Params.rootUri)
+    WorkspaceRoot = Params.rootUri->file().str();
+  else if (Params.rootPath)
+    WorkspaceRoot = *Params.rootPath;
+
   // Start default workers.
-  startNixpkgs(NixpkgsEval);
+  NixpkgsEval = startNixpkgs();
+
+  {
+    std::lock_guard _(ConfigLock);
+    NixpkgsExpr = getDefaultNixpkgsExpr();
+  }
 
   if (nixpkgsClient()) {
     evalExprWithProgress(*nixpkgsClient(), getDefaultNixpkgsExpr(),
@@ -182,7 +191,7 @@ void Controller::
   // Launch nixos worker also.
   {
     std::lock_guard _(OptionsLock);
-    startOption("nixos", Options["nixos"]);
+    Options["nixos"] = startOption("nixos");
 
     if (AttrSetClient *Client = Options["nixos"]->client())
       evalExprWithProgress(*Client, getDefaultNixOSOptionsExpr(),
@@ -190,6 +199,8 @@ void Controller::
   }
   try {
     Config = parseCLIConfig();
+    if (!Config.nixpkgs.expr.empty())
+      NixpkgsExpr = Config.nixpkgs.expr;
   } catch (LLVMErrorException &Err) {
     lspserver::elog("parse CLI config error: {0}, {1}", Err.what(),
                     Err.takeError());

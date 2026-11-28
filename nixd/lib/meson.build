@@ -35,6 +35,7 @@ libnixd_sources = [
     'Controller/LifeTime.cpp',
     'Controller/NixTU.cpp',
     'Controller/Rename.cpp',
+    'Controller/SchemaDirective.cpp',
     'Controller/SemanticTokens.cpp',
     'Controller/Support.cpp',
     'Controller/TextDocumentSync.cpp',

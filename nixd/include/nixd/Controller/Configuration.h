@@ -31,6 +31,15 @@ struct Configuration {
   struct Diagnostic {
     std::vector<std::string> suppress;
   } diagnostic;
+
+  struct SchemaDirective {
+    /// \brief Honour a `#:schema <module>` line at the top of a document,
+    /// using that module's options for it instead of the configured ones.
+    ///
+    /// Off by default: it evaluates a module named by a file the user merely
+    /// opened, which nixd otherwise never does.
+    bool enable = false;
+  } schemaDirective;
 };
 
 bool fromJSON(const llvm::json::Value &Params, Configuration::Diagnostic &R,
@@ -44,6 +53,9 @@ bool fromJSON(const llvm::json::Value &Params, Configuration::OptionProvider &R,
 
 bool fromJSON(const llvm::json::Value &Params,
               Configuration::NixpkgsProvider &R, llvm::json::Path P);
+
+bool fromJSON(const llvm::json::Value &Params,
+              Configuration::SchemaDirective &R, llvm::json::Path P);
 
 bool fromJSON(const llvm::json::Value &Params, Configuration &R,
               llvm::json::Path P);

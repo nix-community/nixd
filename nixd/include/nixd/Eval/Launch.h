@@ -4,12 +4,10 @@
 
 namespace nixd {
 
-void startAttrSetEval(const std::string &Name,
-                      std::unique_ptr<AttrSetClientProc> &Worker);
+std::unique_ptr<AttrSetClientProc> startAttrSetEval(const std::string &Name);
 
-void startNixpkgs(std::unique_ptr<AttrSetClientProc> &NixpkgsEval);
+std::unique_ptr<AttrSetClientProc> startNixpkgs();
 
-void startOption(const std::string &Name,
-                 std::unique_ptr<AttrSetClientProc> &Worker);
+std::unique_ptr<AttrSetClientProc> startOption(const std::string &Name);
 
 } // namespace nixd
