@@ -1,6 +1,7 @@
 # RUN: nixd --lit-test < %s | FileCheck %s
 
 Regression for #907: quoted inherit names retain variable lookup and source ranges.
+Renaming the variable splits the name out of the inherit, so the set keeps its attribute.
 
 ```json
 {
@@ -44,14 +45,14 @@ CHECK-NEXT:   "result": {
 CHECK-NEXT:     "changes": {
 CHECK-NEXT:       "file:///quoted-inherit.nix": [
 CHECK-NEXT:         {
-CHECK-NEXT:           "newText": "renamed",
+CHECK-NEXT:           "newText": "\"path\" = renamed;",
 CHECK-NEXT:           "range": {
 CHECK-NEXT:             "end": {
-CHECK-NEXT:               "character": 33,
+CHECK-NEXT:               "character": 34,
 CHECK-NEXT:               "line": 0
 CHECK-NEXT:             },
 CHECK-NEXT:             "start": {
-CHECK-NEXT:               "character": 27,
+CHECK-NEXT:               "character": 19,
 CHECK-NEXT:               "line": 0
 CHECK-NEXT:             }
 CHECK-NEXT:           }

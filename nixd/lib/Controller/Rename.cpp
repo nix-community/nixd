@@ -5,6 +5,7 @@
 
 #include "AST.h"
 #include "CheckReturn.h"
+#include "CodeActions/Utils.h"
 #include "Convert.h"
 #include "Definition.h"
 
@@ -84,6 +85,12 @@ struct RenameRecException : RenameException {
   }
 };
 
+struct RenameInheritQuotedException : RenameException {
+  [[nodiscard]] const char *what() const noexcept override {
+    return "cannot rename: the inherited name is not a valid identifier";
+  }
+};
+
 /// The inherit that \p Name is one of the names of.
 const Inherit *upInherit(const Node &Name, const ParentMapAnalysis &PMA) {
   // The expression of `inherit (E) a;` is a child of the inherit too.
@@ -132,6 +139,30 @@ std::string definedName(const Node &Syntax, llvm::StringRef Src) {
       return Name.staticName();
   }
   return std::string(Syntax.src(Src));
+}
+
+/// The name written in `inherit name;` that \p Use was desugared from, if any.
+const Node *inheritedName(const ExprVar &Use, const ParentMapAnalysis &PMA,
+                          const Node &Root) {
+  // An identifier name is shared with the variable; a quoted one gets an
+  // identifier of its own, outside the syntax tree.
+  const Node *Name = PMA.query(Use.id());
+  if (!Name) {
+    const Node *At = Root.descend(Use.positionRange());
+    Name = At ? PMA.upTo(*At, Node::NK_AttrName) : nullptr;
+    if (!Name || Name->lCur().offset() != Use.lCur().offset() ||
+        Name->rCur().offset() != Use.rCur().offset())
+      return nullptr;
+  }
+  return upInherit(*Name, PMA) ? Name : nullptr;
+}
+
+/// `inherit name;` reads the variable `name`, also when it is written
+/// `inherit "name";`: as a value it is the bare identifier, not the string.
+std::string variableNamed(std::string Name) {
+  if (!isValidNixIdentifier(Name))
+    throw RenameInheritQuotedException();
+  return Name;
 }
 
 bool contains(const Node &Outer, const Node &N) {
@@ -194,6 +225,10 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
     return WE;
   }
 
+  const Node *Root = &Desc;
+  while (!PMA.isRoot(*Root) && PMA.query(*Root))
+    Root = PMA.query(*Root);
+
   std::vector<TextEdit> Edits;
 
   // A definition from `inherit (E) name;` is rewritten as a binding that
@@ -210,8 +245,7 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
   for (const auto *Use : Def.uses()) {
     if (!Seen.insert(Use).second)
       continue;
-    // `inherit name;` desugars into a variable sharing the name's identifier.
-    const Node *Name = PMA.query(Use->id());
+    const Node *Name = inheritedName(*Use, PMA, *Root);
     const Inherit *Inh = Name ? upInherit(*Name, PMA) : nullptr;
     if (From && contains(*From, *Use)) {
       if (Inh)
@@ -245,7 +279,7 @@ WorkspaceEdit rename(const nixf::Node &Desc, const std::string &NewText,
     std::string Value =
         From ? selectFrom(*From, renamedSource(*From, UsesInFrom, NewText, Src),
                           Name)
-             : Name;
+             : variableNamed(definedName(*Def.syntax(), Src));
     splitInherit(*DefInh, *Def.syntax(), NewText + " = " + Value + ";", Src,
                  Edits);
   } else {
