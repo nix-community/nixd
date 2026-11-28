@@ -126,6 +126,10 @@ private:
     return TUs.lookup(File);
   }
 
+  /// \brief The open document that is the file \p File, or else the file
+  /// parsed from disk. \p File becomes the path the document was opened with.
+  std::shared_ptr<const NixTU> loadTU(std::string &File) const;
+
   static std::shared_ptr<nixf::Node> getAST(const NixTU &TU) {
     using lspserver::error;
     if (!TU.ast()) {
@@ -208,7 +212,7 @@ private:
                     lspserver::Callback<llvm::json::Value> Reply);
 
   void
-  onReferences(const lspserver::TextDocumentPositionParams &Params,
+  onReferences(const lspserver::ReferenceParams &Params,
                lspserver::Callback<std::vector<lspserver::Location>> Reply);
 
   void onDocumentHighlight(
